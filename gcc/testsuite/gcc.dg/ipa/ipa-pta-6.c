@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-O -fipa-pta -fdump-ipa-pta2-details" } */
+/* { dg-options "-O -fipa-pta -fdump-ipa-pta-details" } */
 
 static void __attribute__((noinline,noclone))
 foo (int *p)
@@ -21,4 +21,5 @@ int main()
 /* Verify we correctly compute the units ESCAPED set as empty but
    still properly account for the store via *p in foo.  */
 
-/* { dg-final { scan-ipa-dump "ESCAPED = { }" "pta2" } } */
+/* { dg-final { scan-ipa-dump "ESCAPED = { }" "pta" } } */
+/* { dg-final { cleanup-ipa-dump "pta" } } */

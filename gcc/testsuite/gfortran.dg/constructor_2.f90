@@ -18,9 +18,9 @@ contains
   subroutine test_foo()
     type(foo) :: f
     f = foo()
-    if (f%bar /= 1) STOP 1
+    if (f%bar /= 1) call abort ()
     f = foo(2)
-    if (f%bar /= 2) STOP 2
+    if (f%bar /= 2) call abort ()
   end subroutine test_foo
 end module foo_module
 
@@ -43,9 +43,9 @@ contains
   subroutine test_bar()
     type(bar) :: f
     f = bar()
-    if (f%bar /= 3) STOP 3
+    if (f%bar /= 3) call abort ()
     f = bar(4)
-    if (f%bar /= 4) STOP 4
+    if (f%bar /= 4) call abort ()
   end subroutine test_bar
 end module bar_module
 
@@ -59,14 +59,15 @@ program main
 
   call test_foo()
   f = foo()
-  if (f%bar /= 1) STOP 5
+  if (f%bar /= 1) call abort ()
   f = foo(2)
-  if (f%bar /= 2) STOP 6
+  if (f%bar /= 2) call abort ()
 
   call test_bar()
   b = bar()
-  if (b%bar /= 3) STOP 7
+  if (b%bar /= 3) call abort ()
   b = bar(4)
-  if (b%bar /= 4) STOP 8
+  if (b%bar /= 4) call abort ()
 end program main
 
+! { dg-final { cleanup-tree-dump "foo_module bar_module" } }

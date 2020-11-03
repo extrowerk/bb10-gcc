@@ -1,5 +1,4 @@
 /* { dg-require-effective-target vect_cond_mixed } */
-/* { dg-require-effective-target vect_float } */
 /* { dg-additional-options "-fno-ipa-icf" } */
 
 #include "tree-vect.h"
@@ -199,3 +198,4 @@ main ()
 }
 
 /* { dg-final { scan-tree-dump-times "note: vectorized 1 loops" 10 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

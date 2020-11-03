@@ -12,4 +12,5 @@ int f(unsigned char *s, int n)
   return sum;
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */
 

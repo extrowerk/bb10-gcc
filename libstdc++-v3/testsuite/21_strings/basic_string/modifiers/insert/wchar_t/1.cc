@@ -1,6 +1,6 @@
 // 1999-06-03 bkoz
 
-// Copyright (C) 1999-2018 Free Software Foundation, Inc.
+// Copyright (C) 1999-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -23,8 +23,9 @@
 #include <stdexcept>
 #include <testsuite_hooks.h>
 
-void test01(void)
+int test01(void)
 {
+  bool test __attribute__((unused)) = true;
   typedef std::wstring::size_type csize_type;
   typedef std::wstring::iterator citerator;
   csize_type csz01, csz02;
@@ -177,6 +178,7 @@ void test01(void)
   csz01 = str03.size();
   str03.insert(str03.end(), str01.begin(), str01.end()); 
   VERIFY( str03 == L"baker beach, san franciscorodeo beach, marin" );
+  return test;
 }
 
 int main()

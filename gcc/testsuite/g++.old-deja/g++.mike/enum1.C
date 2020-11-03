@@ -8,4 +8,4 @@ struct Type {
   void setBTK();
 };
 
-void Type::setBTK() { kind = DTK; } // { dg-warning "conversion from '\[^\n\r]+' to .unsigned char:1. changes value from" }
+void Type::setBTK() { kind = DTK; } // { dg-warning "truncate" }

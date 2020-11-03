@@ -9,5 +9,5 @@
       read (42,'(A)') c
       close (42)
 
-      if (c /= 'abcde') STOP 1
+      if (c /= 'abcde') call abort
       end

@@ -1,6 +1,6 @@
 /* PR c/26171 */
 /* { dg-do run } */
-/* { dg-options "-O0" } */
+/* { dg-options "-fopenmp" } */
 /* { dg-require-effective-target tls_runtime } */
 
 int thrv = 0;

@@ -28,4 +28,5 @@ int foo (int a, int b, int c, int d)
 }
 
 /* { dg-final { scan-rtl-dump "Decided to move invariant" "loop2_invariant"  } } */
+/* { dg-final { cleanup-rtl-dump "loop2_invariant" } } */
 

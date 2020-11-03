@@ -1,7 +1,8 @@
 /* Utilities to execute a program in a subprocess (possibly linked by pipes
    with other subprocesses), and wait for it.  Generic Unix version
    (also used for UWIN and VMS).
-   Copyright (C) 1996-2018 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005, 2009,
+   2010 Free Software Foundation, Inc.
 
 This file is part of the libiberty library.
 Libiberty is free software; you can redistribute it and/or
@@ -22,7 +23,6 @@ Boston, MA 02110-1301, USA.  */
 #include "config.h"
 #include "libiberty.h"
 #include "pex-common.h"
-#include "environ.h"
 
 #include <stdio.h>
 #include <signal.h>
@@ -389,6 +389,8 @@ pex_child_error (struct pex_obj *obj, const char *executable,
 }
 
 /* Execute a child.  */
+
+extern char **environ;
 
 #if defined(HAVE_SPAWNVE) && defined(HAVE_SPAWNVPE) && !defined(__QNXNTO__)
 /* Implementation of pex->exec_child using the Cygwin spawn operation.  */

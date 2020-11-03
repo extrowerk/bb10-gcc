@@ -44,12 +44,12 @@ contains
 
   subroutine check_r4 (a, b)
     real(kind=4), intent(in) :: a, b
-    if (abs(a - b) > 10 * spacing(a)) STOP 1
+    if (abs(a - b) > 10 * spacing(a)) call abort
   end subroutine
 
   subroutine check_r8 (a, b)
     real(kind=8), intent(in) :: a, b
-    if (abs(a - b) > 10 * spacing(a)) STOP 2
+    if (abs(a - b) > 10 * spacing(a)) call abort
   end subroutine
 
 end program test

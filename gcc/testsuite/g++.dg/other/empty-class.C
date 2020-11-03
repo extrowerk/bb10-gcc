@@ -14,3 +14,4 @@ obj funky(){
 }
 
 /* { dg-final { scan-tree-dump-times "return <retval>;" 1 "gimple" } } */
+/* { dg-final { cleanup-tree-dump "gimple" } } */

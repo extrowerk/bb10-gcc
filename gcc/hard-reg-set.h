@@ -1,5 +1,5 @@
 /* Sets (bit vectors) of hard registers, and operations on them.
-   Copyright (C) 1987-2018 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC
 
@@ -19,6 +19,8 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef GCC_HARD_REG_SET_H
 #define GCC_HARD_REG_SET_H
+
+#include "hash-table.h"
 
 /* Define the type of a set of hard registers.  */
 
@@ -613,16 +615,7 @@ hard_reg_set_iter_next (hard_reg_set_iterator *iter, unsigned *regno)
 
 extern char global_regs[FIRST_PSEUDO_REGISTER];
 
-struct simplifiable_subreg;
-struct subreg_shape;
-
-struct simplifiable_subregs_hasher : nofree_ptr_hash <simplifiable_subreg>
-{
-  typedef const subreg_shape *compare_type;
-
-  static inline hashval_t hash (const simplifiable_subreg *);
-  static inline bool equal (const simplifiable_subreg *, const subreg_shape *);
-};
+struct simplifiable_subregs_hasher;
 
 struct target_hard_regs {
   void finalize ();
@@ -659,12 +652,6 @@ struct target_hard_regs {
      STATIC_CHAIN_REGNUM.  These are the registers that cannot hold quantities
      across calls even if we are willing to save and restore them.  */
   HARD_REG_SET x_call_fixed_reg_set;
-
-  /* Contains registers that are fixed use -- i.e. in fixed_reg_set -- but
-     only if they are not merely part of that set because they are global
-     regs.  Global regs that are not otherwise fixed can still take part
-     in register allocation.  */
-  HARD_REG_SET x_fixed_nonglobal_reg_set;
 
   /* Contains 1 for registers that are set or clobbered by calls.  */
   /* ??? Ideally, this would be just call_used_regs plus global_regs, but
@@ -728,8 +715,6 @@ extern struct target_hard_regs *this_target_hard_regs;
   (this_target_hard_regs->x_fixed_regs)
 #define fixed_reg_set \
   (this_target_hard_regs->x_fixed_reg_set)
-#define fixed_nonglobal_reg_set \
-  (this_target_hard_regs->x_fixed_nonglobal_reg_set)
 #define call_used_regs \
   (this_target_hard_regs->x_call_used_regs)
 #define call_really_used_regs \
@@ -765,9 +750,9 @@ extern struct target_hard_regs *this_target_hard_regs;
 
 extern const char * reg_class_names[];
 
-/* Given a hard REGN a FROM mode and a TO mode, return true if
-   REGN can change from mode FROM to mode TO.  */
-#define REG_CAN_CHANGE_MODE_P(REGN, FROM, TO)                          \
-  (targetm.can_change_mode_class (FROM, TO, REGNO_REG_CLASS (REGN)))
+/* Given a hard REGN a FROM mode and a TO mode, return nonzero if
+   REGN cannot change modes between the specified modes.  */
+#define REG_CANNOT_CHANGE_MODE_P(REGN, FROM, TO)                          \
+         CANNOT_CHANGE_MODE_CLASS (FROM, TO, REGNO_REG_CLASS (REGN))
 
 #endif /* ! GCC_HARD_REG_SET_H */

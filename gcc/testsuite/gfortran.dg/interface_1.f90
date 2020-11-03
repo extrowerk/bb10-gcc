@@ -24,15 +24,15 @@ end module y
 
 module z
 
-  use y    ! { dg-warning "in generic interface" }
+  use y
 
   interface ambiguous
-    module procedure f 
+    module procedure f    ! { dg-warning "in generic interface" "" }
   end interface
 
   contains
 
-    real function f(a)   ! { dg-warning "in generic interface" }
+    real function f(a)
       real a
       f = a
     end function

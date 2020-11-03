@@ -1,5 +1,5 @@
 /* Preprocess only, using cpplib.
-   Copyright (C) 1995-2018 Free Software Foundation, Inc.
+   Copyright (C) 1995-2015 Free Software Foundation, Inc.
    Written by Per Bothner, 1994-95.
 
    This program is free software; you can redistribute it and/or modify it
@@ -19,10 +19,21 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "c-common.h"		/* For flags.  */
+#include "cpplib.h"
 #include "../libcpp/internal.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "c-common.h"		/* For flags.  */
 #include "c-pragma.h"		/* For parse_in.  */
-#include "file-prefix-map.h"    /* remap_macro_filename()  */
 
 /* Encapsulates state used to convert a stream of tokens into a text
    file.  */
@@ -41,13 +52,13 @@ static struct
 
 /* Defined and undefined macros being queued for output with -dU at
    the next newline.  */
-struct macro_queue
+typedef struct macro_queue
 {
   struct macro_queue *next;	/* Next macro in the list.  */
   char *macro;			/* The name of the macro if not
 				   defined, the full definition if
 				   defined.  */
-};
+} macro_queue;
 static macro_queue *define_queue, *undef_queue;
 
 /* General output routines.  */
@@ -151,8 +162,6 @@ init_pp_output (FILE *out_stream)
     }
 
   cb->has_attribute = c_common_has_attribute;
-  cb->get_source_date_epoch = cb_get_source_date_epoch;
-  cb->remap_filename = remap_macro_filename;
 
   /* Initialize the print structure.  */
   print.src_line = 1;
@@ -301,7 +310,7 @@ scan_translation_unit_directives_only (cpp_reader *pfile)
   struct _cpp_dir_only_callbacks cb;
 
   cb.print_lines = print_lines_directives_only;
-  cb.maybe_print_line = maybe_print_line;
+  cb.maybe_print_line = (void (*) (source_location)) maybe_print_line;
 
   _cpp_preprocess_dir_only (pfile, &cb);
 }
@@ -498,7 +507,7 @@ cb_ident (cpp_reader *pfile ATTRIBUTE_UNUSED, source_location line,
 static void
 cb_define (cpp_reader *pfile, source_location line, cpp_hashnode *node)
 {
-  const line_map_ordinary *map;
+  const struct line_map *map;
 
   maybe_print_line (line);
   fputs ("#define ", print.outf);
@@ -641,7 +650,7 @@ pp_dir_change (cpp_reader *pfile ATTRIBUTE_UNUSED, const char *dir)
    described in MAP.  */
 
 void
-pp_file_change (const line_map_ordinary *map)
+pp_file_change (const struct line_map *map)
 {
   const char *flags = "";
 
@@ -663,7 +672,7 @@ pp_file_change (const line_map_ordinary *map)
 	  /* Bring current file to correct line when entering a new file.  */
 	  if (map->reason == LC_ENTER)
 	    {
-	      const line_map_ordinary *from = INCLUDED_FROM (line_table, map);
+	      const struct line_map *from = INCLUDED_FROM (line_table, map);
 	      maybe_print_line (LAST_SOURCE_LINE_LOCATION (from));
 	    }
 	  if (map->reason == LC_ENTER)

@@ -1,6 +1,6 @@
 
 /* { dg-do compile { target {{ i?86-*-* x86_64-*-* } && lp64 } } } */
-/* { dg-options "-O2 -m64 -fdump-tree-optimized" } */
+/* { dg-options "-O2 -m64 -fdump-tree-ivopts-details" } */
 
 /* iv i's step 16 so its period is smaller than the max iterations
  * i.e. replacing if (p2 > p_limit2) with testing of i may result in
@@ -21,4 +21,5 @@ long foo(long* p, long* p2, int N1, int N2)
   return s;
 }
 
-/* { dg-final { scan-tree-dump "if \\(.*p_limit2.*\\)" "optimized"} } */
+/* { dg-final { scan-tree-dump-times "Replacing" 0 "ivopts"} } */
+/* { dg-final { cleanup-tree-dump "ivopts" } } */

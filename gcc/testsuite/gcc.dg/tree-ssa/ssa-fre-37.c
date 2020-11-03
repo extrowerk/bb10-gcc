@@ -12,3 +12,4 @@ void foo (int i, int j)
 /* We should remove the redundant address computation.  */
 
 /* { dg-final { scan-tree-dump-times " = &a" 1 "fre1" } } */
+/* { dg-final { cleanup-tree-dump "fre1" } } */

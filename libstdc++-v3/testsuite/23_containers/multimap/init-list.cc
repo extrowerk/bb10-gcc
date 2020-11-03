@@ -1,4 +1,4 @@
-// Copyright (C) 2008-2018 Free Software Foundation, Inc.
+// Copyright (C) 2008-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -16,15 +16,17 @@
 // <http://www.gnu.org/licenses/>.
 //
 
-// { dg-do run { target c++11 } }
+// { dg-options "-std=gnu++11" }
 
 #include <map>
 #include <testsuite_hooks.h>
 
 using namespace std;
 
-void test01()
+int test01()
 {
+  bool test __attribute__((unused)) = true;
+
   typedef multimap<int,double> Container;
   typedef Container::iterator iterator;
   typedef pair<iterator,iterator> itpair;
@@ -50,6 +52,8 @@ void test01()
   VERIFY(m.count(5) == 2);
   VERIFY(m.count(42) == 1);
   VERIFY(m.count(7) == 2);
+
+  return test;
 }
 
 int main()

@@ -6,15 +6,17 @@
 #include "avx512f-helper.h"
 
 #include <math.h>
-#define SIZE (AVX512F_LEN / 8)
+#define SIZE (AVX512F_LEN / 16)
 #include "avx512f-mask-type.h"
 
 #if AVX512F_LEN == 512
 #undef CMP
 #define CMP(imm, rel)					\
     dst_ref = 0;					\
-    for (i = 0; i < SIZE; i++)				\
-      dst_ref = ((MASK_TYPE) (rel) << i) | dst_ref;	\
+    for (i = 0; i < 64; i++)				\
+    {							\
+      dst_ref = ((rel) << i) | dst_ref;			\
+    }							\
     source1.x = _mm512_loadu_si512 (s1);		\
     source2.x = _mm512_loadu_si512 (s2);		\
     dst1 = _mm512_cmp_epu8_mask (source1.x, source2.x, imm);\
@@ -27,8 +29,10 @@
 #undef CMP
 #define CMP(imm, rel)					\
     dst_ref = 0;					\
-    for (i = 0; i < SIZE; i++)				\
-      dst_ref = ((MASK_TYPE) (rel) << i) | dst_ref;	\
+    for (i = 0; i < 32; i++)				\
+    {							\
+      dst_ref = ((rel) << i) | dst_ref;			\
+    }							\
     source1.x = _mm256_loadu_si256 ((__m256i*)s1);	\
     source2.x = _mm256_loadu_si256 ((__m256i*)s2);	\
     dst1 = _mm256_cmp_epu8_mask (source1.x, source2.x, imm);\
@@ -41,8 +45,10 @@
 #undef CMP
 #define CMP(imm, rel)					\
     dst_ref = 0;					\
-    for (i = 0; i < SIZE; i++)				\
-      dst_ref = ((MASK_TYPE) (rel) << i) | dst_ref;	\
+    for (i = 0; i < 16; i++)				\
+    {							\
+      dst_ref = ((rel) << i) | dst_ref;			\
+    }							\
     source1.x = _mm_loadu_si128 ((__m128i*)s1);		\
     source2.x = _mm_loadu_si128 ((__m128i*)s2);		\
     dst1 = _mm_cmp_epu8_mask (source1.x, source2.x, imm);\

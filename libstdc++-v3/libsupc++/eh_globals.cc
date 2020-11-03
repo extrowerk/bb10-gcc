@@ -1,5 +1,5 @@
 // -*- C++ -*- Manage the thread-local exception globals.
-// Copyright (C) 2001-2018 Free Software Foundation, Inc.
+// Copyright (C) 2001-2015 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -103,6 +103,7 @@ struct __eh_globals_init
     if (_M_init)
       __gthread_key_delete(_M_key);
     _M_init = false;
+    asm __volatile__ ("" : : "r"(_M_init) : "memory" ); 
   }
 };
 

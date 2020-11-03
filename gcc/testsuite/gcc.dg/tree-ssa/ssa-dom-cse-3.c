@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-O -fno-tree-fre -fdump-tree-dom2" } */
+/* { dg-options "-O -fno-tree-fre -fdump-tree-dom1" } */
 
 extern void abort (void);
 
@@ -27,4 +27,5 @@ main()
   return 0;
 }
 
-/* { dg-final { scan-tree-dump "= PHI <\[01\]\\\(.\\\), \[01\]\\\(.\\\)>" "dom2" } } */
+/* { dg-final { scan-tree-dump "= PHI <\[01\]\\\(.\\\), \[01\]\\\(.\\\)>" "dom1" } } */
+/* { dg-final { cleanup-tree-dump "dom1" } } */

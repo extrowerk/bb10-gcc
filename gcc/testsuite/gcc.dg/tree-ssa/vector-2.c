@@ -20,3 +20,4 @@ float f(vector float a, int b, vector float c)
 /* { dg-final { scan-tree-dump-not "BIT_FIELD_REF" "optimized"} } */
 /* { dg-final { scan-tree-dump-times "return 0.0" 1 "optimized"} } */
 
+/* { dg-final { cleanup-tree-dump "optimized" } } */

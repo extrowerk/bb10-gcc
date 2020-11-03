@@ -21,3 +21,4 @@ contains
 end program test
 
 ! { dg-final { scan-ipa-dump-not "redefined extern inline functions are not considered for inlining" "inline" } }
+! { dg-final { cleanup-ipa-dump "inline" } }

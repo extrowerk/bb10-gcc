@@ -1,7 +1,7 @@
 // -*- C++ -*-
 // Testing allocator for the C++ library testsuite.
 //
-// Copyright (C) 2002-2018 Free Software Foundation, Inc.
+// Copyright (C) 2002-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -37,7 +37,7 @@ namespace __gnu_test
   class tracker_allocator_counter
   {
   public:
-    typedef std::size_t    size_type;
+    typedef std::size_t    size_type; 
 
     static void
     allocate(size_type blocksize)
@@ -114,13 +114,11 @@ namespace __gnu_test
 	  typedef tracker_allocator<U,
 		typename AllocTraits::template rebind<U>::other> other;
 	};
-
+    
 #if __cplusplus >= 201103L
       tracker_allocator() = default;
       tracker_allocator(const tracker_allocator&) = default;
       tracker_allocator(tracker_allocator&&) = default;
-      tracker_allocator& operator=(const tracker_allocator&) = default;
-      tracker_allocator& operator=(tracker_allocator&&) = default;
 
       // Perfect forwarding constructor.
       template<typename... _Args>
@@ -156,7 +154,7 @@ namespace __gnu_test
 #if __cplusplus >= 201103L
       template<typename U, typename... Args>
 	void
-	construct(U* p, Args&&... args)
+	construct(U* p, Args&&... args) 
 	{
 	  AllocTraits::construct(*this, p, std::forward<Args>(args)...);
 	  counter_type::construct();
@@ -201,12 +199,12 @@ namespace __gnu_test
 	Alloc& aa = a;
 	Alloc& ab = b;
 	swap(aa, ab);
-      }
+      } 
     };
 
   template<class T1, class Alloc1, class T2, class Alloc2>
     bool
-    operator==(const tracker_allocator<T1, Alloc1>& lhs,
+    operator==(const tracker_allocator<T1, Alloc1>& lhs, 
 	       const tracker_allocator<T2, Alloc2>& rhs) throw()
     {
       const Alloc1& alloc1 = lhs;
@@ -216,7 +214,7 @@ namespace __gnu_test
 
   template<class T1, class Alloc1, class T2, class Alloc2>
     bool
-    operator!=(const tracker_allocator<T1, Alloc1>& lhs,
+    operator!=(const tracker_allocator<T1, Alloc1>& lhs, 
 	       const tracker_allocator<T2, Alloc2>& rhs) throw()
     { return !(lhs == rhs); }
 
@@ -235,7 +233,7 @@ namespace __gnu_test
     }
 
   template<typename Alloc>
-    bool
+    bool 
     check_allocate_max_size()
     {
       Alloc a;
@@ -287,7 +285,7 @@ namespace __gnu_test
 
       Alloc& base() { return *this; }
       const Alloc& base() const  { return *this; }
-      void swap_base(Alloc& b) { using std::swap; swap(b, this->base()); }
+      void swap_base(Alloc& b) { swap(b, this->base()); }
 
     public:
       typedef typename check_consistent_alloc_value_type<Tp, Alloc>::value_type
@@ -297,7 +295,6 @@ namespace __gnu_test
 
 #if __cplusplus >= 201103L
       typedef std::true_type			propagate_on_container_swap;
-      typedef std::false_type			is_always_equal;
 #endif
 
       template<typename Tp1>
@@ -317,7 +314,7 @@ namespace __gnu_test
       uneq_allocator(const uneq_allocator&) = default;
       uneq_allocator(uneq_allocator&&) = default;
 #endif
-
+      
       template<typename Tp1>
 	uneq_allocator(const uneq_allocator<Tp1,
 		       typename AllocTraits::template rebind<Tp1>::other>& b)
@@ -328,10 +325,10 @@ namespace __gnu_test
       { }
 
       int get_personality() const { return personality; }
-
+      
       pointer
       allocate(size_type n, const void* hint = 0)
-      {
+      { 
 	pointer p = AllocTraits::allocate(*this, n);
 
 	try
@@ -351,6 +348,8 @@ namespace __gnu_test
       void
       deallocate(pointer p, size_type n)
       {
+	bool test __attribute__((unused)) = true;
+
 	VERIFY( p );
 
 	map_type::iterator it = get_map().find(reinterpret_cast<void*>(p));
@@ -386,7 +385,7 @@ namespace __gnu_test
       {
 	std::swap(a.personality, b.personality);
 	a.swap_base(b);
-      }
+      } 
 
       template<typename Tp1>
 	friend inline bool
@@ -401,7 +400,7 @@ namespace __gnu_test
 		   const uneq_allocator<Tp1,
 		   typename AllocTraits::template rebind<Tp1>::other>& b)
 	{ return !(a == b); }
-
+      
       int personality;
     };
 
@@ -492,7 +491,7 @@ namespace __gnu_test
       SimpleAllocator() noexcept { }
 
       template <class T>
-        SimpleAllocator(const SimpleAllocator<T>&) { }
+        SimpleAllocator(const SimpleAllocator<T>& other) { }
 
       Tp *allocate(std::size_t n)
       { return std::allocator<Tp>().allocate(n); }
@@ -508,38 +507,6 @@ namespace __gnu_test
     bool operator!=(const SimpleAllocator<T>&, const SimpleAllocator<U>&)
     { return false; }
 
-  template<typename T>
-    struct default_init_allocator
-    {
-      using value_type = T;
-
-      default_init_allocator() = default;
-
-      template<typename U>
-        default_init_allocator(const default_init_allocator<U>& a)
-	  : state(a.state)
-        { }
-
-      T*
-      allocate(std::size_t n)
-      { return std::allocator<T>().allocate(n); }
-
-      void
-      deallocate(T* p, std::size_t n)
-      { std::allocator<T>().deallocate(p, n); }
-
-      int state;
-    };
-
-  template<typename T, typename U>
-    bool operator==(const default_init_allocator<T>& t,
-		    const default_init_allocator<U>& u)
-    { return t.state == u.state; }
-
-  template<typename T, typename U>
-    bool operator!=(const default_init_allocator<T>& t,
-		    const default_init_allocator<U>& u)
-    { return !(t == u); }
 #endif
 
   template<typename Tp>
@@ -602,15 +569,12 @@ namespace __gnu_test
 
       explicit PointerBase(T* p = nullptr) : value(p) { }
 
-      PointerBase(std::nullptr_t) : value(nullptr) { }
-
       template<typename D, typename U,
 	       typename = decltype(static_cast<T*>(std::declval<U*>()))>
 	PointerBase(const PointerBase<D, U>& p) : value(p.value) { }
 
       T& operator*() const { return *value; }
       T* operator->() const { return value; }
-      T& operator[](difference_type n) const { return value[n]; }
 
       Derived& operator++() { ++value; return derived(); }
       Derived operator++(int) { Derived tmp(derived()); ++value; return tmp; }
@@ -637,11 +601,7 @@ namespace __gnu_test
       }
 
     private:
-      Derived&
-      derived() { return static_cast<Derived&>(*this); }
-
-      const Derived&
-      derived() const { return static_cast<const Derived&>(*this); }
+      Derived& derived() { return static_cast<Derived&>(*this); }
     };
 
     template<typename D, typename T>

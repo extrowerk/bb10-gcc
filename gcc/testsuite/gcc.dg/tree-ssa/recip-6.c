@@ -26,4 +26,5 @@ void f1(double y, double z, double w)
 }
 
 /* { dg-final { scan-tree-dump-times " / " 1 "recip" } } */
+/* { dg-final { cleanup-tree-dump "recip" } } */
 

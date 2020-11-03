@@ -7,7 +7,7 @@ program xzero
   character (len=80) line
   ll = .true.
   write (unit=line, fmt="(I6)") sum(ii,dim=1)
-  if (line /= " ") STOP 1
+  if (line /= " ") call abort
   write (unit=line, fmt="(I6)") sum(ii,dim=1,mask=ll)
-  if (line /= " ") STOP 2
+  if (line /= " ") call abort
 end program xzero

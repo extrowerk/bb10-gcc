@@ -1,10 +1,8 @@
 /* Check that we disable odd-numbered single precision registers.  */
-/* { dg-options "-mabi=32 -mno-odd-spreg -mhard-float -ffat-lto-objects" } */
-/* This is testing for errors which can only happen in assembly generation.
-   dg-error does not guarantee assembly generation, so we need to do it
-   manually by using -ffat-lto-objects.  */
+/* { dg-skip-if "needs asm output" { *-*-* } { "-fno-fat-lto-objects" } { "" } } */
+/* { dg-options "-mabi=32 -mno-odd-spreg -mhard-float" } */
 
-NOMIPS16 void
+void
 foo ()
 {
   register float foo asm ("$f1"); /* { dg-error "isn't suitable for" } */

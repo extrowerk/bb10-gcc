@@ -22,3 +22,4 @@ int f2 (void)
 
 /* { dg-final { scan-tree-dump-times "\& 3" 0 "original" } } */
 /* { dg-final { scan-tree-dump-times "return 1" 2 "original" } } */
+/* { dg-final { cleanup-tree-dump "original" } } */

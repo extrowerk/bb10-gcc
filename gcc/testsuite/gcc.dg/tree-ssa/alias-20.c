@@ -21,3 +21,4 @@ int foo(struct S *s, struct R *r)
 }
 
 /* { dg-final { scan-tree-dump-times "return 0;" 2 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

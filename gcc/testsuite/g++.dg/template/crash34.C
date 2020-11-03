@@ -7,6 +7,6 @@
 
 class Foo;
 
-template <typename T> class Foo { }; // { dg-error "not a template" }
+template <typename T> class Foo { }; // { dg-error "not a template type" }
 
 Foo<int> x; // { dg-error "not a template|incomplete type" }

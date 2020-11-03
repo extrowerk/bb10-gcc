@@ -13,5 +13,5 @@ program test_assign
   mine%b=4
   mine%a=1
   mine%a=0
-  if (any (mine%b .ne. 4)) STOP 1
+  if (any (mine%b .ne. 4)) call abort ()
 end program test_assign

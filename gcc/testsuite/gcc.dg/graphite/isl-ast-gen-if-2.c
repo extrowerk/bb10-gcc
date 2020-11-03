@@ -1,3 +1,6 @@
+/* { dg-do run } */
+/* { dg-options "-O2 -fgraphite-identity" } */
+
 /* This test case tests reduction, where the pbbs are duplicated.  */
 
 static int __attribute__((noinline))

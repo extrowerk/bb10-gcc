@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O2 -fdump-tree-dce2" } */
+/* { dg-options "-O2 -fdump-tree-dce1" } */
 void
 cleanup (int a, int b)
 {
@@ -15,4 +15,5 @@ cleanup (int a, int b)
   return;
 }
 /* Dce should get rid of the initializers and cfgcleanup should elliminate ifs  */
-/* { dg-final { scan-tree-dump-times "if " 0 "dce2"} } */
+/* { dg-final { scan-tree-dump-times "if " 0 "dce1"} } */
+/* { dg-final { cleanup-tree-dump "dce1" } } */

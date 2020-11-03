@@ -18,5 +18,6 @@ foo()
    are complete so that function pointer canonicalization works on those
    targets which require it.  */
 /* { dg-final { scan-tree-dump-times "= \\(void \\(\\*<.*>\\) \\(void\\)\\) p_" 1 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */
 
 

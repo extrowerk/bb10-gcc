@@ -25,6 +25,6 @@ subroutine foo(n,m)
 !$OMP END DO
 !$OMP END PARALLEL
   do i=1,n
-    if (sumarray(i).ne.m*i) STOP 1
+    if (sumarray(i).ne.m*i) call abort
   end do
 end subroutine foo

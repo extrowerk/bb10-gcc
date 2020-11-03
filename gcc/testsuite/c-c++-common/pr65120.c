@@ -9,7 +9,7 @@
 
 bool r;
 
-void
+int
 f1 (int a)
 {
   r = !a == 0;
@@ -18,7 +18,7 @@ f1 (int a)
   r = !a != 1;	/* { dg-warning "logical not is only applied to the left hand side of comparison" } */
 }
 
-void
+int
 f2 (int a)
 {
   r = !a > 0;	/* { dg-warning "logical not is only applied to the left hand side of comparison" } */

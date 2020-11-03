@@ -1,5 +1,5 @@
 /* Data References Analysis and Manipulation Utilities for Vectorization.
-   Copyright (C) 2003-2018 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
    and Ira Rosen <irar@il.ibm.com>
 
@@ -22,38 +22,74 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
-#include "target.h"
-#include "rtl.h"
-#include "tree.h"
-#include "gimple.h"
-#include "predict.h"
-#include "memmodel.h"
-#include "tm_p.h"
-#include "ssa.h"
-#include "optabs-tree.h"
-#include "cgraph.h"
 #include "dumpfile.h"
+#include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
 #include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
+#include "tm_p.h"
+#include "target.h"
+#include "predict.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "basic-block.h"
+#include "gimple-pretty-print.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
 #include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
+#include "gimple-ssa.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
 #include "tree-ssa-loop-ivopts.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop.h"
 #include "cfgloop.h"
+#include "tree-chrec.h"
 #include "tree-scalar-evolution.h"
 #include "tree-vectorizer.h"
+#include "diagnostic-core.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
+/* Need to include rtl.h, expr.h, etc. for optabs.  */
+#include "hashtab.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
+#include "insn-codes.h"
+#include "optabs.h"
 #include "builtins.h"
-#include "params.h"
-#include "tree-cfg.h"
-#include "tree-hash-traits.h"
-#include "vec-perm-indices.h"
-#include "internal-fn.h"
 
 /* Return true if load- or store-lanes optab OPTAB is implemented for
    COUNT vectors of type VECTYPE.  NAME is the name of OPTAB.  */
@@ -66,19 +102,17 @@ vect_lanes_optab_supported_p (const char *name, convert_optab optab,
   bool limit_p;
 
   mode = TYPE_MODE (vectype);
-  if (!targetm.array_mode (mode, count).exists (&array_mode))
+  limit_p = !targetm.array_mode_supported_p (mode, count);
+  array_mode = mode_for_size (count * GET_MODE_BITSIZE (mode),
+			      MODE_INT, limit_p);
+
+  if (array_mode == BLKmode)
     {
-      poly_uint64 bits = count * GET_MODE_BITSIZE (mode);
-      limit_p = !targetm.array_mode_supported_p (mode, count);
-      if (!int_mode_for_size (bits, limit_p).exists (&array_mode))
-	{
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "no array mode for %s["
-			     HOST_WIDE_INT_PRINT_DEC "]\n",
-			     GET_MODE_NAME (mode), count);
-	  return false;
-	}
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+                         "no array mode for %s[" HOST_WIDE_INT_PRINT_DEC "]\n",
+                         GET_MODE_NAME (mode), count);
+      return false;
     }
 
   if (convert_optab_handler (optab, array_mode, mode) == CODE_FOR_nothing)
@@ -117,23 +151,16 @@ vect_lanes_optab_supported_p (const char *name, convert_optab optab,
    types.  */
 
 tree
-vect_get_smallest_scalar_type (gimple *stmt, HOST_WIDE_INT *lhs_size_unit,
+vect_get_smallest_scalar_type (gimple stmt, HOST_WIDE_INT *lhs_size_unit,
                                HOST_WIDE_INT *rhs_size_unit)
 {
   tree scalar_type = gimple_expr_type (stmt);
   HOST_WIDE_INT lhs, rhs;
 
-  /* During the analysis phase, this function is called on arbitrary
-     statements that might not have scalar results.  */
-  if (!tree_fits_uhwi_p (TYPE_SIZE_UNIT (scalar_type)))
-    return scalar_type;
-
   lhs = rhs = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (scalar_type));
 
   if (is_gimple_assign (stmt)
       && (gimple_assign_cast_p (stmt)
-          || gimple_assign_rhs_code (stmt) == DOT_PROD_EXPR
-          || gimple_assign_rhs_code (stmt) == WIDEN_SUM_EXPR
           || gimple_assign_rhs_code (stmt) == WIDEN_MULT_EXPR
           || gimple_assign_rhs_code (stmt) == WIDEN_LSHIFT_EXPR
           || gimple_assign_rhs_code (stmt) == FLOAT_EXPR))
@@ -163,121 +190,47 @@ vect_mark_for_runtime_alias_test (ddr_p ddr, loop_vec_info loop_vinfo)
   if ((unsigned) PARAM_VALUE (PARAM_VECT_MAX_VERSION_FOR_ALIAS_CHECKS) == 0)
     return false;
 
-  if (!runtime_alias_check_p (ddr, loop,
-			      optimize_loop_nest_for_speed_p (loop)))
-    return false;
-
-  LOOP_VINFO_MAY_ALIAS_DDRS (loop_vinfo).safe_push (ddr);
-  return true;
-}
-
-/* Record that loop LOOP_VINFO needs to check that VALUE is nonzero.  */
-
-static void
-vect_check_nonzero_value (loop_vec_info loop_vinfo, tree value)
-{
-  vec<tree> checks = LOOP_VINFO_CHECK_NONZERO (loop_vinfo);
-  for (unsigned int i = 0; i < checks.length(); ++i)
-    if (checks[i] == value)
-      return;
-
   if (dump_enabled_p ())
     {
-      dump_printf_loc (MSG_NOTE, vect_location, "need run-time check that ");
-      dump_generic_expr (MSG_NOTE, TDF_SLIM, value);
-      dump_printf (MSG_NOTE, " is nonzero\n");
+      dump_printf_loc (MSG_NOTE, vect_location,
+                       "mark for run-time aliasing test between ");
+      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (DDR_A (ddr)));
+      dump_printf (MSG_NOTE,  " and ");
+      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (DDR_B (ddr)));
+      dump_printf (MSG_NOTE, "\n");
     }
-  LOOP_VINFO_CHECK_NONZERO (loop_vinfo).safe_push (value);
-}
 
-/* Return true if we know that the order of vectorized STMT_A and
-   vectorized STMT_B will be the same as the order of STMT_A and STMT_B.
-   At least one of the statements is a write.  */
-
-static bool
-vect_preserves_scalar_order_p (gimple *stmt_a, gimple *stmt_b)
-{
-  stmt_vec_info stmtinfo_a = vinfo_for_stmt (stmt_a);
-  stmt_vec_info stmtinfo_b = vinfo_for_stmt (stmt_b);
-
-  /* Single statements are always kept in their original order.  */
-  if (!STMT_VINFO_GROUPED_ACCESS (stmtinfo_a)
-      && !STMT_VINFO_GROUPED_ACCESS (stmtinfo_b))
-    return true;
-
-  /* STMT_A and STMT_B belong to overlapping groups.  All loads in a
-     group are emitted at the position of the last scalar load and all
-     stores in a group are emitted at the position of the last scalar store.
-     Compute that position and check whether the resulting order matches
-     the current one.  */
-  gimple *last_a = GROUP_FIRST_ELEMENT (stmtinfo_a);
-  if (last_a)
-    for (gimple *s = GROUP_NEXT_ELEMENT (vinfo_for_stmt (last_a)); s;
-	 s = GROUP_NEXT_ELEMENT (vinfo_for_stmt (s)))
-      last_a = get_later_stmt (last_a, s);
-  else
-    last_a = stmt_a;
-  gimple *last_b = GROUP_FIRST_ELEMENT (stmtinfo_b);
-  if (last_b)
-    for (gimple *s = GROUP_NEXT_ELEMENT (vinfo_for_stmt (last_b)); s;
-	 s = GROUP_NEXT_ELEMENT (vinfo_for_stmt (s)))
-      last_b = get_later_stmt (last_b, s);
-  else
-    last_b = stmt_b;
-  return ((get_later_stmt (last_a, last_b) == last_a)
-	  == (get_later_stmt (stmt_a, stmt_b) == stmt_a));
-}
-
-/* A subroutine of vect_analyze_data_ref_dependence.  Handle
-   DDR_COULD_BE_INDEPENDENT_P ddr DDR that has a known set of dependence
-   distances.  These distances are conservatively correct but they don't
-   reflect a guaranteed dependence.
-
-   Return true if this function does all the work necessary to avoid
-   an alias or false if the caller should use the dependence distances
-   to limit the vectorization factor in the usual way.  LOOP_DEPTH is
-   the depth of the loop described by LOOP_VINFO and the other arguments
-   are as for vect_analyze_data_ref_dependence.  */
-
-static bool
-vect_analyze_possibly_independent_ddr (data_dependence_relation *ddr,
-				       loop_vec_info loop_vinfo,
-				       int loop_depth, unsigned int *max_vf)
-{
-  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  lambda_vector dist_v;
-  unsigned int i;
-  FOR_EACH_VEC_ELT (DDR_DIST_VECTS (ddr), i, dist_v)
+  if (optimize_loop_nest_for_size_p (loop))
     {
-      int dist = dist_v[loop_depth];
-      if (dist != 0 && !(dist > 0 && DDR_REVERSED_P (ddr)))
-	{
-	  /* If the user asserted safelen >= DIST consecutive iterations
-	     can be executed concurrently, assume independence.
-
-	     ??? An alternative would be to add the alias check even
-	     in this case, and vectorize the fallback loop with the
-	     maximum VF set to safelen.  However, if the user has
-	     explicitly given a length, it's less likely that that
-	     would be a win.  */
-	  if (loop->safelen >= 2 && abs_hwi (dist) <= loop->safelen)
-	    {
-	      if ((unsigned int) loop->safelen < *max_vf)
-		*max_vf = loop->safelen;
-	      LOOP_VINFO_NO_DATA_DEPENDENCIES (loop_vinfo) = false;
-	      continue;
-	    }
-
-	  /* For dependence distances of 2 or more, we have the option
-	     of limiting VF or checking for an alias at runtime.
-	     Prefer to check at runtime if we can, to avoid limiting
-	     the VF unnecessarily when the bases are in fact independent.
-
-	     Note that the alias checks will be removed if the VF ends up
-	     being small enough.  */
-	  return vect_mark_for_runtime_alias_test (ddr, loop_vinfo);
-	}
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+                         "versioning not supported when optimizing"
+                         " for size.\n");
+      return false;
     }
+
+  /* FORNOW: We don't support versioning with outer-loop vectorization.  */
+  if (loop->inner)
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+                         "versioning not yet supported for outer-loops.\n");
+      return false;
+    }
+
+  /* FORNOW: We don't support creating runtime alias tests for non-constant
+     step.  */
+  if (TREE_CODE (DR_STEP (DDR_A (ddr))) != INTEGER_CST
+      || TREE_CODE (DR_STEP (DDR_B (ddr))) != INTEGER_CST)
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+                         "versioning not yet supported for non-constant "
+                         "step\n");
+      return false;
+    }
+
+  LOOP_VINFO_MAY_ALIAS_DDRS (loop_vinfo).safe_push (ddr);
   return true;
 }
 
@@ -291,8 +244,7 @@ vect_analyze_possibly_independent_ddr (data_dependence_relation *ddr,
 
 static bool
 vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
-				  loop_vec_info loop_vinfo,
-				  unsigned int *max_vf)
+                                  loop_vec_info loop_vinfo, int *max_vf)
 {
   unsigned int i;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
@@ -316,14 +268,6 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
       || (DR_IS_READ (dra) && DR_IS_READ (drb)))
     return false;
 
-  /* We do not have to consider dependences between accesses that belong
-     to the same group, unless the stride could be smaller than the
-     group size.  */
-  if (GROUP_FIRST_ELEMENT (stmtinfo_a)
-      && GROUP_FIRST_ELEMENT (stmtinfo_a) == GROUP_FIRST_ELEMENT (stmtinfo_b)
-      && !STMT_VINFO_STRIDED_P (stmtinfo_a))
-    return false;
-
   /* Even if we have an anti-dependence then, as the vectorized loop covers at
      least two scalar iterations, there is always also a true dependence.
      As the vectorizer does not re-order loads and stores we can ignore
@@ -343,14 +287,14 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	 executed concurrently, assume independence.  */
       if (loop->safelen >= 2)
 	{
-	  if ((unsigned int) loop->safelen < *max_vf)
+	  if (loop->safelen < *max_vf)
 	    *max_vf = loop->safelen;
 	  LOOP_VINFO_NO_DATA_DEPENDENCIES (loop_vinfo) = false;
 	  return false;
 	}
 
-      if (STMT_VINFO_GATHER_SCATTER_P (stmtinfo_a)
-	  || STMT_VINFO_GATHER_SCATTER_P (stmtinfo_b))
+      if (STMT_VINFO_GATHER_P (stmtinfo_a)
+	  || STMT_VINFO_GATHER_P (stmtinfo_b))
 	{
 	  if (dump_enabled_p ())
 	    {
@@ -391,14 +335,14 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	 executed concurrently, assume independence.  */
       if (loop->safelen >= 2)
 	{
-	  if ((unsigned int) loop->safelen < *max_vf)
+	  if (loop->safelen < *max_vf)
 	    *max_vf = loop->safelen;
 	  LOOP_VINFO_NO_DATA_DEPENDENCIES (loop_vinfo) = false;
 	  return false;
 	}
 
-      if (STMT_VINFO_GATHER_SCATTER_P (stmtinfo_a)
-	  || STMT_VINFO_GATHER_SCATTER_P (stmtinfo_b))
+      if (STMT_VINFO_GATHER_P (stmtinfo_a)
+	  || STMT_VINFO_GATHER_P (stmtinfo_b))
 	{
 	  if (dump_enabled_p ())
 	    {
@@ -430,12 +374,6 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
     }
 
   loop_depth = index_in_loop_nest (loop->num, DDR_LOOP_NEST (ddr));
-
-  if (DDR_COULD_BE_INDEPENDENT_P (ddr)
-      && vect_analyze_possibly_independent_ddr (ddr, loop_vinfo,
-						loop_depth, max_vf))
-    return false;
-
   FOR_EACH_VEC_ELT (DDR_DIST_VECTS (ddr), i, dist_v)
     {
       int dist = dist_v[loop_depth];
@@ -474,27 +412,22 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 		... = a[i];
 		a[i+1] = ...;
 	     where loads from the group interleave with the store.  */
-	  if (!vect_preserves_scalar_order_p (DR_STMT (dra), DR_STMT (drb)))
+	  if (STMT_VINFO_GROUPED_ACCESS (stmtinfo_a)
+	      || STMT_VINFO_GROUPED_ACCESS (stmtinfo_b))
 	    {
-	      if (dump_enabled_p ())
-		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-				 "READ_WRITE dependence in interleaving.\n");
-	      return true;
-	    }
-
-	  if (loop->safelen < 2)
-	    {
-	      tree indicator = dr_zero_step_indicator (dra);
-	      if (TREE_CODE (indicator) != INTEGER_CST)
-		vect_check_nonzero_value (loop_vinfo, indicator);
-	      else if (integer_zerop (indicator))
+	      gimple earlier_stmt;
+	      earlier_stmt = get_earlier_stmt (DR_STMT (dra), DR_STMT (drb));
+	      if (DR_IS_WRITE
+		    (STMT_VINFO_DATA_REF (vinfo_for_stmt (earlier_stmt))))
 		{
 		  if (dump_enabled_p ())
 		    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-				 "access also has a zero step\n");
+				     "READ_WRITE dependence in interleaving."
+				     "\n");
 		  return true;
 		}
 	    }
+
 	  continue;
 	}
 
@@ -516,8 +449,8 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	  continue;
 	}
 
-      unsigned int abs_dist = abs (dist);
-      if (abs_dist >= 2 && abs_dist < *max_vf)
+      if (abs (dist) >= 2
+	  && abs (dist) < *max_vf)
 	{
 	  /* The dependence distance requires reduction of the maximal
 	     vectorization factor.  */
@@ -528,7 +461,7 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	                     *max_vf);
 	}
 
-      if (abs_dist >= *max_vf)
+      if (abs (dist) >= *max_vf)
 	{
 	  /* Dependence distance does not create dependence, as far as
 	     vectorization is concerned, in this case.  */
@@ -562,8 +495,7 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
    the maximum vectorization factor the data dependences allow.  */
 
 bool
-vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo,
-				   unsigned int *max_vf)
+vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo, int *max_vf)
 {
   unsigned int i;
   struct data_dependence_relation *ddr;
@@ -572,25 +504,15 @@ vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo,
     dump_printf_loc (MSG_NOTE, vect_location,
                      "=== vect_analyze_data_ref_dependences ===\n");
 
-  LOOP_VINFO_DDRS (loop_vinfo)
-    .create (LOOP_VINFO_DATAREFS (loop_vinfo).length ()
-	     * LOOP_VINFO_DATAREFS (loop_vinfo).length ());
   LOOP_VINFO_NO_DATA_DEPENDENCIES (loop_vinfo) = true;
-  /* We need read-read dependences to compute STMT_VINFO_SAME_ALIGN_REFS.  */
   if (!compute_all_dependences (LOOP_VINFO_DATAREFS (loop_vinfo),
 				&LOOP_VINFO_DDRS (loop_vinfo),
 				LOOP_VINFO_LOOP_NEST (loop_vinfo), true))
     return false;
 
-  /* For epilogues we either have no aliases or alias versioning
-     was applied to original loop.  Therefore we may just get max_vf
-     using VF of original loop.  */
-  if (LOOP_VINFO_EPILOGUE_P (loop_vinfo))
-    *max_vf = LOOP_VINFO_ORIG_MAX_VECT_FACTOR (loop_vinfo);
-  else
-    FOR_EACH_VEC_ELT (LOOP_VINFO_DDRS (loop_vinfo), i, ddr)
-      if (vect_analyze_data_ref_dependence (ddr, loop_vinfo, max_vf))
-	return false;
+  FOR_EACH_VEC_ELT (LOOP_VINFO_DDRS (loop_vinfo), i, ddr)
+    if (vect_analyze_data_ref_dependence (ddr, loop_vinfo, max_vf))
+      return false;
 
   return true;
 }
@@ -653,78 +575,24 @@ vect_slp_analyze_data_ref_dependence (struct data_dependence_relation *ddr)
       dump_printf (MSG_NOTE,  "\n");
     }
 
-  return true;
-}
+  /* We do not vectorize basic blocks with write-write dependencies.  */
+  if (DR_IS_WRITE (dra) && DR_IS_WRITE (drb))
+    return true;
 
-
-/* Analyze dependences involved in the transform of SLP NODE.  STORES
-   contain the vector of scalar stores of this instance if we are
-   disambiguating the loads.  */
-
-static bool
-vect_slp_analyze_node_dependences (slp_instance instance, slp_tree node,
-				   vec<gimple *> stores, gimple *last_store)
-{
-  /* This walks over all stmts involved in the SLP load/store done
-     in NODE verifying we can sink them up to the last stmt in the
-     group.  */
-  gimple *last_access = vect_find_last_scalar_stmt_in_slp (node);
-  for (unsigned k = 0; k < SLP_INSTANCE_GROUP_SIZE (instance); ++k)
+  /* If we have a read-write dependence check that the load is before the store.
+     When we vectorize basic blocks, vector load can be only before
+     corresponding scalar load, and vector store can be only after its
+     corresponding scalar store.  So the order of the acceses is preserved in
+     case the load is before the store.  */
+  gimple earlier_stmt = get_earlier_stmt (DR_STMT (dra), DR_STMT (drb));
+  if (DR_IS_READ (STMT_VINFO_DATA_REF (vinfo_for_stmt (earlier_stmt))))
     {
-      gimple *access = SLP_TREE_SCALAR_STMTS (node)[k];
-      if (access == last_access)
-	continue;
-      data_reference *dr_a = STMT_VINFO_DATA_REF (vinfo_for_stmt (access));
-      for (gimple_stmt_iterator gsi = gsi_for_stmt (access);
-	   gsi_stmt (gsi) != last_access; gsi_next (&gsi))
-	{
-	  gimple *stmt = gsi_stmt (gsi);
-	  if (! gimple_vuse (stmt)
-	      || (DR_IS_READ (dr_a) && ! gimple_vdef (stmt)))
-	    continue;
-
-	  /* If we couldn't record a (single) data reference for this
-	     stmt we have to give up.  */
-	  /* ???  Here and below if dependence analysis fails we can resort
-	     to the alias oracle which can handle more kinds of stmts.  */
-	  data_reference *dr_b = STMT_VINFO_DATA_REF (vinfo_for_stmt (stmt));
-	  if (!dr_b)
-	    return false;
-
-	  bool dependent = false;
-	  /* If we run into a store of this same instance (we've just
-	     marked those) then delay dependence checking until we run
-	     into the last store because this is where it will have
-	     been sunk to (and we verify if we can do that as well).  */
-	  if (gimple_visited_p (stmt))
-	    {
-	      if (stmt != last_store)
-		continue;
-	      unsigned i;
-	      gimple *store;
-	      FOR_EACH_VEC_ELT (stores, i, store)
-		{
-		  data_reference *store_dr
-		    = STMT_VINFO_DATA_REF (vinfo_for_stmt (store));
-		  ddr_p ddr = initialize_data_dependence_relation
-				(dr_a, store_dr, vNULL);
-		  dependent = vect_slp_analyze_data_ref_dependence (ddr);
-		  free_dependence_relation (ddr);
-		  if (dependent)
-		    break;
-		}
-	    }
-	  else
-	    {
-	      ddr_p ddr = initialize_data_dependence_relation (dr_a,
-							       dr_b, vNULL);
-	      dependent = vect_slp_analyze_data_ref_dependence (ddr);
-	      free_dependence_relation (ddr);
-	    }
-	  if (dependent)
-	    return false;
-	}
+      /* That only holds for load-store pairs taking part in vectorization.  */
+      if (STMT_VINFO_VECTORIZABLE (vinfo_for_stmt (DR_STMT (dra)))
+	  && STMT_VINFO_VECTORIZABLE (vinfo_for_stmt (DR_STMT (drb))))
+	return false;
     }
+
   return true;
 }
 
@@ -736,127 +604,27 @@ vect_slp_analyze_node_dependences (slp_instance instance, slp_tree node,
    the maximum vectorization factor the data dependences allow.  */
 
 bool
-vect_slp_analyze_instance_dependence (slp_instance instance)
+vect_slp_analyze_data_ref_dependences (bb_vec_info bb_vinfo)
 {
+  struct data_dependence_relation *ddr;
+  unsigned int i;
+
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
-                     "=== vect_slp_analyze_instance_dependence ===\n");
+                     "=== vect_slp_analyze_data_ref_dependences ===\n");
 
-  /* The stores of this instance are at the root of the SLP tree.  */
-  slp_tree store = SLP_INSTANCE_TREE (instance);
-  if (! STMT_VINFO_DATA_REF (vinfo_for_stmt (SLP_TREE_SCALAR_STMTS (store)[0])))
-    store = NULL;
+  if (!compute_all_dependences (BB_VINFO_DATAREFS (bb_vinfo),
+				&BB_VINFO_DDRS (bb_vinfo),
+				vNULL, true))
+    return false;
 
-  /* Verify we can sink stores to the vectorized stmt insert location.  */
-  gimple *last_store = NULL;
-  if (store)
-    {
-      if (! vect_slp_analyze_node_dependences (instance, store, vNULL, NULL))
-	return false;
+  FOR_EACH_VEC_ELT (BB_VINFO_DDRS (bb_vinfo), i, ddr)
+    if (vect_slp_analyze_data_ref_dependence (ddr))
+      return false;
 
-      /* Mark stores in this instance and remember the last one.  */
-      last_store = vect_find_last_scalar_stmt_in_slp (store);
-      for (unsigned k = 0; k < SLP_INSTANCE_GROUP_SIZE (instance); ++k)
-	gimple_set_visited (SLP_TREE_SCALAR_STMTS (store)[k], true);
-    }
-
-  bool res = true;
-
-  /* Verify we can sink loads to the vectorized stmt insert location,
-     special-casing stores of this instance.  */
-  slp_tree load;
-  unsigned int i;
-  FOR_EACH_VEC_ELT (SLP_INSTANCE_LOADS (instance), i, load)
-    if (! vect_slp_analyze_node_dependences (instance, load,
-					     store
-					     ? SLP_TREE_SCALAR_STMTS (store)
-					     : vNULL, last_store))
-      {
-	res = false;
-	break;
-      }
-
-  /* Unset the visited flag.  */
-  if (store)
-    for (unsigned k = 0; k < SLP_INSTANCE_GROUP_SIZE (instance); ++k)
-      gimple_set_visited (SLP_TREE_SCALAR_STMTS (store)[k], false);
-
-  return res;
+  return true;
 }
 
-/* Record in VINFO the base alignment guarantee given by DRB.  STMT is
-   the statement that contains DRB, which is useful for recording in the
-   dump file.  */
-
-static void
-vect_record_base_alignment (vec_info *vinfo, gimple *stmt,
-			    innermost_loop_behavior *drb)
-{
-  bool existed;
-  innermost_loop_behavior *&entry
-    = vinfo->base_alignments.get_or_insert (drb->base_address, &existed);
-  if (!existed || entry->base_alignment < drb->base_alignment)
-    {
-      entry = drb;
-      if (dump_enabled_p ())
-	{
-	  dump_printf_loc (MSG_NOTE, vect_location,
-			   "recording new base alignment for ");
-	  dump_generic_expr (MSG_NOTE, TDF_SLIM, drb->base_address);
-	  dump_printf (MSG_NOTE, "\n");
-	  dump_printf_loc (MSG_NOTE, vect_location,
-			   "  alignment:    %d\n", drb->base_alignment);
-	  dump_printf_loc (MSG_NOTE, vect_location,
-			   "  misalignment: %d\n", drb->base_misalignment);
-	  dump_printf_loc (MSG_NOTE, vect_location,
-			   "  based on:     ");
-	  dump_gimple_stmt (MSG_NOTE, TDF_SLIM, stmt, 0);
-	}
-    }
-}
-
-/* If the region we're going to vectorize is reached, all unconditional
-   data references occur at least once.  We can therefore pool the base
-   alignment guarantees from each unconditional reference.  Do this by
-   going through all the data references in VINFO and checking whether
-   the containing statement makes the reference unconditionally.  If so,
-   record the alignment of the base address in VINFO so that it can be
-   used for all other references with the same base.  */
-
-void
-vect_record_base_alignments (vec_info *vinfo)
-{
-  loop_vec_info loop_vinfo = dyn_cast <loop_vec_info> (vinfo);
-  struct loop *loop = loop_vinfo ? LOOP_VINFO_LOOP (loop_vinfo) : NULL;
-  data_reference *dr;
-  unsigned int i;
-  FOR_EACH_VEC_ELT (vinfo->datarefs, i, dr)
-    if (!DR_IS_CONDITIONAL_IN_STMT (dr))
-      {
-	gimple *stmt = DR_STMT (dr);
-	vect_record_base_alignment (vinfo, stmt, &DR_INNERMOST (dr));
-
-	/* If DR is nested in the loop that is being vectorized, we can also
-	   record the alignment of the base wrt the outer loop.  */
-	if (loop && nested_in_vect_loop_p (loop, stmt))
-	  {
-	    stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-	    vect_record_base_alignment
-	      (vinfo, stmt, &STMT_VINFO_DR_WRT_VEC_LOOP (stmt_info));
-	  }
-      }
-}
-
-/* Return the target alignment for the vectorized form of DR.  */
-
-static unsigned int
-vect_calculate_target_alignment (struct data_reference *dr)
-{
-  gimple *stmt = DR_STMT (dr);
-  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
-  return targetm.vectorize.preferred_vector_alignment (vectype);
-}
 
 /* Function vect_compute_data_ref_alignment
 
@@ -870,16 +638,19 @@ vect_calculate_target_alignment (struct data_reference *dr)
    FOR NOW: No analysis is actually performed. Misalignment is calculated
    only for trivial cases. TODO.  */
 
-bool
+static bool
 vect_compute_data_ref_alignment (struct data_reference *dr)
 {
-  gimple *stmt = DR_STMT (dr);
+  gimple stmt = DR_STMT (dr);
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-  vec_base_alignments *base_alignments = &stmt_info->vinfo->base_alignments;
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   struct loop *loop = NULL;
   tree ref = DR_REF (dr);
-  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+  tree vectype;
+  tree base, base_addr;
+  tree misalign;
+  tree aligned_to;
+  unsigned HOST_WIDE_INT alignment;
 
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
@@ -889,77 +660,83 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
     loop = LOOP_VINFO_LOOP (loop_vinfo);
 
   /* Initialize misalignment to unknown.  */
-  SET_DR_MISALIGNMENT (dr, DR_MISALIGNMENT_UNKNOWN);
+  SET_DR_MISALIGNMENT (dr, -1);
 
-  innermost_loop_behavior *drb = vect_dr_behavior (dr);
-  bool step_preserves_misalignment_p;
+  /* Strided loads perform only component accesses, misalignment information
+     is irrelevant for them.  */
+  if (STMT_VINFO_STRIDE_LOAD_P (stmt_info))
+    return true;
 
-  unsigned HOST_WIDE_INT vector_alignment
-    = vect_calculate_target_alignment (dr) / BITS_PER_UNIT;
-  DR_TARGET_ALIGNMENT (dr) = vector_alignment;
-
-  /* No step for BB vectorization.  */
-  if (!loop)
-    {
-      gcc_assert (integer_zerop (drb->step));
-      step_preserves_misalignment_p = true;
-    }
+  misalign = DR_INIT (dr);
+  aligned_to = DR_ALIGNED_TO (dr);
+  base_addr = DR_BASE_ADDRESS (dr);
+  vectype = STMT_VINFO_VECTYPE (stmt_info);
 
   /* In case the dataref is in an inner-loop of the loop that is being
      vectorized (LOOP), we use the base and misalignment information
      relative to the outer-loop (LOOP).  This is ok only if the misalignment
      stays the same throughout the execution of the inner-loop, which is why
      we have to check that the stride of the dataref in the inner-loop evenly
-     divides by the vector alignment.  */
-  else if (nested_in_vect_loop_p (loop, stmt))
+     divides by the vector size.  */
+  if (loop && nested_in_vect_loop_p (loop, stmt))
     {
-      step_preserves_misalignment_p
-	= (DR_STEP_ALIGNMENT (dr) % vector_alignment) == 0;
+      tree step = DR_STEP (dr);
+      HOST_WIDE_INT dr_step = TREE_INT_CST_LOW (step);
 
-      if (dump_enabled_p ())
+      if (dr_step % GET_MODE_SIZE (TYPE_MODE (vectype)) == 0)
+        {
+          if (dump_enabled_p ())
+            dump_printf_loc (MSG_NOTE, vect_location,
+                             "inner step divides the vector-size.\n");
+	  misalign = STMT_VINFO_DR_INIT (stmt_info);
+	  aligned_to = STMT_VINFO_DR_ALIGNED_TO (stmt_info);
+	  base_addr = STMT_VINFO_DR_BASE_ADDRESS (stmt_info);
+        }
+      else
 	{
-	  if (step_preserves_misalignment_p)
-	    dump_printf_loc (MSG_NOTE, vect_location,
-			     "inner step divides the vector alignment.\n");
-	  else
+	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "inner step doesn't divide the vector"
-			     " alignment.\n");
+	                     "inner step doesn't divide the vector-size.\n");
+	  misalign = NULL_TREE;
 	}
     }
 
-  /* Similarly we can only use base and misalignment information relative to
-     an innermost loop if the misalignment stays the same throughout the
-     execution of the loop.  As above, this is the case if the stride of
-     the dataref evenly divides by the alignment.  */
-  else
+  /* Similarly, if we're doing basic-block vectorization, we can only use
+     base and misalignment information relative to an innermost loop if the
+     misalignment stays the same throughout the execution of the loop.
+     As above, this is the case if the stride of the dataref evenly divides
+     by the vector size.  */
+  if (!loop)
     {
-      poly_uint64 vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
-      step_preserves_misalignment_p
-	= multiple_p (DR_STEP_ALIGNMENT (dr) * vf, vector_alignment);
+      tree step = DR_STEP (dr);
+      HOST_WIDE_INT dr_step = TREE_INT_CST_LOW (step);
 
-      if (!step_preserves_misalignment_p && dump_enabled_p ())
-	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			 "step doesn't divide the vector alignment.\n");
+      if (dr_step % GET_MODE_SIZE (TYPE_MODE (vectype)) != 0)
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+	                     "SLP: step doesn't divide the vector-size.\n");
+	  misalign = NULL_TREE;
+	}
     }
 
-  unsigned int base_alignment = drb->base_alignment;
-  unsigned int base_misalignment = drb->base_misalignment;
+  /* To look at alignment of the base we have to preserve an inner MEM_REF
+     as that carries alignment information of the actual access.  */
+  base = ref;
+  while (handled_component_p (base))
+    base = TREE_OPERAND (base, 0);
+  if (TREE_CODE (base) == MEM_REF)
+    base = build2 (MEM_REF, TREE_TYPE (base), base_addr,
+		   build_int_cst (TREE_TYPE (TREE_OPERAND (base, 1)), 0));
+  unsigned int base_alignment = get_object_alignment (base);
 
-  /* Calculate the maximum of the pooled base address alignment and the
-     alignment that we can compute for DR itself.  */
-  innermost_loop_behavior **entry = base_alignments->get (drb->base_address);
-  if (entry && base_alignment < (*entry)->base_alignment)
-    {
-      base_alignment = (*entry)->base_alignment;
-      base_misalignment = (*entry)->base_misalignment;
-    }
+  if (base_alignment >= TYPE_ALIGN (TREE_TYPE (vectype)))
+    DR_VECT_AUX (dr)->base_element_aligned = true;
 
-  if (drb->offset_alignment < vector_alignment
-      || !step_preserves_misalignment_p
-      /* We need to know whether the step wrt the vectorized loop is
-	 negative when computing the starting misalignment below.  */
-      || TREE_CODE (drb->step) != INTEGER_CST)
+  alignment = TYPE_ALIGN_UNIT (vectype);
+
+  if ((compare_tree_int (aligned_to, alignment) < 0)
+      || !misalign)
     {
       if (dump_enabled_p ())
 	{
@@ -971,13 +748,15 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
       return true;
     }
 
-  if (base_alignment < vector_alignment)
+  if (base_alignment < TYPE_ALIGN (vectype))
     {
-      unsigned int max_alignment;
-      tree base = get_base_for_alignment (drb->base_address, &max_alignment);
-      if (max_alignment < vector_alignment
-	  || !vect_can_force_dr_alignment_p (base,
-					     vector_alignment * BITS_PER_UNIT))
+      /* Strip an inner MEM_REF to a bare decl if possible.  */
+      if (TREE_CODE (base) == MEM_REF
+	  && integer_zerop (TREE_OPERAND (base, 1))
+	  && TREE_CODE (TREE_OPERAND (base, 0)) == ADDR_EXPR)
+	base = TREE_OPERAND (TREE_OPERAND (base, 0), 0);
+
+      if (!vect_can_force_dr_alignment_p (base, TYPE_ALIGN (vectype)))
 	{
 	  if (dump_enabled_p ())
 	    {
@@ -1001,34 +780,24 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 
       DR_VECT_AUX (dr)->base_decl = base;
       DR_VECT_AUX (dr)->base_misaligned = true;
-      base_misalignment = 0;
+      DR_VECT_AUX (dr)->base_element_aligned = true;
     }
-  poly_int64 misalignment
-    = base_misalignment + wi::to_poly_offset (drb->init).force_shwi ();
 
   /* If this is a backward running DR then first access in the larger
      vectype actually is N-1 elements before the address in the DR.
      Adjust misalign accordingly.  */
-  if (tree_int_cst_sgn (drb->step) < 0)
-    /* PLUS because STEP is negative.  */
-    misalignment += ((TYPE_VECTOR_SUBPARTS (vectype) - 1)
-		     * TREE_INT_CST_LOW (drb->step));
-
-  unsigned int const_misalignment;
-  if (!known_misalignment (misalignment, vector_alignment,
-			   &const_misalignment))
+  if (tree_int_cst_sgn (DR_STEP (dr)) < 0)
     {
-      if (dump_enabled_p ())
-	{
-	  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			   "Non-constant misalignment for access: ");
-	  dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM, ref);
-	  dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
-	}
-      return true;
+      tree offset = ssize_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
+      /* DR_STEP(dr) is the same as -TYPE_SIZE of the scalar type,
+	 otherwise we wouldn't be here.  */
+      offset = fold_build2 (MULT_EXPR, ssizetype, offset, DR_STEP (dr));
+      /* PLUS because DR_STEP was negative.  */
+      misalign = size_binop (PLUS_EXPR, misalign, offset);
     }
 
-  SET_DR_MISALIGNMENT (dr, const_misalignment);
+  SET_DR_MISALIGNMENT (dr,
+		       wi::mod_floor (misalign, alignment, SIGNED).to_uhwi ());
 
   if (dump_enabled_p ())
     {
@@ -1041,11 +810,44 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   return true;
 }
 
-/* Function vect_update_misalignment_for_peel.
-   Sets DR's misalignment
-   - to 0 if it has the same alignment as DR_PEEL,
-   - to the misalignment computed using NPEEL if DR's salignment is known,
-   - to -1 (unknown) otherwise.
+
+/* Function vect_compute_data_refs_alignment
+
+   Compute the misalignment of data references in the loop.
+   Return FALSE if a data reference is found that cannot be vectorized.  */
+
+static bool
+vect_compute_data_refs_alignment (loop_vec_info loop_vinfo,
+                                  bb_vec_info bb_vinfo)
+{
+  vec<data_reference_p> datarefs;
+  struct data_reference *dr;
+  unsigned int i;
+
+  if (loop_vinfo)
+    datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
+  else
+    datarefs = BB_VINFO_DATAREFS (bb_vinfo);
+
+  FOR_EACH_VEC_ELT (datarefs, i, dr)
+    if (STMT_VINFO_VECTORIZABLE (vinfo_for_stmt (DR_STMT (dr)))
+        && !vect_compute_data_ref_alignment (dr))
+      {
+        if (bb_vinfo)
+          {
+            /* Mark unsupported statement as unvectorizable.  */
+            STMT_VINFO_VECTORIZABLE (vinfo_for_stmt (DR_STMT (dr))) = false;
+            continue;
+          }
+        else
+          return false;
+      }
+
+  return true;
+}
+
+
+/* Function vect_update_misalignment_for_peel
 
    DR - the data reference whose misalignment is to be adjusted.
    DR_PEEL - the data reference whose misalignment is being made
@@ -1058,10 +860,10 @@ vect_update_misalignment_for_peel (struct data_reference *dr,
                                    struct data_reference *dr_peel, int npeel)
 {
   unsigned int i;
-  vec<dr_p> same_aligned_drs;
+  vec<dr_p> same_align_drs;
   struct data_reference *current_dr;
-  int dr_size = vect_get_scalar_dr_size (dr);
-  int dr_peel_size = vect_get_scalar_dr_size (dr_peel);
+  int dr_size = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr))));
+  int dr_peel_size = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr_peel))));
   stmt_vec_info stmt_info = vinfo_for_stmt (DR_STMT (dr));
   stmt_vec_info peel_stmt_info = vinfo_for_stmt (DR_STMT (dr_peel));
 
@@ -1074,16 +876,14 @@ vect_update_misalignment_for_peel (struct data_reference *dr,
 
   /* It can be assumed that the data refs with the same alignment as dr_peel
      are aligned in the vector loop.  */
-  same_aligned_drs
+  same_align_drs
     = STMT_VINFO_SAME_ALIGN_REFS (vinfo_for_stmt (DR_STMT (dr_peel)));
-  FOR_EACH_VEC_ELT (same_aligned_drs, i, current_dr)
+  FOR_EACH_VEC_ELT (same_align_drs, i, current_dr)
     {
       if (current_dr != dr)
         continue;
-      gcc_assert (!known_alignment_for_access_p (dr)
-		  || !known_alignment_for_access_p (dr_peel)
-		  || (DR_MISALIGNMENT (dr) / dr_size
-		      == DR_MISALIGNMENT (dr_peel) / dr_peel_size));
+      gcc_assert (DR_MISALIGNMENT (dr) / dr_size ==
+                  DR_MISALIGNMENT (dr_peel) / dr_peel_size);
       SET_DR_MISALIGNMENT (dr, 0);
       return;
     }
@@ -1093,53 +893,18 @@ vect_update_misalignment_for_peel (struct data_reference *dr,
     {
       bool negative = tree_int_cst_compare (DR_STEP (dr), size_zero_node) < 0;
       int misal = DR_MISALIGNMENT (dr);
+      tree vectype = STMT_VINFO_VECTYPE (stmt_info);
       misal += negative ? -npeel * dr_size : npeel * dr_size;
-      misal &= DR_TARGET_ALIGNMENT (dr) - 1;
+      misal &= (TYPE_ALIGN (vectype) / BITS_PER_UNIT) - 1;
       SET_DR_MISALIGNMENT (dr, misal);
       return;
     }
 
   if (dump_enabled_p ())
-    dump_printf_loc (MSG_NOTE, vect_location, "Setting misalignment " \
-		     "to unknown (-1).\n");
-  SET_DR_MISALIGNMENT (dr, DR_MISALIGNMENT_UNKNOWN);
+    dump_printf_loc (MSG_NOTE, vect_location, "Setting misalignment to -1.\n");
+  SET_DR_MISALIGNMENT (dr, -1);
 }
 
-
-/* Function verify_data_ref_alignment
-
-   Return TRUE if DR can be handled with respect to alignment.  */
-
-static bool
-verify_data_ref_alignment (data_reference_p dr)
-{
-  enum dr_alignment_support supportable_dr_alignment
-    = vect_supportable_dr_alignment (dr, false);
-  if (!supportable_dr_alignment)
-    {
-      if (dump_enabled_p ())
-	{
-	  if (DR_IS_READ (dr))
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "not vectorized: unsupported unaligned load.");
-	  else
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "not vectorized: unsupported unaligned "
-			     "store.");
-
-	  dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM,
-			     DR_REF (dr));
-	  dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
-	}
-      return false;
-    }
-
-  if (supportable_dr_alignment != dr_aligned && dump_enabled_p ())
-    dump_printf_loc (MSG_NOTE, vect_location,
-		     "Vectorizing an unaligned access.\n");
-
-  return true;
-}
 
 /* Function vect_verify_datarefs_alignment
 
@@ -1147,35 +912,61 @@ verify_data_ref_alignment (data_reference_p dr)
    handled with respect to alignment.  */
 
 bool
-vect_verify_datarefs_alignment (loop_vec_info vinfo)
+vect_verify_datarefs_alignment (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo)
 {
-  vec<data_reference_p> datarefs = vinfo->datarefs;
+  vec<data_reference_p> datarefs;
   struct data_reference *dr;
+  enum dr_alignment_support supportable_dr_alignment;
   unsigned int i;
+
+  if (loop_vinfo)
+    datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
+  else
+    datarefs = BB_VINFO_DATAREFS (bb_vinfo);
 
   FOR_EACH_VEC_ELT (datarefs, i, dr)
     {
-      gimple *stmt = DR_STMT (dr);
+      gimple stmt = DR_STMT (dr);
       stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
 
       if (!STMT_VINFO_RELEVANT_P (stmt_info))
 	continue;
 
-      /* For interleaving, only the alignment of the first access matters.   */
-      if (STMT_VINFO_GROUPED_ACCESS (stmt_info)
-	  && GROUP_FIRST_ELEMENT (stmt_info) != stmt)
-	continue;
+      /* For interleaving, only the alignment of the first access matters. 
+         Skip statements marked as not vectorizable.  */
+      if ((STMT_VINFO_GROUPED_ACCESS (stmt_info)
+           && GROUP_FIRST_ELEMENT (stmt_info) != stmt)
+          || !STMT_VINFO_VECTORIZABLE (stmt_info))
+        continue;
 
-      /* Strided accesses perform only component accesses, alignment is
+      /* Strided loads perform only component accesses, alignment is
 	 irrelevant for them.  */
-      if (STMT_VINFO_STRIDED_P (stmt_info)
-	  && !STMT_VINFO_GROUPED_ACCESS (stmt_info))
+      if (STMT_VINFO_STRIDE_LOAD_P (stmt_info))
 	continue;
 
-      if (! verify_data_ref_alignment (dr))
-	return false;
-    }
+      supportable_dr_alignment = vect_supportable_dr_alignment (dr, false);
+      if (!supportable_dr_alignment)
+        {
+          if (dump_enabled_p ())
+            {
+              if (DR_IS_READ (dr))
+                dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+                                 "not vectorized: unsupported unaligned load.");
+              else
+                dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+                                 "not vectorized: unsupported unaligned "
+                                 "store.");
 
+              dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM,
+                                 DR_REF (dr));
+              dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
+            }
+          return false;
+        }
+      if (supportable_dr_alignment != dr_aligned && dump_enabled_p ())
+        dump_printf_loc (MSG_NOTE, vect_location,
+                         "Vectorizing an unaligned access.\n");
+    }
   return true;
 }
 
@@ -1200,7 +991,7 @@ not_size_aligned (tree exp)
 static bool
 vector_alignment_reachable_p (struct data_reference *dr)
 {
-  gimple *stmt = DR_STMT (dr);
+  gimple stmt = DR_STMT (dr);
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
 
@@ -1210,17 +1001,16 @@ vector_alignment_reachable_p (struct data_reference *dr)
 	 the prolog loop ({VF - misalignment}), is a multiple of the
 	 number of the interleaved accesses.  */
       int elem_size, mis_in_elements;
+      int nelements = TYPE_VECTOR_SUBPARTS (vectype);
 
       /* FORNOW: handle only known alignment.  */
       if (!known_alignment_for_access_p (dr))
 	return false;
 
-      poly_uint64 nelements = TYPE_VECTOR_SUBPARTS (vectype);
-      poly_uint64 vector_size = GET_MODE_SIZE (TYPE_MODE (vectype));
-      elem_size = vector_element_size (vector_size, nelements);
+      elem_size = GET_MODE_SIZE (TYPE_MODE (vectype)) / nelements;
       mis_in_elements = DR_MISALIGNMENT (dr) / elem_size;
 
-      if (!multiple_p (nelements - mis_in_elements, GROUP_SIZE (stmt_info)))
+      if ((nelements - mis_in_elements) % GROUP_SIZE (stmt_info))
 	return false;
     }
 
@@ -1252,9 +1042,12 @@ vector_alignment_reachable_p (struct data_reference *dr)
       bool is_packed = not_size_aligned (DR_REF (dr));
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-	                 "Unknown misalignment, %snaturally aligned\n",
-			 is_packed ? "not " : "");
-      return targetm.vectorize.vector_alignment_reachable (type, is_packed);
+	                 "Unknown misalignment, is_packed = %d\n",is_packed);
+      if ((TYPE_USER_ALIGN (type) && !is_packed)
+	  || targetm.vectorize.vector_alignment_reachable (type, is_packed))
+	return true;
+      else
+	return false;
     }
 
   return true;
@@ -1269,15 +1062,12 @@ vect_get_data_access_cost (struct data_reference *dr,
                            unsigned int *outside_cost,
 			   stmt_vector_for_cost *body_cost_vec)
 {
-  gimple *stmt = DR_STMT (dr);
+  gimple stmt = DR_STMT (dr);
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  int nunits = TYPE_VECTOR_SUBPARTS (STMT_VINFO_VECTYPE (stmt_info));
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
-  int ncopies;
-
-  if (PURE_SLP_STMT (stmt_info))
-    ncopies = 1;
-  else
-    ncopies = vect_get_num_copies (loop_vinfo, STMT_VINFO_VECTYPE (stmt_info));
+  int vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
+  int ncopies = vf / nunits;
 
   if (DR_IS_READ (dr))
     vect_get_load_cost (dr, ncopies, true, inside_cost, outside_cost,
@@ -1292,47 +1082,10 @@ vect_get_data_access_cost (struct data_reference *dr,
 }
 
 
-typedef struct _vect_peel_info
-{
-  struct data_reference *dr;
-  int npeel;
-  unsigned int count;
-} *vect_peel_info;
-
-typedef struct _vect_peel_extended_info
-{
-  struct _vect_peel_info peel_info;
-  unsigned int inside_cost;
-  unsigned int outside_cost;
-} *vect_peel_extended_info;
-
-
-/* Peeling hashtable helpers.  */
-
-struct peel_info_hasher : free_ptr_hash <_vect_peel_info>
-{
-  static inline hashval_t hash (const _vect_peel_info *);
-  static inline bool equal (const _vect_peel_info *, const _vect_peel_info *);
-};
-
-inline hashval_t
-peel_info_hasher::hash (const _vect_peel_info *peel_info)
-{
-  return (hashval_t) peel_info->npeel;
-}
-
-inline bool
-peel_info_hasher::equal (const _vect_peel_info *a, const _vect_peel_info *b)
-{
-  return (a->npeel == b->npeel);
-}
-
-
 /* Insert DR into peeling hash table with NPEEL as key.  */
 
 static void
-vect_peeling_hash_insert (hash_table<peel_info_hasher> *peeling_htab,
-			  loop_vec_info loop_vinfo, struct data_reference *dr,
+vect_peeling_hash_insert (loop_vec_info loop_vinfo, struct data_reference *dr,
                           int npeel)
 {
   struct _vect_peel_info elem, *slot;
@@ -1340,7 +1093,7 @@ vect_peeling_hash_insert (hash_table<peel_info_hasher> *peeling_htab,
   bool supportable_dr_alignment = vect_supportable_dr_alignment (dr, true);
 
   elem.npeel = npeel;
-  slot = peeling_htab->find (&elem);
+  slot = LOOP_VINFO_PEELING_HTAB (loop_vinfo)->find (&elem);
   if (slot)
     slot->count++;
   else
@@ -1349,7 +1102,8 @@ vect_peeling_hash_insert (hash_table<peel_info_hasher> *peeling_htab,
       slot->npeel = npeel;
       slot->dr = dr;
       slot->count = 1;
-      new_slot = peeling_htab->find_slot (slot, INSERT);
+      new_slot
+       	= LOOP_VINFO_PEELING_HTAB (loop_vinfo)->find_slot (slot, INSERT);
       *new_slot = slot;
     }
 
@@ -1380,54 +1134,6 @@ vect_peeling_hash_get_most_frequent (_vect_peel_info **slot,
   return 1;
 }
 
-/* Get the costs of peeling NPEEL iterations checking data access costs
-   for all data refs.  If UNKNOWN_MISALIGNMENT is true, we assume DR0's
-   misalignment will be zero after peeling.  */
-
-static void
-vect_get_peeling_costs_all_drs (vec<data_reference_p> datarefs,
-				struct data_reference *dr0,
-				unsigned int *inside_cost,
-				unsigned int *outside_cost,
-				stmt_vector_for_cost *body_cost_vec,
-				unsigned int npeel,
-				bool unknown_misalignment)
-{
-  unsigned i;
-  data_reference *dr;
-
-  FOR_EACH_VEC_ELT (datarefs, i, dr)
-    {
-      gimple *stmt = DR_STMT (dr);
-      stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-      if (!STMT_VINFO_RELEVANT_P (stmt_info))
-	continue;
-
-      /* For interleaving, only the alignment of the first access
-         matters.  */
-      if (STMT_VINFO_GROUPED_ACCESS (stmt_info)
-          && GROUP_FIRST_ELEMENT (stmt_info) != stmt)
-        continue;
-
-      /* Strided accesses perform only component accesses, alignment is
-         irrelevant for them.  */
-      if (STMT_VINFO_STRIDED_P (stmt_info)
-	  && !STMT_VINFO_GROUPED_ACCESS (stmt_info))
-	continue;
-
-      int save_misalignment;
-      save_misalignment = DR_MISALIGNMENT (dr);
-      if (npeel == 0)
-	;
-      else if (unknown_misalignment && dr == dr0)
-	SET_DR_MISALIGNMENT (dr, 0);
-      else
-	vect_update_misalignment_for_peel (dr, dr0, npeel);
-      vect_get_data_access_cost (dr, inside_cost, outside_cost,
-				 body_cost_vec);
-      SET_DR_MISALIGNMENT (dr, save_misalignment);
-    }
-}
 
 /* Traverse peeling hash table and calculate cost for each peeling option.
    Find the one with the lowest cost.  */
@@ -1437,28 +1143,41 @@ vect_peeling_hash_get_lowest_cost (_vect_peel_info **slot,
 				   _vect_peel_extended_info *min)
 {
   vect_peel_info elem = *slot;
-  int dummy;
-  unsigned int inside_cost = 0, outside_cost = 0;
-  gimple *stmt = DR_STMT (elem->dr);
+  int save_misalignment, dummy;
+  unsigned int inside_cost = 0, outside_cost = 0, i;
+  gimple stmt = DR_STMT (elem->dr);
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
-  stmt_vector_for_cost prologue_cost_vec, body_cost_vec,
-		       epilogue_cost_vec;
+  vec<data_reference_p> datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
+  struct data_reference *dr;
+  stmt_vector_for_cost prologue_cost_vec, body_cost_vec, epilogue_cost_vec;
 
   prologue_cost_vec.create (2);
   body_cost_vec.create (2);
   epilogue_cost_vec.create (2);
 
-  vect_get_peeling_costs_all_drs (LOOP_VINFO_DATAREFS (loop_vinfo),
-				  elem->dr, &inside_cost, &outside_cost,
-				  &body_cost_vec, elem->npeel, false);
+  FOR_EACH_VEC_ELT (datarefs, i, dr)
+    {
+      stmt = DR_STMT (dr);
+      stmt_info = vinfo_for_stmt (stmt);
+      /* For interleaving, only the alignment of the first access
+         matters.  */
+      if (STMT_VINFO_GROUPED_ACCESS (stmt_info)
+          && GROUP_FIRST_ELEMENT (stmt_info) != stmt)
+        continue;
 
-  body_cost_vec.release ();
+      save_misalignment = DR_MISALIGNMENT (dr);
+      vect_update_misalignment_for_peel (dr, elem->dr, elem->npeel);
+      vect_get_data_access_cost (dr, &inside_cost, &outside_cost,
+				 &body_cost_vec);
+      SET_DR_MISALIGNMENT (dr, save_misalignment);
+    }
 
+  auto_vec<stmt_info_for_cost> scalar_cost_vec;
+  vect_get_single_scalar_iteration_cost (loop_vinfo, &scalar_cost_vec);
   outside_cost += vect_get_known_peeling_cost
     (loop_vinfo, elem->npeel, &dummy,
-     &LOOP_VINFO_SCALAR_ITERATION_COST (loop_vinfo),
-     &prologue_cost_vec, &epilogue_cost_vec);
+     &scalar_cost_vec, &prologue_cost_vec, &epilogue_cost_vec);
 
   /* Prologue and epilogue costs are added to the target model later.
      These costs depend only on the scalar iteration cost, the
@@ -1468,15 +1187,17 @@ vect_peeling_hash_get_lowest_cost (_vect_peel_info **slot,
   epilogue_cost_vec.release ();
 
   if (inside_cost < min->inside_cost
-      || (inside_cost == min->inside_cost
-	  && outside_cost < min->outside_cost))
+      || (inside_cost == min->inside_cost && outside_cost < min->outside_cost))
     {
       min->inside_cost = inside_cost;
       min->outside_cost = outside_cost;
+      min->body_cost_vec.release ();
+      min->body_cost_vec = body_cost_vec;
       min->peel_info.dr = elem->dr;
       min->peel_info.npeel = elem->npeel;
-      min->peel_info.count = elem->count;
     }
+  else
+    body_cost_vec.release ();
 
   return 1;
 }
@@ -1486,79 +1207,37 @@ vect_peeling_hash_get_lowest_cost (_vect_peel_info **slot,
    choosing an option with the lowest cost (if cost model is enabled) or the
    option that aligns as many accesses as possible.  */
 
-static struct _vect_peel_extended_info
-vect_peeling_hash_choose_best_peeling (hash_table<peel_info_hasher> *peeling_htab,
-				       loop_vec_info loop_vinfo)
+static struct data_reference *
+vect_peeling_hash_choose_best_peeling (loop_vec_info loop_vinfo,
+                                       unsigned int *npeel,
+				       stmt_vector_for_cost *body_cost_vec)
 {
    struct _vect_peel_extended_info res;
 
    res.peel_info.dr = NULL;
+   res.body_cost_vec = stmt_vector_for_cost ();
 
    if (!unlimited_cost_model (LOOP_VINFO_LOOP (loop_vinfo)))
      {
        res.inside_cost = INT_MAX;
        res.outside_cost = INT_MAX;
-       peeling_htab->traverse <_vect_peel_extended_info *,
-	   		       vect_peeling_hash_get_lowest_cost> (&res);
+       LOOP_VINFO_PEELING_HTAB (loop_vinfo)
+           ->traverse <_vect_peel_extended_info *,
+                       vect_peeling_hash_get_lowest_cost> (&res);
      }
    else
      {
        res.peel_info.count = 0;
-       peeling_htab->traverse <_vect_peel_extended_info *,
-	   		       vect_peeling_hash_get_most_frequent> (&res);
-       res.inside_cost = 0;
-       res.outside_cost = 0;
+       LOOP_VINFO_PEELING_HTAB (loop_vinfo)
+           ->traverse <_vect_peel_extended_info *,
+                       vect_peeling_hash_get_most_frequent> (&res);
      }
 
-   return res;
+   *npeel = res.peel_info.npeel;
+   *body_cost_vec = res.body_cost_vec;
+   return res.peel_info.dr;
 }
 
-/* Return true if the new peeling NPEEL is supported.  */
-
-static bool
-vect_peeling_supportable (loop_vec_info loop_vinfo, struct data_reference *dr0,
-			  unsigned npeel)
-{
-  unsigned i;
-  struct data_reference *dr = NULL;
-  vec<data_reference_p> datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
-  gimple *stmt;
-  stmt_vec_info stmt_info;
-  enum dr_alignment_support supportable_dr_alignment;
-
-  /* Ensure that all data refs can be vectorized after the peel.  */
-  FOR_EACH_VEC_ELT (datarefs, i, dr)
-    {
-      int save_misalignment;
-
-      if (dr == dr0)
-	continue;
-
-      stmt = DR_STMT (dr);
-      stmt_info = vinfo_for_stmt (stmt);
-      /* For interleaving, only the alignment of the first access
-	 matters.  */
-      if (STMT_VINFO_GROUPED_ACCESS (stmt_info)
-	  && GROUP_FIRST_ELEMENT (stmt_info) != stmt)
-	continue;
-
-      /* Strided accesses perform only component accesses, alignment is
-	 irrelevant for them.  */
-      if (STMT_VINFO_STRIDED_P (stmt_info)
-	  && !STMT_VINFO_GROUPED_ACCESS (stmt_info))
-	continue;
-
-      save_misalignment = DR_MISALIGNMENT (dr);
-      vect_update_misalignment_for_peel (dr, dr0, npeel);
-      supportable_dr_alignment = vect_supportable_dr_alignment (dr, false);
-      SET_DR_MISALIGNMENT (dr, save_misalignment);
-
-      if (!supportable_dr_alignment)
-	return false;
-    }
-
-  return true;
-}
 
 /* Function vect_enhance_data_refs_alignment
 
@@ -1663,26 +1342,19 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
   bool do_peeling = false;
   bool do_versioning = false;
   bool stat;
-  gimple *stmt;
+  gimple stmt;
   stmt_vec_info stmt_info;
   unsigned int npeel = 0;
-  bool one_misalignment_known = false;
-  bool one_misalignment_unknown = false;
-  bool one_dr_unsupportable = false;
-  struct data_reference *unsupportable_dr = NULL;
-  poly_uint64 vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
+  bool all_misalignments_unknown = true;
+  unsigned int vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
   unsigned possible_npeel_number = 1;
   tree vectype;
-  unsigned int mis, same_align_drs_max = 0;
-  hash_table<peel_info_hasher> peeling_htab (1);
+  unsigned int nelements, mis, same_align_drs_max = 0;
+  stmt_vector_for_cost body_cost_vec = stmt_vector_for_cost ();
 
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
                      "=== vect_enhance_data_refs_alignment ===\n");
-
-  /* Reset data so we can safely be called multiple times.  */
-  LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo).truncate (0);
-  LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo) = 0;
 
   /* While cost model enhancements are expected in the future, the high level
      view of the code at this time is as follows:
@@ -1734,10 +1406,9 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
       if (integer_zerop (DR_STEP (dr)))
 	continue;
 
-      /* Strided accesses perform only component accesses, alignment is
+      /* Strided loads perform only component accesses, alignment is
 	 irrelevant for them.  */
-      if (STMT_VINFO_STRIDED_P (stmt_info)
-	  && !STMT_VINFO_GROUPED_ACCESS (stmt_info))
+      if (STMT_VINFO_STRIDE_LOAD_P (stmt_info))
 	continue;
 
       supportable_dr_alignment = vect_supportable_dr_alignment (dr, true);
@@ -1746,53 +1417,60 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
         {
           if (known_alignment_for_access_p (dr))
             {
-	      unsigned int npeel_tmp = 0;
+              unsigned int npeel_tmp;
 	      bool negative = tree_int_cst_compare (DR_STEP (dr),
 						    size_zero_node) < 0;
 
-	      vectype = STMT_VINFO_VECTYPE (stmt_info);
-	      unsigned int target_align = DR_TARGET_ALIGNMENT (dr);
-	      unsigned int dr_size = vect_get_scalar_dr_size (dr);
-	      mis = (negative ? DR_MISALIGNMENT (dr) : -DR_MISALIGNMENT (dr));
-	      if (DR_MISALIGNMENT (dr) != 0)
-		npeel_tmp = (mis & (target_align - 1)) / dr_size;
+              /* Save info about DR in the hash table.  */
+              if (!LOOP_VINFO_PEELING_HTAB (loop_vinfo))
+                LOOP_VINFO_PEELING_HTAB (loop_vinfo)
+		  = new hash_table<peel_info_hasher> (1);
+
+              vectype = STMT_VINFO_VECTYPE (stmt_info);
+              nelements = TYPE_VECTOR_SUBPARTS (vectype);
+              mis = DR_MISALIGNMENT (dr) / GET_MODE_SIZE (TYPE_MODE (
+                                                TREE_TYPE (DR_REF (dr))));
+              npeel_tmp = (negative
+			   ? (mis - nelements) : (nelements - mis))
+		  & (nelements - 1);
 
               /* For multiple types, it is possible that the bigger type access
                  will have more than one peeling option.  E.g., a loop with two
                  types: one of size (vector size / 4), and the other one of
                  size (vector size / 8).  Vectorization factor will 8.  If both
-                 accesses are misaligned by 3, the first one needs one scalar
+                 access are misaligned by 3, the first one needs one scalar
                  iteration to be aligned, and the second one needs 5.  But the
-		 first one will be aligned also by peeling 5 scalar
+                 the first one will be aligned also by peeling 5 scalar
                  iterations, and in that case both accesses will be aligned.
                  Hence, except for the immediate peeling amount, we also want
                  to try to add full vector size, while we don't exceed
                  vectorization factor.
-                 We do this automatically for cost model, since we calculate
-		 cost for every peeling option.  */
+                 We do this automtically for cost model, since we calculate cost
+                 for every peeling option.  */
               if (unlimited_cost_model (LOOP_VINFO_LOOP (loop_vinfo)))
-		{
-		  poly_uint64 nscalars = (STMT_SLP_TYPE (stmt_info)
-					  ? vf * GROUP_SIZE (stmt_info) : vf);
-		  possible_npeel_number
-		    = vect_get_num_vectors (nscalars, vectype);
+                possible_npeel_number = vf /nelements;
 
-		  /* NPEEL_TMP is 0 when there is no misalignment, but also
-		     allow peeling NELEMENTS.  */
-		  if (DR_MISALIGNMENT (dr) == 0)
-		    possible_npeel_number++;
-		}
-
-	      /* Save info about DR in the hash table.  Also include peeling
-	         amounts according to the explanation above.  */
-              for (j = 0; j < possible_npeel_number; j++)
+              /* Handle the aligned case. We may decide to align some other
+                 access, making DR unaligned.  */
+              if (DR_MISALIGNMENT (dr) == 0)
                 {
-                  vect_peeling_hash_insert (&peeling_htab, loop_vinfo,
-					    dr, npeel_tmp);
-		  npeel_tmp += target_align / dr_size;
+                  npeel_tmp = 0;
+                  if (unlimited_cost_model (LOOP_VINFO_LOOP (loop_vinfo)))
+                    possible_npeel_number++;
                 }
 
-	      one_misalignment_known = true;
+              for (j = 0; j < possible_npeel_number; j++)
+                {
+                  gcc_assert (npeel_tmp <= vf);
+                  vect_peeling_hash_insert (loop_vinfo, dr, npeel_tmp);
+                  npeel_tmp += nelements;
+                }
+
+              all_misalignments_unknown = false;
+              /* Data-ref that was chosen for the case that all the
+                 misalignments are unknown is not relevant anymore, since we
+                 have a data-ref with known alignment.  */
+              dr0 = NULL;
             }
           else
             {
@@ -1800,42 +1478,45 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
                  peeling for data-ref that has the maximum number of data-refs
                  with the same alignment, unless the target prefers to align
                  stores over load.  */
-	      unsigned same_align_drs
-		= STMT_VINFO_SAME_ALIGN_REFS (stmt_info).length ();
-	      if (!dr0
-		  || same_align_drs_max < same_align_drs)
-		{
-		  same_align_drs_max = same_align_drs;
-		  dr0 = dr;
-		}
-	      /* For data-refs with the same number of related
-		 accesses prefer the one where the misalign
-		 computation will be invariant in the outermost loop.  */
-	      else if (same_align_drs_max == same_align_drs)
-		{
-		  struct loop *ivloop0, *ivloop;
-		  ivloop0 = outermost_invariant_loop_for_expr
-		    (loop, DR_BASE_ADDRESS (dr0));
-		  ivloop = outermost_invariant_loop_for_expr
-		    (loop, DR_BASE_ADDRESS (dr));
-		  if ((ivloop && !ivloop0)
-		      || (ivloop && ivloop0
-			  && flow_loop_nested_p (ivloop, ivloop0)))
-		    dr0 = dr;
-		}
+              if (all_misalignments_unknown)
+                {
+		  unsigned same_align_drs
+		    = STMT_VINFO_SAME_ALIGN_REFS (stmt_info).length ();
+                  if (!dr0
+		      || same_align_drs_max < same_align_drs)
+                    {
+                      same_align_drs_max = same_align_drs;
+                      dr0 = dr;
+                    }
+		  /* For data-refs with the same number of related
+		     accesses prefer the one where the misalign
+		     computation will be invariant in the outermost loop.  */
+		  else if (same_align_drs_max == same_align_drs)
+		    {
+		      struct loop *ivloop0, *ivloop;
+		      ivloop0 = outermost_invariant_loop_for_expr
+			  (loop, DR_BASE_ADDRESS (dr0));
+		      ivloop = outermost_invariant_loop_for_expr
+			  (loop, DR_BASE_ADDRESS (dr));
+		      if ((ivloop && !ivloop0)
+			  || (ivloop && ivloop0
+			      && flow_loop_nested_p (ivloop, ivloop0)))
+			dr0 = dr;
+		    }
 
-	      one_misalignment_unknown = true;
+                  if (!first_store && DR_IS_WRITE (dr))
+                    first_store = dr;
+                }
 
-	      /* Check for data refs with unsupportable alignment that
-	         can be peeled.  */
-	      if (!supportable_dr_alignment)
-	      {
-		one_dr_unsupportable = true;
-		unsupportable_dr = dr;
-	      }
-
-	      if (!first_store && DR_IS_WRITE (dr))
-		first_store = dr;
+              /* If there are both known and unknown misaligned accesses in the
+                 loop, we choose peeling amount according to the known
+                 accesses.  */
+              if (!supportable_dr_alignment)
+                {
+                  dr0 = dr;
+                  if (!first_store && DR_IS_WRITE (dr))
+                    first_store = dr;
+                }
             }
         }
       else
@@ -1852,157 +1533,116 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 
   /* Check if we can possibly peel the loop.  */
   if (!vect_can_advance_ivs_p (loop_vinfo)
-      || !slpeel_can_duplicate_loop_p (loop, single_exit (loop))
-      || loop->inner)
+      || !slpeel_can_duplicate_loop_p (loop, single_exit (loop)))
     do_peeling = false;
 
-  struct _vect_peel_extended_info peel_for_known_alignment;
-  struct _vect_peel_extended_info peel_for_unknown_alignment;
-  struct _vect_peel_extended_info best_peel;
-
-  peel_for_unknown_alignment.inside_cost = INT_MAX;
-  peel_for_unknown_alignment.outside_cost = INT_MAX;
-  peel_for_unknown_alignment.peel_info.count = 0;
+  /* If we don't know how many times the peeling loop will run
+     assume it will run VF-1 times and disable peeling if the remaining
+     iters are less than the vectorization factor.  */
+  if (do_peeling
+      && all_misalignments_unknown
+      && LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
+      && (LOOP_VINFO_INT_NITERS (loop_vinfo)
+	  < 2 * (unsigned) LOOP_VINFO_VECT_FACTOR (loop_vinfo) - 1))
+    do_peeling = false;
 
   if (do_peeling
-      && one_misalignment_unknown)
+      && all_misalignments_unknown
+      && vect_supportable_dr_alignment (dr0, false))
     {
       /* Check if the target requires to prefer stores over loads, i.e., if
          misaligned stores are more expensive than misaligned loads (taking
          drs with same alignment into account).  */
-      unsigned int load_inside_cost = 0;
-      unsigned int load_outside_cost = 0;
-      unsigned int store_inside_cost = 0;
-      unsigned int store_outside_cost = 0;
-      unsigned int estimated_npeels = vect_vf_for_cost (loop_vinfo) / 2;
-
-      stmt_vector_for_cost dummy;
-      dummy.create (2);
-      vect_get_peeling_costs_all_drs (datarefs, dr0,
-				      &load_inside_cost,
-				      &load_outside_cost,
-				      &dummy, estimated_npeels, true);
-      dummy.release ();
-
-      if (first_store)
-	{
+      if (first_store && DR_IS_READ (dr0))
+        {
+          unsigned int load_inside_cost = 0, load_outside_cost = 0;
+          unsigned int store_inside_cost = 0, store_outside_cost = 0;
+          unsigned int load_inside_penalty = 0, load_outside_penalty = 0;
+          unsigned int store_inside_penalty = 0, store_outside_penalty = 0;
+	  stmt_vector_for_cost dummy;
 	  dummy.create (2);
-	  vect_get_peeling_costs_all_drs (datarefs, first_store,
-					  &store_inside_cost,
-					  &store_outside_cost,
-					  &dummy, estimated_npeels, true);
+
+          vect_get_data_access_cost (dr0, &load_inside_cost, &load_outside_cost,
+				     &dummy);
+          vect_get_data_access_cost (first_store, &store_inside_cost,
+				     &store_outside_cost, &dummy);
+
 	  dummy.release ();
-	}
-      else
-	{
-	  store_inside_cost = INT_MAX;
-	  store_outside_cost = INT_MAX;
-	}
 
-      if (load_inside_cost > store_inside_cost
-	  || (load_inside_cost == store_inside_cost
-	      && load_outside_cost > store_outside_cost))
-	{
-	  dr0 = first_store;
-	  peel_for_unknown_alignment.inside_cost = store_inside_cost;
-	  peel_for_unknown_alignment.outside_cost = store_outside_cost;
-	}
-      else
-	{
-	  peel_for_unknown_alignment.inside_cost = load_inside_cost;
-	  peel_for_unknown_alignment.outside_cost = load_outside_cost;
-	}
+          /* Calculate the penalty for leaving FIRST_STORE unaligned (by
+             aligning the load DR0).  */
+          load_inside_penalty = store_inside_cost;
+          load_outside_penalty = store_outside_cost;
+          for (i = 0;
+	       STMT_VINFO_SAME_ALIGN_REFS (vinfo_for_stmt (
+			  DR_STMT (first_store))).iterate (i, &dr);
+               i++)
+            if (DR_IS_READ (dr))
+              {
+                load_inside_penalty += load_inside_cost;
+                load_outside_penalty += load_outside_cost;
+              }
+            else
+              {
+                load_inside_penalty += store_inside_cost;
+                load_outside_penalty += store_outside_cost;
+              }
 
-      stmt_vector_for_cost prologue_cost_vec, epilogue_cost_vec;
-      prologue_cost_vec.create (2);
-      epilogue_cost_vec.create (2);
+          /* Calculate the penalty for leaving DR0 unaligned (by
+             aligning the FIRST_STORE).  */
+          store_inside_penalty = load_inside_cost;
+          store_outside_penalty = load_outside_cost;
+          for (i = 0;
+	       STMT_VINFO_SAME_ALIGN_REFS (vinfo_for_stmt (
+		      DR_STMT (dr0))).iterate (i, &dr);
+               i++)
+            if (DR_IS_READ (dr))
+              {
+                store_inside_penalty += load_inside_cost;
+                store_outside_penalty += load_outside_cost;
+              }
+            else
+              {
+                store_inside_penalty += store_inside_cost;
+                store_outside_penalty += store_outside_cost;
+              }
 
-      int dummy2;
-      peel_for_unknown_alignment.outside_cost += vect_get_known_peeling_cost
-	(loop_vinfo, estimated_npeels, &dummy2,
-	 &LOOP_VINFO_SCALAR_ITERATION_COST (loop_vinfo),
-	 &prologue_cost_vec, &epilogue_cost_vec);
+          if (load_inside_penalty > store_inside_penalty
+              || (load_inside_penalty == store_inside_penalty
+                  && load_outside_penalty > store_outside_penalty))
+            dr0 = first_store;
+        }
 
-      prologue_cost_vec.release ();
-      epilogue_cost_vec.release ();
-
-      peel_for_unknown_alignment.peel_info.count = 1
-	+ STMT_VINFO_SAME_ALIGN_REFS
-	(vinfo_for_stmt (DR_STMT (dr0))).length ();
+      /* In case there are only loads with different unknown misalignments, use
+         peeling only if it may help to align other accesses in the loop.  */
+      if (!first_store
+	  && !STMT_VINFO_SAME_ALIGN_REFS (
+		  vinfo_for_stmt (DR_STMT (dr0))).length ()
+          && vect_supportable_dr_alignment (dr0, false)
+              != dr_unaligned_supported)
+        do_peeling = false;
     }
 
-  peel_for_unknown_alignment.peel_info.npeel = 0;
-  peel_for_unknown_alignment.peel_info.dr = dr0;
-
-  best_peel = peel_for_unknown_alignment;
-
-  peel_for_known_alignment.inside_cost = INT_MAX;
-  peel_for_known_alignment.outside_cost = INT_MAX;
-  peel_for_known_alignment.peel_info.count = 0;
-  peel_for_known_alignment.peel_info.dr = NULL;
-
-  if (do_peeling && one_misalignment_known)
+  if (do_peeling && !dr0)
     {
       /* Peeling is possible, but there is no data access that is not supported
-         unless aligned.  So we try to choose the best possible peeling from
-	 the hash table.  */
-      peel_for_known_alignment = vect_peeling_hash_choose_best_peeling
-	(&peeling_htab, loop_vinfo);
-    }
+         unless aligned. So we try to choose the best possible peeling.  */
 
-  /* Compare costs of peeling for known and unknown alignment. */
-  if (peel_for_known_alignment.peel_info.dr != NULL
-      && peel_for_unknown_alignment.inside_cost
-      >= peel_for_known_alignment.inside_cost)
-    {
-      best_peel = peel_for_known_alignment;
+      /* We should get here only if there are drs with known misalignment.  */
+      gcc_assert (!all_misalignments_unknown);
 
-      /* If the best peeling for known alignment has NPEEL == 0, perform no
-         peeling at all except if there is an unsupportable dr that we can
-         align.  */
-      if (best_peel.peel_info.npeel == 0 && !one_dr_unsupportable)
-	do_peeling = false;
-    }
+      /* Choose the best peeling from the hash table.  */
+      dr0 = vect_peeling_hash_choose_best_peeling (loop_vinfo, &npeel,
+						   &body_cost_vec);
+      if (!dr0 || !npeel)
+        do_peeling = false;
 
-  /* If there is an unsupportable data ref, prefer this over all choices so far
-     since we'd have to discard a chosen peeling except when it accidentally
-     aligned the unsupportable data ref.  */
-  if (one_dr_unsupportable)
-    dr0 = unsupportable_dr;
-  else if (do_peeling)
-    {
-      /* Calculate the penalty for no peeling, i.e. leaving everything as-is.
-	 TODO: Use nopeel_outside_cost or get rid of it?  */
-      unsigned nopeel_inside_cost = 0;
-      unsigned nopeel_outside_cost = 0;
-
-      stmt_vector_for_cost dummy;
-      dummy.create (2);
-      vect_get_peeling_costs_all_drs (datarefs, NULL, &nopeel_inside_cost,
-				      &nopeel_outside_cost, &dummy, 0, false);
-      dummy.release ();
-
-      /* Add epilogue costs.  As we do not peel for alignment here, no prologue
-	 costs will be recorded.  */
-      stmt_vector_for_cost prologue_cost_vec, epilogue_cost_vec;
-      prologue_cost_vec.create (2);
-      epilogue_cost_vec.create (2);
-
-      int dummy2;
-      nopeel_outside_cost += vect_get_known_peeling_cost
-	(loop_vinfo, 0, &dummy2,
-	 &LOOP_VINFO_SCALAR_ITERATION_COST (loop_vinfo),
-	 &prologue_cost_vec, &epilogue_cost_vec);
-
-      prologue_cost_vec.release ();
-      epilogue_cost_vec.release ();
-
-      npeel = best_peel.peel_info.npeel;
-      dr0 = best_peel.peel_info.dr;
-
-      /* If no peeling is not more expensive than the best peeling we
-	 have so far, don't perform any peeling.  */
-      if (nopeel_inside_cost <= best_peel.inside_cost)
+      /* If peeling by npeel will result in a remaining loop not iterating
+         enough to be vectorized then do not peel.  */
+      if (do_peeling
+	  && LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
+	  && (LOOP_VINFO_INT_NITERS (loop_vinfo)
+	      < LOOP_VINFO_VECT_FACTOR (loop_vinfo) + npeel))
 	do_peeling = false;
     }
 
@@ -2011,6 +1651,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
       stmt = DR_STMT (dr0);
       stmt_info = vinfo_for_stmt (stmt);
       vectype = STMT_VINFO_VECTYPE (stmt_info);
+      nelements = TYPE_VECTOR_SUBPARTS (vectype);
 
       if (known_alignment_for_access_p (dr0))
         {
@@ -2023,10 +1664,10 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
                  updating DR_MISALIGNMENT values.  The peeling factor is the
                  vectorization factor minus the misalignment as an element
                  count.  */
-	      mis = negative ? DR_MISALIGNMENT (dr0) : -DR_MISALIGNMENT (dr0);
-	      unsigned int target_align = DR_TARGET_ALIGNMENT (dr0);
-	      npeel = ((mis & (target_align - 1))
-		       / vect_get_scalar_dr_size (dr0));
+              mis = DR_MISALIGNMENT (dr0);
+              mis /= GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr0))));
+              npeel = ((negative ? mis - nelements : nelements - mis)
+		       & (nelements - 1));
             }
 
 	  /* For interleaved data access every iteration accesses all the
@@ -2041,21 +1682,51 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
                              "Try peeling by %d\n", npeel);
         }
 
-      /* Ensure that all datarefs can be vectorized after the peel.  */
-      if (!vect_peeling_supportable (loop_vinfo, dr0, npeel))
-	do_peeling = false;
+      /* Ensure that all data refs can be vectorized after the peel.  */
+      FOR_EACH_VEC_ELT (datarefs, i, dr)
+        {
+          int save_misalignment;
 
-      /* Check if all datarefs are supportable and log.  */
+	  if (dr == dr0)
+	    continue;
+
+	  stmt = DR_STMT (dr);
+	  stmt_info = vinfo_for_stmt (stmt);
+	  /* For interleaving, only the alignment of the first access
+            matters.  */
+	  if (STMT_VINFO_GROUPED_ACCESS (stmt_info)
+	      && GROUP_FIRST_ELEMENT (stmt_info) != stmt)
+	    continue;
+
+	  /* Strided loads perform only component accesses, alignment is
+	     irrelevant for them.  */
+	  if (STMT_VINFO_STRIDE_LOAD_P (stmt_info))
+	    continue;
+
+	  save_misalignment = DR_MISALIGNMENT (dr);
+	  vect_update_misalignment_for_peel (dr, dr0, npeel);
+	  supportable_dr_alignment = vect_supportable_dr_alignment (dr, false);
+	  SET_DR_MISALIGNMENT (dr, save_misalignment);
+
+	  if (!supportable_dr_alignment)
+	    {
+	      do_peeling = false;
+	      break;
+	    }
+	}
+
       if (do_peeling && known_alignment_for_access_p (dr0) && npeel == 0)
         {
-          stat = vect_verify_datarefs_alignment (loop_vinfo);
+          stat = vect_verify_datarefs_alignment (loop_vinfo, NULL);
           if (!stat)
             do_peeling = false;
           else
-	    return stat;
+	    {
+	      body_cost_vec.release ();
+	      return stat;
+	    }
         }
 
-      /* Cost model #1 - honor --param vect-max-peeling-for-alignment.  */
       if (do_peeling)
         {
           unsigned max_allowed_peel
@@ -2065,8 +1736,10 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
               unsigned max_peel = npeel;
               if (max_peel == 0)
                 {
-		  unsigned int target_align = DR_TARGET_ALIGNMENT (dr0);
-		  max_peel = target_align / vect_get_scalar_dr_size (dr0) - 1;
+                  gimple dr_stmt = DR_STMT (dr0);
+                  stmt_vec_info vinfo = vinfo_for_stmt (dr_stmt);
+                  tree vtype = STMT_VINFO_VECTYPE (vinfo);
+                  max_peel = TYPE_VECTOR_SUBPARTS (vtype) - 1;
                 }
               if (max_peel > max_allowed_peel)
                 {
@@ -2077,20 +1750,6 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
                 }
             }
         }
-
-      /* Cost model #2 - if peeling may result in a remaining loop not
-	 iterating enough to be vectorized then do not peel.  Since this
-	 is a cost heuristic rather than a correctness decision, use the
-	 most likely runtime value for variable vectorization factors.  */
-      if (do_peeling
-	  && LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo))
-	{
-	  unsigned int assumed_vf = vect_vf_for_cost (loop_vinfo);
-	  unsigned int max_peel = npeel == 0 ? assumed_vf - 1 : npeel;
-	  if ((unsigned HOST_WIDE_INT) LOOP_VINFO_INT_NITERS (loop_vinfo)
-	      < assumed_vf + max_peel)
-	    do_peeling = false;
-	}
 
       if (do_peeling)
         {
@@ -2103,16 +1762,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
              misalignment of DR_i must be set to unknown.  */
 	  FOR_EACH_VEC_ELT (datarefs, i, dr)
 	    if (dr != dr0)
-	      {
-		/* Strided accesses perform only component accesses, alignment
-		   is irrelevant for them.  */
-		stmt_info = vinfo_for_stmt (DR_STMT (dr));
-		if (STMT_VINFO_STRIDED_P (stmt_info)
-		    && !STMT_VINFO_GROUPED_ACCESS (stmt_info))
-		  continue;
-
-		vect_update_misalignment_for_peel (dr, dr0, npeel);
-	      }
+	      vect_update_misalignment_for_peel (dr, dr0, npeel);
 
           LOOP_VINFO_UNALIGNED_DR (loop_vinfo) = dr0;
           if (npeel)
@@ -2128,15 +1778,18 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
               dump_printf_loc (MSG_NOTE, vect_location,
                                "Peeling for alignment will be applied.\n");
             }
-
 	  /* The inside-loop cost will be accounted for in vectorizable_load
 	     and vectorizable_store correctly with adjusted alignments.
 	     Drop the body_cst_vec on the floor here.  */
-	  stat = vect_verify_datarefs_alignment (loop_vinfo);
+	  body_cost_vec.release ();
+
+	  stat = vect_verify_datarefs_alignment (loop_vinfo, NULL);
 	  gcc_assert (stat);
           return stat;
         }
     }
+
+  body_cost_vec.release ();
 
   /* (2) Versioning to force alignment.  */
 
@@ -2165,21 +1818,16 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 		  && GROUP_FIRST_ELEMENT (stmt_info) != stmt))
 	    continue;
 
-	  if (STMT_VINFO_STRIDED_P (stmt_info))
-	    {
-	      /* Strided loads perform only component accesses, alignment is
-		 irrelevant for them.  */
-	      if (!STMT_VINFO_GROUPED_ACCESS (stmt_info))
-		continue;
-	      do_versioning = false;
-	      break;
-	    }
+	  /* Strided loads perform only component accesses, alignment is
+	     irrelevant for them.  */
+	  if (STMT_VINFO_STRIDE_LOAD_P (stmt_info))
+	    continue;
 
 	  supportable_dr_alignment = vect_supportable_dr_alignment (dr, false);
 
           if (!supportable_dr_alignment)
             {
-	      gimple *stmt;
+              gimple stmt;
               int mask;
               tree vectype;
 
@@ -2195,22 +1843,11 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
               vectype = STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt));
               gcc_assert (vectype);
 
-	      /* At present we don't support versioning for alignment
-		 with variable VF, since there's no guarantee that the
-		 VF is a power of two.  We could relax this if we added
-		 a way of enforcing a power-of-two size.  */
-	      unsigned HOST_WIDE_INT size;
-	      if (!GET_MODE_SIZE (TYPE_MODE (vectype)).is_constant (&size))
-		{
-		  do_versioning = false;
-		  break;
-		}
-
               /* The rightmost bits of an aligned address must be zeros.
                  Construct the mask needed for this test.  For example,
                  GET_MODE_SIZE for the vector mode V4SI is 16 bytes so the
                  mask must be 15 = 0xf. */
-	      mask = size - 1;
+              mask = GET_MODE_SIZE (TYPE_MODE (vectype)) - 1;
 
               /* FORNOW: use the same mask to test all potentially unaligned
                  references in the loop.  The vectorizer currently supports
@@ -2234,9 +1871,9 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 
   if (do_versioning)
     {
-      vec<gimple *> may_misalign_stmts
+      vec<gimple> may_misalign_stmts
         = LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo);
-      gimple *stmt;
+      gimple stmt;
 
       /* It can now be assumed that the data references in the statements
          in LOOP_VINFO_MAY_MISALIGN_STMTS will be aligned in the version
@@ -2258,7 +1895,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
       /* Peeling and versioning can't be done together at this time.  */
       gcc_assert (! (do_peeling && do_versioning));
 
-      stat = vect_verify_datarefs_alignment (loop_vinfo);
+      stat = vect_verify_datarefs_alignment (loop_vinfo, NULL);
       gcc_assert (stat);
       return stat;
     }
@@ -2266,7 +1903,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
   /* This point is reached if neither peeling nor versioning is being done.  */
   gcc_assert (! (do_peeling || do_versioning));
 
-  stat = vect_verify_datarefs_alignment (loop_vinfo);
+  stat = vect_verify_datarefs_alignment (loop_vinfo, NULL);
   return stat;
 }
 
@@ -2277,12 +1914,20 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
    vectorization factor.  */
 
 static void
-vect_find_same_alignment_drs (struct data_dependence_relation *ddr)
+vect_find_same_alignment_drs (struct data_dependence_relation *ddr,
+			      loop_vec_info loop_vinfo)
 {
+  unsigned int i;
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
   struct data_reference *dra = DDR_A (ddr);
   struct data_reference *drb = DDR_B (ddr);
   stmt_vec_info stmtinfo_a = vinfo_for_stmt (DR_STMT (dra));
   stmt_vec_info stmtinfo_b = vinfo_for_stmt (DR_STMT (drb));
+  int dra_size = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dra))));
+  int drb_size = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (drb))));
+  lambda_vector dist_v;
+  unsigned int loop_depth;
 
   if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
     return;
@@ -2290,38 +1935,48 @@ vect_find_same_alignment_drs (struct data_dependence_relation *ddr)
   if (dra == drb)
     return;
 
-  if (!operand_equal_p (DR_BASE_ADDRESS (dra), DR_BASE_ADDRESS (drb), 0)
-      || !operand_equal_p (DR_OFFSET (dra), DR_OFFSET (drb), 0)
-      || !operand_equal_p (DR_STEP (dra), DR_STEP (drb), 0))
+  if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
     return;
 
-  /* Two references with distance zero have the same alignment.  */
-  poly_offset_int diff = (wi::to_poly_offset (DR_INIT (dra))
-			  - wi::to_poly_offset (DR_INIT (drb)));
-  if (maybe_ne (diff, 0))
-    {
-      /* Get the wider of the two alignments.  */
-      unsigned int align_a = (vect_calculate_target_alignment (dra)
-			      / BITS_PER_UNIT);
-      unsigned int align_b = (vect_calculate_target_alignment (drb)
-			      / BITS_PER_UNIT);
-      unsigned int max_align = MAX (align_a, align_b);
+  /* Loop-based vectorization and known data dependence.  */
+  if (DDR_NUM_DIST_VECTS (ddr) == 0)
+    return;
 
-      /* Require the gap to be a multiple of the larger vector alignment.  */
-      if (!multiple_p (diff, max_align))
-	return;
-    }
+  /* Data-dependence analysis reports a distance vector of zero
+     for data-references that overlap only in the first iteration
+     but have different sign step (see PR45764).
+     So as a sanity check require equal DR_STEP.  */
+  if (!operand_equal_p (DR_STEP (dra), DR_STEP (drb), 0))
+    return;
 
-  STMT_VINFO_SAME_ALIGN_REFS (stmtinfo_a).safe_push (drb);
-  STMT_VINFO_SAME_ALIGN_REFS (stmtinfo_b).safe_push (dra);
-  if (dump_enabled_p ())
+  loop_depth = index_in_loop_nest (loop->num, DDR_LOOP_NEST (ddr));
+  FOR_EACH_VEC_ELT (DDR_DIST_VECTS (ddr), i, dist_v)
     {
-      dump_printf_loc (MSG_NOTE, vect_location,
-		       "accesses have the same alignment: ");
-      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dra));
-      dump_printf (MSG_NOTE,  " and ");
-      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (drb));
-      dump_printf (MSG_NOTE, "\n");
+      int dist = dist_v[loop_depth];
+
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE, vect_location,
+	                 "dependence distance  = %d.\n", dist);
+
+      /* Same loop iteration.  */
+      if (dist == 0
+	  || (dist % vectorization_factor == 0 && dra_size == drb_size))
+	{
+	  /* Two references with distance zero have the same alignment.  */
+	  STMT_VINFO_SAME_ALIGN_REFS (stmtinfo_a).safe_push (drb);
+	  STMT_VINFO_SAME_ALIGN_REFS (stmtinfo_b).safe_push (dra);
+	  if (dump_enabled_p ())
+	    {
+	      dump_printf_loc (MSG_NOTE, vect_location,
+	                       "accesses have the same alignment.\n");
+	      dump_printf (MSG_NOTE,
+	                   "dependence distance modulo vf == 0 between ");
+	      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dra));
+	      dump_printf (MSG_NOTE,  " and ");
+	      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (drb));
+	      dump_printf (MSG_NOTE, "\n");
+	    }
+	}
     }
 }
 
@@ -2332,7 +1987,8 @@ vect_find_same_alignment_drs (struct data_dependence_relation *ddr)
    Return FALSE if a data reference is found that cannot be vectorized.  */
 
 bool
-vect_analyze_data_refs_alignment (loop_vec_info vinfo)
+vect_analyze_data_refs_alignment (loop_vec_info loop_vinfo,
+                                  bb_vec_info bb_vinfo)
 {
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
@@ -2340,96 +1996,24 @@ vect_analyze_data_refs_alignment (loop_vec_info vinfo)
 
   /* Mark groups of data references with same alignment using
      data dependence information.  */
-  vec<ddr_p> ddrs = vinfo->ddrs;
-  struct data_dependence_relation *ddr;
-  unsigned int i;
-
-  FOR_EACH_VEC_ELT (ddrs, i, ddr)
-    vect_find_same_alignment_drs (ddr);
-
-  vec<data_reference_p> datarefs = vinfo->datarefs;
-  struct data_reference *dr;
-
-  vect_record_base_alignments (vinfo);
-  FOR_EACH_VEC_ELT (datarefs, i, dr)
+  if (loop_vinfo)
     {
-      stmt_vec_info stmt_info = vinfo_for_stmt (DR_STMT (dr));
-      if (STMT_VINFO_VECTORIZABLE (stmt_info)
-	  && !vect_compute_data_ref_alignment (dr))
-	{
-	  /* Strided accesses perform only component accesses, misalignment
-	     information is irrelevant for them.  */
-	  if (STMT_VINFO_STRIDED_P (stmt_info)
-	      && !STMT_VINFO_GROUPED_ACCESS (stmt_info))
-	    continue;
+      vec<ddr_p> ddrs = LOOP_VINFO_DDRS (loop_vinfo);
+      struct data_dependence_relation *ddr;
+      unsigned int i;
 
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "not vectorized: can't calculate alignment "
-			     "for data ref.\n");
-
-	  return false;
-	}
+      FOR_EACH_VEC_ELT (ddrs, i, ddr)
+	vect_find_same_alignment_drs (ddr, loop_vinfo);
     }
 
-  return true;
-}
-
-
-/* Analyze alignment of DRs of stmts in NODE.  */
-
-static bool
-vect_slp_analyze_and_verify_node_alignment (slp_tree node)
-{
-  /* We vectorize from the first scalar stmt in the node unless
-     the node is permuted in which case we start from the first
-     element in the group.  */
-  gimple *first_stmt = SLP_TREE_SCALAR_STMTS (node)[0];
-  data_reference_p first_dr = STMT_VINFO_DATA_REF (vinfo_for_stmt (first_stmt));
-  if (SLP_TREE_LOAD_PERMUTATION (node).exists ())
-    first_stmt = GROUP_FIRST_ELEMENT (vinfo_for_stmt (first_stmt));
-
-  data_reference_p dr = STMT_VINFO_DATA_REF (vinfo_for_stmt (first_stmt));
-  if (! vect_compute_data_ref_alignment (dr)
-      /* For creating the data-ref pointer we need alignment of the
-	 first element anyway.  */
-      || (dr != first_dr
-	  && ! vect_compute_data_ref_alignment (first_dr))
-      || ! verify_data_ref_alignment (dr))
+  if (!vect_compute_data_refs_alignment (loop_vinfo, bb_vinfo))
     {
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			 "not vectorized: bad data alignment in basic "
-			 "block.\n");
+	                 "not vectorized: can't calculate alignment "
+	                 "for data ref.\n");
       return false;
     }
-
-  return true;
-}
-
-/* Function vect_slp_analyze_instance_alignment
-
-   Analyze the alignment of the data-references in the SLP instance.
-   Return FALSE if a data reference is found that cannot be vectorized.  */
-
-bool
-vect_slp_analyze_and_verify_instance_alignment (slp_instance instance)
-{
-  if (dump_enabled_p ())
-    dump_printf_loc (MSG_NOTE, vect_location,
-                     "=== vect_slp_analyze_and_verify_instance_alignment ===\n");
-
-  slp_tree node;
-  unsigned i;
-  FOR_EACH_VEC_ELT (SLP_INSTANCE_LOADS (instance), i, node)
-    if (! vect_slp_analyze_and_verify_node_alignment (node))
-      return false;
-
-  node = SLP_INSTANCE_TREE (instance);
-  if (STMT_VINFO_DATA_REF (vinfo_for_stmt (SLP_TREE_SCALAR_STMTS (node)[0]))
-      && ! vect_slp_analyze_and_verify_node_alignment
-	     (SLP_INSTANCE_TREE (instance)))
-    return false;
 
   return true;
 }
@@ -2438,53 +2022,29 @@ vect_slp_analyze_and_verify_instance_alignment (slp_instance instance)
 /* Analyze groups of accesses: check that DR belongs to a group of
    accesses of legal size, step, etc.  Detect gaps, single element
    interleaving, and other special cases. Set grouped access info.
-   Collect groups of strided stores for further use in SLP analysis.
-   Worker for vect_analyze_group_access.  */
+   Collect groups of strided stores for further use in SLP analysis.  */
 
 static bool
-vect_analyze_group_access_1 (struct data_reference *dr)
+vect_analyze_group_access (struct data_reference *dr)
 {
   tree step = DR_STEP (dr);
   tree scalar_type = TREE_TYPE (DR_REF (dr));
   HOST_WIDE_INT type_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (scalar_type));
-  gimple *stmt = DR_STMT (dr);
+  gimple stmt = DR_STMT (dr);
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   bb_vec_info bb_vinfo = STMT_VINFO_BB_VINFO (stmt_info);
-  HOST_WIDE_INT dr_step = -1;
+  HOST_WIDE_INT dr_step = TREE_INT_CST_LOW (step);
   HOST_WIDE_INT groupsize, last_accessed_element = 1;
   bool slp_impossible = false;
+  struct loop *loop = NULL;
+
+  if (loop_vinfo)
+    loop = LOOP_VINFO_LOOP (loop_vinfo);
 
   /* For interleaving, GROUPSIZE is STEP counted in elements, i.e., the
      size of the interleaving group (including gaps).  */
-  if (tree_fits_shwi_p (step))
-    {
-      dr_step = tree_to_shwi (step);
-      /* Check that STEP is a multiple of type size.  Otherwise there is
-         a non-element-sized gap at the end of the group which we
-	 cannot represent in GROUP_GAP or GROUP_SIZE.
-	 ???  As we can handle non-constant step fine here we should
-	 simply remove uses of GROUP_GAP between the last and first
-	 element and instead rely on DR_STEP.  GROUP_SIZE then would
-	 simply not include that gap.  */
-      if ((dr_step % type_size) != 0)
-	{
-	  if (dump_enabled_p ())
-	    {
-	      dump_printf_loc (MSG_NOTE, vect_location,
-	                       "Step ");
-	      dump_generic_expr (MSG_NOTE, TDF_SLIM, step);
-	      dump_printf (MSG_NOTE,
-			   " is not a multiple of the element size for ");
-	      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr));
-	      dump_printf (MSG_NOTE, "\n");
-	    }
-	  return false;
-	}
-      groupsize = absu_hwi (dr_step) / type_size;
-    }
-  else
-    groupsize = 0;
+  groupsize = absu_hwi (dr_step) / type_size;
 
   /* Not consecutive access is possible only if it is a part of interleaving.  */
   if (!GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)))
@@ -2493,14 +2053,14 @@ vect_analyze_group_access_1 (struct data_reference *dr)
 	 element of the group that is accessed in the loop.  */
 
       /* Gaps are supported only for loads. STEP must be a multiple of the type
-	 size.  */
+	 size.  The size of the group must be a power of 2.  */
       if (DR_IS_READ (dr)
 	  && (dr_step % type_size) == 0
-	  && groupsize > 0)
+	  && groupsize > 0
+	  && exact_log2 (groupsize) != -1)
 	{
 	  GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) = stmt;
 	  GROUP_SIZE (vinfo_for_stmt (stmt)) = groupsize;
-	  GROUP_GAP (stmt_info) = groupsize - 1;
 	  if (dump_enabled_p ())
 	    {
 	      dump_printf_loc (MSG_NOTE, vect_location,
@@ -2511,6 +2071,24 @@ vect_analyze_group_access_1 (struct data_reference *dr)
 	      dump_printf (MSG_NOTE, "\n");
 	    }
 
+	  if (loop_vinfo)
+	    {
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_NOTE, vect_location,
+		                 "Data access with gaps requires scalar "
+		                 "epilogue loop\n");
+              if (loop->inner)
+                {
+                  if (dump_enabled_p ())
+                    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+                                     "Peeling for outer loop is not"
+                                     " supported\n");
+                  return false;
+                }
+
+              LOOP_VINFO_PEELING_FOR_GAPS (loop_vinfo) = true;
+	    }
+
 	  return true;
 	}
 
@@ -2519,6 +2097,7 @@ vect_analyze_group_access_1 (struct data_reference *dr)
  	  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 	                   "not consecutive access ");
 	  dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
+	  dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
         }
 
       if (bb_vinfo)
@@ -2528,22 +2107,20 @@ vect_analyze_group_access_1 (struct data_reference *dr)
           return true;
         }
 
-      dump_printf_loc (MSG_NOTE, vect_location, "using strided accesses\n");
-      STMT_VINFO_STRIDED_P (stmt_info) = true;
-      return true;
+      return false;
     }
 
   if (GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) == stmt)
     {
       /* First stmt in the interleaving chain. Check the chain.  */
-      gimple *next = GROUP_NEXT_ELEMENT (vinfo_for_stmt (stmt));
+      gimple next = GROUP_NEXT_ELEMENT (vinfo_for_stmt (stmt));
       struct data_reference *data_ref = dr;
       unsigned int count = 1;
       tree prev_init = DR_INIT (data_ref);
-      gimple *prev = stmt;
+      gimple prev = stmt;
       HOST_WIDE_INT diff, gaps = 0;
+      unsigned HOST_WIDE_INT count_in_bytes;
 
-      /* By construction, all group members have INTEGER_CST DR_INITs.  */
       while (next)
         {
           /* Skip same data-refs.  In case that two or more stmts share
@@ -2561,10 +2138,6 @@ vect_analyze_group_access_1 (struct data_reference *dr)
                                      "Two store stmts share the same dr.\n");
                   return false;
                 }
-
-	      if (dump_enabled_p ())
-		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-				 "Two or more load stmts share the same dr.\n");
 
               /* For load use the same data-ref load.  */
               GROUP_SAME_DR_STMT (vinfo_for_stmt (next)) = prev;
@@ -2611,53 +2184,72 @@ vect_analyze_group_access_1 (struct data_reference *dr)
           count++;
         }
 
-      if (groupsize == 0)
-        groupsize = count + gaps;
+      /* COUNT is the number of accesses found, we multiply it by the size of
+         the type to get COUNT_IN_BYTES.  */
+      count_in_bytes = type_size * count;
 
-      /* This could be UINT_MAX but as we are generating code in a very
-         inefficient way we have to cap earlier.  See PR78699 for example.  */
-      if (groupsize > 4096)
-	{
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "group is too large\n");
-	  return false;
-	}
-
-      /* Check that the size of the interleaving is equal to count for stores,
-         i.e., that there are no gaps.  */
-      if (groupsize != count
-	  && !DR_IS_READ (dr))
+      /* Check that the size of the interleaving (including gaps) is not
+         greater than STEP.  */
+      if (dr_step != 0
+	  && absu_hwi (dr_step) < count_in_bytes + gaps * type_size)
         {
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "interleaved store with gaps\n");
-	  return false;
-	}
+          if (dump_enabled_p ())
+            {
+              dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+                               "interleaving size is greater than step for ");
+              dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM,
+                                 DR_REF (dr));
+              dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
+            }
+          return false;
+        }
 
-      /* If there is a gap after the last load in the group it is the
-	 difference between the groupsize and the last accessed
-	 element.
-	 When there is no gap, this difference should be 0.  */
-      GROUP_GAP (vinfo_for_stmt (stmt)) = groupsize - last_accessed_element;
+      /* Check that the size of the interleaving is equal to STEP for stores,
+         i.e., that there are no gaps.  */
+      if (dr_step != 0
+	  && absu_hwi (dr_step) != count_in_bytes)
+        {
+          if (DR_IS_READ (dr))
+            {
+              slp_impossible = true;
+              /* There is a gap after the last load in the group. This gap is a
+                 difference between the groupsize and the number of elements.
+		 When there is no gap, this difference should be 0.  */
+              GROUP_GAP (vinfo_for_stmt (stmt)) = groupsize - count;
+            }
+          else
+            {
+              if (dump_enabled_p ())
+                dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+                                 "interleaved store with gaps\n");
+              return false;
+            }
+        }
+
+      /* Check that STEP is a multiple of type size.  */
+      if (dr_step != 0
+	  && (dr_step % type_size) != 0)
+        {
+          if (dump_enabled_p ())
+            {
+              dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+                               "step is not a multiple of type size: step ");
+              dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM, step);
+              dump_printf (MSG_MISSED_OPTIMIZATION, " size ");
+              dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM,
+                                 TYPE_SIZE_UNIT (scalar_type));
+              dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
+            }
+          return false;
+        }
+
+      if (groupsize == 0)
+        groupsize = count;
 
       GROUP_SIZE (vinfo_for_stmt (stmt)) = groupsize;
       if (dump_enabled_p ())
-	{
-	  dump_printf_loc (MSG_NOTE, vect_location,
-			   "Detected interleaving ");
-	  if (DR_IS_READ (dr))
-	    dump_printf (MSG_NOTE, "load ");
-	  else
-	    dump_printf (MSG_NOTE, "store ");
-	  dump_printf (MSG_NOTE, "of size %u starting with ",
-		       (unsigned)groupsize);
-	  dump_gimple_stmt (MSG_NOTE, TDF_SLIM, stmt, 0);
-	  if (GROUP_GAP (vinfo_for_stmt (stmt)) != 0)
-	    dump_printf_loc (MSG_NOTE, vect_location,
-			     "There is a gap of %u elements after the group\n",
-			     GROUP_GAP (vinfo_for_stmt (stmt)));
-	}
+        dump_printf_loc (MSG_NOTE, vect_location,
+                         "Detected interleaving of size %d\n", (int)groupsize);
 
       /* SLP: create an SLP data structure for every interleaving group of
 	 stores for further analysis in vect_analyse_slp.  */
@@ -2668,36 +2260,29 @@ vect_analyze_group_access_1 (struct data_reference *dr)
           if (bb_vinfo)
             BB_VINFO_GROUPED_STORES (bb_vinfo).safe_push (stmt);
         }
-    }
 
-  return true;
-}
-
-/* Analyze groups of accesses: check that DR belongs to a group of
-   accesses of legal size, step, etc.  Detect gaps, single element
-   interleaving, and other special cases. Set grouped access info.
-   Collect groups of strided stores for further use in SLP analysis.  */
-
-static bool
-vect_analyze_group_access (struct data_reference *dr)
-{
-  if (!vect_analyze_group_access_1 (dr))
-    {
-      /* Dissolve the group if present.  */
-      gimple *next;
-      gimple *stmt = GROUP_FIRST_ELEMENT (vinfo_for_stmt (DR_STMT (dr)));
-      while (stmt)
+      /* There is a gap in the end of the group.  */
+      if (groupsize - last_accessed_element > 0 && loop_vinfo)
 	{
-	  stmt_vec_info vinfo = vinfo_for_stmt (stmt);
-	  next = GROUP_NEXT_ELEMENT (vinfo);
-	  GROUP_FIRST_ELEMENT (vinfo) = NULL;
-	  GROUP_NEXT_ELEMENT (vinfo) = NULL;
-	  stmt = next;
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+	                     "Data access with gaps requires scalar "
+	                     "epilogue loop\n");
+          if (loop->inner)
+            {
+              if (dump_enabled_p ())
+                dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+                                 "Peeling for outer loop is not supported\n");
+              return false;
+            }
+
+          LOOP_VINFO_PEELING_FOR_GAPS (loop_vinfo) = true;
 	}
-      return false;
     }
+
   return true;
 }
+
 
 /* Analyze the access pattern of the data-reference DR.
    In case of non-consecutive accesses call vect_analyze_group_access() to
@@ -2708,13 +2293,10 @@ vect_analyze_data_ref_access (struct data_reference *dr)
 {
   tree step = DR_STEP (dr);
   tree scalar_type = TREE_TYPE (DR_REF (dr));
-  gimple *stmt = DR_STMT (dr);
+  gimple stmt = DR_STMT (dr);
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   struct loop *loop = NULL;
-
-  if (STMT_VINFO_GATHER_SCATTER_P (stmt_info))
-    return true;
 
   if (loop_vinfo)
     loop = LOOP_VINFO_LOOP (loop_vinfo);
@@ -2727,22 +2309,18 @@ vect_analyze_data_ref_access (struct data_reference *dr)
       return false;
     }
 
-  /* Allow loads with zero step in inner-loop vectorization.  */
+  /* Allow invariant loads in not nested loops.  */
   if (loop_vinfo && integer_zerop (step))
     {
       GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) = NULL;
-      if (!nested_in_vect_loop_p (loop, stmt))
-	return DR_IS_READ (dr);
-      /* Allow references with zero step for outer loops marked
-	 with pragma omp simd only - it guarantees absence of
-	 loop-carried dependencies between inner loop iterations.  */
-      if (loop->safelen < 2)
+      if (nested_in_vect_loop_p (loop, stmt))
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_NOTE, vect_location,
 			     "zero step in inner loop of nest\n");
 	  return false;
 	}
+      return DR_IS_READ (dr);
     }
 
   if (loop && nested_in_vect_loop_p (loop, stmt))
@@ -2758,7 +2336,10 @@ vect_analyze_data_ref_access (struct data_reference *dr)
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_NOTE, vect_location,
 	                     "zero step in outer loop.\n");
-	  return DR_IS_READ (dr);
+	  if (DR_IS_READ (dr))
+  	    return true;
+	  else
+	    return false;
 	}
     }
 
@@ -2784,16 +2365,88 @@ vect_analyze_data_ref_access (struct data_reference *dr)
       return false;
     }
 
-
   /* Assume this is a DR handled by non-constant strided load case.  */
   if (TREE_CODE (step) != INTEGER_CST)
-    return (STMT_VINFO_STRIDED_P (stmt_info)
-	    && (!STMT_VINFO_GROUPED_ACCESS (stmt_info)
-		|| vect_analyze_group_access (dr)));
+    return STMT_VINFO_STRIDE_LOAD_P (stmt_info);
 
   /* Not consecutive access - check if it's a part of interleaving group.  */
   return vect_analyze_group_access (dr);
 }
+
+
+
+/*  A helper function used in the comparator function to sort data
+    references.  T1 and T2 are two data references to be compared.
+    The function returns -1, 0, or 1.  */
+
+static int
+compare_tree (tree t1, tree t2)
+{
+  int i, cmp;
+  enum tree_code code;
+  char tclass;
+
+  if (t1 == t2)
+    return 0;
+  if (t1 == NULL)
+    return -1;
+  if (t2 == NULL)
+    return 1;
+
+
+  if (TREE_CODE (t1) != TREE_CODE (t2))
+    return TREE_CODE (t1) < TREE_CODE (t2) ? -1 : 1;
+
+  code = TREE_CODE (t1);
+  switch (code)
+    {
+    /* For const values, we can just use hash values for comparisons.  */
+    case INTEGER_CST:
+    case REAL_CST:
+    case FIXED_CST:
+    case STRING_CST:
+    case COMPLEX_CST:
+    case VECTOR_CST:
+      {
+	hashval_t h1 = iterative_hash_expr (t1, 0);
+	hashval_t h2 = iterative_hash_expr (t2, 0);
+	if (h1 != h2)
+	  return h1 < h2 ? -1 : 1;
+	break;
+      }
+
+    case SSA_NAME:
+      cmp = compare_tree (SSA_NAME_VAR (t1), SSA_NAME_VAR (t2));
+      if (cmp != 0)
+	return cmp;
+
+      if (SSA_NAME_VERSION (t1) != SSA_NAME_VERSION (t2))
+	return SSA_NAME_VERSION (t1) < SSA_NAME_VERSION (t2) ? -1 : 1;
+      break;
+
+    default:
+      tclass = TREE_CODE_CLASS (code);
+
+      /* For var-decl, we could compare their UIDs.  */
+      if (tclass == tcc_declaration)
+	{
+	  if (DECL_UID (t1) != DECL_UID (t2))
+	    return DECL_UID (t1) < DECL_UID (t2) ? -1 : 1;
+	  break;
+	}
+
+      /* For expressions with operands, compare their operands recursively.  */
+      for (i = TREE_OPERAND_LENGTH (t1) - 1; i >= 0; --i)
+	{
+	  cmp = compare_tree (TREE_OPERAND (t1, i), TREE_OPERAND (t2, i));
+	  if (cmp != 0)
+	    return cmp;
+	}
+    }
+
+  return 0;
+}
+
 
 /* Compare two data-references DRA and DRB to group them into chunks
    suitable for grouping.  */
@@ -2809,99 +2462,49 @@ dr_group_sort_cmp (const void *dra_, const void *drb_)
   if (dra == drb)
     return 0;
 
-  /* DRs in different loops never belong to the same group.  */
-  loop_p loopa = gimple_bb (DR_STMT (dra))->loop_father;
-  loop_p loopb = gimple_bb (DR_STMT (drb))->loop_father;
-  if (loopa != loopb)
-    return loopa->num < loopb->num ? -1 : 1;
-
   /* Ordering of DRs according to base.  */
-  cmp = data_ref_compare_tree (DR_BASE_ADDRESS (dra),
-			       DR_BASE_ADDRESS (drb));
-  if (cmp != 0)
-    return cmp;
+  if (!operand_equal_p (DR_BASE_ADDRESS (dra), DR_BASE_ADDRESS (drb), 0))
+    {
+      cmp = compare_tree (DR_BASE_ADDRESS (dra), DR_BASE_ADDRESS (drb));
+      if (cmp != 0)
+        return cmp;
+    }
 
   /* And according to DR_OFFSET.  */
-  cmp = data_ref_compare_tree (DR_OFFSET (dra), DR_OFFSET (drb));
-  if (cmp != 0)
-    return cmp;
+  if (!dr_equal_offsets_p (dra, drb))
+    {
+      cmp = compare_tree (DR_OFFSET (dra), DR_OFFSET (drb));
+      if (cmp != 0)
+        return cmp;
+    }
 
   /* Put reads before writes.  */
   if (DR_IS_READ (dra) != DR_IS_READ (drb))
     return DR_IS_READ (dra) ? -1 : 1;
 
   /* Then sort after access size.  */
-  cmp = data_ref_compare_tree (TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dra))),
-			       TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (drb))));
-  if (cmp != 0)
-    return cmp;
+  if (!operand_equal_p (TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dra))),
+			TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (drb))), 0))
+    {
+      cmp = compare_tree (TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dra))),
+                          TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (drb))));
+      if (cmp != 0)
+        return cmp;
+    }
 
   /* And after step.  */
-  cmp = data_ref_compare_tree (DR_STEP (dra), DR_STEP (drb));
-  if (cmp != 0)
-    return cmp;
+  if (!operand_equal_p (DR_STEP (dra), DR_STEP (drb), 0))
+    {
+      cmp = compare_tree (DR_STEP (dra), DR_STEP (drb));
+      if (cmp != 0)
+        return cmp;
+    }
 
   /* Then sort after DR_INIT.  In case of identical DRs sort after stmt UID.  */
-  cmp = data_ref_compare_tree (DR_INIT (dra), DR_INIT (drb));
+  cmp = tree_int_cst_compare (DR_INIT (dra), DR_INIT (drb));
   if (cmp == 0)
     return gimple_uid (DR_STMT (dra)) < gimple_uid (DR_STMT (drb)) ? -1 : 1;
   return cmp;
-}
-
-/* If OP is the result of a conversion, return the unconverted value,
-   otherwise return null.  */
-
-static tree
-strip_conversion (tree op)
-{
-  if (TREE_CODE (op) != SSA_NAME)
-    return NULL_TREE;
-  gimple *stmt = SSA_NAME_DEF_STMT (op);
-  if (!is_gimple_assign (stmt)
-      || !CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (stmt)))
-    return NULL_TREE;
-  return gimple_assign_rhs1 (stmt);
-}
-
-/* Return true if vectorizable_* routines can handle statements STMT1
-   and STMT2 being in a single group.  */
-
-static bool
-can_group_stmts_p (gimple *stmt1, gimple *stmt2)
-{
-  if (gimple_assign_single_p (stmt1))
-    return gimple_assign_single_p (stmt2);
-
-  if (is_gimple_call (stmt1) && gimple_call_internal_p (stmt1))
-    {
-      /* Check for two masked loads or two masked stores.  */
-      if (!is_gimple_call (stmt2) || !gimple_call_internal_p (stmt2))
-	return false;
-      internal_fn ifn = gimple_call_internal_fn (stmt1);
-      if (ifn != IFN_MASK_LOAD && ifn != IFN_MASK_STORE)
-	return false;
-      if (ifn != gimple_call_internal_fn (stmt2))
-	return false;
-
-      /* Check that the masks are the same.  Cope with casts of masks,
-	 like those created by build_mask_conversion.  */
-      tree mask1 = gimple_call_arg (stmt1, 2);
-      tree mask2 = gimple_call_arg (stmt2, 2);
-      if (!operand_equal_p (mask1, mask2, 0))
-	{
-	  mask1 = strip_conversion (mask1);
-	  if (!mask1)
-	    return false;
-	  mask2 = strip_conversion (mask2);
-	  if (!mask2)
-	    return false;
-	  if (!operand_equal_p (mask1, mask2, 0))
-	    return false;
-	}
-      return true;
-    }
-
-  return false;
 }
 
 /* Function vect_analyze_data_ref_accesses.
@@ -2914,15 +2517,20 @@ can_group_stmts_p (gimple *stmt1, gimple *stmt2)
    FORNOW: handle only arrays and pointer accesses.  */
 
 bool
-vect_analyze_data_ref_accesses (vec_info *vinfo)
+vect_analyze_data_ref_accesses (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo)
 {
   unsigned int i;
-  vec<data_reference_p> datarefs = vinfo->datarefs;
+  vec<data_reference_p> datarefs;
   struct data_reference *dr;
 
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
                      "=== vect_analyze_data_ref_accesses ===\n");
+
+  if (loop_vinfo)
+    datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
+  else
+    datarefs = BB_VINFO_DATAREFS (bb_vinfo);
 
   if (datarefs.is_empty ())
     return true;
@@ -2939,19 +2547,10 @@ vect_analyze_data_ref_accesses (vec_info *vinfo)
       data_reference_p dra = datarefs_copy[i];
       stmt_vec_info stmtinfo_a = vinfo_for_stmt (DR_STMT (dra));
       stmt_vec_info lastinfo = NULL;
-      if (!STMT_VINFO_VECTORIZABLE (stmtinfo_a)
-	  || STMT_VINFO_GATHER_SCATTER_P (stmtinfo_a))
-	{
-	  ++i;
-	  continue;
-	}
       for (i = i + 1; i < datarefs_copy.length (); ++i)
 	{
 	  data_reference_p drb = datarefs_copy[i];
 	  stmt_vec_info stmtinfo_b = vinfo_for_stmt (DR_STMT (drb));
-	  if (!STMT_VINFO_VECTORIZABLE (stmtinfo_b)
-	      || STMT_VINFO_GATHER_SCATTER_P (stmtinfo_b))
-	    break;
 
 	  /* ???  Imperfect sorting (non-compatible types, non-modulo
 	     accesses, same accesses) can lead to a group to be artificially
@@ -2959,32 +2558,30 @@ vect_analyze_data_ref_accesses (vec_info *vinfo)
 	     matters we can push those to a worklist and re-iterate
 	     over them.  The we can just skip ahead to the next DR here.  */
 
-	  /* DRs in a different loop should not be put into the same
-	     interleaving group.  */
-	  if (gimple_bb (DR_STMT (dra))->loop_father
-	      != gimple_bb (DR_STMT (drb))->loop_father)
-	    break;
-
 	  /* Check that the data-refs have same first location (except init)
 	     and they are both either store or load (not load and store,
 	     not masked loads or stores).  */
 	  if (DR_IS_READ (dra) != DR_IS_READ (drb)
-	      || data_ref_compare_tree (DR_BASE_ADDRESS (dra),
-					DR_BASE_ADDRESS (drb)) != 0
-	      || data_ref_compare_tree (DR_OFFSET (dra), DR_OFFSET (drb)) != 0
-	      || !can_group_stmts_p (DR_STMT (dra), DR_STMT (drb)))
+	      || !operand_equal_p (DR_BASE_ADDRESS (dra),
+				   DR_BASE_ADDRESS (drb), 0)
+	      || !dr_equal_offsets_p (dra, drb)
+	      || !gimple_assign_single_p (DR_STMT (dra))
+	      || !gimple_assign_single_p (DR_STMT (drb)))
 	    break;
 
-	  /* Check that the data-refs have the same constant size.  */
+	  /* Check that the data-refs have the same constant size and step.  */
 	  tree sza = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dra)));
 	  tree szb = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (drb)));
 	  if (!tree_fits_uhwi_p (sza)
 	      || !tree_fits_uhwi_p (szb)
-	      || !tree_int_cst_equal (sza, szb))
+	      || !tree_int_cst_equal (sza, szb)
+	      || !tree_fits_shwi_p (DR_STEP (dra))
+	      || !tree_fits_shwi_p (DR_STEP (drb))
+	      || !tree_int_cst_equal (DR_STEP (dra), DR_STEP (drb)))
 	    break;
 
-	  /* Check that the data-refs have the same step.  */
-	  if (data_ref_compare_tree (DR_STEP (dra), DR_STEP (drb)) != 0)
+	  /* Do not place the same access in the interleaving chain twice.  */
+	  if (tree_int_cst_compare (DR_INIT (dra), DR_INIT (drb)) == 0)
 	    break;
 
 	  /* Check the types are compatible.
@@ -2993,65 +2590,27 @@ vect_analyze_data_ref_accesses (vec_info *vinfo)
 				   TREE_TYPE (DR_REF (drb))))
 	    break;
 
-	  /* Check that the DR_INITs are compile-time constants.  */
-	  if (TREE_CODE (DR_INIT (dra)) != INTEGER_CST
-	      || TREE_CODE (DR_INIT (drb)) != INTEGER_CST)
-	    break;
-
 	  /* Sorting has ensured that DR_INIT (dra) <= DR_INIT (drb).  */
 	  HOST_WIDE_INT init_a = TREE_INT_CST_LOW (DR_INIT (dra));
 	  HOST_WIDE_INT init_b = TREE_INT_CST_LOW (DR_INIT (drb));
-	  HOST_WIDE_INT init_prev
-	    = TREE_INT_CST_LOW (DR_INIT (datarefs_copy[i-1]));
-	  gcc_assert (init_a <= init_b
-		      && init_a <= init_prev
-		      && init_prev <= init_b);
-
-	  /* Do not place the same access in the interleaving chain twice.  */
-	  if (init_b == init_prev)
-	    {
-	      gcc_assert (gimple_uid (DR_STMT (datarefs_copy[i-1]))
-			  < gimple_uid (DR_STMT (drb)));
-	      /* ???  For now we simply "drop" the later reference which is
-	         otherwise the same rather than finishing off this group.
-		 In the end we'd want to re-process duplicates forming
-		 multiple groups from the refs, likely by just collecting
-		 all candidates (including duplicates and split points
-		 below) in a vector and then process them together.  */
-	      continue;
-	    }
+	  gcc_assert (init_a < init_b);
 
 	  /* If init_b == init_a + the size of the type * k, we have an
 	     interleaving, and DRA is accessed before DRB.  */
 	  HOST_WIDE_INT type_size_a = tree_to_uhwi (sza);
-	  if (type_size_a == 0
-	      || (init_b - init_a) % type_size_a != 0)
+	  if ((init_b - init_a) % type_size_a != 0)
 	    break;
 
-	  /* If we have a store, the accesses are adjacent.  This splits
-	     groups into chunks we support (we don't support vectorization
-	     of stores with gaps).  */
-	  if (!DR_IS_READ (dra) && init_b - init_prev != type_size_a)
+	  /* The step (if not zero) is greater than the difference between
+	     data-refs' inits.  This splits groups into suitable sizes.  */
+	  HOST_WIDE_INT step = tree_to_shwi (DR_STEP (dra));
+	  if (step != 0 && step <= (init_b - init_a))
 	    break;
-
-	  /* If the step (if not zero or non-constant) is greater than the
-	     difference between data-refs' inits this splits groups into
-	     suitable sizes.  */
-	  if (tree_fits_shwi_p (DR_STEP (dra)))
-	    {
-	      HOST_WIDE_INT step = tree_to_shwi (DR_STEP (dra));
-	      if (step != 0 && step <= (init_b - init_a))
-		break;
-	    }
 
 	  if (dump_enabled_p ())
 	    {
 	      dump_printf_loc (MSG_NOTE, vect_location,
 			       "Detected interleaving ");
-	      if (DR_IS_READ (dra))
-		dump_printf (MSG_NOTE, "load ");
-	      else
-		dump_printf (MSG_NOTE, "store ");
 	      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dra));
 	      dump_printf (MSG_NOTE,  " and ");
 	      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (drb));
@@ -3078,7 +2637,7 @@ vect_analyze_data_ref_accesses (vec_info *vinfo)
 	  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 	                   "not vectorized: complicated access pattern.\n");
 
-        if (is_a <bb_vec_info> (vinfo))
+        if (bb_vinfo)
           {
             /* Mark the statement as not vectorizable.  */
             STMT_VINFO_VECTORIZABLE (vinfo_for_stmt (DR_STMT (dr))) = false;
@@ -3095,251 +2654,98 @@ vect_analyze_data_ref_accesses (vec_info *vinfo)
   return true;
 }
 
+
+/* Operator == between two dr_with_seg_len objects.
+
+   This equality operator is used to make sure two data refs
+   are the same one so that we will consider to combine the
+   aliasing checks of those two pairs of data dependent data
+   refs.  */
+
+static bool
+operator == (const dr_with_seg_len& d1,
+	     const dr_with_seg_len& d2)
+{
+  return operand_equal_p (DR_BASE_ADDRESS (d1.dr),
+			  DR_BASE_ADDRESS (d2.dr), 0)
+	   && compare_tree (d1.offset, d2.offset) == 0
+	   && compare_tree (d1.seg_len, d2.seg_len) == 0;
+}
+
+/* Function comp_dr_with_seg_len_pair.
+
+   Comparison function for sorting objects of dr_with_seg_len_pair_t
+   so that we can combine aliasing checks in one scan.  */
+
+static int
+comp_dr_with_seg_len_pair (const void *p1_, const void *p2_)
+{
+  const dr_with_seg_len_pair_t* p1 = (const dr_with_seg_len_pair_t *) p1_;
+  const dr_with_seg_len_pair_t* p2 = (const dr_with_seg_len_pair_t *) p2_;
+
+  const dr_with_seg_len &p11 = p1->first,
+			&p12 = p1->second,
+			&p21 = p2->first,
+			&p22 = p2->second;
+
+  /* For DR pairs (a, b) and (c, d), we only consider to merge the alias checks
+     if a and c have the same basic address snd step, and b and d have the same
+     address and step.  Therefore, if any a&c or b&d don't have the same address
+     and step, we don't care the order of those two pairs after sorting.  */
+  int comp_res;
+
+  if ((comp_res = compare_tree (DR_BASE_ADDRESS (p11.dr),
+				DR_BASE_ADDRESS (p21.dr))) != 0)
+    return comp_res;
+  if ((comp_res = compare_tree (DR_BASE_ADDRESS (p12.dr),
+				DR_BASE_ADDRESS (p22.dr))) != 0)
+    return comp_res;
+  if ((comp_res = compare_tree (DR_STEP (p11.dr), DR_STEP (p21.dr))) != 0)
+    return comp_res;
+  if ((comp_res = compare_tree (DR_STEP (p12.dr), DR_STEP (p22.dr))) != 0)
+    return comp_res;
+  if ((comp_res = compare_tree (p11.offset, p21.offset)) != 0)
+    return comp_res;
+  if ((comp_res = compare_tree (p12.offset, p22.offset)) != 0)
+    return comp_res;
+
+  return 0;
+}
+
 /* Function vect_vfa_segment_size.
+
+   Create an expression that computes the size of segment
+   that will be accessed for a data reference.  The functions takes into
+   account that realignment loads may access one more vector.
 
    Input:
      DR: The data reference.
      LENGTH_FACTOR: segment length to consider.
 
-   Return a value suitable for the dr_with_seg_len::seg_len field.
-   This is the "distance travelled" by the pointer from the first
-   iteration in the segment to the last.  Note that it does not include
-   the size of the access; in effect it only describes the first byte.  */
+   Return an expression whose value is the size of segment which will be
+   accessed by DR.  */
 
 static tree
 vect_vfa_segment_size (struct data_reference *dr, tree length_factor)
 {
-  length_factor = size_binop (MINUS_EXPR,
-			      fold_convert (sizetype, length_factor),
-			      size_one_node);
-  return size_binop (MULT_EXPR, fold_convert (sizetype, DR_STEP (dr)),
-		     length_factor);
-}
+  tree segment_length;
 
-/* Return a value that, when added to abs (vect_vfa_segment_size (dr)),
-   gives the worst-case number of bytes covered by the segment.  */
-
-static unsigned HOST_WIDE_INT
-vect_vfa_access_size (data_reference *dr)
-{
-  stmt_vec_info stmt_vinfo = vinfo_for_stmt (DR_STMT (dr));
-  tree ref_type = TREE_TYPE (DR_REF (dr));
-  unsigned HOST_WIDE_INT ref_size = tree_to_uhwi (TYPE_SIZE_UNIT (ref_type));
-  unsigned HOST_WIDE_INT access_size = ref_size;
-  if (GROUP_FIRST_ELEMENT (stmt_vinfo))
-    {
-      gcc_assert (GROUP_FIRST_ELEMENT (stmt_vinfo) == DR_STMT (dr));
-      access_size *= GROUP_SIZE (stmt_vinfo) - GROUP_GAP (stmt_vinfo);
-    }
-  if (STMT_VINFO_VEC_STMT (stmt_vinfo)
-      && (vect_supportable_dr_alignment (dr, false)
-	  == dr_explicit_realign_optimized))
-    {
-      /* We might access a full vector's worth.  */
-      tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo);
-      access_size += tree_to_uhwi (TYPE_SIZE_UNIT (vectype)) - ref_size;
-    }
-  return access_size;
-}
-
-/* Get the minimum alignment for all the scalar accesses that DR describes.  */
-
-static unsigned int
-vect_vfa_align (const data_reference *dr)
-{
-  return TYPE_ALIGN_UNIT (TREE_TYPE (DR_REF (dr)));
-}
-
-/* Function vect_no_alias_p.
-
-   Given data references A and B with equal base and offset, see whether
-   the alias relation can be decided at compilation time.  Return 1 if
-   it can and the references alias, 0 if it can and the references do
-   not alias, and -1 if we cannot decide at compile time.  SEGMENT_LENGTH_A,
-   SEGMENT_LENGTH_B, ACCESS_SIZE_A and ACCESS_SIZE_B are the equivalent
-   of dr_with_seg_len::{seg_len,access_size} for A and B.  */
-
-static int
-vect_compile_time_alias (struct data_reference *a, struct data_reference *b,
-			 tree segment_length_a, tree segment_length_b,
-			 unsigned HOST_WIDE_INT access_size_a,
-			 unsigned HOST_WIDE_INT access_size_b)
-{
-  poly_offset_int offset_a = wi::to_poly_offset (DR_INIT (a));
-  poly_offset_int offset_b = wi::to_poly_offset (DR_INIT (b));
-  poly_uint64 const_length_a;
-  poly_uint64 const_length_b;
-
-  /* For negative step, we need to adjust address range by TYPE_SIZE_UNIT
-     bytes, e.g., int a[3] -> a[1] range is [a+4, a+16) instead of
-     [a, a+12) */
-  if (tree_int_cst_compare (DR_STEP (a), size_zero_node) < 0)
-    {
-      const_length_a = (-wi::to_poly_wide (segment_length_a)).force_uhwi ();
-      offset_a = (offset_a + access_size_a) - const_length_a;
-    }
+  if (integer_zerop (DR_STEP (dr)))
+    segment_length = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dr)));
   else
-    const_length_a = tree_to_poly_uint64 (segment_length_a);
-  if (tree_int_cst_compare (DR_STEP (b), size_zero_node) < 0)
+    segment_length = size_binop (MULT_EXPR,
+				 fold_convert (sizetype, DR_STEP (dr)),
+				 fold_convert (sizetype, length_factor));
+
+  if (vect_supportable_dr_alignment (dr, false)
+	== dr_explicit_realign_optimized)
     {
-      const_length_b = (-wi::to_poly_wide (segment_length_b)).force_uhwi ();
-      offset_b = (offset_b + access_size_b) - const_length_b;
+      tree vector_size = TYPE_SIZE_UNIT
+			  (STMT_VINFO_VECTYPE (vinfo_for_stmt (DR_STMT (dr))));
+
+      segment_length = size_binop (PLUS_EXPR, segment_length, vector_size);
     }
-  else
-    const_length_b = tree_to_poly_uint64 (segment_length_b);
-
-  const_length_a += access_size_a;
-  const_length_b += access_size_b;
-
-  if (ranges_known_overlap_p (offset_a, const_length_a,
-			      offset_b, const_length_b))
-    return 1;
-
-  if (!ranges_maybe_overlap_p (offset_a, const_length_a,
-			       offset_b, const_length_b))
-    return 0;
-
-  return -1;
-}
-
-/* Return true if the minimum nonzero dependence distance for loop LOOP_DEPTH
-   in DDR is >= VF.  */
-
-static bool
-dependence_distance_ge_vf (data_dependence_relation *ddr,
-			   unsigned int loop_depth, poly_uint64 vf)
-{
-  if (DDR_ARE_DEPENDENT (ddr) != NULL_TREE
-      || DDR_NUM_DIST_VECTS (ddr) == 0)
-    return false;
-
-  /* If the dependence is exact, we should have limited the VF instead.  */
-  gcc_checking_assert (DDR_COULD_BE_INDEPENDENT_P (ddr));
-
-  unsigned int i;
-  lambda_vector dist_v;
-  FOR_EACH_VEC_ELT (DDR_DIST_VECTS (ddr), i, dist_v)
-    {
-      HOST_WIDE_INT dist = dist_v[loop_depth];
-      if (dist != 0
-	  && !(dist > 0 && DDR_REVERSED_P (ddr))
-	  && maybe_lt ((unsigned HOST_WIDE_INT) abs_hwi (dist), vf))
-	return false;
-    }
-
-  if (dump_enabled_p ())
-    {
-      dump_printf_loc (MSG_NOTE, vect_location,
-		       "dependence distance between ");
-      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (DDR_A (ddr)));
-      dump_printf (MSG_NOTE,  " and ");
-      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (DDR_B (ddr)));
-      dump_printf (MSG_NOTE,  " is >= VF\n");
-    }
-
-  return true;
-}
-
-/* Dump LOWER_BOUND using flags DUMP_KIND.  Dumps are known to be enabled.  */
-
-static void
-dump_lower_bound (int dump_kind, const vec_lower_bound &lower_bound)
-{
-  dump_printf (dump_kind, "%s (", lower_bound.unsigned_p ? "unsigned" : "abs");
-  dump_generic_expr (dump_kind, TDF_SLIM, lower_bound.expr);
-  dump_printf (dump_kind, ") >= ");
-  dump_dec (dump_kind, lower_bound.min_value);
-}
-
-/* Record that the vectorized loop requires the vec_lower_bound described
-   by EXPR, UNSIGNED_P and MIN_VALUE.  */
-
-static void
-vect_check_lower_bound (loop_vec_info loop_vinfo, tree expr, bool unsigned_p,
-			poly_uint64 min_value)
-{
-  vec<vec_lower_bound> lower_bounds = LOOP_VINFO_LOWER_BOUNDS (loop_vinfo);
-  for (unsigned int i = 0; i < lower_bounds.length (); ++i)
-    if (operand_equal_p (lower_bounds[i].expr, expr, 0))
-      {
-	unsigned_p &= lower_bounds[i].unsigned_p;
-	min_value = upper_bound (lower_bounds[i].min_value, min_value);
-	if (lower_bounds[i].unsigned_p != unsigned_p
-	    || maybe_lt (lower_bounds[i].min_value, min_value))
-	  {
-	    lower_bounds[i].unsigned_p = unsigned_p;
-	    lower_bounds[i].min_value = min_value;
-	    if (dump_enabled_p ())
-	      {
-		dump_printf_loc (MSG_NOTE, vect_location,
-				 "updating run-time check to ");
-		dump_lower_bound (MSG_NOTE, lower_bounds[i]);
-		dump_printf (MSG_NOTE, "\n");
-	      }
-	  }
-	return;
-      }
-
-  vec_lower_bound lower_bound (expr, unsigned_p, min_value);
-  if (dump_enabled_p ())
-    {
-      dump_printf_loc (MSG_NOTE, vect_location, "need a run-time check that ");
-      dump_lower_bound (MSG_NOTE, lower_bound);
-      dump_printf (MSG_NOTE, "\n");
-    }
-  LOOP_VINFO_LOWER_BOUNDS (loop_vinfo).safe_push (lower_bound);
-}
-
-/* Return true if it's unlikely that the step of the vectorized form of DR
-   will span fewer than GAP bytes.  */
-
-static bool
-vect_small_gap_p (loop_vec_info loop_vinfo, data_reference *dr, poly_int64 gap)
-{
-  stmt_vec_info stmt_info = vinfo_for_stmt (DR_STMT (dr));
-  HOST_WIDE_INT count
-    = estimated_poly_value (LOOP_VINFO_VECT_FACTOR (loop_vinfo));
-  if (GROUP_FIRST_ELEMENT (stmt_info))
-    count *= GROUP_SIZE (vinfo_for_stmt (GROUP_FIRST_ELEMENT (stmt_info)));
-  return estimated_poly_value (gap) <= count * vect_get_scalar_dr_size (dr);
-}
-
-/* Return true if we know that there is no alias between DR_A and DR_B
-   when abs (DR_STEP (DR_A)) >= N for some N.  When returning true, set
-   *LOWER_BOUND_OUT to this N.  */
-
-static bool
-vectorizable_with_step_bound_p (data_reference *dr_a, data_reference *dr_b,
-				poly_uint64 *lower_bound_out)
-{
-  /* Check that there is a constant gap of known sign between DR_A
-     and DR_B.  */
-  poly_int64 init_a, init_b;
-  if (!operand_equal_p (DR_BASE_ADDRESS (dr_a), DR_BASE_ADDRESS (dr_b), 0)
-      || !operand_equal_p (DR_OFFSET (dr_a), DR_OFFSET (dr_b), 0)
-      || !operand_equal_p (DR_STEP (dr_a), DR_STEP (dr_b), 0)
-      || !poly_int_tree_p (DR_INIT (dr_a), &init_a)
-      || !poly_int_tree_p (DR_INIT (dr_b), &init_b)
-      || !ordered_p (init_a, init_b))
-    return false;
-
-  /* Sort DR_A and DR_B by the address they access.  */
-  if (maybe_lt (init_b, init_a))
-    {
-      std::swap (init_a, init_b);
-      std::swap (dr_a, dr_b);
-    }
-
-  /* If the two accesses could be dependent within a scalar iteration,
-     make sure that we'd retain their order.  */
-  if (maybe_gt (init_a + vect_get_scalar_dr_size (dr_a), init_b)
-      && !vect_preserves_scalar_order_p (DR_STMT (dr_a), DR_STMT (dr_b)))
-    return false;
-
-  /* There is no alias if abs (DR_STEP) is greater than or equal to
-     the bytes spanned by the combination of the two accesses.  */
-  *lower_bound_out = init_b + vect_get_scalar_dr_size (dr_b) - init_a;
-  return true;
+  return segment_length;
 }
 
 /* Function vect_prune_runtime_alias_test_list.
@@ -3352,15 +2758,11 @@ vectorizable_with_step_bound_p (data_reference *dr_a, data_reference *dr_b,
 bool
 vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 {
-  typedef pair_hash <tree_operand_hash, tree_operand_hash> tree_pair_hash;
-  hash_set <tree_pair_hash> compared_objects;
-
-  vec<ddr_p> may_alias_ddrs = LOOP_VINFO_MAY_ALIAS_DDRS (loop_vinfo);
-  vec<dr_with_seg_len_pair_t> &comp_alias_ddrs
-    = LOOP_VINFO_COMP_ALIAS_DDRS (loop_vinfo);
-  vec<vec_object_pair> &check_unequal_addrs
-    = LOOP_VINFO_CHECK_UNEQUAL_ADDRS (loop_vinfo);
-  poly_uint64 vect_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
+  vec<ddr_p> may_alias_ddrs =
+    LOOP_VINFO_MAY_ALIAS_DDRS (loop_vinfo);
+  vec<dr_with_seg_len_pair_t>& comp_alias_ddrs =
+    LOOP_VINFO_COMP_ALIAS_DDRS (loop_vinfo);
+  int vect_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
   tree scalar_loop_iters = LOOP_VINFO_NITERS (loop_vinfo);
 
   ddr_p ddr;
@@ -3371,123 +2773,49 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
     dump_printf_loc (MSG_NOTE, vect_location,
                      "=== vect_prune_runtime_alias_test_list ===\n");
 
-  /* Step values are irrelevant for aliasing if the number of vector
-     iterations is equal to the number of scalar iterations (which can
-     happen for fully-SLP loops).  */
-  bool ignore_step_p = known_eq (LOOP_VINFO_VECT_FACTOR (loop_vinfo), 1U);
-
-  if (!ignore_step_p)
-    {
-      /* Convert the checks for nonzero steps into bound tests.  */
-      tree value;
-      FOR_EACH_VEC_ELT (LOOP_VINFO_CHECK_NONZERO (loop_vinfo), i, value)
-	vect_check_lower_bound (loop_vinfo, value, true, 1);
-    }
-
   if (may_alias_ddrs.is_empty ())
     return true;
 
-  comp_alias_ddrs.create (may_alias_ddrs.length ());
+  /* Basically, for each pair of dependent data refs store_ptr_0
+     and load_ptr_0, we create an expression:
 
-  unsigned int loop_depth
-    = index_in_loop_nest (LOOP_VINFO_LOOP (loop_vinfo)->num,
-			  LOOP_VINFO_LOOP_NEST (loop_vinfo));
+     ((store_ptr_0 + store_segment_length_0) <= load_ptr_0)
+     || (load_ptr_0 + load_segment_length_0) <= store_ptr_0))
+
+     for aliasing checks.  However, in some cases we can decrease
+     the number of checks by combining two checks into one.  For
+     example, suppose we have another pair of data refs store_ptr_0
+     and load_ptr_1, and if the following condition is satisfied:
+
+     load_ptr_0 < load_ptr_1  &&
+     load_ptr_1 - load_ptr_0 - load_segment_length_0 < store_segment_length_0
+
+     (this condition means, in each iteration of vectorized loop,
+     the accessed memory of store_ptr_0 cannot be between the memory
+     of load_ptr_0 and load_ptr_1.)
+
+     we then can use only the following expression to finish the
+     alising checks between store_ptr_0 & load_ptr_0 and
+     store_ptr_0 & load_ptr_1:
+
+     ((store_ptr_0 + store_segment_length_0) <= load_ptr_0)
+     || (load_ptr_1 + load_segment_length_1 <= store_ptr_0))
+
+     Note that we only consider that load_ptr_0 and load_ptr_1 have the
+     same basic address.  */
+
+  comp_alias_ddrs.create (may_alias_ddrs.length ());
 
   /* First, we collect all data ref pairs for aliasing checks.  */
   FOR_EACH_VEC_ELT (may_alias_ddrs, i, ddr)
     {
-      int comp_res;
-      poly_uint64 lower_bound;
       struct data_reference *dr_a, *dr_b;
-      gimple *dr_group_first_a, *dr_group_first_b;
+      gimple dr_group_first_a, dr_group_first_b;
       tree segment_length_a, segment_length_b;
-      unsigned HOST_WIDE_INT access_size_a, access_size_b;
-      unsigned int align_a, align_b;
-      gimple *stmt_a, *stmt_b;
-
-      /* Ignore the alias if the VF we chose ended up being no greater
-	 than the dependence distance.  */
-      if (dependence_distance_ge_vf (ddr, loop_depth, vect_factor))
-	continue;
-
-      if (DDR_OBJECT_A (ddr))
-	{
-	  vec_object_pair new_pair (DDR_OBJECT_A (ddr), DDR_OBJECT_B (ddr));
-	  if (!compared_objects.add (new_pair))
-	    {
-	      if (dump_enabled_p ())
-		{
-		  dump_printf_loc (MSG_NOTE, vect_location, "checking that ");
-		  dump_generic_expr (MSG_NOTE, TDF_SLIM, new_pair.first);
-		  dump_printf (MSG_NOTE, " and ");
-		  dump_generic_expr (MSG_NOTE, TDF_SLIM, new_pair.second);
-		  dump_printf (MSG_NOTE, " have different addresses\n");
-		}
-	      LOOP_VINFO_CHECK_UNEQUAL_ADDRS (loop_vinfo).safe_push (new_pair);
-	    }
-	  continue;
-	}
+      gimple stmt_a, stmt_b;
 
       dr_a = DDR_A (ddr);
       stmt_a = DR_STMT (DDR_A (ddr));
-
-      dr_b = DDR_B (ddr);
-      stmt_b = DR_STMT (DDR_B (ddr));
-
-      /* Skip the pair if inter-iteration dependencies are irrelevant
-	 and intra-iteration dependencies are guaranteed to be honored.  */
-      if (ignore_step_p
-	  && (vect_preserves_scalar_order_p (stmt_a, stmt_b)
-	      || vectorizable_with_step_bound_p (dr_a, dr_b, &lower_bound)))
-	{
-	  if (dump_enabled_p ())
-	    {
-	      dump_printf_loc (MSG_NOTE, vect_location,
-			       "no need for alias check between ");
-	      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_a));
-	      dump_printf (MSG_NOTE, " and ");
-	      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_b));
-	      dump_printf (MSG_NOTE, " when VF is 1\n");
-	    }
-	  continue;
-	}
-
-      /* See whether we can handle the alias using a bounds check on
-	 the step, and whether that's likely to be the best approach.
-	 (It might not be, for example, if the minimum step is much larger
-	 than the number of bytes handled by one vector iteration.)  */
-      if (!ignore_step_p
-	  && TREE_CODE (DR_STEP (dr_a)) != INTEGER_CST
-	  && vectorizable_with_step_bound_p (dr_a, dr_b, &lower_bound)
-	  && (vect_small_gap_p (loop_vinfo, dr_a, lower_bound)
-	      || vect_small_gap_p (loop_vinfo, dr_b, lower_bound)))
-	{
-	  bool unsigned_p = dr_known_forward_stride_p (dr_a);
-	  if (dump_enabled_p ())
-	    {
-	      dump_printf_loc (MSG_NOTE, vect_location, "no alias between ");
-	      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_a));
-	      dump_printf (MSG_NOTE, " and ");
-	      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_b));
-	      dump_printf (MSG_NOTE, " when the step ");
-	      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_STEP (dr_a));
-	      dump_printf (MSG_NOTE, " is outside ");
-	      if (unsigned_p)
-		dump_printf (MSG_NOTE, "[0");
-	      else
-		{
-		  dump_printf (MSG_NOTE, "(");
-		  dump_dec (MSG_NOTE, poly_int64 (-lower_bound));
-		}
-	      dump_printf (MSG_NOTE, ", ");
-	      dump_dec (MSG_NOTE, lower_bound);
-	      dump_printf (MSG_NOTE, ")\n");
-	    }
-	  vect_check_lower_bound (loop_vinfo, DR_STEP (dr_a), unsigned_p,
-				  lower_bound);
-	  continue;
-	}
-
       dr_group_first_a = GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt_a));
       if (dr_group_first_a)
 	{
@@ -3495,6 +2823,8 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	  dr_a = STMT_VINFO_DATA_REF (vinfo_for_stmt (stmt_a));
 	}
 
+      dr_b = DDR_B (ddr);
+      stmt_b = DR_STMT (DDR_B (ddr));
       dr_group_first_b = GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt_b));
       if (dr_group_first_b)
 	{
@@ -3502,227 +2832,206 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	  dr_b = STMT_VINFO_DATA_REF (vinfo_for_stmt (stmt_b));
 	}
 
-      if (ignore_step_p)
-	{
-	  segment_length_a = size_zero_node;
-	  segment_length_b = size_zero_node;
-	}
+      if (!operand_equal_p (DR_STEP (dr_a), DR_STEP (dr_b), 0))
+	length_factor = scalar_loop_iters;
       else
-	{
-	  if (!operand_equal_p (DR_STEP (dr_a), DR_STEP (dr_b), 0))
-	    length_factor = scalar_loop_iters;
-	  else
-	    length_factor = size_int (vect_factor);
-	  segment_length_a = vect_vfa_segment_size (dr_a, length_factor);
-	  segment_length_b = vect_vfa_segment_size (dr_b, length_factor);
-	}
-      access_size_a = vect_vfa_access_size (dr_a);
-      access_size_b = vect_vfa_access_size (dr_b);
-      align_a = vect_vfa_align (dr_a);
-      align_b = vect_vfa_align (dr_b);
-
-      comp_res = data_ref_compare_tree (DR_BASE_ADDRESS (dr_a),
-					DR_BASE_ADDRESS (dr_b));
-      if (comp_res == 0)
-	comp_res = data_ref_compare_tree (DR_OFFSET (dr_a),
-					  DR_OFFSET (dr_b));
-
-      /* See whether the alias is known at compilation time.  */
-      if (comp_res == 0
-	  && TREE_CODE (DR_STEP (dr_a)) == INTEGER_CST
-	  && TREE_CODE (DR_STEP (dr_b)) == INTEGER_CST
-	  && poly_int_tree_p (segment_length_a)
-	  && poly_int_tree_p (segment_length_b))
-	{
-	  int res = vect_compile_time_alias (dr_a, dr_b,
-					     segment_length_a,
-					     segment_length_b,
-					     access_size_a,
-					     access_size_b);
-	  if (res >= 0 && dump_enabled_p ())
-	    {
-	      dump_printf_loc (MSG_NOTE, vect_location,
-			       "can tell at compile time that ");
-	      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_a));
-	      dump_printf (MSG_NOTE, " and ");
-	      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_b));
-	      if (res == 0)
-		dump_printf (MSG_NOTE, " do not alias\n");
-	      else
-		dump_printf (MSG_NOTE, " alias\n");
-	    }
-
-	  if (res == 0)
-	    continue;
-
-	  if (res == 1)
-	    {
-	      if (dump_enabled_p ())
-		dump_printf_loc (MSG_NOTE, vect_location,
-				 "not vectorized: compilation time alias.\n");
-	      return false;
-	    }
-	}
+	length_factor = size_int (vect_factor);
+      segment_length_a = vect_vfa_segment_size (dr_a, length_factor);
+      segment_length_b = vect_vfa_segment_size (dr_b, length_factor);
 
       dr_with_seg_len_pair_t dr_with_seg_len_pair
-	(dr_with_seg_len (dr_a, segment_length_a, access_size_a, align_a),
-	 dr_with_seg_len (dr_b, segment_length_b, access_size_b, align_b));
+	  (dr_with_seg_len (dr_a, segment_length_a),
+	   dr_with_seg_len (dr_b, segment_length_b));
 
-      /* Canonicalize pairs by sorting the two DR members.  */
-      if (comp_res > 0)
+      if (compare_tree (DR_BASE_ADDRESS (dr_a), DR_BASE_ADDRESS (dr_b)) > 0)
 	std::swap (dr_with_seg_len_pair.first, dr_with_seg_len_pair.second);
 
       comp_alias_ddrs.safe_push (dr_with_seg_len_pair);
     }
 
-  prune_runtime_alias_test_list (&comp_alias_ddrs, vect_factor);
+  /* Second, we sort the collected data ref pairs so that we can scan
+     them once to combine all possible aliasing checks.  */
+  comp_alias_ddrs.qsort (comp_dr_with_seg_len_pair);
 
-  unsigned int count = (comp_alias_ddrs.length ()
-			+ check_unequal_addrs.length ());
+  /* Third, we scan the sorted dr pairs and check if we can combine
+     alias checks of two neighbouring dr pairs.  */
+  for (size_t i = 1; i < comp_alias_ddrs.length (); ++i)
+    {
+      /* Deal with two ddrs (dr_a1, dr_b1) and (dr_a2, dr_b2).  */
+      dr_with_seg_len *dr_a1 = &comp_alias_ddrs[i-1].first,
+		      *dr_b1 = &comp_alias_ddrs[i-1].second,
+		      *dr_a2 = &comp_alias_ddrs[i].first,
+		      *dr_b2 = &comp_alias_ddrs[i].second;
+
+      /* Remove duplicate data ref pairs.  */
+      if (*dr_a1 == *dr_a2 && *dr_b1 == *dr_b2)
+	{
+	  if (dump_enabled_p ())
+	    {
+	      dump_printf_loc (MSG_NOTE, vect_location,
+			       "found equal ranges ");
+	      dump_generic_expr (MSG_NOTE, TDF_SLIM,
+				 DR_REF (dr_a1->dr));
+	      dump_printf (MSG_NOTE,  ", ");
+	      dump_generic_expr (MSG_NOTE, TDF_SLIM,
+				 DR_REF (dr_b1->dr));
+	      dump_printf (MSG_NOTE,  " and ");
+	      dump_generic_expr (MSG_NOTE, TDF_SLIM,
+				 DR_REF (dr_a2->dr));
+	      dump_printf (MSG_NOTE,  ", ");
+	      dump_generic_expr (MSG_NOTE, TDF_SLIM,
+				 DR_REF (dr_b2->dr));
+	      dump_printf (MSG_NOTE, "\n");
+	    }
+
+	  comp_alias_ddrs.ordered_remove (i--);
+	  continue;
+	}
+
+      if (*dr_a1 == *dr_a2 || *dr_b1 == *dr_b2)
+	{
+	  /* We consider the case that DR_B1 and DR_B2 are same memrefs,
+	     and DR_A1 and DR_A2 are two consecutive memrefs.  */
+	  if (*dr_a1 == *dr_a2)
+	    {
+	      std::swap (dr_a1, dr_b1);
+	      std::swap (dr_a2, dr_b2);
+	    }
+
+	  if (!operand_equal_p (DR_BASE_ADDRESS (dr_a1->dr),
+				DR_BASE_ADDRESS (dr_a2->dr),
+				0)
+	      || !tree_fits_shwi_p (dr_a1->offset)
+	      || !tree_fits_shwi_p (dr_a2->offset))
+	    continue;
+
+	  /* Make sure dr_a1 starts left of dr_a2.  */
+	  if (tree_int_cst_lt (dr_a2->offset, dr_a1->offset))
+	    std::swap (*dr_a1, *dr_a2);
+
+	  unsigned HOST_WIDE_INT diff
+	    = tree_to_shwi (dr_a2->offset) - tree_to_shwi (dr_a1->offset);
+
+
+	  bool do_remove = false;
+
+	  /* If the left segment does not extend beyond the start of the
+	     right segment the new segment length is that of the right
+	     plus the segment distance.  */
+	  if (tree_fits_uhwi_p (dr_a1->seg_len)
+	      && compare_tree_int (dr_a1->seg_len, diff) <= 0)
+	    {
+	      dr_a1->seg_len = size_binop (PLUS_EXPR, dr_a2->seg_len,
+					   size_int (diff));
+	      do_remove = true;
+	    }
+	  /* Generally the new segment length is the maximum of the
+	     left segment size and the right segment size plus the distance.
+	     ???  We can also build tree MAX_EXPR here but it's not clear this
+	     is profitable.  */
+	  else if (tree_fits_uhwi_p (dr_a1->seg_len)
+		   && tree_fits_uhwi_p (dr_a2->seg_len))
+	    {
+	      unsigned HOST_WIDE_INT seg_len_a1 = tree_to_uhwi (dr_a1->seg_len);
+	      unsigned HOST_WIDE_INT seg_len_a2 = tree_to_uhwi (dr_a2->seg_len);
+	      dr_a1->seg_len = size_int (MAX (seg_len_a1, diff + seg_len_a2));
+	      do_remove = true;
+	    }
+	  /* Now we check if the following condition is satisfied:
+
+	     DIFF - SEGMENT_LENGTH_A < SEGMENT_LENGTH_B
+
+	     where DIFF = DR_A2->OFFSET - DR_A1->OFFSET.  However,
+	     SEGMENT_LENGTH_A or SEGMENT_LENGTH_B may not be constant so we
+	     have to make a best estimation.  We can get the minimum value
+	     of SEGMENT_LENGTH_B as a constant, represented by MIN_SEG_LEN_B,
+	     then either of the following two conditions can guarantee the
+	     one above:
+
+	     1: DIFF <= MIN_SEG_LEN_B
+	     2: DIFF - SEGMENT_LENGTH_A < MIN_SEG_LEN_B  */
+	  else
+	    {
+	      unsigned HOST_WIDE_INT min_seg_len_b
+		= (tree_fits_uhwi_p (dr_b1->seg_len)
+		   ? tree_to_uhwi (dr_b1->seg_len)
+		   : vect_factor);
+
+	      if (diff <= min_seg_len_b
+		  || (tree_fits_uhwi_p (dr_a1->seg_len)
+		      && diff - tree_to_uhwi (dr_a1->seg_len) < min_seg_len_b))
+		{
+		  dr_a1->seg_len = size_binop (PLUS_EXPR,
+					       dr_a2->seg_len, size_int (diff));
+		  do_remove = true;
+		}
+	    }
+
+	  if (do_remove)
+	    {
+	      if (dump_enabled_p ())
+		{
+		  dump_printf_loc (MSG_NOTE, vect_location,
+				   "merging ranges for ");
+		  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_a1->dr));
+		  dump_printf (MSG_NOTE,  ", ");
+		  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_b1->dr));
+		  dump_printf (MSG_NOTE,  " and ");
+		  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_a2->dr));
+		  dump_printf (MSG_NOTE,  ", ");
+		  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_b2->dr));
+		  dump_printf (MSG_NOTE, "\n");
+		}
+	      comp_alias_ddrs.ordered_remove (i--);
+	    }
+	}
+    }
 
   dump_printf_loc (MSG_NOTE, vect_location,
 		   "improved number of alias checks from %d to %d\n",
-		   may_alias_ddrs.length (), count);
-  if ((int) count > PARAM_VALUE (PARAM_VECT_MAX_VERSION_FOR_ALIAS_CHECKS))
-    {
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			 "number of versioning for alias "
-			 "run-time tests exceeds %d "
-			 "(--param vect-max-version-for-alias-checks)\n",
-			 PARAM_VALUE (PARAM_VECT_MAX_VERSION_FOR_ALIAS_CHECKS));
-      return false;
-    }
+		   may_alias_ddrs.length (), comp_alias_ddrs.length ());
+  if ((int) comp_alias_ddrs.length () >
+      PARAM_VALUE (PARAM_VECT_MAX_VERSION_FOR_ALIAS_CHECKS))
+    return false;
 
   return true;
 }
 
-/* Check whether we can use an internal function for a gather load
-   or scatter store.  READ_P is true for loads and false for stores.
-   MASKED_P is true if the load or store is conditional.  MEMORY_TYPE is
-   the type of the memory elements being loaded or stored.  OFFSET_BITS
-   is the number of bits in each scalar offset and OFFSET_SIGN is the
-   sign of the offset.  SCALE is the amount by which the offset should
-   be multiplied *after* it has been converted to address width.
+/* Check whether a non-affine read in stmt is suitable for gather load
+   and if so, return a builtin decl for that operation.  */
 
-   Return true if the function is supported, storing the function
-   id in *IFN_OUT and the type of a vector element in *ELEMENT_TYPE_OUT.  */
-
-bool
-vect_gather_scatter_fn_p (bool read_p, bool masked_p, tree vectype,
-			  tree memory_type, unsigned int offset_bits,
-			  signop offset_sign, int scale,
-			  internal_fn *ifn_out, tree *element_type_out)
+tree
+vect_check_gather (gimple stmt, loop_vec_info loop_vinfo, tree *basep,
+		   tree *offp, int *scalep)
 {
-  unsigned int memory_bits = tree_to_uhwi (TYPE_SIZE (memory_type));
-  unsigned int element_bits = tree_to_uhwi (TYPE_SIZE (TREE_TYPE (vectype)));
-  if (offset_bits > element_bits)
-    /* Internal functions require the offset to be the same width as
-       the vector elements.  We can extend narrower offsets, but it isn't
-       safe to truncate wider offsets.  */
-    return false;
-
-  if (element_bits != memory_bits)
-    /* For now the vector elements must be the same width as the
-       memory elements.  */
-    return false;
-
-  /* Work out which function we need.  */
-  internal_fn ifn;
-  if (read_p)
-    ifn = masked_p ? IFN_MASK_GATHER_LOAD : IFN_GATHER_LOAD;
-  else
-    ifn = masked_p ? IFN_MASK_SCATTER_STORE : IFN_SCATTER_STORE;
-
-  /* Test whether the target supports this combination.  */
-  if (!internal_gather_scatter_fn_supported_p (ifn, vectype, memory_type,
-					       offset_sign, scale))
-    return false;
-
-  *ifn_out = ifn;
-  *element_type_out = TREE_TYPE (vectype);
-  return true;
-}
-
-/* CALL is a call to an internal gather load or scatter store function.
-   Describe the operation in INFO.  */
-
-static void
-vect_describe_gather_scatter_call (gcall *call, gather_scatter_info *info)
-{
-  stmt_vec_info stmt_info = vinfo_for_stmt (call);
-  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
-  data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
-
-  info->ifn = gimple_call_internal_fn (call);
-  info->decl = NULL_TREE;
-  info->base = gimple_call_arg (call, 0);
-  info->offset = gimple_call_arg (call, 1);
-  info->offset_dt = vect_unknown_def_type;
-  info->offset_vectype = NULL_TREE;
-  info->scale = TREE_INT_CST_LOW (gimple_call_arg (call, 2));
-  info->element_type = TREE_TYPE (vectype);
-  info->memory_type = TREE_TYPE (DR_REF (dr));
-}
-
-/* Return true if a non-affine read or write in STMT is suitable for a
-   gather load or scatter store.  Describe the operation in *INFO if so.  */
-
-bool
-vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
-			   gather_scatter_info *info)
-{
-  HOST_WIDE_INT scale = 1;
-  poly_int64 pbitpos, pbitsize;
+  HOST_WIDE_INT scale = 1, pbitpos, pbitsize;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
   tree offtype = NULL_TREE;
-  tree decl = NULL_TREE, base, off;
-  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
-  tree memory_type = TREE_TYPE (DR_REF (dr));
+  tree decl, base, off;
   machine_mode pmode;
-  int punsignedp, reversep, pvolatilep = 0;
-  internal_fn ifn;
-  tree element_type;
-  bool masked_p = false;
-
-  /* See whether this is already a call to a gather/scatter internal function.
-     If not, see whether it's a masked load or store.  */
-  gcall *call = dyn_cast <gcall *> (stmt);
-  if (call && gimple_call_internal_p (call))
-    {
-      ifn = gimple_call_internal_fn (stmt);
-      if (internal_gather_scatter_fn_p (ifn))
-	{
-	  vect_describe_gather_scatter_call (call, info);
-	  return true;
-	}
-      masked_p = (ifn == IFN_MASK_LOAD || ifn == IFN_MASK_STORE);
-    }
-
-  /* True if we should aim to use internal functions rather than
-     built-in functions.  */
-  bool use_ifn_p = (DR_IS_READ (dr)
-		    ? supports_vec_gather_load_p ()
-		    : supports_vec_scatter_store_p ());
+  int punsignedp, pvolatilep;
 
   base = DR_REF (dr);
   /* For masked loads/stores, DR_REF (dr) is an artificial MEM_REF,
      see if we can use the def stmt of the address.  */
-  if (masked_p
+  if (is_gimple_call (stmt)
+      && gimple_call_internal_p (stmt)
+      && (gimple_call_internal_fn (stmt) == IFN_MASK_LOAD
+	  || gimple_call_internal_fn (stmt) == IFN_MASK_STORE)
       && TREE_CODE (base) == MEM_REF
       && TREE_CODE (TREE_OPERAND (base, 0)) == SSA_NAME
       && integer_zerop (TREE_OPERAND (base, 1))
       && !expr_invariant_in_loop_p (loop, TREE_OPERAND (base, 0)))
     {
-      gimple *def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (base, 0));
+      gimple def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (base, 0));
       if (is_gimple_assign (def_stmt)
 	  && gimple_assign_rhs_code (def_stmt) == ADDR_EXPR)
 	base = TREE_OPERAND (gimple_assign_rhs1 (def_stmt), 0);
     }
 
-  /* The gather and scatter builtins need address of the form
+  /* The gather builtins need address of the form
      loop_invariant + vector * {1, 2, 4, 8}
      or
      loop_invariant + sign_extend (vector) * { 1, 2, 4, 8 }.
@@ -3734,17 +3043,19 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
      vectorized.  The following code attempts to find such a preexistng
      SSA_NAME OFF and put the loop invariants into a tree BASE
      that can be gimplified before the loop.  */
-  base = get_inner_reference (base, &pbitsize, &pbitpos, &off, &pmode,
-			      &punsignedp, &reversep, &pvolatilep);
-  gcc_assert (base && !reversep);
-  poly_int64 pbytepos = exact_div (pbitpos, BITS_PER_UNIT);
+  base = get_inner_reference (base, &pbitsize, &pbitpos, &off,
+			      &pmode, &punsignedp, &pvolatilep, false);
+  gcc_assert (base != NULL_TREE && (pbitpos % BITS_PER_UNIT) == 0);
 
   if (TREE_CODE (base) == MEM_REF)
     {
       if (!integer_zerop (TREE_OPERAND (base, 1)))
 	{
 	  if (off == NULL_TREE)
-	    off = wide_int_to_tree (sizetype, mem_ref_offset (base));
+	    {
+	      offset_int moff = mem_ref_offset (base);
+	      off = wide_int_to_tree (sizetype, moff);
+	    }
 	  else
 	    off = size_binop (PLUS_EXPR, off,
 			      fold_convert (sizetype, TREE_OPERAND (base, 1)));
@@ -3765,16 +3076,16 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
   if (!expr_invariant_in_loop_p (loop, base))
     {
       if (!integer_zerop (off))
-	return false;
+	return NULL_TREE;
       off = base;
-      base = size_int (pbytepos);
+      base = size_int (pbitpos / BITS_PER_UNIT);
     }
   /* Otherwise put base + constant offset into the loop invariant BASE
      and continue with OFF.  */
   else
     {
       base = fold_convert (sizetype, base);
-      base = size_binop (PLUS_EXPR, base, size_int (pbytepos));
+      base = size_binop (PLUS_EXPR, base, size_int (pbitpos / BITS_PER_UNIT));
     }
 
   /* OFF at this point may be either a SSA_NAME or some tree expression
@@ -3788,10 +3099,10 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
 
       if (TREE_CODE (off) == SSA_NAME)
 	{
-	  gimple *def_stmt = SSA_NAME_DEF_STMT (off);
+	  gimple def_stmt = SSA_NAME_DEF_STMT (off);
 
 	  if (expr_invariant_in_loop_p (loop, off))
-	    return false;
+	    return NULL_TREE;
 
 	  if (gimple_code (def_stmt) != GIMPLE_ASSIGN)
 	    break;
@@ -3803,7 +3114,7 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
       else
 	{
 	  if (get_gimple_rhs_class (TREE_CODE (off)) == GIMPLE_TERNARY_RHS)
-	    return false;
+	    return NULL_TREE;
 	  code = TREE_CODE (off);
 	  extract_ops_from_tree (off, &code, &op0, &op1);
 	}
@@ -3841,17 +3152,7 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
 	case MULT_EXPR:
 	  if (scale == 1 && tree_fits_shwi_p (op1))
 	    {
-	      int new_scale = tree_to_shwi (op1);
-	      /* Only treat this as a scaling operation if the target
-		 supports it.  */
-	      if (use_ifn_p
-		  && !vect_gather_scatter_fn_p (DR_IS_READ (dr), masked_p,
-						vectype, memory_type, 1,
-						TYPE_SIGN (TREE_TYPE (op0)),
-						new_scale, &ifn,
-						&element_type))
-		break;
-	      scale = new_scale;
+	      scale = tree_to_shwi (op1);
 	      off = op0;
 	      continue;
 	    }
@@ -3869,15 +3170,6 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
 	      off = op0;
 	      continue;
 	    }
-
-	  /* The internal functions need the offset to be the same width
-	     as the elements of VECTYPE.  Don't include operations that
-	     cast the offset from that width to a different width.  */
-	  if (use_ifn_p
-	      && (int_size_in_bytes (TREE_TYPE (vectype))
-		  == int_size_in_bytes (TREE_TYPE (off))))
-	    break;
-
 	  if (TYPE_PRECISION (TREE_TYPE (op0))
 	      < TYPE_PRECISION (TREE_TYPE (off)))
 	    {
@@ -3897,49 +3189,23 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
      defined in the loop, punt.  */
   if (TREE_CODE (off) != SSA_NAME
       || expr_invariant_in_loop_p (loop, off))
-    return false;
+    return NULL_TREE;
 
   if (offtype == NULL_TREE)
     offtype = TREE_TYPE (off);
 
-  if (use_ifn_p)
-    {
-      if (!vect_gather_scatter_fn_p (DR_IS_READ (dr), masked_p, vectype,
-				     memory_type, TYPE_PRECISION (offtype),
-				     TYPE_SIGN (offtype), scale, &ifn,
-				     &element_type))
-	return false;
-    }
-  else
-    {
-      if (DR_IS_READ (dr))
-	{
-	  if (targetm.vectorize.builtin_gather)
-	    decl = targetm.vectorize.builtin_gather (vectype, offtype, scale);
-	}
-      else
-	{
-	  if (targetm.vectorize.builtin_scatter)
-	    decl = targetm.vectorize.builtin_scatter (vectype, offtype, scale);
-	}
+  decl = targetm.vectorize.builtin_gather (STMT_VINFO_VECTYPE (stmt_info),
+					   offtype, scale);
+  if (decl == NULL_TREE)
+    return NULL_TREE;
 
-      if (!decl)
-	return false;
-
-      ifn = IFN_LAST;
-      element_type = TREE_TYPE (vectype);
-    }
-
-  info->ifn = ifn;
-  info->decl = decl;
-  info->base = base;
-  info->offset = off;
-  info->offset_dt = vect_unknown_def_type;
-  info->offset_vectype = NULL_TREE;
-  info->scale = scale;
-  info->element_type = element_type;
-  info->memory_type = memory_type;
-  return true;
+  if (basep)
+    *basep = base;
+  if (offp)
+    *offp = off;
+  if (scalep)
+    *scalep = scale;
+  return decl;
 }
 
 /* Function vect_analyze_data_refs.
@@ -3958,32 +3224,129 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
 */
 
 bool
-vect_analyze_data_refs (vec_info *vinfo, poly_uint64 *min_vf)
+vect_analyze_data_refs (loop_vec_info loop_vinfo,
+			bb_vec_info bb_vinfo,
+			int *min_vf, unsigned *n_stmts)
 {
   struct loop *loop = NULL;
+  basic_block bb = NULL;
   unsigned int i;
+  vec<data_reference_p> datarefs;
   struct data_reference *dr;
   tree scalar_type;
 
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
-		     "=== vect_analyze_data_refs ===\n");
+                     "=== vect_analyze_data_refs ===\n");
 
-  if (loop_vec_info loop_vinfo = dyn_cast <loop_vec_info> (vinfo))
-    loop = LOOP_VINFO_LOOP (loop_vinfo);
+  if (loop_vinfo)
+    {
+      basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
+
+      loop = LOOP_VINFO_LOOP (loop_vinfo);
+      datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
+      if (!find_loop_nest (loop, &LOOP_VINFO_LOOP_NEST (loop_vinfo)))
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+	                     "not vectorized: loop contains function calls"
+	                     " or data references that cannot be analyzed\n");
+	  return false;
+	}
+
+      for (i = 0; i < loop->num_nodes; i++)
+	{
+	  gimple_stmt_iterator gsi;
+
+	  for (gsi = gsi_start_bb (bbs[i]); !gsi_end_p (gsi); gsi_next (&gsi))
+	    {
+	      gimple stmt = gsi_stmt (gsi);
+	      if (is_gimple_debug (stmt))
+		continue;
+	      ++*n_stmts;
+	      if (!find_data_references_in_stmt (loop, stmt, &datarefs))
+		{
+		  if (is_gimple_call (stmt) && loop->safelen)
+		    {
+		      tree fndecl = gimple_call_fndecl (stmt), op;
+		      if (fndecl != NULL_TREE)
+			{
+			  struct cgraph_node *node = cgraph_node::get (fndecl);
+			  if (node != NULL && node->simd_clones != NULL)
+			    {
+			      unsigned int j, n = gimple_call_num_args (stmt);
+			      for (j = 0; j < n; j++)
+				{
+				  op = gimple_call_arg (stmt, j);
+				  if (DECL_P (op)
+				      || (REFERENCE_CLASS_P (op)
+					  && get_base_address (op)))
+				    break;
+				}
+			      op = gimple_call_lhs (stmt);
+			      /* Ignore #pragma omp declare simd functions
+				 if they don't have data references in the
+				 call stmt itself.  */
+			      if (j == n
+				  && !(op
+				       && (DECL_P (op)
+					   || (REFERENCE_CLASS_P (op)
+					       && get_base_address (op)))))
+				continue;
+			    }
+			}
+		    }
+		  LOOP_VINFO_DATAREFS (loop_vinfo) = datarefs;
+		  if (dump_enabled_p ())
+		    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				     "not vectorized: loop contains function "
+				     "calls or data references that cannot "
+				     "be analyzed\n");
+		  return false;
+		}
+	    }
+	}
+
+      LOOP_VINFO_DATAREFS (loop_vinfo) = datarefs;
+    }
+  else
+    {
+      gimple_stmt_iterator gsi;
+
+      bb = BB_VINFO_BB (bb_vinfo);
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  gimple stmt = gsi_stmt (gsi);
+	  if (is_gimple_debug (stmt))
+	    continue;
+	  ++*n_stmts;
+	  if (!find_data_references_in_stmt (NULL, stmt,
+					     &BB_VINFO_DATAREFS (bb_vinfo)))
+	    {
+	      /* Mark the rest of the basic-block as unvectorizable.  */
+	      for (; !gsi_end_p (gsi); gsi_next (&gsi))
+		{
+		  stmt = gsi_stmt (gsi);
+		  STMT_VINFO_VECTORIZABLE (vinfo_for_stmt (stmt)) = false;
+		}
+	      break;
+	    }
+	}
+
+      datarefs = BB_VINFO_DATAREFS (bb_vinfo);
+    }
 
   /* Go through the data-refs, check that the analysis succeeded.  Update
      pointer from stmt_vec_info struct to DR and vectype.  */
 
-  vec<data_reference_p> datarefs = vinfo->datarefs;
   FOR_EACH_VEC_ELT (datarefs, i, dr)
     {
-      gimple *stmt;
+      gimple stmt;
       stmt_vec_info stmt_info;
       tree base, offset, init;
-      enum { SG_NONE, GATHER, SCATTER } gatherscatter = SG_NONE;
+      bool gather = false;
       bool simd_lane_access = false;
-      poly_uint64 vf;
+      int vf;
 
 again:
       if (!dr || !DR_REF (dr))
@@ -4019,26 +3382,19 @@ again:
 	  bool maybe_gather
 	    = DR_IS_READ (dr)
 	      && !TREE_THIS_VOLATILE (DR_REF (dr))
-	      && (targetm.vectorize.builtin_gather != NULL
-		  || supports_vec_gather_load_p ());
-	  bool maybe_scatter
-	    = DR_IS_WRITE (dr)
-	      && !TREE_THIS_VOLATILE (DR_REF (dr))
-	      && (targetm.vectorize.builtin_scatter != NULL
-		  || supports_vec_scatter_store_p ());
+	      && targetm.vectorize.builtin_gather != NULL;
 	  bool maybe_simd_lane_access
-	    = is_a <loop_vec_info> (vinfo) && loop->simduid;
+	    = loop_vinfo && loop->simduid;
 
-	  /* If target supports vector gather loads or scatter stores, or if
-	     this might be a SIMD lane access, see if they can't be used.  */
-	  if (is_a <loop_vec_info> (vinfo)
-	      && (maybe_gather || maybe_scatter || maybe_simd_lane_access)
+	  /* If target supports vector gather loads, or if this might be
+	     a SIMD lane access, see if they can't be used.  */
+	  if (loop_vinfo
+	      && (maybe_gather || maybe_simd_lane_access)
 	      && !nested_in_vect_loop_p (loop, stmt))
 	    {
 	      struct data_reference *newdr
 		= create_data_ref (NULL, loop_containing_stmt (stmt),
-				   DR_REF (dr), stmt, !maybe_scatter,
-				   DR_IS_CONDITIONAL_IN_STMT (dr));
+				   DR_REF (dr), stmt, true);
 	      gcc_assert (newdr != NULL && DR_REF (newdr));
 	      if (DR_BASE_ADDRESS (newdr)
 		  && DR_OFFSET (newdr)
@@ -4064,7 +3420,7 @@ again:
 			    off = TREE_OPERAND (off, 0);
 			  if (TREE_CODE (off) == SSA_NAME)
 			    {
-			      gimple *def = SSA_NAME_DEF_STMT (off);
+			      gimple def = SSA_NAME_DEF_STMT (off);
 			      tree reft = TREE_TYPE (DR_REF (newdr));
 			      if (is_gimple_call (def)
 				  && gimple_call_internal_p (def)
@@ -4082,10 +3438,8 @@ again:
 				    {
 				      DR_OFFSET (newdr) = ssize_int (0);
 				      DR_STEP (newdr) = step;
-				      DR_OFFSET_ALIGNMENT (newdr)
-					= BIGGEST_ALIGNMENT;
-				      DR_STEP_ALIGNMENT (newdr)
-					= highest_pow2_factor (step);
+				      DR_ALIGNED_TO (newdr)
+					= size_int (BIGGEST_ALIGNMENT);
 				      dr = newdr;
 				      simd_lane_access = true;
 				    }
@@ -4093,20 +3447,17 @@ again:
 			    }
 			}
 		    }
-		  if (!simd_lane_access && (maybe_gather || maybe_scatter))
+		  if (!simd_lane_access && maybe_gather)
 		    {
 		      dr = newdr;
-		      if (maybe_gather)
-			gatherscatter = GATHER;
-		      else
-			gatherscatter = SCATTER;
+		      gather = true;
 		    }
 		}
-	      if (gatherscatter == SG_NONE && !simd_lane_access)
+	      if (!gather && !simd_lane_access)
 		free_data_ref (newdr);
 	    }
 
-	  if (gatherscatter == SG_NONE && !simd_lane_access)
+	  if (!gather && !simd_lane_access)
 	    {
 	      if (dump_enabled_p ())
 		{
@@ -4114,9 +3465,10 @@ again:
                                    "not vectorized: data ref analysis "
                                    "failed ");
 		  dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
+                  dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
 		}
 
-	      if (is_a <bb_vec_info> (vinfo))
+	      if (bb_vinfo)
 		break;
 
 	      return false;
@@ -4130,10 +3482,10 @@ again:
                              "not vectorized: base addr of dr is a "
                              "constant\n");
 
-          if (is_a <bb_vec_info> (vinfo))
+          if (bb_vinfo)
 	    break;
 
-	  if (gatherscatter != SG_NONE || simd_lane_access)
+	  if (gather || simd_lane_access)
 	    free_data_ref (dr);
 	  return false;
         }
@@ -4145,9 +3497,10 @@ again:
               dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
                                "not vectorized: volatile type ");
               dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
+              dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
             }
 
-          if (is_a <bb_vec_info> (vinfo))
+          if (bb_vinfo)
 	    break;
 
           return false;
@@ -4161,12 +3514,13 @@ again:
                                "not vectorized: statement can throw an "
                                "exception ");
               dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
+              dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
             }
 
-          if (is_a <bb_vec_info> (vinfo))
+          if (bb_vinfo)
 	    break;
 
-	  if (gatherscatter != SG_NONE || simd_lane_access)
+	  if (gather || simd_lane_access)
 	    free_data_ref (dr);
           return false;
         }
@@ -4180,12 +3534,13 @@ again:
                                "not vectorized: statement is bitfield "
                                "access ");
               dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
+              dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
             }
 
-          if (is_a <bb_vec_info> (vinfo))
+          if (bb_vinfo)
 	    break;
 
-	  if (gatherscatter != SG_NONE || simd_lane_access)
+	  if (gather || simd_lane_access)
 	    free_data_ref (dr);
           return false;
 	}
@@ -4204,12 +3559,13 @@ again:
 	      dump_printf_loc (MSG_MISSED_OPTIMIZATION,  vect_location,
 	                       "not vectorized: dr in a call ");
 	      dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
+	      dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
 	    }
 
-	  if (is_a <bb_vec_info> (vinfo))
+	  if (bb_vinfo)
 	    break;
 
-	  if (gatherscatter != SG_NONE || simd_lane_access)
+	  if (gather || simd_lane_access)
 	    free_data_ref (dr);
 	  return false;
 	}
@@ -4224,27 +3580,91 @@ again:
 	 the outer-loop.  */
       if (loop && nested_in_vect_loop_p (loop, stmt))
 	{
+	  tree outer_step, outer_base, outer_init;
+	  HOST_WIDE_INT pbitsize, pbitpos;
+	  tree poffset;
+	  machine_mode pmode;
+	  int punsignedp, pvolatilep;
+	  affine_iv base_iv, offset_iv;
+	  tree dinit;
+
 	  /* Build a reference to the first location accessed by the
-	     inner loop: *(BASE + INIT + OFFSET).  By construction,
-	     this address must be invariant in the inner loop, so we
-	     can consider it as being used in the outer loop.  */
-	  tree init_offset = fold_build2 (PLUS_EXPR, TREE_TYPE (offset),
-					  init, offset);
-	  tree init_addr = fold_build_pointer_plus (base, init_offset);
-	  tree init_ref = build_fold_indirect_ref (init_addr);
+	     inner-loop: *(BASE+INIT).  (The first location is actually
+	     BASE+INIT+OFFSET, but we add OFFSET separately later).  */
+          tree inner_base = build_fold_indirect_ref
+                                (fold_build_pointer_plus (base, init));
 
 	  if (dump_enabled_p ())
 	    {
 	      dump_printf_loc (MSG_NOTE, vect_location,
-                               "analyze in outer loop: ");
-	      dump_generic_expr (MSG_NOTE, TDF_SLIM, init_ref);
+                               "analyze in outer-loop: ");
+	      dump_generic_expr (MSG_NOTE, TDF_SLIM, inner_base);
 	      dump_printf (MSG_NOTE, "\n");
 	    }
 
-	  if (!dr_analyze_innermost (&STMT_VINFO_DR_WRT_VEC_LOOP (stmt_info),
-				     init_ref, loop))
-	    /* dr_analyze_innermost already explained the failure.  */
-	    return false;
+	  outer_base = get_inner_reference (inner_base, &pbitsize, &pbitpos,
+		          &poffset, &pmode, &punsignedp, &pvolatilep, false);
+	  gcc_assert (outer_base != NULL_TREE);
+
+	  if (pbitpos % BITS_PER_UNIT != 0)
+	    {
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+                                 "failed: bit offset alignment.\n");
+	      return false;
+	    }
+
+	  outer_base = build_fold_addr_expr (outer_base);
+	  if (!simple_iv (loop, loop_containing_stmt (stmt), outer_base,
+                          &base_iv, false))
+	    {
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+                                 "failed: evolution of base is not affine.\n");
+	      return false;
+	    }
+
+	  if (offset)
+	    {
+	      if (poffset)
+		poffset = fold_build2 (PLUS_EXPR, TREE_TYPE (offset), offset,
+                                       poffset);
+	      else
+		poffset = offset;
+	    }
+
+	  if (!poffset)
+	    {
+	      offset_iv.base = ssize_int (0);
+	      offset_iv.step = ssize_int (0);
+	    }
+	  else if (!simple_iv (loop, loop_containing_stmt (stmt), poffset,
+                               &offset_iv, false))
+	    {
+	      if (dump_enabled_p ())
+	        dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+                                 "evolution of offset is not affine.\n");
+	      return false;
+	    }
+
+	  outer_init = ssize_int (pbitpos / BITS_PER_UNIT);
+	  split_constant_offset (base_iv.base, &base_iv.base, &dinit);
+	  outer_init =  size_binop (PLUS_EXPR, outer_init, dinit);
+	  split_constant_offset (offset_iv.base, &offset_iv.base, &dinit);
+	  outer_init =  size_binop (PLUS_EXPR, outer_init, dinit);
+
+	  outer_step = size_binop (PLUS_EXPR,
+				fold_convert (ssizetype, base_iv.step),
+				fold_convert (ssizetype, offset_iv.step));
+
+	  STMT_VINFO_DR_STEP (stmt_info) = outer_step;
+	  /* FIXME: Use canonicalize_base_object_address (base_iv.base); */
+	  STMT_VINFO_DR_BASE_ADDRESS (stmt_info) = base_iv.base;
+	  STMT_VINFO_DR_INIT (stmt_info) = outer_init;
+	  STMT_VINFO_DR_OFFSET (stmt_info) =
+				fold_convert (ssizetype, offset_iv.base);
+	  STMT_VINFO_DR_ALIGNED_TO (stmt_info) =
+				size_int (highest_pow2_factor (offset_iv.base));
 
           if (dump_enabled_p ())
 	    {
@@ -4262,14 +3682,10 @@ again:
 	      dump_printf (MSG_NOTE, "\n\touter step: ");
 	      dump_generic_expr (MSG_NOTE, TDF_SLIM,
                                  STMT_VINFO_DR_STEP (stmt_info));
-	      dump_printf (MSG_NOTE, "\n\touter base alignment: %d\n",
-			   STMT_VINFO_DR_BASE_ALIGNMENT (stmt_info));
-	      dump_printf (MSG_NOTE, "\n\touter base misalignment: %d\n",
-			   STMT_VINFO_DR_BASE_MISALIGNMENT (stmt_info));
-	      dump_printf (MSG_NOTE, "\n\touter offset alignment: %d\n",
-			   STMT_VINFO_DR_OFFSET_ALIGNMENT (stmt_info));
-	      dump_printf (MSG_NOTE, "\n\touter step alignment: %d\n",
-			   STMT_VINFO_DR_STEP_ALIGNMENT (stmt_info));
+	      dump_printf (MSG_NOTE, "\n\touter aligned to: ");
+	      dump_generic_expr (MSG_NOTE, TDF_SLIM,
+                                 STMT_VINFO_DR_ALIGNED_TO (stmt_info));
+	      dump_printf (MSG_NOTE, "\n");
 	    }
 	}
 
@@ -4281,12 +3697,13 @@ again:
                                "not vectorized: more than one data ref "
                                "in stmt: ");
               dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
+              dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
             }
 
-          if (is_a <bb_vec_info> (vinfo))
+          if (bb_vinfo)
 	    break;
 
-	  if (gatherscatter != SG_NONE || simd_lane_access)
+	  if (gather || simd_lane_access)
 	    free_data_ref (dr);
           return false;
         }
@@ -4297,27 +3714,6 @@ again:
 	  STMT_VINFO_SIMD_LANE_ACCESS_P (stmt_info) = true;
 	  free_data_ref (datarefs[i]);
 	  datarefs[i] = dr;
-	}
-
-      if (TREE_CODE (DR_BASE_ADDRESS (dr)) == ADDR_EXPR
-	  && VAR_P (TREE_OPERAND (DR_BASE_ADDRESS (dr), 0))
-	  && DECL_NONALIASED (TREE_OPERAND (DR_BASE_ADDRESS (dr), 0)))
-	{
-          if (dump_enabled_p ())
-            {
-              dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-                               "not vectorized: base object not addressable "
-			       "for stmt: ");
-              dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
-            }
-          if (is_a <bb_vec_info> (vinfo))
-	    {
-	      /* In BB vectorization the ref can still participate
-	         in dependence analysis, we just can't vectorize it.  */
-	      STMT_VINFO_VECTORIZABLE (stmt_info) = false;
-	      continue;
-	    }
-	  return false;
 	}
 
       /* Set vectype for STMT.  */
@@ -4337,18 +3733,13 @@ again:
               dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
             }
 
-          if (is_a <bb_vec_info> (vinfo))
-	    {
-	      /* No vector type is fine, the ref can still participate
-	         in dependence analysis, we just can't vectorize it.  */
-	      STMT_VINFO_VECTORIZABLE (stmt_info) = false;
-	      continue;
-	    }
+          if (bb_vinfo)
+	    break;
 
-	  if (gatherscatter != SG_NONE || simd_lane_access)
+	  if (gather || simd_lane_access)
 	    {
 	      STMT_VINFO_DATA_REF (stmt_info) = NULL;
-	      if (gatherscatter != SG_NONE)
+	      if (gather)
 		free_data_ref (dr);
 	    }
 	  return false;
@@ -4369,39 +3760,40 @@ again:
       /* Adjust the minimal vectorization factor according to the
 	 vector type.  */
       vf = TYPE_VECTOR_SUBPARTS (STMT_VINFO_VECTYPE (stmt_info));
-      *min_vf = upper_bound (*min_vf, vf);
+      if (vf > *min_vf)
+	*min_vf = vf;
 
-      if (gatherscatter != SG_NONE)
+      if (gather)
 	{
-	  gather_scatter_info gs_info;
-	  if (!vect_check_gather_scatter (stmt, as_a <loop_vec_info> (vinfo),
-					  &gs_info)
-	      || !get_vectype_for_scalar_type (TREE_TYPE (gs_info.offset)))
+	  tree off;
+
+	  gather = 0 != vect_check_gather (stmt, loop_vinfo, NULL, &off, NULL);
+	  if (gather
+	      && get_vectype_for_scalar_type (TREE_TYPE (off)) == NULL_TREE)
+	    gather = false;
+	  if (!gather)
 	    {
 	      STMT_VINFO_DATA_REF (stmt_info) = NULL;
 	      free_data_ref (dr);
 	      if (dump_enabled_p ())
 		{
-		  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-				   (gatherscatter == GATHER) ?
-				   "not vectorized: not suitable for gather "
-				   "load " :
-				   "not vectorized: not suitable for scatter "
-				   "store ");
+		  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location, 
+                                   "not vectorized: not suitable for gather "
+                                   "load ");
 		  dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
+                  dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
 		}
 	      return false;
 	    }
 
-	  free_data_ref (datarefs[i]);
 	  datarefs[i] = dr;
-	  STMT_VINFO_GATHER_SCATTER_P (stmt_info) = gatherscatter;
+	  STMT_VINFO_GATHER_P (stmt_info) = true;
 	}
-
-      else if (is_a <loop_vec_info> (vinfo)
+      else if (loop_vinfo
 	       && TREE_CODE (DR_STEP (dr)) != INTEGER_CST)
 	{
-	  if (nested_in_vect_loop_p (loop, stmt))
+	  if (nested_in_vect_loop_p (loop, stmt)
+	      || !DR_IS_READ (dr))
 	    {
 	      if (dump_enabled_p ())
 		{
@@ -4409,10 +3801,11 @@ again:
                                    "not vectorized: not suitable for strided "
                                    "load ");
 		  dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
+                  dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
 		}
 	      return false;
 	    }
-	  STMT_VINFO_STRIDED_P (stmt_info) = true;
+	  STMT_VINFO_STRIDE_LOAD_P (stmt_info) = true;
 	}
     }
 
@@ -4422,7 +3815,7 @@ again:
      avoids spending useless time in analyzing their dependence.  */
   if (i != datarefs.length ())
     {
-      gcc_assert (is_a <bb_vec_info> (vinfo));
+      gcc_assert (bb_vinfo != NULL);
       for (unsigned j = i; j < datarefs.length (); ++j)
 	{
 	  data_reference_p dr = datarefs[j];
@@ -4457,9 +3850,6 @@ vect_get_new_vect_var (tree type, enum vect_var_kind var_kind, const char *name)
   case vect_scalar_var:
     prefix = "stmp";
     break;
-  case vect_mask_var:
-    prefix = "mask";
-    break;
   case vect_pointer_var:
     prefix = "vectp";
     break;
@@ -4479,53 +3869,19 @@ vect_get_new_vect_var (tree type, enum vect_var_kind var_kind, const char *name)
   return new_vect_var;
 }
 
-/* Like vect_get_new_vect_var but return an SSA name.  */
-
-tree
-vect_get_new_ssa_name (tree type, enum vect_var_kind var_kind, const char *name)
-{
-  const char *prefix;
-  tree new_vect_var;
-
-  switch (var_kind)
-  {
-  case vect_simple_var:
-    prefix = "vect";
-    break;
-  case vect_scalar_var:
-    prefix = "stmp";
-    break;
-  case vect_pointer_var:
-    prefix = "vectp";
-    break;
-  default:
-    gcc_unreachable ();
-  }
-
-  if (name)
-    {
-      char* tmp = concat (prefix, "_", name, NULL);
-      new_vect_var = make_temp_ssa_name (type, NULL, tmp);
-      free (tmp);
-    }
-  else
-    new_vect_var = make_temp_ssa_name (type, NULL, prefix);
-
-  return new_vect_var;
-}
-
 /* Duplicate ptr info and set alignment/misaligment on NAME from DR.  */
 
 static void
-vect_duplicate_ssa_name_ptr_info (tree name, data_reference *dr)
+vect_duplicate_ssa_name_ptr_info (tree name, data_reference *dr,
+				  stmt_vec_info stmt_info)
 {
   duplicate_ssa_name_ptr_info (name, DR_PTR_INFO (dr));
+  unsigned int align = TYPE_ALIGN_UNIT (STMT_VINFO_VECTYPE (stmt_info));
   int misalign = DR_MISALIGNMENT (dr);
-  if (misalign == DR_MISALIGNMENT_UNKNOWN)
+  if (misalign == -1)
     mark_ptr_info_alignment_unknown (SSA_NAME_PTR_INFO (name));
   else
-    set_ptr_info_alignment (SSA_NAME_PTR_INFO (name),
-			    DR_TARGET_ALIGNMENT (dr), misalign);
+    set_ptr_info_alignment (SSA_NAME_PTR_INFO (name), align, misalign);
 }
 
 /* Function vect_create_addr_base_for_vector_ref.
@@ -4563,25 +3919,41 @@ vect_duplicate_ssa_name_ptr_info (tree name, data_reference *dr)
    FORNOW: We are only handling array accesses with step 1.  */
 
 tree
-vect_create_addr_base_for_vector_ref (gimple *stmt,
+vect_create_addr_base_for_vector_ref (gimple stmt,
 				      gimple_seq *new_stmt_list,
 				      tree offset,
+				      struct loop *loop,
 				      tree byte_offset)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
+  tree data_ref_base;
   const char *base_name;
   tree addr_base;
   tree dest;
   gimple_seq seq = NULL;
+  tree base_offset;
+  tree init;
   tree vect_ptr_type;
   tree step = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dr)));
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
-  innermost_loop_behavior *drb = vect_dr_behavior (dr);
 
-  tree data_ref_base = unshare_expr (drb->base_address);
-  tree base_offset = unshare_expr (drb->offset);
-  tree init = unshare_expr (drb->init);
+  if (loop_vinfo && loop && loop != (gimple_bb (stmt))->loop_father)
+    {
+      struct loop *outer_loop = LOOP_VINFO_LOOP (loop_vinfo);
+
+      gcc_assert (nested_in_vect_loop_p (outer_loop, stmt));
+
+      data_ref_base = unshare_expr (STMT_VINFO_DR_BASE_ADDRESS (stmt_info));
+      base_offset = unshare_expr (STMT_VINFO_DR_OFFSET (stmt_info));
+      init = unshare_expr (STMT_VINFO_DR_INIT (stmt_info));
+    }
+  else
+    {
+      data_ref_base = unshare_expr (DR_BASE_ADDRESS (dr));
+      base_offset = unshare_expr (DR_OFFSET (dr));
+      init = unshare_expr (DR_INIT (dr));
+    }
 
   if (loop_vinfo)
     base_name = get_name (data_ref_base);
@@ -4622,15 +3994,15 @@ vect_create_addr_base_for_vector_ref (gimple *stmt,
     }
 
   vect_ptr_type = build_pointer_type (STMT_VINFO_VECTYPE (stmt_info));
+  addr_base = fold_convert (vect_ptr_type, addr_base);
   dest = vect_get_new_vect_var (vect_ptr_type, vect_pointer_var, base_name);
-  addr_base = force_gimple_operand (addr_base, &seq, true, dest);
+  addr_base = force_gimple_operand (addr_base, &seq, false, dest);
   gimple_seq_add_seq (new_stmt_list, seq);
 
   if (DR_PTR_INFO (dr)
-      && TREE_CODE (addr_base) == SSA_NAME
-      && !SSA_NAME_PTR_INFO (addr_base))
+      && TREE_CODE (addr_base) == SSA_NAME)
     {
-      vect_duplicate_ssa_name_ptr_info (addr_base, dr);
+      vect_duplicate_ssa_name_ptr_info (addr_base, dr, stmt_info);
       if (offset || byte_offset)
 	mark_ptr_info_alignment_unknown (SSA_NAME_PTR_INFO (addr_base));
     }
@@ -4671,10 +4043,6 @@ vect_create_addr_base_for_vector_ref (gimple *stmt,
 	to the initial address accessed by the data-ref in STMT.  This is
 	similar to OFFSET, but OFFSET is counted in elements, while BYTE_OFFSET
 	in bytes.
-   8. IV_STEP (optional, defaults to NULL): the amount that should be added
-	to the IV during each iteration of the loop.  NULL says to move
-	by one copy of AGGR_TYPE up or down, depending on the step of the
-	data reference.
 
    Output:
    1. Declare a new ptr to vector_type, and have it point to the base of the
@@ -4704,11 +4072,10 @@ vect_create_addr_base_for_vector_ref (gimple *stmt,
    4. Return the pointer.  */
 
 tree
-vect_create_data_ref_ptr (gimple *stmt, tree aggr_type, struct loop *at_loop,
+vect_create_data_ref_ptr (gimple stmt, tree aggr_type, struct loop *at_loop,
 			  tree offset, tree *initial_address,
-			  gimple_stmt_iterator *gsi, gimple **ptr_incr,
-			  bool only_init, bool *inv_p, tree byte_offset,
-			  tree iv_step)
+			  gimple_stmt_iterator *gsi, gimple *ptr_incr,
+			  bool only_init, bool *inv_p, tree byte_offset)
 {
   const char *base_name;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
@@ -4719,6 +4086,7 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type, struct loop *at_loop,
   tree aggr_ptr_type;
   tree aggr_ptr;
   tree new_temp;
+  gimple vec_stmt;
   gimple_seq new_stmt_list = NULL;
   edge pe = NULL;
   basic_block new_bb;
@@ -4728,12 +4096,11 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type, struct loop *at_loop,
   gimple_stmt_iterator incr_gsi;
   bool insert_after;
   tree indx_before_incr, indx_after_incr;
-  gimple *incr;
+  gimple incr;
   tree step;
   bb_vec_info bb_vinfo = STMT_VINFO_BB_VINFO (stmt_info);
 
-  gcc_assert (iv_step != NULL_TREE
-	      || TREE_CODE (aggr_type) == ARRAY_TYPE
+  gcc_assert (TREE_CODE (aggr_type) == ARRAY_TYPE
 	      || TREE_CODE (aggr_type) == VECTOR_TYPE);
 
   if (loop_vinfo)
@@ -4752,7 +4119,11 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type, struct loop *at_loop,
 
   /* Check the step (evolution) of the load in LOOP, and record
      whether it's invariant.  */
-  step = vect_dr_behavior (dr)->step;
+  if (nested_in_vect_loop)
+    step = STMT_VINFO_DR_STEP (stmt_info);
+  else
+    step = DR_STEP (STMT_VINFO_DATA_REF (stmt_info));
+
   if (integer_zerop (step))
     *inv_p = true;
   else
@@ -4793,7 +4164,7 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type, struct loop *at_loop,
   /* Likewise for any of the data references in the stmt group.  */
   else if (STMT_VINFO_GROUP_SIZE (stmt_info) > 1)
     {
-      gimple *orig_stmt = STMT_VINFO_GROUP_FIRST_ELEMENT (stmt_info);
+      gimple orig_stmt = STMT_VINFO_GROUP_FIRST_ELEMENT (stmt_info);
       do
 	{
 	  stmt_vec_info sinfo = vinfo_for_stmt (orig_stmt);
@@ -4850,7 +4221,7 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type, struct loop *at_loop,
   /* Create: (&(base[init_val+offset]+byte_offset) in the loop preheader.  */
 
   new_temp = vect_create_addr_base_for_vector_ref (stmt, &new_stmt_list,
-						   offset, byte_offset);
+						   offset, loop, byte_offset);
   if (new_stmt_list)
     {
       if (pe)
@@ -4863,7 +4234,28 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type, struct loop *at_loop,
     }
 
   *initial_address = new_temp;
-  aggr_ptr_init = new_temp;
+
+  /* Create: p = (aggr_type *) initial_base  */
+  if (TREE_CODE (new_temp) != SSA_NAME
+      || !useless_type_conversion_p (aggr_ptr_type, TREE_TYPE (new_temp)))
+    {
+      vec_stmt = gimple_build_assign (aggr_ptr,
+				      fold_convert (aggr_ptr_type, new_temp));
+      aggr_ptr_init = make_ssa_name (aggr_ptr, vec_stmt);
+      /* Copy the points-to information if it exists. */
+      if (DR_PTR_INFO (dr))
+	vect_duplicate_ssa_name_ptr_info (aggr_ptr_init, dr, stmt_info);
+      gimple_assign_set_lhs (vec_stmt, aggr_ptr_init);
+      if (pe)
+	{
+	  new_bb = gsi_insert_on_edge_immediate (pe, vec_stmt);
+	  gcc_assert (!new_bb);
+	}
+      else
+	gsi_insert_before (gsi, vec_stmt, GSI_SAME_STMT);
+    }
+  else
+    aggr_ptr_init = new_temp;
 
   /* (3) Handle the updating of the aggregate-pointer inside the loop.
      This is needed when ONLY_INIT is false, and also when AT_LOOP is the
@@ -4874,17 +4266,14 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type, struct loop *at_loop,
     aptr = aggr_ptr_init;
   else
     {
-      if (iv_step == NULL_TREE)
-	{
-	  /* The step of the aggregate pointer is the type size.  */
-	  iv_step = TYPE_SIZE_UNIT (aggr_type);
-	  /* One exception to the above is when the scalar step of the load in
-	     LOOP is zero. In this case the step here is also zero.  */
-	  if (*inv_p)
-	    iv_step = size_zero_node;
-	  else if (tree_int_cst_sgn (step) == -1)
-	    iv_step = fold_build1 (NEGATE_EXPR, TREE_TYPE (iv_step), iv_step);
-	}
+      /* The step of the aggregate pointer is the type size.  */
+      tree iv_step = TYPE_SIZE_UNIT (aggr_type);
+      /* One exception to the above is when the scalar step of the load in
+	 LOOP is zero. In this case the step here is also zero.  */
+      if (*inv_p)
+	iv_step = size_zero_node;
+      else if (tree_int_cst_sgn (step) == -1)
+	iv_step = fold_build1 (NEGATE_EXPR, TREE_TYPE (iv_step), iv_step);
 
       standard_iv_increment_position (loop, &incr_gsi, &insert_after);
 
@@ -4893,13 +4282,13 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type, struct loop *at_loop,
 		 aggr_ptr, loop, &incr_gsi, insert_after,
 		 &indx_before_incr, &indx_after_incr);
       incr = gsi_stmt (incr_gsi);
-      set_vinfo_for_stmt (incr, new_stmt_vec_info (incr, loop_vinfo));
+      set_vinfo_for_stmt (incr, new_stmt_vec_info (incr, loop_vinfo, NULL));
 
       /* Copy the points-to information if it exists. */
       if (DR_PTR_INFO (dr))
 	{
-	  vect_duplicate_ssa_name_ptr_info (indx_before_incr, dr);
-	  vect_duplicate_ssa_name_ptr_info (indx_after_incr, dr);
+	  vect_duplicate_ssa_name_ptr_info (indx_before_incr, dr, stmt_info);
+	  vect_duplicate_ssa_name_ptr_info (indx_after_incr, dr, stmt_info);
 	}
       if (ptr_incr)
 	*ptr_incr = incr;
@@ -4923,13 +4312,13 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type, struct loop *at_loop,
 		 containing_loop, &incr_gsi, insert_after, &indx_before_incr,
 		 &indx_after_incr);
       incr = gsi_stmt (incr_gsi);
-      set_vinfo_for_stmt (incr, new_stmt_vec_info (incr, loop_vinfo));
+      set_vinfo_for_stmt (incr, new_stmt_vec_info (incr, loop_vinfo, NULL));
 
       /* Copy the points-to information if it exists. */
       if (DR_PTR_INFO (dr))
 	{
-	  vect_duplicate_ssa_name_ptr_info (indx_before_incr, dr);
-	  vect_duplicate_ssa_name_ptr_info (indx_after_incr, dr);
+	  vect_duplicate_ssa_name_ptr_info (indx_before_incr, dr, stmt_info);
+	  vect_duplicate_ssa_name_ptr_info (indx_after_incr, dr, stmt_info);
 	}
       if (ptr_incr)
 	*ptr_incr = incr;
@@ -4976,8 +4365,8 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type, struct loop *at_loop,
 */
 
 tree
-bump_vector_ptr (tree dataref_ptr, gimple *ptr_incr, gimple_stmt_iterator *gsi,
-		 gimple *stmt, tree bump)
+bump_vector_ptr (tree dataref_ptr, gimple ptr_incr, gimple_stmt_iterator *gsi,
+		 gimple stmt, tree bump)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
@@ -4991,10 +4380,7 @@ bump_vector_ptr (tree dataref_ptr, gimple *ptr_incr, gimple_stmt_iterator *gsi,
   if (bump)
     update = bump;
 
-  if (TREE_CODE (dataref_ptr) == SSA_NAME)
-    new_dataref_ptr = copy_ssa_name (dataref_ptr);
-  else
-    new_dataref_ptr = make_ssa_name (TREE_TYPE (dataref_ptr));
+  new_dataref_ptr = copy_ssa_name (dataref_ptr);
   incr_stmt = gimple_build_assign (new_dataref_ptr, POINTER_PLUS_EXPR,
 				   dataref_ptr, update);
   vect_finish_stmt_generation (stmt, incr_stmt, gsi);
@@ -5017,31 +4403,10 @@ bump_vector_ptr (tree dataref_ptr, gimple *ptr_incr, gimple_stmt_iterator *gsi,
       if (use == dataref_ptr)
         SET_USE (use_p, new_dataref_ptr);
       else
-        gcc_assert (operand_equal_p (use, update, 0));
+        gcc_assert (tree_int_cst_compare (use, update) == 0);
     }
 
   return new_dataref_ptr;
-}
-
-
-/* Copy memory reference info such as base/clique from the SRC reference
-   to the DEST MEM_REF.  */
-
-void
-vect_copy_ref_info (tree dest, tree src)
-{
-  if (TREE_CODE (dest) != MEM_REF)
-    return;
-
-  tree src_base = src;
-  while (handled_component_p (src_base))
-    src_base = TREE_OPERAND (src_base, 0);
-  if (TREE_CODE (src_base) != MEM_REF
-      && TREE_CODE (src_base) != TARGET_MEM_REF)
-    return;
-
-  MR_DEPENDENCE_CLIQUE (dest) = MR_DEPENDENCE_CLIQUE (src_base);
-  MR_DEPENDENCE_BASE (dest) = MR_DEPENDENCE_BASE (src_base);
 }
 
 
@@ -5058,11 +4423,7 @@ vect_create_destination_var (tree scalar_dest, tree vectype)
   tree type;
   enum vect_var_kind kind;
 
-  kind = vectype
-    ? VECTOR_BOOLEAN_TYPE_P (vectype)
-    ? vect_mask_var
-    : vect_simple_var
-    : vect_scalar_var;
+  kind = vectype ? vect_simple_var : vect_scalar_var;
   type = vectype ? vectype : TREE_TYPE (scalar_dest);
 
   gcc_assert (TREE_CODE (scalar_dest) == SSA_NAME);
@@ -5102,25 +4463,14 @@ vect_grouped_store_supported (tree vectype, unsigned HOST_WIDE_INT count)
   /* Check that the permutation is supported.  */
   if (VECTOR_MODE_P (mode))
     {
-      unsigned int i;
+      unsigned int i, nelt = GET_MODE_NUNITS (mode);
+      unsigned char *sel = XALLOCAVEC (unsigned char, nelt);
+
       if (count == 3)
 	{
 	  unsigned int j0 = 0, j1 = 0, j2 = 0;
 	  unsigned int i, j;
 
-	  unsigned int nelt;
-	  if (!GET_MODE_NUNITS (mode).is_constant (&nelt))
-	    {
-	      if (dump_enabled_p ())
-		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-				 "cannot handle groups of 3 stores for"
-				 " variable-length vectors\n");
-	      return false;
-	    }
-
-	  vec_perm_builder sel (nelt, nelt, 1);
-	  sel.quick_grow (nelt);
-	  vec_perm_indices indices;
 	  for (j = 0; j < 3; j++)
 	    {
 	      int nelt0 = ((3 - j) * nelt) % 3;
@@ -5135,12 +4485,11 @@ vect_grouped_store_supported (tree vectype, unsigned HOST_WIDE_INT count)
 		  if (3 * i + nelt2 < nelt)
 		    sel[3 * i + nelt2] = 0;
 		}
-	      indices.new_vector (sel, 2, nelt);
-	      if (!can_vec_perm_const_p (mode, indices))
+	      if (!can_vec_perm_p (mode, false, sel))
 		{
 		  if (dump_enabled_p ())
 		    dump_printf (MSG_MISSED_OPTIMIZATION,
-				 "permutation op not supported by target.\n");
+				 "permutaion op not supported by target.\n");
 		  return false;
 		}
 
@@ -5153,12 +4502,11 @@ vect_grouped_store_supported (tree vectype, unsigned HOST_WIDE_INT count)
 		  if (3 * i + nelt2 < nelt)
 		    sel[3 * i + nelt2] = nelt + j2++;
 		}
-	      indices.new_vector (sel, 2, nelt);
-	      if (!can_vec_perm_const_p (mode, indices))
+	      if (!can_vec_perm_p (mode, false, sel))
 		{
 		  if (dump_enabled_p ())
 		    dump_printf (MSG_MISSED_OPTIMIZATION,
-				 "permutation op not supported by target.\n");
+				 "permutaion op not supported by target.\n");
 		  return false;
 		}
 	    }
@@ -5167,26 +4515,20 @@ vect_grouped_store_supported (tree vectype, unsigned HOST_WIDE_INT count)
       else
 	{
 	  /* If length is not equal to 3 then only power of 2 is supported.  */
-	  gcc_assert (pow2p_hwi (count));
-	  poly_uint64 nelt = GET_MODE_NUNITS (mode);
+	  gcc_assert (exact_log2 (count) != -1);
 
-	  /* The encoding has 2 interleaved stepped patterns.  */
-	  vec_perm_builder sel (nelt, 2, 3);
-	  sel.quick_grow (6);
-	  for (i = 0; i < 3; i++)
+	  for (i = 0; i < nelt / 2; i++)
 	    {
 	      sel[i * 2] = i;
 	      sel[i * 2 + 1] = i + nelt;
 	    }
-	  vec_perm_indices indices (sel, 2, nelt);
-	  if (can_vec_perm_const_p (mode, indices))
-	    {
-	      for (i = 0; i < 6; i++)
-		sel[i] += exact_div (nelt, 2);
-	      indices.new_vector (sel, 2, nelt);
-	      if (can_vec_perm_const_p (mode, indices))
-		return true;
-	    }
+	    if (can_vec_perm_p (mode, false, sel))
+	      {
+		for (i = 0; i < nelt; i++)
+		  sel[i] += nelt / 2;
+		if (can_vec_perm_p (mode, false, sel))
+		  return true;
+	      }
 	}
     }
 
@@ -5197,21 +4539,15 @@ vect_grouped_store_supported (tree vectype, unsigned HOST_WIDE_INT count)
 }
 
 
-/* Return TRUE if vec_{mask_}store_lanes is available for COUNT vectors of
-   type VECTYPE.  MASKED_P says whether the masked form is needed.  */
+/* Return TRUE if vec_store_lanes is available for COUNT vectors of
+   type VECTYPE.  */
 
 bool
-vect_store_lanes_supported (tree vectype, unsigned HOST_WIDE_INT count,
-			    bool masked_p)
+vect_store_lanes_supported (tree vectype, unsigned HOST_WIDE_INT count)
 {
-  if (masked_p)
-    return vect_lanes_optab_supported_p ("vec_mask_store_lanes",
-					 vec_mask_store_lanes_optab,
-					 vectype, count);
-  else
-    return vect_lanes_optab_supported_p ("vec_store_lanes",
-					 vec_store_lanes_optab,
-					 vectype, count);
+  return vect_lanes_optab_supported_p ("vec_store_lanes",
+				       vec_store_lanes_optab,
+				       vectype, count);
 }
 
 
@@ -5279,17 +4615,19 @@ vect_store_lanes_supported (tree vectype, unsigned HOST_WIDE_INT count,
 void
 vect_permute_store_chain (vec<tree> dr_chain,
 			  unsigned int length,
-			  gimple *stmt,
+			  gimple stmt,
 			  gimple_stmt_iterator *gsi,
 			  vec<tree> *result_chain)
 {
   tree vect1, vect2, high, low;
-  gimple *perm_stmt;
+  gimple perm_stmt;
   tree vectype = STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt));
   tree perm_mask_low, perm_mask_high;
   tree data_ref;
   tree perm3_mask_low, perm3_mask_high;
-  unsigned int i, j, n, log_length = exact_log2 (length);
+  unsigned int i, n, log_length = exact_log2 (length);
+  unsigned int j, nelt = TYPE_VECTOR_SUBPARTS (vectype);
+  unsigned char *sel = XALLOCAVEC (unsigned char, nelt);
 
   result_chain->quick_grow (length);
   memcpy (result_chain->address (), dr_chain.address (),
@@ -5297,13 +4635,8 @@ vect_permute_store_chain (vec<tree> dr_chain,
 
   if (length == 3)
     {
-      /* vect_grouped_store_supported ensures that this is constant.  */
-      unsigned int nelt = TYPE_VECTOR_SUBPARTS (vectype).to_constant ();
       unsigned int j0 = 0, j1 = 0, j2 = 0;
 
-      vec_perm_builder sel (nelt, nelt, 1);
-      sel.quick_grow (nelt);
-      vec_perm_indices indices;
       for (j = 0; j < 3; j++)
         {
 	  int nelt0 = ((3 - j) * nelt) % 3;
@@ -5319,8 +4652,7 @@ vect_permute_store_chain (vec<tree> dr_chain,
 	      if (3 * i + nelt2 < nelt)
 		sel[3 * i + nelt2] = 0;
 	    }
-	  indices.new_vector (sel, 2, nelt);
-	  perm3_mask_low = vect_gen_perm_mask_checked (vectype, indices);
+	  perm3_mask_low = vect_gen_perm_mask_checked (vectype, sel);
 
 	  for (i = 0; i < nelt; i++)
 	    {
@@ -5331,8 +4663,7 @@ vect_permute_store_chain (vec<tree> dr_chain,
 	      if (3 * i + nelt2 < nelt)
 		sel[3 * i + nelt2] = nelt + j2++;
 	    }
-	  indices.new_vector (sel, 2, nelt);
-	  perm3_mask_high = vect_gen_perm_mask_checked (vectype, indices);
+	  perm3_mask_high = vect_gen_perm_mask_checked (vectype, sel);
 
 	  vect1 = dr_chain[0];
 	  vect2 = dr_chain[1];
@@ -5362,24 +4693,18 @@ vect_permute_store_chain (vec<tree> dr_chain,
   else
     {
       /* If length is not equal to 3 then only power of 2 is supported.  */
-      gcc_assert (pow2p_hwi (length));
+      gcc_assert (exact_log2 (length) != -1);
 
-      /* The encoding has 2 interleaved stepped patterns.  */
-      poly_uint64 nelt = TYPE_VECTOR_SUBPARTS (vectype);
-      vec_perm_builder sel (nelt, 2, 3);
-      sel.quick_grow (6);
-      for (i = 0; i < 3; i++)
+      for (i = 0, n = nelt / 2; i < n; i++)
 	{
 	  sel[i * 2] = i;
 	  sel[i * 2 + 1] = i + nelt;
 	}
-	vec_perm_indices indices (sel, 2, nelt);
-	perm_mask_high = vect_gen_perm_mask_checked (vectype, indices);
+	perm_mask_high = vect_gen_perm_mask_checked (vectype, sel);
 
-	for (i = 0; i < 6; i++)
-	  sel[i] += exact_div (nelt, 2);
-	indices.new_vector (sel, 2, nelt);
-	perm_mask_low = vect_gen_perm_mask_checked (vectype, indices);
+	for (i = 0; i < nelt; i++)
+	  sel[i] += nelt / 2;
+	perm_mask_low = vect_gen_perm_mask_checked (vectype, sel);
 
 	for (i = 0, n = log_length; i < n; i++)
 	  {
@@ -5465,7 +4790,7 @@ vect_permute_store_chain (vec<tree> dr_chain,
    Return value - the result of the loop-header phi node.  */
 
 tree
-vect_setup_realignment (gimple *stmt, gimple_stmt_iterator *gsi,
+vect_setup_realignment (gimple stmt, gimple_stmt_iterator *gsi,
                         tree *realignment_token,
 			enum dr_alignment_support alignment_support_scheme,
 			tree init_addr,
@@ -5479,7 +4804,7 @@ vect_setup_realignment (gimple *stmt, gimple_stmt_iterator *gsi,
   edge pe = NULL;
   tree scalar_dest = gimple_assign_lhs (stmt);
   tree vec_dest;
-  gimple *inc;
+  gimple inc;
   tree ptr;
   tree data_ref;
   basic_block new_bb;
@@ -5583,20 +4908,16 @@ vect_setup_realignment (gimple *stmt, gimple_stmt_iterator *gsi,
       ptr = vect_create_data_ref_ptr (stmt, vectype, loop_for_initial_load,
 				      NULL_TREE, &init_addr, NULL, &inc,
 				      true, &inv_p);
-      if (TREE_CODE (ptr) == SSA_NAME)
-	new_temp = copy_ssa_name (ptr);
-      else
-	new_temp = make_ssa_name (TREE_TYPE (ptr));
-      unsigned int align = DR_TARGET_ALIGNMENT (dr);
+      new_temp = copy_ssa_name (ptr);
       new_stmt = gimple_build_assign
 		   (new_temp, BIT_AND_EXPR, ptr,
-		    build_int_cst (TREE_TYPE (ptr), -(HOST_WIDE_INT) align));
+		    build_int_cst (TREE_TYPE (ptr),
+				   -(HOST_WIDE_INT)TYPE_ALIGN_UNIT (vectype)));
       new_bb = gsi_insert_on_edge_immediate (pe, new_stmt);
       gcc_assert (!new_bb);
       data_ref
 	= build2 (MEM_REF, TREE_TYPE (vec_dest), new_temp,
 		  build_int_cst (reference_alias_ptr_type (DR_REF (dr)), 0));
-      vect_copy_ref_info (data_ref, DR_REF (dr));
       new_stmt = gimple_build_assign (vec_dest, data_ref);
       new_temp = make_ssa_name (vec_dest, new_stmt);
       gimple_assign_set_lhs (new_stmt, new_temp);
@@ -5625,7 +4946,7 @@ vect_setup_realignment (gimple *stmt, gimple_stmt_iterator *gsi,
 	{
 	  /* Generate the INIT_ADDR computation outside LOOP.  */
 	  init_addr = vect_create_addr_base_for_vector_ref (stmt, &stmts,
-							    NULL_TREE);
+							NULL_TREE, loop);
           if (loop)
             {
    	      pe = loop_preheader_edge (loop);
@@ -5685,30 +5006,13 @@ vect_setup_realignment (gimple *stmt, gimple_stmt_iterator *gsi,
 
 /* Function vect_grouped_load_supported.
 
-   COUNT is the size of the load group (the number of statements plus the
-   number of gaps).  SINGLE_ELEMENT_P is true if there is actually
-   only one statement, with a gap of COUNT - 1.
-
-   Returns true if a suitable permute exists.  */
+   Returns TRUE if even and odd permutations are supported,
+   and FALSE otherwise.  */
 
 bool
-vect_grouped_load_supported (tree vectype, bool single_element_p,
-			     unsigned HOST_WIDE_INT count)
+vect_grouped_load_supported (tree vectype, unsigned HOST_WIDE_INT count)
 {
   machine_mode mode = TYPE_MODE (vectype);
-
-  /* If this is single-element interleaving with an element distance
-     that leaves unused vector loads around punt - we at least create
-     very sub-optimal code in that case (and blow up memory,
-     see PR65518).  */
-  if (single_element_p && maybe_gt (count, TYPE_VECTOR_SUBPARTS (vectype)))
-    {
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			 "single-element interleaving not supported "
-			 "for not adjacent vector loads\n");
-      return false;
-    }
 
   /* vect_permute_load_chain requires the group size to be equal to 3 or
      be a power of two.  */
@@ -5724,22 +5028,11 @@ vect_grouped_load_supported (tree vectype, bool single_element_p,
   /* Check that the permutation is supported.  */
   if (VECTOR_MODE_P (mode))
     {
-      unsigned int i, j;
+      unsigned int i, j, nelt = GET_MODE_NUNITS (mode);
+      unsigned char *sel = XALLOCAVEC (unsigned char, nelt);
+
       if (count == 3)
 	{
-	  unsigned int nelt;
-	  if (!GET_MODE_NUNITS (mode).is_constant (&nelt))
-	    {
-	      if (dump_enabled_p ())
-		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-				 "cannot handle groups of 3 loads for"
-				 " variable-length vectors\n");
-	      return false;
-	    }
-
-	  vec_perm_builder sel (nelt, nelt, 1);
-	  sel.quick_grow (nelt);
-	  vec_perm_indices indices;
 	  unsigned int k;
 	  for (k = 0; k < 3; k++)
 	    {
@@ -5748,22 +5041,20 @@ vect_grouped_load_supported (tree vectype, bool single_element_p,
 		  sel[i] = 3 * i + k;
 		else
 		  sel[i] = 0;
-	      indices.new_vector (sel, 2, nelt);
-	      if (!can_vec_perm_const_p (mode, indices))
+	      if (!can_vec_perm_p (mode, false, sel))
 		{
 		  if (dump_enabled_p ())
 		    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 				     "shuffle of 3 loads is not supported by"
 				     " target\n");
-		  return false;
+		    return false;
 		}
 	      for (i = 0, j = 0; i < nelt; i++)
 		if (3 * i + k < 2 * nelt)
 		  sel[i] = i;
 		else
 		  sel[i] = nelt + ((nelt + k) % 3) + 3 * (j++);
-	      indices.new_vector (sel, 2, nelt);
-	      if (!can_vec_perm_const_p (mode, indices))
+	      if (!can_vec_perm_p (mode, false, sel))
 		{
 		  if (dump_enabled_p ())
 		    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -5777,21 +5068,14 @@ vect_grouped_load_supported (tree vectype, bool single_element_p,
       else
 	{
 	  /* If length is not equal to 3 then only power of 2 is supported.  */
-	  gcc_assert (pow2p_hwi (count));
-	  poly_uint64 nelt = GET_MODE_NUNITS (mode);
-
-	  /* The encoding has a single stepped pattern.  */
-	  vec_perm_builder sel (nelt, 1, 3);
-	  sel.quick_grow (3);
-	  for (i = 0; i < 3; i++)
+	  gcc_assert (exact_log2 (count) != -1);
+	  for (i = 0; i < nelt; i++)
 	    sel[i] = i * 2;
-	  vec_perm_indices indices (sel, 2, nelt);
-	  if (can_vec_perm_const_p (mode, indices))
+	  if (can_vec_perm_p (mode, false, sel))
 	    {
-	      for (i = 0; i < 3; i++)
+	      for (i = 0; i < nelt; i++)
 		sel[i] = i * 2 + 1;
-	      indices.new_vector (sel, 2, nelt);
-	      if (can_vec_perm_const_p (mode, indices))
+	      if (can_vec_perm_p (mode, false, sel))
 		return true;
 	    }
         }
@@ -5803,21 +5087,15 @@ vect_grouped_load_supported (tree vectype, bool single_element_p,
   return false;
 }
 
-/* Return TRUE if vec_{masked_}load_lanes is available for COUNT vectors of
-   type VECTYPE.  MASKED_P says whether the masked form is needed.  */
+/* Return TRUE if vec_load_lanes is available for COUNT vectors of
+   type VECTYPE.  */
 
 bool
-vect_load_lanes_supported (tree vectype, unsigned HOST_WIDE_INT count,
-			   bool masked_p)
+vect_load_lanes_supported (tree vectype, unsigned HOST_WIDE_INT count)
 {
-  if (masked_p)
-    return vect_lanes_optab_supported_p ("vec_mask_load_lanes",
-					 vec_mask_load_lanes_optab,
-					 vectype, count);
-  else
-    return vect_lanes_optab_supported_p ("vec_load_lanes",
-					 vec_load_lanes_optab,
-					 vectype, count);
+  return vect_lanes_optab_supported_p ("vec_load_lanes",
+				       vec_load_lanes_optab,
+				       vectype, count);
 }
 
 /* Function vect_permute_load_chain.
@@ -5900,16 +5178,18 @@ vect_load_lanes_supported (tree vectype, unsigned HOST_WIDE_INT count,
 static void
 vect_permute_load_chain (vec<tree> dr_chain,
 			 unsigned int length,
-			 gimple *stmt,
+			 gimple stmt,
 			 gimple_stmt_iterator *gsi,
 			 vec<tree> *result_chain)
 {
   tree data_ref, first_vect, second_vect;
   tree perm_mask_even, perm_mask_odd;
   tree perm3_mask_low, perm3_mask_high;
-  gimple *perm_stmt;
+  gimple perm_stmt;
   tree vectype = STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt));
   unsigned int i, j, log_length = exact_log2 (length);
+  unsigned nelt = TYPE_VECTOR_SUBPARTS (vectype);
+  unsigned char *sel = XALLOCAVEC (unsigned char, nelt);
 
   result_chain->quick_grow (length);
   memcpy (result_chain->address (), dr_chain.address (),
@@ -5917,13 +5197,8 @@ vect_permute_load_chain (vec<tree> dr_chain,
 
   if (length == 3)
     {
-      /* vect_grouped_load_supported ensures that this is constant.  */
-      unsigned nelt = TYPE_VECTOR_SUBPARTS (vectype).to_constant ();
       unsigned int k;
 
-      vec_perm_builder sel (nelt, nelt, 1);
-      sel.quick_grow (nelt);
-      vec_perm_indices indices;
       for (k = 0; k < 3; k++)
 	{
 	  for (i = 0; i < nelt; i++)
@@ -5931,16 +5206,15 @@ vect_permute_load_chain (vec<tree> dr_chain,
 	      sel[i] = 3 * i + k;
 	    else
 	      sel[i] = 0;
-	  indices.new_vector (sel, 2, nelt);
-	  perm3_mask_low = vect_gen_perm_mask_checked (vectype, indices);
+	  perm3_mask_low = vect_gen_perm_mask_checked (vectype, sel);
 
 	  for (i = 0, j = 0; i < nelt; i++)
 	    if (3 * i + k < 2 * nelt)
 	      sel[i] = i;
 	    else
 	      sel[i] = nelt + ((nelt + k) % 3) + 3 * (j++);
-	  indices.new_vector (sel, 2, nelt);
-	  perm3_mask_high = vect_gen_perm_mask_checked (vectype, indices);
+
+	  perm3_mask_high = vect_gen_perm_mask_checked (vectype, sel);
 
 	  first_vect = dr_chain[0];
 	  second_vect = dr_chain[1];
@@ -5968,21 +5242,15 @@ vect_permute_load_chain (vec<tree> dr_chain,
   else
     {
       /* If length is not equal to 3 then only power of 2 is supported.  */
-      gcc_assert (pow2p_hwi (length));
+      gcc_assert (exact_log2 (length) != -1);
 
-      /* The encoding has a single stepped pattern.  */
-      poly_uint64 nelt = TYPE_VECTOR_SUBPARTS (vectype);
-      vec_perm_builder sel (nelt, 1, 3);
-      sel.quick_grow (3);
-      for (i = 0; i < 3; ++i)
+      for (i = 0; i < nelt; ++i)
 	sel[i] = i * 2;
-      vec_perm_indices indices (sel, 2, nelt);
-      perm_mask_even = vect_gen_perm_mask_checked (vectype, indices);
+      perm_mask_even = vect_gen_perm_mask_checked (vectype, sel);
 
-      for (i = 0; i < 3; ++i)
+      for (i = 0; i < nelt; ++i)
 	sel[i] = i * 2 + 1;
-      indices.new_vector (sel, 2, nelt);
-      perm_mask_odd = vect_gen_perm_mask_checked (vectype, indices);
+      perm_mask_odd = vect_gen_perm_mask_checked (vectype, sel);
 
       for (i = 0; i < log_length; i++)
 	{
@@ -6103,42 +5371,34 @@ vect_permute_load_chain (vec<tree> dr_chain,
 static bool
 vect_shift_permute_load_chain (vec<tree> dr_chain,
 			       unsigned int length,
-			       gimple *stmt,
+			       gimple stmt,
 			       gimple_stmt_iterator *gsi,
 			       vec<tree> *result_chain)
 {
   tree vect[3], vect_shift[3], data_ref, first_vect, second_vect;
   tree perm2_mask1, perm2_mask2, perm3_mask;
   tree select_mask, shift1_mask, shift2_mask, shift3_mask, shift4_mask;
-  gimple *perm_stmt;
+  gimple perm_stmt;
 
   tree vectype = STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt));
   unsigned int i;
+  unsigned nelt = TYPE_VECTOR_SUBPARTS (vectype);
+  unsigned char *sel = XALLOCAVEC (unsigned char, nelt);
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
-
-  unsigned HOST_WIDE_INT nelt, vf;
-  if (!TYPE_VECTOR_SUBPARTS (vectype).is_constant (&nelt)
-      || !LOOP_VINFO_VECT_FACTOR (loop_vinfo).is_constant (&vf))
-    /* Not supported for variable-length vectors.  */
-    return false;
-
-  vec_perm_builder sel (nelt, nelt, 1);
-  sel.quick_grow (nelt);
 
   result_chain->quick_grow (length);
   memcpy (result_chain->address (), dr_chain.address (),
 	  length * sizeof (tree));
 
-  if (pow2p_hwi (length) && vf > 4)
+  if (exact_log2 (length) != -1 && LOOP_VINFO_VECT_FACTOR (loop_vinfo) > 4)
     {
       unsigned int j, log_length = exact_log2 (length);
       for (i = 0; i < nelt / 2; ++i)
 	sel[i] = i * 2;
       for (i = 0; i < nelt / 2; ++i)
 	sel[nelt / 2 + i] = i * 2 + 1;
-      vec_perm_indices indices (sel, 2, nelt);
-      if (!can_vec_perm_const_p (TYPE_MODE (vectype), indices))
+      if (!can_vec_perm_p (TYPE_MODE (vectype), false, sel))
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -6146,14 +5406,13 @@ vect_shift_permute_load_chain (vec<tree> dr_chain,
 			      supported by target\n");
 	  return false;
 	}
-      perm2_mask1 = vect_gen_perm_mask_checked (vectype, indices);
+      perm2_mask1 = vect_gen_perm_mask_checked (vectype, sel);
 
       for (i = 0; i < nelt / 2; ++i)
 	sel[i] = i * 2 + 1;
       for (i = 0; i < nelt / 2; ++i)
 	sel[nelt / 2 + i] = i * 2;
-      indices.new_vector (sel, 2, nelt);
-      if (!can_vec_perm_const_p (TYPE_MODE (vectype), indices))
+      if (!can_vec_perm_p (TYPE_MODE (vectype), false, sel))
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -6161,21 +5420,20 @@ vect_shift_permute_load_chain (vec<tree> dr_chain,
 			      supported by target\n");
 	  return false;
 	}
-      perm2_mask2 = vect_gen_perm_mask_checked (vectype, indices);
+      perm2_mask2 = vect_gen_perm_mask_checked (vectype, sel);
 
       /* Generating permutation constant to shift all elements.
 	 For vector length 8 it is {4 5 6 7 8 9 10 11}.  */
       for (i = 0; i < nelt; i++)
 	sel[i] = nelt / 2 + i;
-      indices.new_vector (sel, 2, nelt);
-      if (!can_vec_perm_const_p (TYPE_MODE (vectype), indices))
+      if (!can_vec_perm_p (TYPE_MODE (vectype), false, sel))
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 			     "shift permutation is not supported by target\n");
 	  return false;
 	}
-      shift1_mask = vect_gen_perm_mask_checked (vectype, indices);
+      shift1_mask = vect_gen_perm_mask_checked (vectype, sel);
 
       /* Generating permutation constant to select vector from 2.
 	 For vector length 8 it is {0 1 2 3 12 13 14 15}.  */
@@ -6183,15 +5441,14 @@ vect_shift_permute_load_chain (vec<tree> dr_chain,
 	sel[i] = i;
       for (i = nelt / 2; i < nelt; i++)
 	sel[i] = nelt + i;
-      indices.new_vector (sel, 2, nelt);
-      if (!can_vec_perm_const_p (TYPE_MODE (vectype), indices))
+      if (!can_vec_perm_p (TYPE_MODE (vectype), false, sel))
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 			     "select is not supported by target\n");
 	  return false;
 	}
-      select_mask = vect_gen_perm_mask_checked (vectype, indices);
+      select_mask = vect_gen_perm_mask_checked (vectype, sel);
 
       for (i = 0; i < log_length; i++)
 	{
@@ -6231,7 +5488,7 @@ vect_shift_permute_load_chain (vec<tree> dr_chain,
 	}
       return true;
     }
-  if (length == 3 && vf > 2)
+  if (length == 3 && LOOP_VINFO_VECT_FACTOR (loop_vinfo) > 2)
     {
       unsigned int k = 0, l = 0;
 
@@ -6247,8 +5504,7 @@ vect_shift_permute_load_chain (vec<tree> dr_chain,
 	  sel[i] = 3 * k + (l % 3);
 	  k++;
 	}
-      vec_perm_indices indices (sel, 2, nelt);
-      if (!can_vec_perm_const_p (TYPE_MODE (vectype), indices))
+      if (!can_vec_perm_p (TYPE_MODE (vectype), false, sel))
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -6256,63 +5512,59 @@ vect_shift_permute_load_chain (vec<tree> dr_chain,
 			      supported by target\n");
 	  return false;
 	}
-      perm3_mask = vect_gen_perm_mask_checked (vectype, indices);
+      perm3_mask = vect_gen_perm_mask_checked (vectype, sel);
 
       /* Generating permutation constant to shift all elements.
 	 For vector length 8 it is {6 7 8 9 10 11 12 13}.  */
       for (i = 0; i < nelt; i++)
 	sel[i] = 2 * (nelt / 3) + (nelt % 3) + i;
-      indices.new_vector (sel, 2, nelt);
-      if (!can_vec_perm_const_p (TYPE_MODE (vectype), indices))
+      if (!can_vec_perm_p (TYPE_MODE (vectype), false, sel))
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 			     "shift permutation is not supported by target\n");
 	  return false;
 	}
-      shift1_mask = vect_gen_perm_mask_checked (vectype, indices);
+      shift1_mask = vect_gen_perm_mask_checked (vectype, sel);
 
       /* Generating permutation constant to shift all elements.
 	 For vector length 8 it is {5 6 7 8 9 10 11 12}.  */
       for (i = 0; i < nelt; i++)
 	sel[i] = 2 * (nelt / 3) + 1 + i;
-      indices.new_vector (sel, 2, nelt);
-      if (!can_vec_perm_const_p (TYPE_MODE (vectype), indices))
+      if (!can_vec_perm_p (TYPE_MODE (vectype), false, sel))
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 			     "shift permutation is not supported by target\n");
 	  return false;
 	}
-      shift2_mask = vect_gen_perm_mask_checked (vectype, indices);
+      shift2_mask = vect_gen_perm_mask_checked (vectype, sel);
 
       /* Generating permutation constant to shift all elements.
 	 For vector length 8 it is {3 4 5 6 7 8 9 10}.  */
       for (i = 0; i < nelt; i++)
 	sel[i] = (nelt / 3) + (nelt % 3) / 2 + i;
-      indices.new_vector (sel, 2, nelt);
-      if (!can_vec_perm_const_p (TYPE_MODE (vectype), indices))
+      if (!can_vec_perm_p (TYPE_MODE (vectype), false, sel))
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 			     "shift permutation is not supported by target\n");
 	  return false;
 	}
-      shift3_mask = vect_gen_perm_mask_checked (vectype, indices);
+      shift3_mask = vect_gen_perm_mask_checked (vectype, sel);
 
       /* Generating permutation constant to shift all elements.
 	 For vector length 8 it is {5 6 7 8 9 10 11 12}.  */
       for (i = 0; i < nelt; i++)
 	sel[i] = 2 * (nelt / 3) + (nelt % 3) / 2 + i;
-      indices.new_vector (sel, 2, nelt);
-      if (!can_vec_perm_const_p (TYPE_MODE (vectype), indices))
+      if (!can_vec_perm_p (TYPE_MODE (vectype), false, sel))
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 			     "shift permutation is not supported by target\n");
 	  return false;
 	}
-      shift4_mask = vect_gen_perm_mask_checked (vectype, indices);
+      shift4_mask = vect_gen_perm_mask_checked (vectype, sel);
 
       for (k = 0; k < 3; k++)
 	{
@@ -6371,7 +5623,7 @@ vect_shift_permute_load_chain (vec<tree> dr_chain,
 */
 
 void
-vect_transform_grouped_load (gimple *stmt, vec<tree> dr_chain, int size,
+vect_transform_grouped_load (gimple stmt, vec<tree> dr_chain, int size,
 			     gimple_stmt_iterator *gsi)
 {
   machine_mode mode;
@@ -6387,7 +5639,7 @@ vect_transform_grouped_load (gimple *stmt, vec<tree> dr_chain, int size,
      get chain for loads group using vect_shift_permute_load_chain.  */
   mode = TYPE_MODE (STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt)));
   if (targetm.sched.reassociation_width (VEC_PERM_EXPR, mode) > 1
-      || pow2p_hwi (size)
+      || exact_log2 (size) != -1
       || !vect_shift_permute_load_chain (dr_chain, size, stmt,
 					 gsi, &result_chain))
     vect_permute_load_chain (dr_chain, size, stmt, gsi, &result_chain);
@@ -6400,10 +5652,10 @@ vect_transform_grouped_load (gimple *stmt, vec<tree> dr_chain, int size,
    for each vector to the associated scalar statement.  */
 
 void
-vect_record_grouped_load_vectors (gimple *stmt, vec<tree> result_chain)
+vect_record_grouped_load_vectors (gimple stmt, vec<tree> result_chain)
 {
-  gimple *first_stmt = GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt));
-  gimple *next_stmt, *new_stmt;
+  gimple first_stmt = GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt));
+  gimple next_stmt, new_stmt;
   unsigned int i, gap_count;
   tree tmp_data_ref;
 
@@ -6442,9 +5694,9 @@ vect_record_grouped_load_vectors (gimple *stmt, vec<tree> result_chain)
             {
               if (!GROUP_SAME_DR_STMT (vinfo_for_stmt (next_stmt)))
                 {
-		  gimple *prev_stmt =
+ 	          gimple prev_stmt =
 		    STMT_VINFO_VEC_STMT (vinfo_for_stmt (next_stmt));
-		  gimple *rel_stmt =
+	          gimple rel_stmt =
 		    STMT_VINFO_RELATED_STMT (vinfo_for_stmt (prev_stmt));
 	          while (rel_stmt)
 		    {
@@ -6477,7 +5729,7 @@ vect_record_grouped_load_vectors (gimple *stmt, vec<tree> result_chain)
 bool
 vect_can_force_dr_alignment_p (const_tree decl, unsigned int alignment)
 {
-  if (!VAR_P (decl))
+  if (TREE_CODE (decl) != VAR_DECL)
     return false;
 
   if (decl_in_symtab_p (decl)
@@ -6501,7 +5753,7 @@ enum dr_alignment_support
 vect_supportable_dr_alignment (struct data_reference *dr,
                                bool check_aligned_accesses)
 {
-  gimple *stmt = DR_STMT (dr);
+  gimple stmt = DR_STMT (dr);
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   machine_mode mode = TYPE_MODE (vectype);
@@ -6599,20 +5851,10 @@ vect_supportable_dr_alignment (struct data_reference *dr,
 	      || targetm.vectorize.builtin_mask_for_load ()))
 	{
 	  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
-
-	  /* If we are doing SLP then the accesses need not have the
-	     same alignment, instead it depends on the SLP group size.  */
-	  if (loop_vinfo
-	      && STMT_SLP_TYPE (stmt_info)
-	      && !multiple_p (LOOP_VINFO_VECT_FACTOR (loop_vinfo)
-			      * GROUP_SIZE (vinfo_for_stmt
-					    (GROUP_FIRST_ELEMENT (stmt_info))),
-			      TYPE_VECTOR_SUBPARTS (vectype)))
-	    ;
-	  else if (!loop_vinfo
-		   || (nested_in_vect_loop
-		       && maybe_ne (TREE_INT_CST_LOW (DR_STEP (dr)),
-				    GET_MODE_SIZE (TYPE_MODE (vectype)))))
+	  if ((nested_in_vect_loop
+	       && (TREE_INT_CST_LOW (DR_STEP (dr))
+	 	   != GET_MODE_SIZE (TYPE_MODE (vectype))))
+              || !loop_vinfo)
 	    return dr_explicit_realign;
 	  else
 	    return dr_explicit_realign_optimized;
@@ -6620,8 +5862,10 @@ vect_supportable_dr_alignment (struct data_reference *dr,
       if (!known_alignment_for_access_p (dr))
 	is_packed = not_size_aligned (DR_REF (dr));
 
-      if (targetm.vectorize.support_vector_misalignment
-	    (mode, type, DR_MISALIGNMENT (dr), is_packed))
+      if ((TYPE_USER_ALIGN (type) && !is_packed)
+	  || targetm.vectorize.
+	       support_vector_misalignment (mode, type,
+					    DR_MISALIGNMENT (dr), is_packed))
 	/* Can't software pipeline the loads, but can at least do them.  */
 	return dr_unaligned_supported;
     }
@@ -6633,8 +5877,10 @@ vect_supportable_dr_alignment (struct data_reference *dr,
       if (!known_alignment_for_access_p (dr))
 	is_packed = not_size_aligned (DR_REF (dr));
 
-     if (targetm.vectorize.support_vector_misalignment
-	   (mode, type, DR_MISALIGNMENT (dr), is_packed))
+     if ((TYPE_USER_ALIGN (type) && !is_packed)
+	 || targetm.vectorize.
+	      support_vector_misalignment (mode, type,
+					   DR_MISALIGNMENT (dr), is_packed))
        return dr_unaligned_supported;
     }
 

@@ -1,5 +1,5 @@
 /* Instruction scheduling pass.
-   Copyright (C) 1992-2018 Free Software Foundation, Inc.
+   Copyright (C) 1992-2015 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -22,17 +22,33 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
-#include "target.h"
+#include "tm.h"
+#include "diagnostic-core.h"
 #include "rtl.h"
-#include "cfghooks.h"
-#include "df.h"
+#include "tm_p.h"
+#include "hard-reg-set.h"
+#include "regs.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
 #include "profile.h"
+#include "flags.h"
+#include "insn-config.h"
 #include "insn-attr.h"
+#include "except.h"
+#include "recog.h"
 #include "params.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfgbuild.h"
+#include "predict.h"
+#include "basic-block.h"
 #include "sched-int.h"
+#include "target.h"
 
 
 #ifdef INSN_SCHEDULING
@@ -168,7 +184,9 @@ begin_move_insn (rtx_insn *insn, rtx_insn *last)
 			   && BB_END (last_bb) == insn);
 
       {
-	rtx_insn *x = NEXT_INSN (insn);
+	rtx x;
+
+	x = NEXT_INSN (insn);
 	if (e)
 	  gcc_checking_assert (NOTE_P (x) || LABEL_P (x));
 	else
@@ -231,9 +249,11 @@ rank (rtx_insn *insn1, rtx_insn *insn2)
   basic_block bb1 = BLOCK_FOR_INSN (insn1);
   basic_block bb2 = BLOCK_FOR_INSN (insn2);
 
-  if (bb1->count > bb2->count)
+  if (bb1->count > bb2->count
+      || bb1->frequency > bb2->frequency)
     return -1;
-  if (bb1->count < bb2->count)
+  if (bb1->count < bb2->count
+      || bb1->frequency < bb2->frequency)
     return 1;
   return 0;
 }
@@ -462,7 +482,7 @@ add_deps_for_risky_insns (rtx_insn *head, rtx_insn *tail)
 /* Schedule a single extended basic block, defined by the boundaries
    HEAD and TAIL.
 
-   We change our expectations about scheduler behavior depending on
+   We change our expectations about scheduler behaviour depending on
    whether MODULO_SCHEDULING is true.  If it is, we expect that the
    caller has already called set_modulo_params and created delay pairs
    as appropriate.  If the modulo schedule failed, we return
@@ -620,7 +640,7 @@ schedule_ebbs (void)
   if (n_basic_blocks_for_fn (cfun) == NUM_FIXED_BLOCKS)
     return;
 
-  if (profile_info && profile_status_for_fn (cfun) == PROFILE_READ)
+  if (profile_info && flag_branch_probabilities)
     probability_cutoff = PARAM_VALUE (TRACER_MIN_BRANCH_PROBABILITY_FEEDBACK);
   else
     probability_cutoff = PARAM_VALUE (TRACER_MIN_BRANCH_PROBABILITY);
@@ -646,8 +666,7 @@ schedule_ebbs (void)
 	  e = find_fallthru_edge (bb->succs);
 	  if (! e)
 	    break;
-	  if (e->probability.initialized_p ()
-	      && e->probability.to_reg_br_prob_base () <= probability_cutoff)
+	  if (e->probability <= probability_cutoff)
 	    break;
 	  if (e->dest->flags & BB_DISABLE_SCHEDULE)
  	    break;

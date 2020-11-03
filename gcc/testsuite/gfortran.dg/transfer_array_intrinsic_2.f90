@@ -37,7 +37,7 @@ contains
      a = reshape ((/(rand (), i = 1, 16)/), (/4,4/))
      jt = transfer (a, it)
      it = reshape (jt, (/4, 2, 4/))
-     if (any (reshape (transfer (it, a), (/4,4/)) .ne. a)) STOP 1
+     if (any (reshape (transfer (it, a), (/4,4/)) .ne. a)) call abort ()
 
    end subroutine test1
 
@@ -58,38 +58,38 @@ contains
 
      ch = "wxyz"
      ch(1:2) = transfer (y(2:4:2), ch)
-     if (any (ch(1:2) .ne. (/"EFGH","MNOP"/))) STOP 2
+     if (any (ch(1:2) .ne. (/"EFGH","MNOP"/))) call abort ()
      ch = "wxyz"
      ch(1:2) = transfer (y(4:2:-2), ch)
-     if (any (ch(1:2) .ne. (/"MNOP","EFGH"/))) STOP 3
+     if (any (ch(1:2) .ne. (/"MNOP","EFGH"/))) call abort ()
 
 ! Check that a complete array transfers with size absent.
 
      ch = transfer (y, ch)
-     if (any (ch .ne. (/"ABCD","EFGH","IJKL","MNOP"/))) STOP 4
+     if (any (ch .ne. (/"ABCD","EFGH","IJKL","MNOP"/))) call abort ()
 
 ! Check that a character array section is OK
 
      z = transfer (ch(2:3), y)
-     if (any (z .ne. y(2:3))) STOP 5
+     if (any (z .ne. y(2:3))) call abort ()
 
 ! Check dest array sections in both directions.
 
      ch = "wxyz"
      ch(3:4) = transfer (y, ch, 2)
-     if (any (ch(3:4) .ne. (/"ABCD","EFGH"/))) STOP 6
+     if (any (ch(3:4) .ne. (/"ABCD","EFGH"/))) call abort ()
      ch = "wxyz"
      ch(3:2:-1) = transfer (y, ch, 2)
-     if (any (ch(2:3) .ne. (/"EFGH","ABCD"/))) STOP 7
+     if (any (ch(2:3) .ne. (/"EFGH","ABCD"/))) call abort ()
 
 ! Make sure that character to numeric is OK.
 
      ch = "wxyz"
      ch(1:2) = transfer (y, ch, 2)
-     if (any (ch(1:2) .ne. (/"ABCD","EFGH"/))) STOP 8
+     if (any (ch(1:2) .ne. (/"ABCD","EFGH"/))) call abort ()
 
-     z = transfer (ch, y, 2)
-     if (any (y(1:2) .ne. z)) STOP 9
+     z = transfer (ch, y)
+     if (any (y(1:2) .ne. z)) call abort ()
 
    end subroutine test2
 
@@ -104,15 +104,15 @@ contains
 
 ! Check assumed shape.
 
-     if (any (ic .ne. transfer (ch1, ic))) STOP 10
+     if (any (ic .ne. transfer (ch1, ic))) call abort ()
 
 ! Check assumed character length.
 
-     if (any (ic .ne. transfer (ch2, ic))) STOP 11
+     if (any (ic .ne. transfer (ch2, ic))) call abort ()
 
 ! Check automatic character length.
 
-     if (any (ic .ne. transfer (ch3, ic))) STOP 12
+     if (any (ic .ne. transfer (ch3, ic))) call abort ()
 
   end subroutine test3
 

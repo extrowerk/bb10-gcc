@@ -1,6 +1,6 @@
 /* Collect static initialization info into data structures that can be
    traversed by C++ initialization and finalization routines.
-   Copyright (C) 1992-2018 Free Software Foundation, Inc.
+   Copyright (C) 1992-2015 Free Software Foundation, Inc.
    Contributed by Chris Smith (csmith@convex.com).
    Heavily modified by Michael Meissner (meissner@cygnus.com),
    Per Bothner (bothner@cygnus.com), and John Gilmore (gnu@cygnus.com).
@@ -201,7 +201,6 @@ static enum lto_mode_d lto_mode = LTO_MODE_NONE;
 bool helpflag;			/* true if --help */
 
 static int shared_obj;			/* true if -shared */
-static int static_obj;			/* true if -static */
 
 static const char *c_file;		/* <xxx>.c for constructor/destructor list.  */
 static const char *o_file;		/* <xxx>.o for constructor/destructor list.  */
@@ -256,7 +255,6 @@ bool may_unlink_output_file = false;
 #ifdef COLLECT_EXPORT_LIST
 /* Lists to keep libraries to be scanned for global constructors/destructors.  */
 static struct head libs;                    /* list of libraries */
-static struct head static_libs;             /* list of statically linked libraries */
 static struct path_prefix cmdline_lib_dirs; /* directories specified with -L */
 static struct path_prefix libpath_lib_dirs; /* directories in LIBPATH */
 static struct path_prefix *libpaths[3] = {&cmdline_lib_dirs,
@@ -284,7 +282,7 @@ static struct lto_object_list lto_objects;
 
 /* Special kinds of symbols that a name may denote.  */
 
-enum symkind {
+typedef enum {
   SYM_REGULAR = 0,  /* nothing special  */
 
   SYM_CTOR = 1,  /* constructor */
@@ -294,7 +292,7 @@ enum symkind {
   SYM_DWEH = 5,  /* DWARF exception handling table  */
   SYM_AIXI = 6,
   SYM_AIXD = 7
-};
+} symkind;
 
 const char tool_name[] = "collect2";
 
@@ -322,7 +320,9 @@ static void write_c_file_glob (FILE *, const char *);
 static void scan_libraries (const char *);
 #endif
 #ifdef COLLECT_EXPORT_LIST
+#if 0
 static int is_in_list (const char *, struct id *);
+#endif
 static void write_aix_file (FILE *, struct id *);
 static char *resolve_lib_name (const char *);
 #endif
@@ -333,13 +333,13 @@ static void process_args (int *argcp, char **argv);
 /* Enumerations describing which pass this is for scanning the
    program file ...  */
 
-enum scanpass {
+typedef enum {
   PASS_FIRST,				/* without constructors */
   PASS_OBJ,				/* individual objects */
   PASS_LIB,				/* looking for shared libraries */
   PASS_SECOND,				/* with constructors linked in */
   PASS_LTOINFO				/* looking for objects with LTO info */
-};
+} scanpass;
 
 /* ... and which kinds of symbols are to be considered.  */
 
@@ -377,28 +377,6 @@ typedef int scanfilter;
 static void scan_prog_file (const char *, scanpass, scanfilter);
 
 
-#ifdef TARGET_NEUTRINO
-/* Search for NAME using prefix list PPREFIX.  We only look for executable
-   files.
-   Return 0 if not found, otherwise return its name, allocated with malloc.  
-   Needed for environment based path resolution at runtime in QNX
-*/
-
-static void
-prefix_from_env1(const char *env, const char *suffix, struct path_prefix *pprefix)
-{
-   const char *p;
-   char *nstore;
-   p = getenv(env);
-   if (p)
-     {
-      nstore = XNEWVEC (char, strlen (suffix) + strlen(p) + 2);
-      sprintf(nstore, "%s/%s", p, suffix);
-      prefix_from_string(nstore, pprefix);
-     }
-}
-#endif
-
 /* Delete tempfiles and exit function.  */
 
 void
@@ -636,7 +614,21 @@ static const char *const target_machine = TARGET_MACHINE;
 
    Return 0 if not found, otherwise return its name, allocated with malloc.  */
 
-#if defined (OBJECT_FORMAT_NONE) || defined (OBJECT_FORMAT_COFF)
+static void
+prefix_from_env1(const char *env, const char *suffix, struct path_prefix *pprefix)
+{
+   const char *p;
+   char *nstore;
+   p = getenv(env);
+   if (p)
+     {
+      nstore = XNEWVEC (char, strlen (suffix) + strlen(p) + 2);
+      sprintf(nstore, "%s/%s", p, suffix);
+      prefix_from_string(nstore, pprefix);
+     }
+}
+
+#ifdef OBJECT_FORMAT_NONE
 
 /* Add an entry for the object file NAME to object file list LIST.
    New entries are added at the end of the list. The original pointer
@@ -656,7 +648,7 @@ add_lto_object (struct lto_object_list *list, const char *name)
 
   list->last = n;
 }
-#endif
+#endif /* OBJECT_FORMAT_NONE */
 
 
 /* Perform a link-time recompilation and relink if any of the object
@@ -783,7 +775,7 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
       do_wait (prog, pex);
       pex = NULL;
 
-      /* Compute memory needed for new LD arguments.  At most number of original arguments
+      /* Compute memory needed for new LD arguments.  At most number of original arguemtns
 	 plus number of partitions.  */
       for (lto_ld_argv_size = 0; lto_ld_argv[lto_ld_argv_size]; lto_ld_argv_size++)
 	;
@@ -933,9 +925,6 @@ main (int argc, char **argv)
   int first_file;
   int num_c_args;
   char **old_argv;
-#ifdef COLLECT_EXPORT_LIST
-  bool is_static = false;
-#endif
   int i;
 
   for (i = 0; i < USE_LD_MAX; i++)
@@ -1112,9 +1101,7 @@ main (int argc, char **argv)
   /* Extract COMPILER_PATH and PATH into our prefix list.  */
   prefix_from_env ("COMPILER_PATH", &cpath);
   prefix_from_env ("PATH", &path);
- #ifdef TARGET_NEUTRINO
   prefix_from_env1 ("QNX_HOST", "usr/bin", &cpath);
-#endif
 
   /* Try to discover a valid linker/nm/strip to use.  */
 
@@ -1148,9 +1135,16 @@ main (int argc, char **argv)
 			    NULL);
       if (access (linker_name, X_OK) == 0)
 	ld_file_name = linker_name;
+      else
+        ld_file_name = find_a_file (&cpath, linker_name, X_OK); 
     }
-  if (ld_file_name == 0 && access (DEFAULT_LINKER, X_OK) == 0)
-    ld_file_name = DEFAULT_LINKER;
+  if (ld_file_name == 0)
+    {
+      if (access (DEFAULT_LINKER, X_OK) == 0)
+        ld_file_name = DEFAULT_LINKER;
+      else
+        ld_file_name = find_a_file (&cpath, DEFAULT_LINKER, X_OK);
+    }
   if (ld_file_name == 0)
 #endif
 #ifdef REAL_LD_FILE_NAME
@@ -1269,8 +1263,6 @@ main (int argc, char **argv)
 	*c_ptr++ = xstrdup (q);
       if (strcmp (q, "-shared") == 0)
 	shared_obj = 1;
-      if (strcmp (q, "-static") == 0)
-	static_obj = 1;
       if (*q == '-' && q[1] == 'B')
 	{
 	  *c_ptr++ = xstrdup (q);
@@ -1299,9 +1291,6 @@ main (int argc, char **argv)
   /* Parse arguments.  Remember output file spec, pass the rest to ld.  */
   /* After the first file, put in the c++ rt0.  */
 
-#ifdef COLLECT_EXPORT_LIST
-  is_static = static_obj;
-#endif
   first_file = 1;
   while ((arg = *++argv) != (char *) 0)
     {
@@ -1407,18 +1396,6 @@ main (int argc, char **argv)
 #endif
               break;
 
-#ifdef COLLECT_EXPORT_LIST
-	    case 'b':
-	      if (!strcmp (arg, "-bstatic"))
-		{
-		  is_static = true;
-		}
-	      else if (!strcmp (arg, "-bdynamic") || !strcmp (arg, "-bshared"))
-		{
-		  is_static = false;
-		}
-	      break;
-#endif
 	    case 'l':
 	      if (first_file)
 		{
@@ -1435,8 +1412,6 @@ main (int argc, char **argv)
 
 		/* Saving a full library name.  */
 		add_to_list (&libs, s);
-		if (is_static)
-		    add_to_list (&static_libs, s);
 	      }
 #endif
 	      break;
@@ -1537,8 +1512,6 @@ main (int argc, char **argv)
 	    {
 	      /* Saving a full library name.  */
 	      add_to_list (&libs, arg);
-	      if (is_static)
-		add_to_list (&static_libs, arg);
 	    }
 #endif
 	}
@@ -1550,8 +1523,6 @@ main (int argc, char **argv)
     {
       fprintf (stderr, "List of libraries:\n");
       dump_list (stderr, "\t", libs.first);
-      fprintf (stderr, "List of statically linked libraries:\n");
-      dump_list (stderr, "\t", static_libs.first);
     }
 
   /* The AIX linker will discard static constructors in object files if
@@ -1576,11 +1547,9 @@ main (int argc, char **argv)
       this_filter &= ~SCAN_DWEH;
 #endif
 
-    /* Scan object files.  */
     while (export_object_lst < object)
       scan_prog_file (*export_object_lst++, PASS_OBJ, this_filter);
 
-    /* Scan libraries.  */
     for (; list; list = list->next)
       scan_prog_file (list->name, PASS_FIRST, this_filter);
 
@@ -2028,6 +1997,7 @@ write_list (FILE *stream, const char *prefix, struct id *list)
 
 #ifdef COLLECT_EXPORT_LIST
 /* This function is really used only on AIX, but may be useful.  */
+#if 0
 static int
 is_in_list (const char *prefix, struct id *list)
 {
@@ -2038,6 +2008,7 @@ is_in_list (const char *prefix, struct id *list)
     }
     return 0;
 }
+#endif
 #endif /* COLLECT_EXPORT_LIST */
 
 /* Added for debugging purpose.  */
@@ -2159,23 +2130,12 @@ write_c_file_stat (FILE *stream, const char *name ATTRIBUTE_UNUSED)
       fprintf (stream, "  struct object *next;\n");
       fprintf (stream, "};\n");
 
-      fprintf (stream, "extern void __register_frame_info_table_bases (void *, struct object *, void *tbase, void *dbase);\n");
       fprintf (stream, "extern void __register_frame_info_table (void *, struct object *);\n");
       fprintf (stream, "extern void *__deregister_frame_info (void *);\n");
-#ifdef TARGET_AIX_VERSION
-      fprintf (stream, "extern void *__gcc_unwind_dbase;\n");
-#endif
 
       fprintf (stream, "static void reg_frame () {\n");
       fprintf (stream, "\tstatic struct object ob;\n");
-#ifdef TARGET_AIX_VERSION
-      /* Use __gcc_unwind_dbase as the base address for data on AIX.
-	 This might not be the start of the segment, signed offsets assumed.
-       */
-      fprintf (stream, "\t__register_frame_info_table_bases (frame_table, &ob, (void *)0, &__gcc_unwind_dbase);\n");
-#else
       fprintf (stream, "\t__register_frame_info_table (frame_table, &ob);\n");
-#endif
       fprintf (stream, "\t}\n");
 
       fprintf (stream, "static void dereg_frame () {\n");
@@ -2692,6 +2652,17 @@ scan_libraries (const char *prog_name)
 
 #ifdef OBJECT_FORMAT_COFF
 
+#if defined (EXTENDED_COFF)
+
+#   define GCC_SYMBOLS(X)	(SYMHEADER (X).isymMax + SYMHEADER (X).iextMax)
+#   define GCC_SYMENT		SYMR
+#   define GCC_OK_SYMBOL(X)	((X).st == stProc || (X).st == stGlobal)
+#   define GCC_SYMINC(X)	(1)
+#   define GCC_SYMZERO(X)	(SYMHEADER (X).isymMax)
+#   define GCC_CHECK_HDR(X)	(PSYMTAB (X) != 0)
+
+#else
+
 #   define GCC_SYMBOLS(X)	(HEADER (ldptr).f_nsyms)
 #   define GCC_SYMENT		SYMENT
 #   if defined (C_WEAKEXT)
@@ -2728,6 +2699,8 @@ scan_libraries (const char *prog_name)
      (((HEADER (X).f_magic == U802TOCMAGIC && ! aix64_flag) \
        || (HEADER (X).f_magic == 0757 && aix64_flag)) \
       && !(HEADER (X).f_flags & F_LOADONLY))
+#endif
+
 #endif
 
 #ifdef COLLECT_EXPORT_LIST
@@ -2788,10 +2761,8 @@ scan_prog_file (const char *prog_name, scanpass which_pass,
   LDFILE *ldptr = NULL;
   int sym_index, sym_count;
   int is_shared = 0;
-  int found_lto = 0;
 
-  if (which_pass != PASS_FIRST && which_pass != PASS_OBJ
-      && which_pass != PASS_LTOINFO)
+  if (which_pass != PASS_FIRST && which_pass != PASS_OBJ)
     return;
 
 #ifdef COLLECT_EXPORT_LIST
@@ -2804,7 +2775,6 @@ scan_prog_file (const char *prog_name, scanpass which_pass,
      eliminate scan_libraries() function.  */
   do
     {
-      found_lto = 0;
 #endif
       /* Some platforms (e.g. OSF4) declare ldopen as taking a
 	 non-const char * filename parameter, even though it will not
@@ -2847,19 +2817,6 @@ scan_prog_file (const char *prog_name, scanpass which_pass,
 			++name;
 #endif
 
-                      if (which_pass == PASS_LTOINFO)
-                        {
-			  if (found_lto)
-			    continue;
-			  if (strncmp (name, "__gnu_lto_v1", 12) == 0)
-			    {
-			      add_lto_object (&lto_objects, prog_name);
-			      found_lto = 1;
-			      break;
-			    }
-			  continue;
-			}
-
 		      switch (is_ctor_dtor (name))
 			{
 #if TARGET_AIX_VERSION
@@ -2869,12 +2826,7 @@ scan_prog_file (const char *prog_name, scanpass which_pass,
 			case SYM_AIXI:
 			  if (! (filter & SCAN_CTOR))
 			    break;
-			  if (is_shared && !aixlazy_flag
-#ifdef COLLECT_EXPORT_LIST
-			      && ! static_obj
-			      && ! is_in_list (prog_name, static_libs.first)
-#endif
-			      )
+			  if (is_shared && !aixlazy_flag)
 			    add_to_list (&constructors, name);
 			  break;
 
@@ -2948,25 +2900,22 @@ scan_prog_file (const char *prog_name, scanpass which_pass,
 			     provides an explicit export list.  */
 			  if (shared_obj && !is_shared
 			      && which_pass == PASS_OBJ && !export_flag)
-			    {
-			      /* Do not auto-export __dso_handle or
-				 __gcc_unwind_dbase.  They are required
-				 to be local to each module.  */
-			      if (strcmp(name, "__dso_handle") != 0
-				  && strcmp(name, "__gcc_unwind_dbase") != 0)
-				{
-				  add_to_list (&exports, name);
-				}
-			    }
+			    add_to_list (&exports, name);
 #endif
 			  continue;
 			}
 
 		      if (debug)
+#if !defined(EXTENDED_COFF)
 			fprintf (stderr, "\tsec=%d class=%d type=%s%o %s\n",
 				 symbol.n_scnum, symbol.n_sclass,
 				 (symbol.n_type ? "0" : ""), symbol.n_type,
 				 name);
+#else
+			fprintf (stderr,
+				 "\tiss = %5d, value = %5ld, index = %5d, name = %s\n",
+				 symbol.iss, (long) symbol.value, symbol.index, name);
+#endif
 		    }
 		}
 	    }

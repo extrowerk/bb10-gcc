@@ -1,5 +1,4 @@
--- { dg-do compile }
--- { dg-options "-gnatws" }
+--  { dg-do compile }
 
 package body controlled4 is
    procedure Test_Suite is

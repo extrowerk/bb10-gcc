@@ -1,6 +1,6 @@
 /* Routines for reading trees from a file stream.
 
-   Copyright (C) 2011-2018 Free Software Foundation, Inc.
+   Copyright (C) 2011-2015 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@google.com>
 
 This file is part of GCC.
@@ -22,20 +22,44 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
-#include "target.h"
+#include "diagnostic.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
+#include "fixed-value.h"
 #include "tree.h"
-#include "gimple.h"
+#include "fold-const.h"
 #include "stringpool.h"
-#include "tree-streamer.h"
+#include "predict.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
+#include "tree-streamer.h"
+#include "data-streamer.h"
+#include "streamer-hooks.h"
+#include "lto-streamer.h"
 #include "builtins.h"
 #include "ipa-chkp.h"
 #include "gomp-constants.h"
-#include "stringpool.h"
-#include "attribs.h"
-#include "asan.h"
-#include "opts.h"
 
 
 /* Read a STRING_CST from the string table in DATA_IN using input
@@ -120,10 +144,7 @@ unpack_ts_base_value_fields (struct bitpack_d *bp, tree expr)
   TREE_ADDRESSABLE (expr) = (unsigned) bp_unpack_value (bp, 1);
   TREE_THIS_VOLATILE (expr) = (unsigned) bp_unpack_value (bp, 1);
   if (DECL_P (expr))
-    {
-      DECL_UNSIGNED (expr) = (unsigned) bp_unpack_value (bp, 1);
-      DECL_NAMELESS (expr) = (unsigned) bp_unpack_value (bp, 1);
-    }
+    DECL_UNSIGNED (expr) = (unsigned) bp_unpack_value (bp, 1);
   else if (TYPE_P (expr))
     TYPE_UNSIGNED (expr) = (unsigned) bp_unpack_value (bp, 1);
   else
@@ -143,25 +164,12 @@ unpack_ts_base_value_fields (struct bitpack_d *bp, tree expr)
   TREE_DEPRECATED (expr) = (unsigned) bp_unpack_value (bp, 1);
   if (TYPE_P (expr))
     {
-      if (AGGREGATE_TYPE_P (expr))
-	TYPE_REVERSE_STORAGE_ORDER (expr) = (unsigned) bp_unpack_value (bp, 1);
-      else
-	TYPE_SATURATING (expr) = (unsigned) bp_unpack_value (bp, 1);
+      TYPE_SATURATING (expr) = (unsigned) bp_unpack_value (bp, 1);
       TYPE_ADDR_SPACE (expr) = (unsigned) bp_unpack_value (bp, 8);
-    }
-  else if (TREE_CODE (expr) == BIT_FIELD_REF || TREE_CODE (expr) == MEM_REF)
-    {
-      REF_REVERSE_STORAGE_ORDER (expr) = (unsigned) bp_unpack_value (bp, 1);
-      bp_unpack_value (bp, 8);
     }
   else if (TREE_CODE (expr) == SSA_NAME)
     {
       SSA_NAME_IS_DEFAULT_DEF (expr) = (unsigned) bp_unpack_value (bp, 1);
-      bp_unpack_value (bp, 8);
-    }
-  else if (TREE_CODE (expr) == CALL_EXPR)
-    {
-      CALL_EXPR_BY_DESCRIPTOR (expr) = (unsigned) bp_unpack_value (bp, 1);
       bp_unpack_value (bp, 8);
     }
   else
@@ -216,7 +224,7 @@ static void
 unpack_ts_fixed_cst_value_fields (struct bitpack_d *bp, tree expr)
 {
   FIXED_VALUE_TYPE *fp = ggc_alloc<fixed_value> ();
-  fp->mode = as_a <scalar_mode> (bp_unpack_machine_mode (bp));
+  fp->mode = bp_unpack_machine_mode (bp);
   fp->data.low = bp_unpack_var_len_int (bp);
   fp->data.high = bp_unpack_var_len_int (bp);
   TREE_FIXED_CST_PTR (expr) = fp;
@@ -228,7 +236,7 @@ unpack_ts_fixed_cst_value_fields (struct bitpack_d *bp, tree expr)
 static void
 unpack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
 {
-  SET_DECL_MODE (expr, bp_unpack_machine_mode (bp));
+  DECL_MODE (expr) = bp_unpack_machine_mode (bp);
   DECL_NONLOCAL (expr) = (unsigned) bp_unpack_value (bp, 1);
   DECL_VIRTUAL_P (expr) = (unsigned) bp_unpack_value (bp, 1);
   DECL_IGNORED_P (expr) = (unsigned) bp_unpack_value (bp, 1);
@@ -238,10 +246,10 @@ unpack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
   DECL_PRESERVE_P (expr) = (unsigned) bp_unpack_value (bp, 1);
   DECL_EXTERNAL (expr) = (unsigned) bp_unpack_value (bp, 1);
   DECL_GIMPLE_REG_P (expr) = (unsigned) bp_unpack_value (bp, 1);
-  SET_DECL_ALIGN (expr, (unsigned) bp_unpack_var_len_unsigned (bp));
+  DECL_ALIGN (expr) = (unsigned) bp_unpack_var_len_unsigned (bp);
 #ifdef ACCEL_COMPILER
   if (DECL_ALIGN (expr) > targetm.absolute_biggest_alignment)
-    SET_DECL_ALIGN (expr, targetm.absolute_biggest_alignment);
+    DECL_ALIGN (expr) = targetm.absolute_biggest_alignment;
 #endif
   if (TREE_CODE (expr) == LABEL_DECL)
     {
@@ -256,11 +264,10 @@ unpack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
     {
       DECL_PACKED (expr) = (unsigned) bp_unpack_value (bp, 1);
       DECL_NONADDRESSABLE_P (expr) = (unsigned) bp_unpack_value (bp, 1);
-      DECL_PADDING_P (expr) = (unsigned) bp_unpack_value (bp, 1);
       expr->decl_common.off_align = bp_unpack_value (bp, 8);
     }
 
-  if (VAR_P (expr))
+  if (TREE_CODE (expr) == VAR_DECL)
     {
       DECL_HAS_DEBUG_EXPR_P (expr) = (unsigned) bp_unpack_value (bp, 1);
       DECL_NONLOCAL_FRAME (expr) = (unsigned) bp_unpack_value (bp, 1);
@@ -268,10 +275,11 @@ unpack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
 
   if (TREE_CODE (expr) == RESULT_DECL
       || TREE_CODE (expr) == PARM_DECL
-      || VAR_P (expr))
+      || TREE_CODE (expr) == VAR_DECL)
     {
       DECL_BY_REFERENCE (expr) = (unsigned) bp_unpack_value (bp, 1);
-      if (VAR_P (expr) || TREE_CODE (expr) == PARM_DECL)
+      if (TREE_CODE (expr) == VAR_DECL
+	  || TREE_CODE (expr) == PARM_DECL)
 	DECL_HAS_VALUE_EXPR_P (expr) = (unsigned) bp_unpack_value (bp, 1);
     }
 }
@@ -301,7 +309,7 @@ unpack_ts_decl_with_vis_value_fields (struct bitpack_d *bp, tree expr)
   DECL_VISIBILITY (expr) = (enum symbol_visibility) bp_unpack_value (bp,  2);
   DECL_VISIBILITY_SPECIFIED (expr) = (unsigned) bp_unpack_value (bp,  1);
 
-  if (VAR_P (expr))
+  if (TREE_CODE (expr) == VAR_DECL)
     {
       DECL_HARD_REGISTER (expr) = (unsigned) bp_unpack_value (bp, 1);
       DECL_IN_CONSTANT_POOL (expr) = (unsigned) bp_unpack_value (bp, 1);
@@ -371,13 +379,8 @@ unpack_ts_type_common_value_fields (struct bitpack_d *bp, tree expr)
   mode = bp_unpack_machine_mode (bp);
   SET_TYPE_MODE (expr, mode);
   TYPE_STRING_FLAG (expr) = (unsigned) bp_unpack_value (bp, 1);
-  /* TYPE_NO_FORCE_BLK is private to stor-layout and need
-     no streaming.  */
+  TYPE_NO_FORCE_BLK (expr) = (unsigned) bp_unpack_value (bp, 1);
   TYPE_NEEDS_CONSTRUCTING (expr) = (unsigned) bp_unpack_value (bp, 1);
-  TYPE_PACKED (expr) = (unsigned) bp_unpack_value (bp, 1);
-  TYPE_RESTRICT (expr) = (unsigned) bp_unpack_value (bp, 1);
-  TYPE_USER_ALIGN (expr) = (unsigned) bp_unpack_value (bp, 1);
-  TYPE_READONLY (expr) = (unsigned) bp_unpack_value (bp, 1);
   if (RECORD_OR_UNION_TYPE_P (expr))
     {
       TYPE_TRANSPARENT_AGGR (expr) = (unsigned) bp_unpack_value (bp, 1);
@@ -385,15 +388,17 @@ unpack_ts_type_common_value_fields (struct bitpack_d *bp, tree expr)
     }
   else if (TREE_CODE (expr) == ARRAY_TYPE)
     TYPE_NONALIASED_COMPONENT (expr) = (unsigned) bp_unpack_value (bp, 1);
-  if (AGGREGATE_TYPE_P (expr))
-    TYPE_TYPELESS_STORAGE (expr) = (unsigned) bp_unpack_value (bp, 1);
-  TYPE_EMPTY_P (expr) = (unsigned) bp_unpack_value (bp, 1);
+  TYPE_PACKED (expr) = (unsigned) bp_unpack_value (bp, 1);
+  TYPE_RESTRICT (expr) = (unsigned) bp_unpack_value (bp, 1);
+  TYPE_USER_ALIGN (expr) = (unsigned) bp_unpack_value (bp, 1);
+  TYPE_READONLY (expr) = (unsigned) bp_unpack_value (bp, 1);
   TYPE_PRECISION (expr) = bp_unpack_var_len_unsigned (bp);
-  SET_TYPE_ALIGN (expr, bp_unpack_var_len_unsigned (bp));
+  TYPE_ALIGN (expr) = bp_unpack_var_len_unsigned (bp);
 #ifdef ACCEL_COMPILER
   if (TYPE_ALIGN (expr) > targetm.absolute_biggest_alignment)
-    SET_TYPE_ALIGN (expr, targetm.absolute_biggest_alignment);
+    TYPE_ALIGN (expr) = targetm.absolute_biggest_alignment;
 #endif
+  TYPE_ALIAS_SET (expr) = bp_unpack_var_len_int (bp);
 }
 
 
@@ -527,8 +532,6 @@ streamer_read_tree_bitfields (struct lto_input_block *ib,
 	    MR_DEPENDENCE_BASE (expr)
 	      = (unsigned)bp_unpack_value (&bp, sizeof (short) * 8);
 	}
-      else if (code == CALL_EXPR)
-	CALL_EXPR_IFN (expr) = bp_unpack_enum (&bp, internal_fn, IFN_LAST);
     }
 
   if (CODE_CONTAINS_STRUCT (code, TS_BLOCK))
@@ -578,8 +581,19 @@ streamer_alloc_tree (struct lto_input_block *ib, struct data_in *data_in,
 {
   enum tree_code code;
   tree result;
+#ifdef LTO_STREAMER_DEBUG
+  HOST_WIDE_INT orig_address_in_writer;
+#endif
 
   result = NULL_TREE;
+
+#ifdef LTO_STREAMER_DEBUG
+  /* Read the word representing the memory address for the tree
+     as it was written by the writer.  This is useful when
+     debugging differences between the writer and reader.  */
+  orig_address_in_writer = streamer_read_hwi (ib);
+  gcc_assert ((intptr_t) orig_address_in_writer == orig_address_in_writer);
+#endif
 
   code = lto_tag_to_tree_code (tag);
 
@@ -599,10 +613,8 @@ streamer_alloc_tree (struct lto_input_block *ib, struct data_in *data_in,
     }
   else if (CODE_CONTAINS_STRUCT (code, TS_VECTOR))
     {
-      bitpack_d bp = streamer_read_bitpack (ib);
-      unsigned int log2_npatterns = bp_unpack_value (&bp, 8);
-      unsigned int nelts_per_pattern = bp_unpack_value (&bp, 8);
-      result = make_vector (log2_npatterns, nelts_per_pattern);
+      HOST_WIDE_INT len = streamer_read_hwi (ib);
+      result = make_vector (len);
     }
   else if (CODE_CONTAINS_STRUCT (code, TS_BINFO))
     {
@@ -633,6 +645,15 @@ streamer_alloc_tree (struct lto_input_block *ib, struct data_in *data_in,
       result = make_node (code);
     }
 
+#ifdef LTO_STREAMER_DEBUG
+  /* Store the original address of the tree as seen by the writer
+     in RESULT's aux field.  This is useful when debugging streaming
+     problems.  This way, a debugging session can be started on
+     both writer and reader with a breakpoint using this address
+     value in both.  */
+  lto_orig_address_map (result, (intptr_t) orig_address_in_writer);
+#endif
+
   return result;
 }
 
@@ -659,22 +680,9 @@ static void
 lto_input_ts_vector_tree_pointers (struct lto_input_block *ib,
 				   struct data_in *data_in, tree expr)
 {
-  unsigned int count = vector_cst_encoded_nelts (expr);
-  for (unsigned int i = 0; i < count; ++i)
-    VECTOR_CST_ENCODED_ELT (expr, i) = stream_read_tree (ib, data_in);
-}
-
-
-/* Read all pointer fields in the TS_POLY_INT_CST structure of EXPR from
-   input block IB.  DATA_IN contains tables and descriptors for the
-   file being read.  */
-
-static void
-lto_input_ts_poly_tree_pointers (struct lto_input_block *ib,
-				 struct data_in *data_in, tree expr)
-{
-  for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
-    POLY_INT_CST_COEFF (expr, i) = stream_read_tree (ib, data_in);
+  unsigned i;
+  for (i = 0; i < VECTOR_CST_NELTS (expr); ++i)
+    VECTOR_CST_ELT (expr, i) = stream_read_tree (ib, data_in);
 }
 
 
@@ -715,14 +723,17 @@ lto_input_ts_decl_common_tree_pointers (struct lto_input_block *ib,
   DECL_SIZE (expr) = stream_read_tree (ib, data_in);
   DECL_SIZE_UNIT (expr) = stream_read_tree (ib, data_in);
   DECL_ATTRIBUTES (expr) = stream_read_tree (ib, data_in);
-  DECL_ABSTRACT_ORIGIN (expr) = stream_read_tree (ib, data_in);
 
-  if ((VAR_P (expr) || TREE_CODE (expr) == PARM_DECL)
+  /* Do not stream DECL_ABSTRACT_ORIGIN.  We cannot handle debug information
+     for early inlining so drop it on the floor instead of ICEing in
+     dwarf2out.c.  */
+
+  if ((TREE_CODE (expr) == VAR_DECL
+       || TREE_CODE (expr) == PARM_DECL)
       && DECL_HAS_VALUE_EXPR_P (expr))
     SET_DECL_VALUE_EXPR (expr, stream_read_tree (ib, data_in));
 
-  if (VAR_P (expr)
-      && DECL_HAS_DEBUG_EXPR_P (expr))
+  if (TREE_CODE (expr) == VAR_DECL)
     {
       tree dexpr = stream_read_tree (ib, data_in);
       if (dexpr)
@@ -794,21 +805,6 @@ lto_input_ts_function_decl_tree_pointers (struct lto_input_block *ib,
   DECL_FUNCTION_SPECIFIC_TARGET (expr) = stream_read_tree (ib, data_in);
 #endif
   DECL_FUNCTION_SPECIFIC_OPTIMIZATION (expr) = stream_read_tree (ib, data_in);
-#ifdef ACCEL_COMPILER
-  {
-    tree opts = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (expr);
-    if (opts)
-      {
-	struct gcc_options tmp;
-	init_options_struct (&tmp, NULL);
-	cl_optimization_restore (&tmp, TREE_OPTIMIZATION (opts));
-	finish_options (&tmp, &global_options_set, UNKNOWN_LOCATION);
-	opts = build_optimization_node (&tmp);
-	finalize_options_struct (&tmp);
-	DECL_FUNCTION_SPECIFIC_OPTIMIZATION (expr) = opts;
-      }
-  }
-#endif
 
   /* If the file contains a function with an EH personality set,
      then it was compiled with -fexceptions.  In that case, initialize
@@ -861,8 +857,10 @@ lto_input_ts_type_non_common_tree_pointers (struct lto_input_block *ib,
     TYPE_ARG_TYPES (expr) = stream_read_tree (ib, data_in);
 
   if (!POINTER_TYPE_P (expr))
-    TYPE_MIN_VALUE_RAW (expr) = stream_read_tree (ib, data_in);
-  TYPE_MAX_VALUE_RAW (expr) = stream_read_tree (ib, data_in);
+    TYPE_MINVAL (expr) = stream_read_tree (ib, data_in);
+  TYPE_MAXVAL (expr) = stream_read_tree (ib, data_in);
+  if (RECORD_OR_UNION_TYPE_P (expr))
+    TYPE_BINFO (expr) = stream_read_tree (ib, data_in);
 }
 
 
@@ -1062,9 +1060,6 @@ streamer_read_tree_body (struct lto_input_block *ib, struct data_in *data_in,
   if (CODE_CONTAINS_STRUCT (code, TS_VECTOR))
     lto_input_ts_vector_tree_pointers (ib, data_in, expr);
 
-  if (CODE_CONTAINS_STRUCT (code, TS_POLY_INT_CST))
-    lto_input_ts_poly_tree_pointers (ib, data_in, expr);
-
   if (CODE_CONTAINS_STRUCT (code, TS_COMPLEX))
     lto_input_ts_complex_tree_pointers (ib, data_in, expr);
 
@@ -1131,6 +1126,57 @@ streamer_get_pickled_tree (struct lto_input_block *ib, struct data_in *data_in)
   result = streamer_tree_cache_get_tree (data_in->reader_cache, ix);
   gcc_assert (result
               && TREE_CODE (result) == lto_tag_to_tree_code (expected_tag));
+
+  return result;
+}
+
+
+/* Read a code and class from input block IB and return the
+   corresponding builtin.  DATA_IN is as in stream_read_tree.  */
+
+tree
+streamer_get_builtin_tree (struct lto_input_block *ib, struct data_in *data_in)
+{
+  enum built_in_class fclass;
+  enum built_in_function fcode;
+  const char *asmname;
+  tree result;
+
+  fclass = streamer_read_enum (ib, built_in_class, BUILT_IN_LAST);
+  gcc_assert (fclass == BUILT_IN_NORMAL || fclass == BUILT_IN_MD);
+
+  fcode = (enum built_in_function) streamer_read_uhwi (ib);
+
+  if (fclass == BUILT_IN_NORMAL)
+    {
+      if (fcode >= END_BUILTINS)
+	fatal_error (input_location,
+		     "machine independent builtin code out of range");
+      result = builtin_decl_explicit (fcode);
+      if (!result
+	  && fcode > BEGIN_CHKP_BUILTINS
+	  && fcode < END_CHKP_BUILTINS)
+	{
+	  fcode = (enum built_in_function) (fcode - BEGIN_CHKP_BUILTINS - 1);
+	  result = builtin_decl_explicit (fcode);
+	  result = chkp_maybe_clone_builtin_fndecl (result);
+	}
+      gcc_assert (result);
+    }
+  else if (fclass == BUILT_IN_MD)
+    {
+      result = targetm.builtin_decl (fcode, true);
+      if (!result || result == error_mark_node)
+	fatal_error (input_location, "target specific builtin not available");
+    }
+  else
+    gcc_unreachable ();
+
+  asmname = streamer_read_string (data_in, ib);
+  if (asmname)
+    set_builtin_user_assembler_name (result, asmname);
+
+  streamer_tree_cache_append (data_in->reader_cache, result, 0);
 
   return result;
 }

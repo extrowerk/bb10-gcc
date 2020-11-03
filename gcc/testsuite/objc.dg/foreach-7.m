@@ -40,10 +40,10 @@ int main (void)
   id object = nil;
 
   for (typedef int my_typedef in array) /* { dg-error "declaration of non-variable" } */
-    ;                                   /* { dg-error "iterating variable in fast enumeration is not an object" "" { target *-*-* } .-1 } */
+    ;                                   /* { dg-error "iterating variable in fast enumeration is not an object" "" { target *-*-* } 42 } */
 
   for (function () in nil) /* { dg-error "invalid iterating variable in fast enumeration" } */
-    ;                      /* { dg-error "iterating variable in fast enumeration is not an object" "" { target *-*-* } .-1 } */
+    ;                      /* { dg-error "iterating variable in fast enumeration is not an object" "" { target *-*-* } 45 } */
 
   for (object_function () in nil) /* { dg-error "invalid iterating variable in fast enumeration" } */
     ;

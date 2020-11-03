@@ -1,5 +1,5 @@
 /* Routines for discovering and unpropagating edge equivalences.
-   Copyright (C) 2005-2018 Free Software Foundation, Inc.
+   Copyright (C) 2005-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,19 +20,45 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
+#include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
 #include "tree.h"
-#include "gimple.h"
-#include "tree-pass.h"
-#include "ssa.h"
 #include "fold-const.h"
+#include "stor-layout.h"
+#include "flags.h"
+#include "tm_p.h"
+#include "predict.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "cfganal.h"
+#include "basic-block.h"
+#include "hash-table.h"
+#include "hash-map.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
 #include "gimple-iterator.h"
+#include "gimple-ssa.h"
 #include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
 #include "domwalk.h"
-#include "tree-hash-traits.h"
-#include "tree-ssa-live.h"
-#include "tree-ssa-coalesce.h"
+#include "tree-pass.h"
+#include "tree-ssa-propagate.h"
 
 /* The basic structure describing an equivalency created by traversing
    an edge.  Traversing the edge effectively means that we can assume
@@ -60,7 +86,7 @@ associate_equivalences_with_edges (void)
   FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi = gsi_last_bb (bb);
-      gimple *stmt;
+      gimple stmt;
 
       /* If the block does not end with a COND_EXPR or SWITCH_EXPR
 	 then there is nothing to do.  */
@@ -94,27 +120,23 @@ associate_equivalences_with_edges (void)
 		 can record an equivalence for OP0 rather than COND.  */
 	      if (TREE_CODE (op0) == SSA_NAME
 		  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (op0)
-		  && ssa_name_has_boolean_range (op0)
-		  && is_gimple_min_invariant (op1)
-		  && (integer_zerop (op1) || integer_onep (op1)))
+		  && TREE_CODE (TREE_TYPE (op0)) == BOOLEAN_TYPE
+		  && is_gimple_min_invariant (op1))
 		{
-		  tree true_val = constant_boolean_node (true, TREE_TYPE (op0));
-		  tree false_val = constant_boolean_node (false,
-							  TREE_TYPE (op0));
 		  if (code == EQ_EXPR)
 		    {
 		      equivalency = XNEW (struct edge_equivalency);
 		      equivalency->lhs = op0;
 		      equivalency->rhs = (integer_zerop (op1)
-					  ? false_val
-					  : true_val);
+					  ? boolean_false_node
+					  : boolean_true_node);
 		      true_edge->aux = equivalency;
 
 		      equivalency = XNEW (struct edge_equivalency);
 		      equivalency->lhs = op0;
 		      equivalency->rhs = (integer_zerop (op1)
-					  ? true_val
-					  : false_val);
+					  ? boolean_true_node
+					  : boolean_false_node);
 		      false_edge->aux = equivalency;
 		    }
 		  else
@@ -122,15 +144,15 @@ associate_equivalences_with_edges (void)
 		      equivalency = XNEW (struct edge_equivalency);
 		      equivalency->lhs = op0;
 		      equivalency->rhs = (integer_zerop (op1)
-					  ? true_val
-					  : false_val);
+					  ? boolean_true_node
+					  : boolean_false_node);
 		      true_edge->aux = equivalency;
 
 		      equivalency = XNEW (struct edge_equivalency);
 		      equivalency->lhs = op0;
 		      equivalency->rhs = (integer_zerop (op1)
-					  ? false_val
-					  : true_val);
+					  ? boolean_false_node
+					  : boolean_true_node);
 		      false_edge->aux = equivalency;
 		    }
 		}
@@ -147,7 +169,7 @@ associate_equivalences_with_edges (void)
 		     this value unless we know that the value is nonzero.  */
 		  if (HONOR_SIGNED_ZEROS (op0)
 		      && (TREE_CODE (op1) != REAL_CST
-			  || real_equal (&dconst0, &TREE_REAL_CST (op1))))
+			  || REAL_VALUES_EQUAL (dconst0, TREE_REAL_CST (op1))))
 		    continue;
 
 		  equivalency = XNEW (struct edge_equivalency);
@@ -268,24 +290,51 @@ associate_equivalences_with_edges (void)
    so with each value we have a list of SSA_NAMEs that have the
    same value.  */
 
-/* Traits for the hash_map to record the value to SSA name equivalences
-   mapping.  */
-struct ssa_equip_hash_traits : default_hash_traits <tree>
+
+/* Main structure for recording equivalences into our hash table.  */
+struct equiv_hash_elt
 {
-  static inline hashval_t hash (value_type value)
-    { return iterative_hash_expr (value, 0); }
-  static inline bool equal (value_type existing, value_type candidate)
-    { return operand_equal_p (existing, candidate, 0); }
+  /* The value/key of this entry.  */
+  tree value;
+
+  /* List of SSA_NAMEs which have the same value/key.  */
+  vec<tree> equivalences;
 };
 
-typedef hash_map<tree, auto_vec<tree>,
-		 simple_hashmap_traits <ssa_equip_hash_traits,
-					auto_vec <tree> > > val_ssa_equiv_t;
+/* Value to ssa name equivalence hashtable helpers.  */
+
+struct val_ssa_equiv_hash_traits : default_hashmap_traits
+{
+  static inline hashval_t hash (tree);
+  static inline bool equal_keys (tree, tree);
+  template<typename T> static inline void remove (T &);
+};
+
+inline hashval_t
+val_ssa_equiv_hash_traits::hash (tree value)
+{
+  return iterative_hash_expr (value, 0);
+}
+
+inline bool
+val_ssa_equiv_hash_traits::equal_keys (tree value1, tree value2)
+{
+  return operand_equal_p (value1, value2, 0);
+}
+
+/* Free an instance of equiv_hash_elt.  */
+
+template<typename T>
+inline void
+val_ssa_equiv_hash_traits::remove (T &elt)
+{
+  elt.m_value.release ();
+}
 
 /* Global hash table implementing a mapping from invariant values
    to a list of SSA_NAMEs which have the same value.  We might be
    able to reuse tree-vn for this code.  */
-val_ssa_equiv_t *val_ssa_equiv;
+static hash_map<tree, vec<tree>, val_ssa_equiv_hash_traits> *val_ssa_equiv;
 
 static void uncprop_into_successor_phis (basic_block);
 
@@ -310,7 +359,7 @@ class uncprop_dom_walker : public dom_walker
 public:
   uncprop_dom_walker (cdi_direction direction) : dom_walker (direction) {}
 
-  virtual edge before_dom_children (basic_block);
+  virtual void before_dom_children (basic_block);
   virtual void after_dom_children (basic_block);
 
 private:
@@ -369,7 +418,7 @@ uncprop_into_successor_phis (basic_block bb)
       /* Walk over the PHI nodes, unpropagating values.  */
       for (gsi = gsi_start (phis) ; !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple *phi = gsi_stmt (gsi);
+	  gimple phi = gsi_stmt (gsi);
 	  tree arg = PHI_ARG_DEF (phi, e->dest_idx);
 	  tree res = PHI_RESULT (phi);
 
@@ -411,10 +460,40 @@ uncprop_into_successor_phis (basic_block bb)
     }
 }
 
-edge
+/* Ignoring loop backedges, if BB has precisely one incoming edge then
+   return that edge.  Otherwise return NULL.  */
+static edge
+single_incoming_edge_ignoring_loop_edges (basic_block bb)
+{
+  edge retval = NULL;
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    {
+      /* A loop back edge can be identified by the destination of
+	 the edge dominating the source of the edge.  */
+      if (dominated_by_p (CDI_DOMINATORS, e->src, e->dest))
+	continue;
+
+      /* If we have already seen a non-loop edge, then we must have
+	 multiple incoming non-loop edges and thus we return NULL.  */
+      if (retval)
+	return NULL;
+
+      /* This is the first non-loop incoming edge we have found.  Record
+	 it.  */
+      retval = e;
+    }
+
+  return retval;
+}
+
+void
 uncprop_dom_walker::before_dom_children (basic_block bb)
 {
   basic_block parent;
+  edge e;
   bool recorded = false;
 
   /* If this block is dominated by a single incoming edge and that edge
@@ -423,7 +502,7 @@ uncprop_dom_walker::before_dom_children (basic_block bb)
   parent = get_immediate_dominator (CDI_DOMINATORS, bb);
   if (parent)
     {
-      edge e = single_pred_edge_ignoring_loop_edges (bb, false);
+      e = single_incoming_edge_ignoring_loop_edges (bb);
 
       if (e && e->src == parent && e->aux)
 	{
@@ -439,7 +518,6 @@ uncprop_dom_walker::before_dom_children (basic_block bb)
     m_equiv_stack.safe_push (NULL_TREE);
 
   uncprop_into_successor_phis (bb);
-  return NULL;
 }
 
 namespace {
@@ -479,7 +557,8 @@ pass_uncprop::execute (function *fun)
   associate_equivalences_with_edges ();
 
   /* Create our global data structures.  */
-  val_ssa_equiv = new val_ssa_equiv_t (1024);
+  val_ssa_equiv
+    = new hash_map<tree, vec<tree>, val_ssa_equiv_hash_traits> (1024);
 
   /* We're going to do a dominator walk, so ensure that we have
      dominance information.  */

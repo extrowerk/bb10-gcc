@@ -15,3 +15,4 @@ foo (__INT32_TYPE__ *p)
 /* { dg-final { scan-tree-dump-times "__builtin___asan_report" 2 "sanopt" } } */
 /* { dg-final { scan-tree-dump-times "__builtin___asan_report_load1" 1 "sanopt" } } */
 /* { dg-final { scan-tree-dump-times "__builtin___asan_report_store" 1 "sanopt" } } */
+/* { dg-final { cleanup-tree-dump "sanopt" } } */

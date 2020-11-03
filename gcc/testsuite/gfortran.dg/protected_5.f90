@@ -1,6 +1,6 @@
 ! { dg-do compile }
 ! { dg-shouldfail "Invalid Fortran 2003 code" }
-! { dg-options "-std=f2003" }
+! { dg-options "-std=f2003 -fall-intrinsics" }
 ! PR fortran/23994
 !
 ! Test PROTECTED attribute. Within the module everything is allowed.

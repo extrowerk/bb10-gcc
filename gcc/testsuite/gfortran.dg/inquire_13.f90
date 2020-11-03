@@ -10,93 +10,93 @@ logical opn
 
 fname="inquire_13_test"
 inquire(unit=6, direct=drct, opened=opn, access=acc)
-if (drct.ne."NO" .and. .not.opn .and. acc.ne."SEQUENTIAL") STOP 1
+if (drct.ne."NO" .and. .not.opn .and. acc.ne."SEQUENTIAL") call abort
 
 inquire(unit=10, direct=drct, opened=opn, access=acc)
-if (drct.ne."UNKNOWN" .and. opn .and. acc.ne."UNDEFINED") STOP 2
+if (drct.ne."UNKNOWN" .and. opn .and. acc.ne."UNDEFINED") call abort
 
 inquire(unit=10, direct=drct, opened=opn, access=acc, formatted=frmt)
-if (drct.ne."UNKNOWN" .and. opn .and. acc.ne."UNDEFINED") STOP 3
-if (frmt.ne."UNKNOWN") STOP 4
+if (drct.ne."UNKNOWN" .and. opn .and. acc.ne."UNDEFINED") call abort
+if (frmt.ne."UNKNOWN") call abort
 
 open(unit=19,file=fname,status='replace',err=170,form="formatted")
 inquire(unit=19, direct=drct, opened=opn, access=acc,formatted=frmt)
-if (drct.ne."NO" .and. .not.opn .and. acc.ne."SEQUENTIAL")  STOP 5
-if (frmt.ne."YES")  STOP 6
+if (drct.ne."NO" .and. .not.opn .and. acc.ne."SEQUENTIAL")  call abort
+if (frmt.ne."YES")  call abort
 
 ! Inquire on filename, open file with DIRECT and FORMATTED
 inquire(file=fname, direct=drct, opened=opn, access=acc, FORMATTED=frmt)
-if (drct.ne."NO" .and. .not.opn .and. acc.ne."SEQUENTIAL")  STOP 7
-if (frmt.ne."YES") STOP 8
+if (drct.ne."NO" .and. .not.opn .and. acc.ne."SEQUENTIAL")  call abort
+if (frmt.ne."YES") call abort
 close(19)
 
 ! Inquire on filename, closed file with DIRECT and FORMATTED
 inquire(file=fname, direct=drct, opened=opn, access=acc, formatted=frmt)
-if (drct.ne."UNKNOWN" .and. opn .and. acc.ne."UNDEFINED") STOP 9
-if (frmt.ne."UNKNOWN") STOP 10
+if (drct.ne."UNKNOWN" .and. opn .and. acc.ne."UNDEFINED") call abort
+if (frmt.ne."UNKNOWN") call abort
 
 open(unit=19,file=fname,status='replace',err=170,form="unformatted")
 inquire(unit=19, direct=drct, opened=opn, access=acc, formatted=frmt)
-if (drct.ne."NO" .and. .not.opn .and. acc.ne."SEQUENTIAL") STOP 11
-if (frmt.ne."NO")  STOP 12
+if (drct.ne."NO" .and. .not.opn .and. acc.ne."SEQUENTIAL") call abort
+if (frmt.ne."NO")  call abort
 close(19)
        
 open(unit=19,file=fname,status='replace',err=170,form="formatted")
 
 inquire(unit=19, direct=drct, opened=opn, access=acc, unformatted=frmt)
-if (drct.ne."NO" .and. .not.opn .and. acc.ne."SEQUENTIAL") STOP 13
+if (drct.ne."NO" .and. .not.opn .and. acc.ne."SEQUENTIAL") call abort
 
 ! Inquire on filename, open file with DIRECT and UNFORMATTED
 inquire(file=fname, direct=drct, opened=opn, access=acc, UNFORMATTED=frmt)
-if (drct.ne."NO" .and. .not.opn .and. acc.ne."SEQUENTIAL")  STOP 14
-if (frmt.ne."NO") STOP 15
+if (drct.ne."NO" .and. .not.opn .and. acc.ne."SEQUENTIAL")  call abort
+if (frmt.ne."NO") call abort
 close(19)
 
 ! Inquire on filename, closed file with DIRECT and UNFORMATTED
 inquire(file=fname, direct=drct, opened=opn, access=acc, unformatted=frmt)
-if (drct.ne."UNKNOWN" .and. opn .and. acc.ne."UNDEFINED") STOP 16
-if (frmt.ne."UNKNOWN") STOP 17
+if (drct.ne."UNKNOWN" .and. opn .and. acc.ne."UNDEFINED") call abort
+if (frmt.ne."UNKNOWN") call abort
 
 open(unit=19,file=fname,status='replace',err=170,form="unformatted")
 
 inquire(unit=19, direct=drct, opened=opn, access=acc,unformatted=frmt)
-if (drct.ne."NO" .and. .not.opn .and. acc.ne."SEQUENTIAL") STOP 18
-if (frmt.ne."YES")  STOP 19
+if (drct.ne."NO" .and. .not.opn .and. acc.ne."SEQUENTIAL") call abort
+if (frmt.ne."YES")  call abort
 close(19)
       
 open(unit=19,file=fname,status='replace',err=170)
 
 inquire(unit=19, direct=drct, opened=opn, access=acc)
-if (drct.ne."NO" .and. .not.opn .and. acc.ne."SEQUENTIAL") STOP 20
+if (drct.ne."NO" .and. .not.opn .and. acc.ne."SEQUENTIAL") call abort
 close(19)
 
 open(unit=19,file=fname,status='replace',err=170,access='SEQUENTIAL')
 
 inquire(unit=19, direct=drct, opened=opn, access=acc)
-if (drct.ne."NO" .and. .not.opn .and. acc.ne."SEQUENTIAL") STOP 21
+if (drct.ne."NO" .and. .not.opn .and. acc.ne."SEQUENTIAL") call abort
 
 ! Inquire on filename, open file with SEQUENTIAL
 inquire(file=fname, SEQUENTIAL=seqn, opened=opn, access=acc)
-if (seqn.ne."YES" .and. .not.opn .and. acc.ne."DIRECT") STOP 22
+if (seqn.ne."YES" .and. .not.opn .and. acc.ne."DIRECT") call abort
 close(19)
 
 ! Inquire on filename, closed file with SEQUENTIAL
 inquire(file=fname, SEQUENTIAL=seqn, opened=opn, access=acc)
-if (seqn.ne."UNKNOWN" .and. opn .and. acc.ne."UNDEFINED") STOP 23
+if (seqn.ne."UNKNOWN" .and. opn .and. acc.ne."UNDEFINED") call abort
 
 open(unit=19,file=fname,status='replace',err=170,form='UNFORMATTED',access='DIRECT',recl=72)
 
 inquire(unit=19, direct=drct, opened=opn, access=acc)
-if (drct.ne."YES" .and. .not.opn .and. acc.ne."DIRECT") STOP 24
+if (drct.ne."YES" .and. .not.opn .and. acc.ne."DIRECT") call abort
 
 ! Inquire on filename, open file with DIRECT
 inquire(file=fname, direct=drct, opened=opn, access=acc)
-if (drct.ne."YES" .and. .not.opn .and. acc.ne."DIRECT") STOP 25
+if (drct.ne."YES" .and. .not.opn .and. acc.ne."DIRECT") call abort
 close(19, status="delete")
 
 ! Inquire on filename, closed file with DIRECT
 inquire(file=fname, direct=drct, opened=opn, access=acc)
-if (drct.ne."UNKNOWN" .and. opn .and. acc.ne."UNDEFINED") STOP 26
+if (drct.ne."UNKNOWN" .and. opn .and. acc.ne."UNDEFINED") call abort
 stop
 
 170   write(*,*) "ERROR: unable to open testdirect.f"

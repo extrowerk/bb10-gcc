@@ -51,5 +51,4 @@ class Cell {
 };
 QValueList<Cell*> Cell::obscuringCells() const {
     QValueList<Cell*> empty;
-    return QValueList<Cell*>();
 }

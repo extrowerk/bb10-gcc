@@ -1,5 +1,4 @@
 // { dg-do assemble  }
-// { dg-additional-options "-Wno-return-type" }
 // GROUPS passed initialization
 class Vector {
         double  *v;

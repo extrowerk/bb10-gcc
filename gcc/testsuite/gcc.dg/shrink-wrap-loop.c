@@ -17,3 +17,4 @@ test (int *p1, int *p2)
   return 1;
 }
 /* { dg-final { scan-rtl-dump "Performing shrink-wrapping" "pro_and_epilogue"  } } */
+/* { dg-final { cleanup-rtl-dump "pro_and_epilogue" } } */

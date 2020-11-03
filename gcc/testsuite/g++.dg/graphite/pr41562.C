@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O -ftree-loop-distribution -floop-block -Wno-return-type" } */
+/* { dg-options "-O -ftree-loop-distribution -floop-block" } */
 
 typedef struct stSirenEncoder { } *SirenEncoder;
 

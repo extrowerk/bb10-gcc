@@ -96,17 +96,7 @@ AM_CONDITIONAL(LSAN_SUPPORTED, [test "x$LSAN_SUPPORTED" = "xyes"])
 AC_CHECK_FUNCS(clock_getres clock_gettime clock_settime)
 
 # Common libraries that we need to link against for all sanitizer libs.
-link_sanitizer_common='-lpthread -lm'
-
-# At least for glibc, shm_open is in librt.  But don't pull that
-# in if it still doesn't give us the function we want.  This
-# test is copied from libgomp.
-AC_CHECK_LIB(rt, shm_open,
-  [link_sanitizer_common="-lrt $link_sanitizer_common"])
-
-# Do a configure time check for -ldl
-AC_CHECK_LIB(dl, dlsym,
-  [link_sanitizer_common="-ldl $link_sanitizer_common"])
+link_sanitizer_common='-lpthread -ldl -lm'
 
 # Set up the set of additional libraries that we need to link against for libasan.
 link_libasan=$link_sanitizer_common
@@ -124,15 +114,16 @@ AC_SUBST(link_libubsan)
 link_liblsan=$link_sanitizer_common
 AC_SUBST(link_liblsan)
 
-
 # At least for glibc, clock_gettime is in librt.  But don't pull that
 # in if it still doesn't give us the function we want.  This
 # test is copied from libgomp.
-AC_CHECK_LIB(rt, clock_gettime,
-  [link_libasan="-lrt $link_libasan"
+if test $ac_cv_func_clock_gettime = no; then
+  AC_CHECK_LIB(rt, clock_gettime,
+    [link_libasan="-lrt $link_libasan"
 link_libtsan="-lrt $link_libtsan"
 # Other sanitizers do not override clock_* API
 ])
+fi
 
 case "$host" in
   *-*-darwin*) MAC_INTERPOSE=true ; enable_static=no ;;
@@ -375,18 +366,5 @@ _EOF
 fi
 
 AC_SUBST([TSAN_TARGET_DEPENDENT_OBJECTS])
-AC_SUBST([SANITIZER_COMMON_TARGET_DEPENDENT_OBJECTS])
-
-# Determine what GCC version number to use in filesystem paths.
-GCC_BASE_VER
-
-# Add CET specific flags if Intel CET is enabled.
-GCC_CET_FLAGS(CET_FLAGS)
-EXTRA_CFLAGS="$EXTRA_CFLAGS $CET_FLAGS"
-EXTRA_CXXFLAGS="$EXTRA_CXXFLAGS $CET_FLAGS"
-EXTRA_ASFLAGS=$CET_FLAGS
-AC_SUBST(EXTRA_ASFLAGS)
-AC_SUBST(EXTRA_CFLAGS)
-AC_SUBST(EXTRA_CXXFLAGS)
 
 AC_OUTPUT

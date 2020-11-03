@@ -46,3 +46,4 @@ int main()
    ::std::cerr << "fibcst<90>() == " << fibconst<90>() << "\n";
 }
 // { dg-final { scan-tree-dump-not "fibconst" "optimized" } }
+// { dg-final { cleanup-tree-dump "optimized" } }

@@ -1,6 +1,6 @@
 class btIDebugDraw;
 class btCollisionWorld {
-    virtual btIDebugDraw* getDebugDrawer()  { return 0; };
+    virtual btIDebugDraw* getDebugDrawer()  { };
     static void rayTestSingle();
 };
 class btTriangleCallback {

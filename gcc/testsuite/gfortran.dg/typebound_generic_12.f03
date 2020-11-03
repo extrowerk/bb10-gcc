@@ -22,3 +22,5 @@ contains
     class(t) :: this
   end subroutine sub2
 end module m 
+
+! { dg-final { cleanup-modules "m" } }

@@ -5,7 +5,7 @@
   call test
 !$omp end single
 !$omp end parallel
-  if (err.ne.0) STOP 1
+  if (err.ne.0) call abort
 contains
   subroutine check (x, y, l)
     integer :: x, y

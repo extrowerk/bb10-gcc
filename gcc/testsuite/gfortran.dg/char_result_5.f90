@@ -132,6 +132,6 @@ contains
   subroutine test (string, length)
     character (len = *) :: string
     integer, intent (in) :: length
-    if (len (string) .ne. length) STOP 1
+    if (len (string) .ne. length) call abort
   end subroutine test
 end program main

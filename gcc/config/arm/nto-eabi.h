@@ -24,16 +24,12 @@ do {                                            \
 	builtin_define ("__ARM__");             \
 } while (0)
 
-/*
-  do not touch march yet..
-   %{march=*:-march=%*} \
-*/
 #undef ASM_SPEC
 #define ASM_SPEC \
 "%{EB:-EB} %{!EB:-EL} %{EL:-EL} \
- %{fpic:--defsym __PIC__=1} \
- %{fPIC:--defsym __PIC__=2} \
+ %{fpic|fPIC:--defsym __PIC__=1} \
  %{mcpu=*:-mcpu=%*} \
+ %{march=*:-march=%*} \
  %{mfloat-abi=*} %{mfpu=*} \
  %{mapcs-float:-mfloat} \
  -meabi=5" 
@@ -52,6 +48,9 @@ do {                                            \
 #define LINK_LIBGCC_SPEC \
   "%D " \
   QNX_SYSTEM_LIBDIRS
+
+#undef LIBGCC_SPEC
+#define LIBGCC_SPEC "-lgcc"
 
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC \

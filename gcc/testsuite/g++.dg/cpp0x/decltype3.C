@@ -49,7 +49,7 @@ public:
   int a;
   enum B_enum { b }; 
   decltype(a) c;
-  decltype(a) foo() { return 0; }
+  decltype(a) foo() { }
   decltype(b) enums_are_in_scope() { return b; } // ok 
 }; 
 

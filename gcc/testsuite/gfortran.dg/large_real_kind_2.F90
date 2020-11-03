@@ -1,5 +1,6 @@
 ! { dg-do run }
 ! { dg-require-effective-target fortran_large_real }
+! { dg-xfail-if "" { "*-*-freebsd*" } { "*" }  { "" } }
 
 ! Testing library calls on large real kinds (larger than kind=8)
   implicit none
@@ -17,14 +18,14 @@
  y = x ;\
  x = func (x) ;\
  y = func (y) ;\
- if (abs((y - x) / y) > eps) STOP 1
+ if (abs((y - x) / y) > eps) call abort
   
 #define CTEST_FUNCTION(func,valc) \
  z = valc ;\
  w = z ;\
  z = func (z) ;\
  w = func (w) ;\
- if (abs((z - w) / w) > eps) STOP 2
+ if (abs((z - w) / w) > eps) call abort
 
  TEST_FUNCTION(cos,17.456)
  TEST_FUNCTION(sin,17.456)
@@ -54,14 +55,14 @@
  y = x ; \
  x1 = val2 ; \
  y1 = x1; \
- if (abs((x**x1 - y**y1)/(y**y1)) > eps) STOP 3
+ if (abs((x**x1 - y**y1)/(y**y1)) > eps) call abort
  
 #define CTEST_POWER(val1,val2) \
  z = val1 ; \
  w = z ; \
  z1 = val2 ; \
  w1 = z1; \
- if (abs((z**z1 - w**w1)/(w**w1)) > eps) STOP 4
+ if (abs((z**z1 - w**w1)/(w**w1)) > eps) call abort
 
  CTEST_POWER (1.0,1.0)
  CTEST_POWER (1.0,5.4)

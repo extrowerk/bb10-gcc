@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -mcpu=generic" } */
+/* { dg-options "-O2" } */
 
 int f(int *a, int b)
 {

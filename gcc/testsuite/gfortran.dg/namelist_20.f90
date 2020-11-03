@@ -17,19 +17,19 @@ program namelist_20
 
   ier=0
   read(10, a, iostat=ier)
-  if (ier == 0) STOP 1
+  if (ier == 0) call abort ()
   ier=0
   read(10, a, iostat=ier)
-  if (ier == 0) STOP 2
+  if (ier == 0) call abort ()
   ier=0
   read(10, a, iostat=ier)
-  if (ier == 0) STOP 3
+  if (ier == 0) call abort ()
 
   ier=0
   read(10, a, iostat=ier)
-  if (ier /= 0) STOP 4
+  if (ier /= 0) call abort ()
   do i = -4,-2
-    if (x(i) /= i) STOP 5
+    if (x(i) /= i) call abort ()
   end do
 
 end program namelist_20 

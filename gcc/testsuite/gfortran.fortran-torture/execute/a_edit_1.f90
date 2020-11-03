@@ -7,11 +7,11 @@
        read(C,'(A7)')D
        if (D.NE.'DEFG') then
 !         print*,D
-          STOP 1
+          call abort
        endif
        read(C,'(A)')D
        if (D.NE.'ABCD') then
 !         print*,D
-          STOP 2
+          call abort
        endif
        end

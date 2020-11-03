@@ -68,3 +68,4 @@ int main()
 
 /* { dg-final { scan-tree-dump-times "generated memset zero" 1 "ldist" } } */
 /* { dg-final { scan-tree-dump-times "generated memset" 5 "ldist" } } */
+/* { dg-final { cleanup-tree-dump "ldist" } } */

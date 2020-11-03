@@ -13,3 +13,4 @@ foo (char* p)
 }
 
 /* { dg-final { scan-tree-dump-not "\[+\]\[ \]*1000" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

@@ -23,6 +23,6 @@
           r(1,2).ne.'HELLO !     ' .or. &
           r(2,2).ne.'WORLD       ' .or. &
           r(3,2).ne.'0123456789ab' .or. &
-          r(4,2).ne.'0123456789ab') STOP 1
+          r(4,2).ne.'0123456789ab') call abort()
 
      end program arrayio_2 

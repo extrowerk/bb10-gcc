@@ -38,17 +38,6 @@
 #  error "__cpp_sized_deallocation" // { dg-error "error" }
 #endif
 
-// C++17 features:
-
-#ifndef __cpp_namespace_attributes
-#  error "__cpp_namespace_attributes" // { dg-error "error" }
-#endif
-
-#ifndef __cpp_nested_namespace_definitions
-#  error "__cpp_nested_namespace_definitions" // { dg-error "error" }
-#endif
-
-
 //  Array TS features:
 
 #ifndef __cpp_runtime_arrays
@@ -57,7 +46,7 @@
 
 //  C++14 attributes:
 
-//  Attribute [[deprecated]] is allowed in C++11 as an extension.
+//  Attribute [[deprecated]] is allowed in C++11 as an extension (with pedwarn).
 //#ifdef __has_cpp_attribute
 //#  if __has_cpp_attribute(deprecated) == 201309
 //#    error "__has_cpp_attribute(deprecated)" // {  }

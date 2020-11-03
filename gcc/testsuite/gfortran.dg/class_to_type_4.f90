@@ -26,41 +26,41 @@ program test
   type(v) :: a, b(3)
 
   x = func1() ! scalar to scalar - no alloc comps
-  if (x%ii .ne. 77) STOP 1
+  if (x%ii .ne. 77) call abort
 
   y = func2() ! array to array - no alloc comps
-  if (any (y%ii .ne. [1,2,3])) STOP 2
+  if (any (y%ii .ne. [1,2,3])) call abort
 
   y = func1() ! scalar to array - no alloc comps
-  if (any (y%ii .ne. 77)) STOP 3
+  if (any (y%ii .ne. 77)) call abort
 
   x = func3() ! scalar daughter type to scalar - no alloc comps
-  if (x%ii .ne. 99) STOP 4
+  if (x%ii .ne. 99) call abort
 
   y = func4() ! array daughter type to array - no alloc comps
-  if (any (y%ii .ne. [3,4,5])) STOP 5
+  if (any (y%ii .ne. [3,4,5])) call abort
 
   y = func3() ! scalar daughter type to array - no alloc comps
-  if (any (y%ii .ne. [99,99,99])) STOP 6
+  if (any (y%ii .ne. [99,99,99])) call abort
 
   a = func5() ! scalar to scalar - alloc comps in parent type
-  if (any (a%rr .ne. [10.0,20.0])) STOP 7
+  if (any (a%rr .ne. [10.0,20.0])) call abort
 
   b = func6() ! array to array - alloc comps in parent type
-  if (any (b(3)%rr .ne. [3.0,4.0])) STOP 8
+  if (any (b(3)%rr .ne. [3.0,4.0])) call abort
 
   a = func7() ! scalar daughter type to scalar - alloc comps in parent type
-  if (any (a%rr .ne. [10.0,20.0])) STOP 9
+  if (any (a%rr .ne. [10.0,20.0])) call abort
 
   b = func8() ! array daughter type to array - alloc comps in parent type
-  if (any (b(3)%rr .ne. [3.0,4.0])) STOP 10
+  if (any (b(3)%rr .ne. [3.0,4.0])) call abort
 
   b = func7() ! scalar daughter type to array - alloc comps in parent type
-  if (any (b(2)%rr .ne. [10.0,20.0])) STOP 11
+  if (any (b(2)%rr .ne. [10.0,20.0])) call abort
 
 ! This is an extension of class_to_type_2.f90's test using a daughter type
 ! instead of the declared type.
-  if (subpr2_array (g ()) .ne. 99 ) STOP 12
+  if (subpr2_array (g ()) .ne. 99 ) call abort
 contains
 
   function func1() result(res)
@@ -106,7 +106,7 @@ contains
 
   integer function subpr2_array (x)
     type(t) :: x(:)
-    if (any(x(:)%ii /= 55)) STOP 13
+    if (any(x(:)%ii /= 55)) call abort
     subpr2_array = 99
   end function
 

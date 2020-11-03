@@ -2,7 +2,7 @@
 
 class A {
 public:
-  virtual int foo() = 0; // { dg-message "" } original definition
+  virtual int foo() = 0; // { dg-error "" } original definition
 };
 
 class B {

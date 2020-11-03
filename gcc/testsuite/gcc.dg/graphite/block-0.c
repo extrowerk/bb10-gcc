@@ -42,4 +42,5 @@ main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump "not tiled" "graphite" } } */
+/* { dg-final { scan-tree-dump-not "will be loop blocked" "graphite" } } */
+/* { dg-final { cleanup-tree-dump "graphite" } } */

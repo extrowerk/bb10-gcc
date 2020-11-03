@@ -28,7 +28,6 @@ thread_local A a;
 void *thread_main(void *)
 {
   A* ap = &a;
-  return 0;
 }
 
 int main()

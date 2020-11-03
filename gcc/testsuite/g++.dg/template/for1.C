@@ -1,6 +1,6 @@
 // PR c++/47388
 // { dg-do compile }
-// { dg-options "-fno-for-scope -Wno-deprecated" }
+// { dg-options "-fno-for-scope" }
 
 template <int>
 void

@@ -1,4 +1,4 @@
-	if (b().ne.2) STOP 1
+	if (b().ne.2) call abort
 contains
 subroutine a
 !$omp parallel

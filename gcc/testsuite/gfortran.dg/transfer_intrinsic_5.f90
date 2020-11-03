@@ -44,7 +44,7 @@ contains
     c = transfer (b, c)
     if (c /= s) then
       print *, "c=", c, "    ", merge ("  ok","BUG!", c == s)
-      STOP 1
+      call abort ()
     end if
   end subroutine cmp
 end program gfcbug

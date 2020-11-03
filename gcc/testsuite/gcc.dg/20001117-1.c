@@ -1,6 +1,5 @@
 /* { dg-do run } */
 /* { dg-options "-O2 -finstrument-functions" } */
-/* { dg-require-effective-target return_address } */
 
 extern void abort (void);
 extern void exit (int);

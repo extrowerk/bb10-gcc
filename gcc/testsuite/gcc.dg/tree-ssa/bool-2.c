@@ -19,3 +19,4 @@ int f(_Bool x)
    away the comparison.  */
 /* { dg-final { scan-assembler-times "adde" 0 { target powerpc*-*-* } } } */
 
+/* { dg-final { cleanup-tree-dump "optimized" } } */

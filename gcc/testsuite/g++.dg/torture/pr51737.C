@@ -20,7 +20,6 @@ struct id_state {
 };
 void * id_state::start_file(void) {
     intrusive_ptr<file_info> parent;
-    return 0;
 }
 struct id_generation_data : intrusive_base<id_generation_data> {
     void child_length() const {}

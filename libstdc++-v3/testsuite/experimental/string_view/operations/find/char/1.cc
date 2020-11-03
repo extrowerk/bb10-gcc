@@ -1,6 +1,6 @@
-// { dg-do run { target c++14 } }
+// { dg-options "-std=gnu++14" }
 
-// Copyright (C) 2013-2018 Free Software Foundation, Inc.
+// Copyright (C) 2013-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -22,9 +22,11 @@
 #include <experimental/string_view>
 #include <testsuite_hooks.h>
 
-void
+bool
 test01()
 {
+  bool test [[gnu::unused]] = true;
+
   typedef std::experimental::string_view::size_type csize_type;
   typedef std::experimental::string_view::const_reference cref;
   typedef std::experimental::string_view::reference ref;
@@ -83,6 +85,8 @@ test01()
   VERIFY( csz01 == csz02 );
   csz01 = str01.find('/');
   VERIFY( csz01 == npos );
+
+  return test;
 }
 
 int

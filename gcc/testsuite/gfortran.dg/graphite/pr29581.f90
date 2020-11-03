@@ -1,7 +1,6 @@
 ! PR tree-optimization/29581
 ! { dg-do run }
-! { dg-skip-if "" { *-*-* } { "-O0" } { "" } }
-! { dg-additional-options "-ftree-loop-linear" }
+! { dg-options "-O2 -ftree-loop-linear" }
 
       SUBROUTINE FOO (K)
       INTEGER I, J, K, A(5,5), B
@@ -22,7 +21,7 @@
         INTEGER A(5,5)
         COMMON A
         CALL FOO (2)
-        IF (A(1,1).NE.8) STOP 1
+        IF (A(1,1).NE.8) CALL ABORT
         A(1,1) = 0
-        IF (ANY(A.NE.0)) STOP 2
+        IF (ANY(A.NE.0)) CALL ABORT
       END

@@ -37,17 +37,17 @@ subroutine test_with_interface()
   double precision z, w
 
   x = 8.625
-  if (x /= f(x)) STOP 1
+  if (x /= f(x)) call abort ()
   y = f(x)
-  if (x /= y) STOP 2
+  if (x /= y) call abort ()
 
   a = 1.
   b = -1.
-  if (c(a,b) /= cmplx(a,b)) STOP 3
+  if (c(a,b) /= cmplx(a,b)) call abort ()
 
   z = 1.
   w = -1.
-  if (d(z,w) /= cmplx(z,w, kind(z))) STOP 4
+  if (d(z,w) /= cmplx(z,w, kind(z))) call abort ()
 end subroutine test_with_interface
 
 external f, c, d
@@ -57,17 +57,17 @@ double complex d
 double precision z, w
 
 x = 8.625
-if (x /= f(x)) STOP 5
+if (x /= f(x)) call abort ()
 y = f(x)
-if (x /= y) STOP 6
+if (x /= y) call abort ()
 
 a = 1.
 b = -1.
-if (c(a,b) /= cmplx(a,b)) STOP 7
+if (c(a,b) /= cmplx(a,b)) call abort ()
 
 z = 1.
 w = -1.
-if (d(z,w) /= cmplx(z,w, kind(z))) STOP 8
+if (d(z,w) /= cmplx(z,w, kind(z))) call abort ()
 
 call test_with_interface ()
 end

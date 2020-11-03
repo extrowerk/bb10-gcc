@@ -1,6 +1,6 @@
 // unique_ptr implementation -*- C++ -*-
 
-// Copyright (C) 2008-2018 Free Software Foundation, Inc.
+// Copyright (C) 2008-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,12 +31,10 @@
 #define _UNIQUE_PTR_H 1
 
 #include <bits/c++config.h>
-#include <debug/assertions.h>
+#include <debug/debug.h>
 #include <type_traits>
 #include <utility>
 #include <tuple>
-#include <bits/stl_function.h>
-#include <bits/functional_hash.h>
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
@@ -48,10 +46,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    */
 
 #if _GLIBCXX_USE_DEPRECATED
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   template<typename> class auto_ptr;
-#pragma GCC diagnostic pop
 #endif
 
   /// Primary template of default_delete, used by unique_ptr
@@ -88,6 +83,16 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _Tp>
     struct default_delete<_Tp[]>
     {
+    private:
+      template<typename _Up>
+	using __remove_cv = typename remove_cv<_Up>::type;
+
+      // Like is_base_of<_Tp, _Up> but false if unqualified types are the same
+      template<typename _Up>
+	using __is_derived_Tp
+	  = __and_< is_base_of<_Tp, _Up>,
+		    __not_<is_same<__remove_cv<_Tp>, __remove_cv<_Up>>> >;
+
     public:
       /// Default constructor
       constexpr default_delete() noexcept = default;
@@ -102,95 +107,57 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        * pointer to the base type.
        */
       template<typename _Up, typename = typename
-	       enable_if<is_convertible<_Up(*)[], _Tp(*)[]>::value>::type>
+	       enable_if<!__is_derived_Tp<_Up>::value>::type>
         default_delete(const default_delete<_Up[]>&) noexcept { }
 
       /// Calls @c delete[] @p __ptr
-      template<typename _Up>
-      typename enable_if<is_convertible<_Up(*)[], _Tp(*)[]>::value>::type
-	operator()(_Up* __ptr) const
+      void
+      operator()(_Tp* __ptr) const
       {
 	static_assert(sizeof(_Tp)>0,
 		      "can't delete pointer to incomplete type");
 	delete [] __ptr;
       }
-    };
 
-  template <typename _Tp, typename _Dp>
-    class __uniq_ptr_impl
-    {
-      template <typename _Up, typename _Ep, typename = void>
-	struct _Ptr
-	{
-	  using type = _Up*;
-	};
-
-      template <typename _Up, typename _Ep>
-	struct
-	_Ptr<_Up, _Ep, __void_t<typename remove_reference<_Ep>::type::pointer>>
-	{
-	  using type = typename remove_reference<_Ep>::type::pointer;
-	};
-
-    public:
-      using _DeleterConstraint = enable_if<
-        __and_<__not_<is_pointer<_Dp>>,
-	       is_default_constructible<_Dp>>::value>;
-
-      using pointer = typename _Ptr<_Tp, _Dp>::type;
-
-      __uniq_ptr_impl() = default;
-      __uniq_ptr_impl(pointer __p) : _M_t() { _M_ptr() = __p; }
-
-      template<typename _Del>
-      __uniq_ptr_impl(pointer __p, _Del&& __d)
-	: _M_t(__p, std::forward<_Del>(__d)) { }
-
-      pointer&   _M_ptr() { return std::get<0>(_M_t); }
-      pointer    _M_ptr() const { return std::get<0>(_M_t); }
-      _Dp&       _M_deleter() { return std::get<1>(_M_t); }
-      const _Dp& _M_deleter() const { return std::get<1>(_M_t); }
-
-    private:
-      tuple<pointer, _Dp> _M_t;
+      template<typename _Up>
+	typename enable_if<__is_derived_Tp<_Up>::value>::type
+	operator()(_Up*) const = delete;
     };
 
   /// 20.7.1.2 unique_ptr for single objects.
-  template <typename _Tp, typename _Dp = default_delete<_Tp>>
+  template <typename _Tp, typename _Dp = default_delete<_Tp> >
     class unique_ptr
     {
-      template <class _Up>
-      using _DeleterConstraint =
-	typename __uniq_ptr_impl<_Tp, _Up>::_DeleterConstraint::type;
+      // use SFINAE to determine whether _Del::pointer exists
+      class _Pointer
+      {
+	template<typename _Up>
+	  static typename _Up::pointer __test(typename _Up::pointer*);
 
-      __uniq_ptr_impl<_Tp, _Dp> _M_t;
+	template<typename _Up>
+	  static _Tp* __test(...);
+
+	typedef typename remove_reference<_Dp>::type _Del;
+
+      public:
+	typedef decltype(__test<_Del>(0)) type;
+      };
+
+      typedef std::tuple<typename _Pointer::type, _Dp>  __tuple_type;
+      __tuple_type                                      _M_t;
 
     public:
-      using pointer	  = typename __uniq_ptr_impl<_Tp, _Dp>::pointer;
-      using element_type  = _Tp;
-      using deleter_type  = _Dp;
-
-      // helper template for detecting a safe conversion from another
-      // unique_ptr
-      template<typename _Up, typename _Ep>
-	using __safe_conversion_up = __and_<
-	        is_convertible<typename unique_ptr<_Up, _Ep>::pointer, pointer>,
-                __not_<is_array<_Up>>,
-                __or_<__and_<is_reference<deleter_type>,
-                             is_same<deleter_type, _Ep>>,
-                      __and_<__not_<is_reference<deleter_type>>,
-                             is_convertible<_Ep, deleter_type>>
-                >
-              >;
+      typedef typename _Pointer::type   pointer;
+      typedef _Tp                       element_type;
+      typedef _Dp                       deleter_type;
 
       // Constructors.
 
       /// Default constructor, creates a unique_ptr that owns nothing.
-      template <typename _Up = _Dp,
-		typename = _DeleterConstraint<_Up>>
-	constexpr unique_ptr() noexcept
-	: _M_t()
-	{ }
+      constexpr unique_ptr() noexcept
+      : _M_t()
+      { static_assert(!is_pointer<deleter_type>::value,
+		     "constructed with null function pointer deleter"); }
 
       /** Takes ownership of a pointer.
        *
@@ -198,12 +165,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *
        * The deleter will be value-initialized.
        */
-      template <typename _Up = _Dp,
-		typename = _DeleterConstraint<_Up>>
-	explicit
-	unique_ptr(pointer __p) noexcept
-	: _M_t(__p)
-        { }
+      explicit
+      unique_ptr(pointer __p) noexcept
+      : _M_t(__p, deleter_type())
+      { static_assert(!is_pointer<deleter_type>::value,
+		     "constructed with null function pointer deleter"); }
 
       /** Takes ownership of a pointer.
        *
@@ -231,9 +197,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		      "rvalue deleter bound to reference"); }
 
       /// Creates a unique_ptr that owns nothing.
-      template <typename _Up = _Dp,
-		typename = _DeleterConstraint<_Up>>
-	constexpr unique_ptr(nullptr_t) noexcept : _M_t() { }
+      constexpr unique_ptr(nullptr_t) noexcept : unique_ptr() { }
 
       // Move constructors.
 
@@ -248,7 +212,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        * and @p __u has a compatible deleter type.
        */
       template<typename _Up, typename _Ep, typename = _Require<
-               __safe_conversion_up<_Up, _Ep>,
+	       is_convertible<typename unique_ptr<_Up, _Ep>::pointer, pointer>,
+	       __not_<is_array<_Up>>,
 	       typename conditional<is_reference<_Dp>::value,
 				    is_same<_Ep, _Dp>,
 				    is_convertible<_Ep, _Dp>>::type>>
@@ -257,19 +222,16 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	{ }
 
 #if _GLIBCXX_USE_DEPRECATED
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
       /// Converting constructor from @c auto_ptr
       template<typename _Up, typename = _Require<
 	       is_convertible<_Up*, _Tp*>, is_same<_Dp, default_delete<_Tp>>>>
 	unique_ptr(auto_ptr<_Up>&& __u) noexcept;
-#pragma GCC diagnostic pop
 #endif
 
       /// Destructor, invokes the deleter if the stored pointer is not null.
       ~unique_ptr() noexcept
       {
-	auto& __ptr = _M_t._M_ptr();
+	auto& __ptr = std::get<0>(_M_t);
 	if (__ptr != nullptr)
 	  get_deleter()(__ptr);
 	__ptr = pointer();
@@ -299,11 +261,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        * Invokes the deleter first if this object owns a pointer.
        */
       template<typename _Up, typename _Ep>
-        typename enable_if< __and_<
-          __safe_conversion_up<_Up, _Ep>,
-          is_assignable<deleter_type&, _Ep&&>
-          >::value,
-          unique_ptr&>::type
+	typename enable_if< __and_<
+	  is_convertible<typename unique_ptr<_Up, _Ep>::pointer, pointer>,
+	  __not_<is_array<_Up>>
+	  >::value,
+	  unique_ptr&>::type
 	operator=(unique_ptr<_Up, _Ep>&& __u) noexcept
 	{
 	  reset(__u.release());
@@ -325,7 +287,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       typename add_lvalue_reference<element_type>::type
       operator*() const
       {
-	__glibcxx_assert(get() != pointer());
+	_GLIBCXX_DEBUG_ASSERT(get() != pointer());
 	return *get();
       }
 
@@ -333,24 +295,24 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       pointer
       operator->() const noexcept
       {
-	_GLIBCXX_DEBUG_PEDASSERT(get() != pointer());
+	_GLIBCXX_DEBUG_ASSERT(get() != pointer());
 	return get();
       }
 
       /// Return the stored pointer.
       pointer
       get() const noexcept
-      { return _M_t._M_ptr(); }
+      { return std::get<0>(_M_t); }
 
       /// Return a reference to the stored deleter.
       deleter_type&
       get_deleter() noexcept
-      { return _M_t._M_deleter(); }
+      { return std::get<1>(_M_t); }
 
       /// Return a reference to the stored deleter.
       const deleter_type&
       get_deleter() const noexcept
-      { return _M_t._M_deleter(); }
+      { return std::get<1>(_M_t); }
 
       /// Return @c true if the stored pointer is not null.
       explicit operator bool() const noexcept
@@ -363,7 +325,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       release() noexcept
       {
 	pointer __p = get();
-	_M_t._M_ptr() = pointer();
+	std::get<0>(_M_t) = pointer();
 	return __p;
       }
 
@@ -377,7 +339,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       reset(pointer __p = pointer()) noexcept
       {
 	using std::swap;
-	swap(_M_t._M_ptr(), __p);
+	swap(std::get<0>(_M_t), __p);
 	if (__p != pointer())
 	  get_deleter()(__p);
       }
@@ -402,11 +364,23 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _Tp, typename _Dp>
     class unique_ptr<_Tp[], _Dp>
     {
-      template <typename _Up>
-      using _DeleterConstraint =
-	typename __uniq_ptr_impl<_Tp, _Up>::_DeleterConstraint::type;
+      // use SFINAE to determine whether _Del::pointer exists
+      class _Pointer
+      {
+	template<typename _Up>
+	  static typename _Up::pointer __test(typename _Up::pointer*);
 
-      __uniq_ptr_impl<_Tp, _Dp> _M_t;
+	template<typename _Up>
+	  static _Tp* __test(...);
+
+	typedef typename remove_reference<_Dp>::type _Del;
+
+      public:
+	typedef decltype(__test<_Del>(0)) type;
+      };
+
+      typedef std::tuple<typename _Pointer::type, _Dp>  __tuple_type;
+      __tuple_type                                      _M_t;
 
       template<typename _Up>
 	using __remove_cv = typename remove_cv<_Up>::type;
@@ -417,94 +391,69 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  = __and_< is_base_of<_Tp, _Up>,
 		    __not_<is_same<__remove_cv<_Tp>, __remove_cv<_Up>>> >;
 
-    public:
-      using pointer	  = typename __uniq_ptr_impl<_Tp, _Dp>::pointer;
-      using element_type  = _Tp;
-      using deleter_type  = _Dp;
-
-      // helper template for detecting a safe conversion from another
-      // unique_ptr
       template<typename _Up, typename _Ep,
-               typename _Up_up = unique_ptr<_Up, _Ep>,
-	       typename _Up_element_type = typename _Up_up::element_type>
-	using __safe_conversion_up = __and_<
-          is_array<_Up>,
-          is_same<pointer, element_type*>,
-          is_same<typename _Up_up::pointer, _Up_element_type*>,
-          is_convertible<_Up_element_type(*)[], element_type(*)[]>,
-          __or_<__and_<is_reference<deleter_type>, is_same<deleter_type, _Ep>>,
-                __and_<__not_<is_reference<deleter_type>>,
-                       is_convertible<_Ep, deleter_type>>>
-        >;
+	       typename _Tp_pointer = typename _Pointer::type,
+	       typename _Up_pointer = typename unique_ptr<_Up, _Ep>::pointer>
+	using __safe_conversion = __and_<
+	    is_convertible<_Up_pointer, _Tp_pointer>,
+	    is_array<_Up>,
+	    __or_<__not_<is_pointer<_Up_pointer>>,
+		  __not_<is_pointer<_Tp_pointer>>,
+		  __not_<__is_derived_Tp<typename remove_extent<_Up>::type>>
+	    >
+	  >;
 
-      // helper template for detecting a safe conversion from a raw pointer
-      template<typename _Up>
-        using __safe_conversion_raw = __and_<
-          __or_<__or_<is_same<_Up, pointer>,
-                      is_same<_Up, nullptr_t>>,
-                __and_<is_pointer<_Up>,
-                       is_same<pointer, element_type*>,
-                       is_convertible<
-                         typename remove_pointer<_Up>::type(*)[],
-                         element_type(*)[]>
-                >
-          >
-        >;
+    public:
+      typedef typename _Pointer::type	pointer;
+      typedef _Tp		 	element_type;
+      typedef _Dp                       deleter_type;
 
       // Constructors.
 
       /// Default constructor, creates a unique_ptr that owns nothing.
-      template <typename _Up = _Dp,
-		typename = _DeleterConstraint<_Up>>
-	constexpr unique_ptr() noexcept
-	: _M_t()
-	{ }
+      constexpr unique_ptr() noexcept
+      : _M_t()
+      { static_assert(!std::is_pointer<deleter_type>::value,
+		      "constructed with null function pointer deleter"); }
 
       /** Takes ownership of a pointer.
        *
-       * @param __p  A pointer to an array of a type safely convertible
-       * to an array of @c element_type
+       * @param __p  A pointer to an array of @c element_type
        *
        * The deleter will be value-initialized.
        */
-      template<typename _Up,
-	       typename _Vp = _Dp,
-	       typename = _DeleterConstraint<_Vp>,
-	       typename = typename enable_if<
-                 __safe_conversion_raw<_Up>::value, bool>::type>
+      explicit
+      unique_ptr(pointer __p) noexcept
+      : _M_t(__p, deleter_type())
+      { static_assert(!is_pointer<deleter_type>::value,
+		      "constructed with null function pointer deleter"); }
+
+      // Disable construction from convertible pointer types.
+      template<typename _Up, typename = _Require<is_pointer<pointer>,
+	       is_convertible<_Up*, pointer>, __is_derived_Tp<_Up>>>
 	explicit
-	unique_ptr(_Up __p) noexcept
-	: _M_t(__p)
-        { }
+	unique_ptr(_Up* __p) = delete;
 
       /** Takes ownership of a pointer.
        *
-       * @param __p  A pointer to an array of a type safely convertible
-       * to an array of @c element_type
+       * @param __p  A pointer to an array of @c element_type
        * @param __d  A reference to a deleter.
        *
        * The deleter will be initialized with @p __d
        */
-      template<typename _Up,
-               typename = typename enable_if<
-                 __safe_conversion_raw<_Up>::value, bool>::type>
-      unique_ptr(_Up __p,
-                 typename conditional<is_reference<deleter_type>::value,
-                 deleter_type, const deleter_type&>::type __d) noexcept
+      unique_ptr(pointer __p,
+	  typename conditional<is_reference<deleter_type>::value,
+	      deleter_type, const deleter_type&>::type __d) noexcept
       : _M_t(__p, __d) { }
 
       /** Takes ownership of a pointer.
        *
-       * @param __p  A pointer to an array of a type safely convertible
-       * to an array of @c element_type
+       * @param __p  A pointer to an array of @c element_type
        * @param __d  A reference to a deleter.
        *
        * The deleter will be initialized with @p std::move(__d)
        */
-      template<typename _Up,
-               typename = typename enable_if<
-                 __safe_conversion_raw<_Up>::value, bool>::type>
-      unique_ptr(_Up __p, typename
+      unique_ptr(pointer __p, typename
 		 remove_reference<deleter_type>::type&& __d) noexcept
       : _M_t(std::move(__p), std::move(__d))
       { static_assert(!is_reference<deleter_type>::value,
@@ -515,12 +464,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       : _M_t(__u.release(), std::forward<deleter_type>(__u.get_deleter())) { }
 
       /// Creates a unique_ptr that owns nothing.
-      template <typename _Up = _Dp,
-		typename = _DeleterConstraint<_Up>>
-	constexpr unique_ptr(nullptr_t) noexcept : _M_t() { }
+      constexpr unique_ptr(nullptr_t) noexcept : unique_ptr() { }
 
       template<typename _Up, typename _Ep,
-	       typename = _Require<__safe_conversion_up<_Up, _Ep>>>
+	       typename = _Require<__safe_conversion<_Up, _Ep>,
+		 typename conditional<is_reference<_Dp>::value,
+				      is_same<_Ep, _Dp>,
+				      is_convertible<_Ep, _Dp>>::type
+	       >>
 	unique_ptr(unique_ptr<_Up, _Ep>&& __u) noexcept
 	: _M_t(__u.release(), std::forward<_Ep>(__u.get_deleter()))
 	{ }
@@ -528,7 +479,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       /// Destructor, invokes the deleter if the stored pointer is not null.
       ~unique_ptr()
       {
-	auto& __ptr = _M_t._M_ptr();
+	auto& __ptr = std::get<0>(_M_t);
 	if (__ptr != nullptr)
 	  get_deleter()(__ptr);
 	__ptr = pointer();
@@ -559,10 +510,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        */
       template<typename _Up, typename _Ep>
 	typename
-	enable_if<__and_<__safe_conversion_up<_Up, _Ep>,
-                         is_assignable<deleter_type&, _Ep&&>
-                  >::value,
-                  unique_ptr&>::type
+	enable_if<__safe_conversion<_Up, _Ep>::value, unique_ptr&>::type
 	operator=(unique_ptr<_Up, _Ep>&& __u) noexcept
 	{
 	  reset(__u.release());
@@ -584,24 +532,24 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       typename std::add_lvalue_reference<element_type>::type
       operator[](size_t __i) const
       {
-	__glibcxx_assert(get() != pointer());
+	_GLIBCXX_DEBUG_ASSERT(get() != pointer());
 	return get()[__i];
       }
 
       /// Return the stored pointer.
       pointer
       get() const noexcept
-      { return _M_t._M_ptr(); }
+      { return std::get<0>(_M_t); }
 
       /// Return a reference to the stored deleter.
       deleter_type&
       get_deleter() noexcept
-      { return _M_t._M_deleter(); }
+      { return std::get<1>(_M_t); }
 
       /// Return a reference to the stored deleter.
       const deleter_type&
       get_deleter() const noexcept
-      { return _M_t._M_deleter(); }
+      { return std::get<1>(_M_t); }
 
       /// Return @c true if the stored pointer is not null.
       explicit operator bool() const noexcept
@@ -614,7 +562,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       release() noexcept
       {
 	pointer __p = get();
-	_M_t._M_ptr() = pointer();
+	std::get<0>(_M_t) = pointer();
 	return __p;
       }
 
@@ -624,32 +572,19 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *
        * The deleter will be invoked if a pointer is already owned.
        */
-      template <typename _Up,
-                typename = _Require<
-                  __or_<is_same<_Up, pointer>,
-                        __and_<is_same<pointer, element_type*>,
-                               is_pointer<_Up>,
-                               is_convertible<
-                                 typename remove_pointer<_Up>::type(*)[],
-                                 element_type(*)[]
-                               >
-                        >
-                  >
-               >>
       void
-      reset(_Up __p) noexcept
+      reset(pointer __p = pointer()) noexcept
       {
-	pointer __ptr = __p;
 	using std::swap;
-	swap(_M_t._M_ptr(), __ptr);
-	if (__ptr != nullptr)
-	  get_deleter()(__ptr);
+	swap(std::get<0>(_M_t), __p);
+	if (__p != nullptr)
+	  get_deleter()(__p);
       }
 
-      void reset(nullptr_t = nullptr) noexcept
-      {
-        reset(pointer());
-      }
+      // Disable resetting from convertible pointer types.
+      template<typename _Up, typename = _Require<is_pointer<pointer>,
+	       is_convertible<_Up*, pointer>, __is_derived_Tp<_Up>>>
+	void reset(_Up*) = delete;
 
       /// Exchange the pointer and deleter with another object.
       void
@@ -662,26 +597,26 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       // Disable copy from lvalue.
       unique_ptr(const unique_ptr&) = delete;
       unique_ptr& operator=(const unique_ptr&) = delete;
+
+      // Disable construction from convertible pointer types.
+      template<typename _Up, typename = _Require<is_pointer<pointer>,
+	       is_convertible<_Up*, pointer>, __is_derived_Tp<_Up>>>
+	unique_ptr(_Up*, typename
+		   conditional<is_reference<deleter_type>::value,
+		   deleter_type, const deleter_type&>::type) = delete;
+
+      // Disable construction from convertible pointer types.
+      template<typename _Up, typename = _Require<is_pointer<pointer>,
+	       is_convertible<_Up*, pointer>, __is_derived_Tp<_Up>>>
+	unique_ptr(_Up*, typename
+		   remove_reference<deleter_type>::type&&) = delete;
     };
 
   template<typename _Tp, typename _Dp>
-    inline
-#if __cplusplus > 201402L || !defined(__STRICT_ANSI__) // c++1z or gnu++11
-    // Constrained free swap overload, see p0185r1
-    typename enable_if<__is_swappable<_Dp>::value>::type
-#else
-    void
-#endif
+    inline void
     swap(unique_ptr<_Tp, _Dp>& __x,
 	 unique_ptr<_Tp, _Dp>& __y) noexcept
     { __x.swap(__y); }
-
-#if __cplusplus > 201402L || !defined(__STRICT_ANSI__) // c++1z or gnu++11
-  template<typename _Tp, typename _Dp>
-    typename enable_if<!__is_swappable<_Dp>::value>::type
-    swap(unique_ptr<_Tp, _Dp>&,
-	 unique_ptr<_Tp, _Dp>&) = delete;
-#endif
 
   template<typename _Tp, typename _Dp,
 	   typename _Up, typename _Ep>
@@ -797,20 +732,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /// std::hash specialization for unique_ptr.
   template<typename _Tp, typename _Dp>
     struct hash<unique_ptr<_Tp, _Dp>>
-    : public __hash_base<size_t, unique_ptr<_Tp, _Dp>>,
-    private __poison_hash<typename unique_ptr<_Tp, _Dp>::pointer>
+    : public __hash_base<size_t, unique_ptr<_Tp, _Dp>>
     {
       size_t
       operator()(const unique_ptr<_Tp, _Dp>& __u) const noexcept
       {
-      /* Neutrino defines _UP as an internal value */
-#ifdef __QNXNTO__
-	typedef unique_ptr<_Tp, _Dp> _QUP;
-	return std::hash<typename _QUP::pointer>()(__u.get());
-#else	
-	typedef unique_ptr<_Tp, _Dp> _UP;
-	return std::hash<typename _UP::pointer>()(__u.get());
-#endif	
+	typedef unique_ptr<_Tp, _Dp> _UP0;
+	return std::hash<typename _UP0::pointer>()(__u.get());
       }
     };
 

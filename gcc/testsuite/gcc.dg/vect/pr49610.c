@@ -9,3 +9,4 @@ void func_13(int p_17) {
     }
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

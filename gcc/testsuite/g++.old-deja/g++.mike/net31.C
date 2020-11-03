@@ -1,5 +1,4 @@
 // { dg-do assemble  }
-// { dg-additional-options "-Wno-register" }
 
 class foo_a {
   protected:

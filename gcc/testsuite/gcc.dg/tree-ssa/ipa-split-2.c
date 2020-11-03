@@ -41,3 +41,4 @@ main()
   split_me (5);
 }
 /* { dg-final { scan-tree-dump-times "Splitting function" 1 "fnsplit"} } */
+/* { dg-final { cleanup-tree-dump "fnsplit" } } */

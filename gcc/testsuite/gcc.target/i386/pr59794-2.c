@@ -1,5 +1,4 @@
 /* PR target/59794 */
-/* { dg-do compile } */
 /* { dg-prune-output "ABI for passing parameters" } */
 /* { dg-options "-O2 -mno-sse" } */
 /* { dg-skip-if "no SSE vector" { *-*-mingw* } } */

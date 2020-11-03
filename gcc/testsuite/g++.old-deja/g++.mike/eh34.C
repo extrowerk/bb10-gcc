@@ -1,5 +1,4 @@
 // { dg-do run { xfail sparc64-*-elf arm-*-pe } }
-// { dg-require-effective-target c++14_down }
 
 #include <exception>
 #include <stdlib.h>

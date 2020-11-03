@@ -9,67 +9,67 @@ program testpow
 
    i = 2
    j = i ** 10
-   if (abs (j - 1024) .gt. del) STOP 1
+   if (abs (j - 1024) .gt. del) call abort
    j = i ** (-10)
-   if (abs (j - 0) .gt. del) STOP 2
+   if (abs (j - 0) .gt. del) call abort
    j = i ** 0
-   if (abs (j - 1) .gt. del) STOP 3
+   if (abs (j - 1) .gt. del) call abort
    i = 1
    j = i ** 10
-   if (abs (j - 1) .gt. del) STOP 4
+   if (abs (j - 1) .gt. del) call abort
    j = i ** (-10)
-   if (abs (j - 1) .gt. del) STOP 5
+   if (abs (j - 1) .gt. del) call abort
    j = i ** 0
-   if (abs (j - 1) .gt. del) STOP 6
+   if (abs (j - 1) .gt. del) call abort
    i = -1
    j = i ** 10
-   if (abs (j - 1) .gt. del) STOP 7
+   if (abs (j - 1) .gt. del) call abort
    j = i ** (-10)
-   if (abs (j - 1) .gt. del) STOP 8
+   if (abs (j - 1) .gt. del) call abort
    j = i ** 0
-   if (abs (j - 1) .gt. del) STOP 9
+   if (abs (j - 1) .gt. del) call abort
    j = i ** 11
-   if (abs (j - (-1)) .gt. del) STOP 10
+   if (abs (j - (-1)) .gt. del) call abort
    j = i ** (-11)
-   if (abs (j - (-1)) .gt. del) STOP 11
+   if (abs (j - (-1)) .gt. del) call abort
 
    c = (2.0, 3.0)
    z = c ** 2
-   if (abs(z - (-5.0, 12.0)) .gt. del) STOP 12
+   if (abs(z - (-5.0, 12.0)) .gt. del) call abort
    z = c ** 7
-   if (abs(z - (6554.0, 4449.0)) .gt. del) STOP 13
+   if (abs(z - (6554.0, 4449.0)) .gt. del) call abort
 
    two = 2.0
 
    r = two ** 1
-   if (abs (r - 2.0) .gt. del) STOP 14
+   if (abs (r - 2.0) .gt. del) call abort
    r = two ** 2
-   if (abs (r - 4.0) .gt. del) STOP 15
+   if (abs (r - 4.0) .gt. del) call abort
    r = two ** 3
-   if (abs (r - 8.0) .gt. del) STOP 16
+   if (abs (r - 8.0) .gt. del) call abort
    r = two ** 4
-   if (abs (r - 16.0) .gt. del) STOP 17
+   if (abs (r - 16.0) .gt. del) call abort
    r = two ** 0
-   if (abs (r - 1.0) .gt. del) STOP 18
+   if (abs (r - 1.0) .gt. del) call abort
    r = two ** (-1)
-   if (abs (r - 0.5) .gt. del) STOP 19
+   if (abs (r - 0.5) .gt. del) call abort
    r = two ** (-2)
-   if (abs (r - 0.25) .gt. del) STOP 20
+   if (abs (r - 0.25) .gt. del) call abort
    r = two ** (-4)
-   if (abs (r - 0.0625) .gt. del) STOP 21
+   if (abs (r - 0.0625) .gt. del) call abort
    s = 3.0
    r = two ** s
-   if (abs (r - 8.0) .gt. del) STOP 22
+   if (abs (r - 8.0) .gt. del) call abort
    s = -3.0
    r = two ** s
-   if (abs (r - 0.125) .gt. del) STOP 23
+   if (abs (r - 0.125) .gt. del) call abort
    i = 3
    r = two ** i
-   if (abs (r - 8.0) .gt. del) STOP 24
+   if (abs (r - 8.0) .gt. del) call abort
    i = -3
    r = two ** i
-   if (abs (r - 0.125) .gt. del) STOP 25
+   if (abs (r - 0.125) .gt. del) call abort
    c = (2.0, 3.0)
    c = c ** two
-   if (abs(c - (-5.0, 12.0)) .gt. del) STOP 26
+   if (abs(c - (-5.0, 12.0)) .gt. del) call abort
 end program

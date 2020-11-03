@@ -1,6 +1,5 @@
 /* { dg-do compile } */
 /* { dg-require-effective-target fpic } */
-/* { dg-require-effective-target ia32 } */
 /* { dg-options "-O2 -fPIC" } */
 typedef unsigned int size_t;
  char *
@@ -9,8 +8,7 @@ __mempcpy_by2 (char *__dest, __const char *__src, size_t __srclen)
   register char *__tmp = __dest;
   register unsigned long int __d0, __d1;
   __asm__ __volatile__
-    (
-     "shrl      $1,%3\n\t"
+    ("shrl      $1,%3\n\t"
      "jz        2f\n"
      "1:\n\t"
      "movl      (%2),%0\n\t"

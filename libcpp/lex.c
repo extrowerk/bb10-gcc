@@ -1,5 +1,5 @@
 /* CPP Library - lexical analysis.
-   Copyright (C) 2000-2018 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -447,36 +447,18 @@ search_line_sse42 (const uchar *s, const uchar *end)
       /* Advance the pointer to an aligned address.  We will re-scan a
 	 few bytes, but we no longer need care for reading past the
 	 end of a page, since we're guaranteed a match.  */
-      s = (const uchar *)((si + 15) & -16);
+      s = (const uchar *)((si + 16) & -16);
     }
 
-  /* Main loop, processing 16 bytes at a time.  */
-#ifdef __GCC_ASM_FLAG_OUTPUTS__
-  while (1)
-    {
-      char f;
-
-      /* By using inline assembly instead of the builtin,
-	 we can use the result, as well as the flags set.  */
-      __asm ("%vpcmpestri\t$0, %2, %3"
-	     : "=c"(index), "=@ccc"(f)
-	     : "m"(*s), "x"(search), "a"(4), "d"(16));
-      if (f)
-	break;
-      
-      s += 16;
-    }
-#else
-  s -= 16;
-  /* By doing the whole loop in inline assembly,
-     we can make proper use of the flags set.  */
-  __asm (      ".balign 16\n"
+  /* Main loop, processing 16 bytes at a time.  By doing the whole loop
+     in inline assembly, we can make proper use of the flags set.  */
+  __asm (      "sub $16, %1\n"
+	"	.balign 16\n"
 	"0:	add $16, %1\n"
-	"	%vpcmpestri\t$0, (%1), %2\n"
+	"	%vpcmpestri $0, (%1), %2\n"
 	"	jnc 0b"
 	: "=&c"(index), "+r"(s)
 	: "x"(search), "a"(4), "d"(16));
-#endif
 
  found:
   return s + index;
@@ -568,7 +550,7 @@ search_line_fast (const uchar *s, const uchar *end ATTRIBUTE_UNUSED)
     {
       vc m_nl, m_cr, m_bs, m_qm;
 
-      data = __builtin_vec_vsx_ld (0, s);
+      data = *((const vc *)s);
       s += 16;
 
       m_nl = (vc) __builtin_vec_cmpeq(data, repl_nl);
@@ -610,7 +592,6 @@ search_line_fast (const uchar *s, const uchar *end ATTRIBUTE_UNUSED)
 	if (l != 0)
 	  break;
 	s += sizeof(unsigned long);
-	/* FALLTHRU */
       case 2:
 	l = u.l[i++];
 	if (l != 0)
@@ -733,7 +714,6 @@ search_line_fast (const uchar *s, const uchar *end ATTRIBUTE_UNUSED)
 	if (l != 0)
 	  break;
 	s += sizeof(unsigned long);
-	/* FALLTHROUGH */
       case 2:
 	l = u.l[i++];
 	if (l != 0)
@@ -750,101 +730,6 @@ search_line_fast (const uchar *s, const uchar *end ATTRIBUTE_UNUSED)
 
 #undef N
   }
-}
-
-#elif defined (__ARM_NEON) && defined (__ARM_64BIT_STATE)
-#include "arm_neon.h"
-
-/* This doesn't have to be the exact page size, but no system may use
-   a size smaller than this.  ARMv8 requires a minimum page size of
-   4k.  The impact of being conservative here is a small number of
-   cases will take the slightly slower entry path into the main
-   loop.  */
-
-#define AARCH64_MIN_PAGE_SIZE 4096
-
-static const uchar *
-search_line_fast (const uchar *s, const uchar *end ATTRIBUTE_UNUSED)
-{
-  const uint8x16_t repl_nl = vdupq_n_u8 ('\n');
-  const uint8x16_t repl_cr = vdupq_n_u8 ('\r');
-  const uint8x16_t repl_bs = vdupq_n_u8 ('\\');
-  const uint8x16_t repl_qm = vdupq_n_u8 ('?');
-  const uint8x16_t xmask = (uint8x16_t) vdupq_n_u64 (0x8040201008040201ULL);
-
-#ifdef __ARM_BIG_ENDIAN
-  const int16x8_t shift = {8, 8, 8, 8, 0, 0, 0, 0};
-#else
-  const int16x8_t shift = {0, 0, 0, 0, 8, 8, 8, 8};
-#endif
-
-  unsigned int found;
-  const uint8_t *p;
-  uint8x16_t data;
-  uint8x16_t t;
-  uint16x8_t m;
-  uint8x16_t u, v, w;
-
-  /* Align the source pointer.  */
-  p = (const uint8_t *)((uintptr_t)s & -16);
-
-  /* Assuming random string start positions, with a 4k page size we'll take
-     the slow path about 0.37% of the time.  */
-  if (__builtin_expect ((AARCH64_MIN_PAGE_SIZE
-			 - (((uintptr_t) s) & (AARCH64_MIN_PAGE_SIZE - 1)))
-			< 16, 0))
-    {
-      /* Slow path: the string starts near a possible page boundary.  */
-      uint32_t misalign, mask;
-
-      misalign = (uintptr_t)s & 15;
-      mask = (-1u << misalign) & 0xffff;
-      data = vld1q_u8 (p);
-      t = vceqq_u8 (data, repl_nl);
-      u = vceqq_u8 (data, repl_cr);
-      v = vorrq_u8 (t, vceqq_u8 (data, repl_bs));
-      w = vorrq_u8 (u, vceqq_u8 (data, repl_qm));
-      t = vorrq_u8 (v, w);
-      t = vandq_u8 (t, xmask);
-      m = vpaddlq_u8 (t);
-      m = vshlq_u16 (m, shift);
-      found = vaddvq_u16 (m);
-      found &= mask;
-      if (found)
-	return (const uchar*)p + __builtin_ctz (found);
-    }
-  else
-    {
-      data = vld1q_u8 ((const uint8_t *) s);
-      t = vceqq_u8 (data, repl_nl);
-      u = vceqq_u8 (data, repl_cr);
-      v = vorrq_u8 (t, vceqq_u8 (data, repl_bs));
-      w = vorrq_u8 (u, vceqq_u8 (data, repl_qm));
-      t = vorrq_u8 (v, w);
-      if (__builtin_expect (vpaddd_u64 ((uint64x2_t)t) != 0, 0))
-	goto done;
-    }
-
-  do
-    {
-      p += 16;
-      data = vld1q_u8 (p);
-      t = vceqq_u8 (data, repl_nl);
-      u = vceqq_u8 (data, repl_cr);
-      v = vorrq_u8 (t, vceqq_u8 (data, repl_bs));
-      w = vorrq_u8 (u, vceqq_u8 (data, repl_qm));
-      t = vorrq_u8 (v, w);
-    } while (!vpaddd_u64 ((uint64x2_t)t));
-
-done:
-  /* Now that we've found the terminating substring, work out precisely where
-     we need to stop.  */
-  t = vandq_u8 (t, xmask);
-  m = vpaddlq_u8 (t);
-  m = vshlq_u16 (m, shift);
-  found = vaddvq_u16 (m);
-  return (((((uintptr_t) p) < (uintptr_t) s) ? s : (const uchar *)p)
-	  + __builtin_ctz (found));
 }
 
 #elif defined (__ARM_NEON)
@@ -912,7 +797,7 @@ search_line_fast (const uchar *s, const uchar *end ATTRIBUTE_UNUSED)
 
 #else
 
-/* We only have one accelerated alternative.  Use a direct call so that
+/* We only have one accellerated alternative.  Use a direct call so that
    we encourage inlining.  */
 
 #define search_line_fast  search_line_acc_char
@@ -1341,37 +1226,14 @@ forms_identifier_p (cpp_reader *pfile, int first,
       && *buffer->cur == '\\'
       && (buffer->cur[1] == 'u' || buffer->cur[1] == 'U'))
     {
-      cppchar_t s;
       buffer->cur += 2;
       if (_cpp_valid_ucn (pfile, &buffer->cur, buffer->rlimit, 1 + !first,
-			  state, &s, NULL, NULL))
+			  state))
 	return true;
       buffer->cur -= 2;
     }
 
   return false;
-}
-
-/* Helper function to issue error about improper __VA_OPT__ use.  */
-static void
-maybe_va_opt_error (cpp_reader *pfile)
-{
-  if (CPP_PEDANTIC (pfile) && !CPP_OPTION (pfile, va_opt))
-    {
-      /* __VA_OPT__ should not be accepted at all, but allow it in
-	 system headers.  */
-      if (!cpp_in_system_header (pfile))
-	cpp_error (pfile, CPP_DL_PEDWARN,
-		   "__VA_OPT__ is not available until C++2a");
-    }
-  else if (!pfile->state.va_args_ok)
-    {
-      /* __VA_OPT__ should only appear in the replacement list of a
-	 variadic macro.  */
-      cpp_error (pfile, CPP_DL_PEDWARN,
-		 "__VA_OPT__ can only appear in the expansion"
-		 " of a C++2a variadic macro");
-    }
 }
 
 /* Helper function to get the cpp_hashnode of the identifier BASE.  */
@@ -1417,9 +1279,6 @@ lex_identifier_intern (cpp_reader *pfile, const uchar *base)
 		       "__VA_ARGS__ can only appear in the expansion"
 		       " of a C99 variadic macro");
 	}
-
-      if (result == pfile->spec_nodes.n__VA_OPT__)
-	maybe_va_opt_error (pfile);
 
       /* For -Wc++-compat, warn about use of C++ named operators.  */
       if (result->flags & NODE_WARN_OPERATOR)
@@ -1509,11 +1368,6 @@ lex_identifier (cpp_reader *pfile, const uchar *base, bool starts_ucn,
 		       "__VA_ARGS__ can only appear in the expansion"
 		       " of a C99 variadic macro");
 	}
-
-      /* __VA_OPT__ should only appear in the replacement list of a
-	 variadic macro.  */
-      if (result == pfile->spec_nodes.n__VA_OPT__)
-	maybe_va_opt_error (pfile);
 
       /* For -Wc++-compat, warn about use of C++ named operators.  */
       if (result->flags & NODE_WARN_OPERATOR)
@@ -1630,21 +1484,6 @@ is_macro(cpp_reader *pfile, const uchar *base)
   return !result ? false : (result->type == NT_MACRO);
 }
 
-/* Returns true if a literal suffix does not have the expected form
-   and is defined as a macro.  */
-
-static bool
-is_macro_not_literal_suffix(cpp_reader *pfile, const uchar *base)
-{
-  /* User-defined literals outside of namespace std must start with a single
-     underscore, so assume anything of that form really is a UDL suffix.
-     We don't need to worry about UDLs defined inside namespace std because
-     their names are reserved, so cannot be used as macro names in valid
-     programs.  */
-  if (base[0] == '_' && base[1] != '_')
-    return false;
-  return is_macro (pfile, base);
-}
 
 /* Lexes a raw string.  The stored string contains the spelling, including
    double quotes, delimiter string, '(' and ')', any leading
@@ -1692,7 +1531,7 @@ lex_raw_string (cpp_reader *pfile, cpp_token *token, const uchar *base,
 		    (const uchar *)(STR), (LEN));		\
 	    temp_buffer_len += (LEN);				\
 	  }							\
-      } while (0)
+      } while (0);
 
   orig_base = base;
   ++cur;
@@ -1915,8 +1754,9 @@ lex_raw_string (cpp_reader *pfile, cpp_token *token, const uchar *base,
     {
       /* If a string format macro, say from inttypes.h, is placed touching
 	 a string literal it could be parsed as a C++11 user-defined string
-	 literal thus breaking the program.  */
-      if (is_macro_not_literal_suffix (pfile, cur))
+	 literal thus breaking the program.
+	 Try to identify macros with is_macro. A warning is issued. */
+      if (is_macro (pfile, cur))
 	{
 	  /* Raise a warning, but do not consume subsequent tokens.  */
 	  if (CPP_OPTION (pfile, warn_literal_suffix) && !pfile->state.skipping)
@@ -2000,8 +1840,7 @@ lex_string (cpp_reader *pfile, cpp_token *token, const uchar *base)
   else if (terminator == '\'')
     type = (*base == 'L' ? CPP_WCHAR :
 	    *base == 'U' ? CPP_CHAR32 :
-	    *base == 'u' ? (base[1] == '8' ? CPP_UTF8CHAR : CPP_CHAR16)
-			 : CPP_CHAR);
+	    *base == 'u' ? CPP_CHAR16 : CPP_CHAR);
   else
     terminator = '>', type = CPP_HEADER_NAME;
 
@@ -2044,8 +1883,9 @@ lex_string (cpp_reader *pfile, cpp_token *token, const uchar *base)
     {
       /* If a string format macro, say from inttypes.h, is placed touching
 	 a string literal it could be parsed as a C++11 user-defined string
-	 literal thus breaking the program.  */
-      if (is_macro_not_literal_suffix (pfile, cur))
+	 literal thus breaking the program.
+	 Try to identify macros with is_macro. A warning is issued. */
+      if (is_macro (pfile, cur))
 	{
 	  /* Raise a warning, but do not consume subsequent tokens.  */
 	  if (CPP_OPTION (pfile, warn_literal_suffix) && !pfile->state.skipping)
@@ -2065,12 +1905,6 @@ lex_string (cpp_reader *pfile, cpp_token *token, const uchar *base)
 	    ++cur;
 	}
     }
-  else if (CPP_OPTION (pfile, cpp_warn_cxx11_compat)
-	   && is_macro (pfile, cur)
-	   && !pfile->state.skipping)
-    cpp_warning_with_line (pfile, CPP_W_CXX11_COMPAT,
-			   token->src_loc, 0, "C++11 requires a space "
-			   "between string literal and macro");
 
   pfile->buffer->cur = cur;
   create_literal (pfile, token, base, cur - base, type);
@@ -2169,261 +2003,6 @@ save_comment (cpp_reader *pfile, cpp_token *token, const unsigned char *from,
 
   /* Finally store this comment for use by clients of libcpp. */
   store_comment (pfile, token);
-}
-
-/* Returns true if comment at COMMENT_START is a recognized FALLTHROUGH
-   comment.  */
-
-static bool
-fallthrough_comment_p (cpp_reader *pfile, const unsigned char *comment_start)
-{
-  const unsigned char *from = comment_start + 1;
-
-  switch (CPP_OPTION (pfile, cpp_warn_implicit_fallthrough))
-    {
-      /* For both -Wimplicit-fallthrough=0 and -Wimplicit-fallthrough=5 we
-	 don't recognize any comments.  The latter only checks attributes,
-	 the former doesn't warn.  */
-    case 0:
-    default:
-      return false;
-      /* -Wimplicit-fallthrough=1 considers any comment, no matter what
-	 content it has.  */
-    case 1:
-      return true;
-    case 2:
-      /* -Wimplicit-fallthrough=2 looks for (case insensitive)
-	 .*falls?[ \t-]*thr(u|ough).* regex.  */
-      for (; (size_t) (pfile->buffer->cur - from) >= sizeof "fallthru" - 1;
-	   from++)
-	{
-	  /* Is there anything like strpbrk with upper boundary, or
-	     memchr looking for 2 characters rather than just one?  */
-	  if (from[0] != 'f' && from[0] != 'F')
-	    continue;
-	  if (from[1] != 'a' && from[1] != 'A')
-	    continue;
-	  if (from[2] != 'l' && from[2] != 'L')
-	    continue;
-	  if (from[3] != 'l' && from[3] != 'L')
-	    continue;
-	  from += sizeof "fall" - 1;
-	  if (from[0] == 's' || from[0] == 'S')
-	    from++;
-	  while (*from == ' ' || *from == '\t' || *from == '-')
-	    from++;
-	  if (from[0] != 't' && from[0] != 'T')
-	    continue;
-	  if (from[1] != 'h' && from[1] != 'H')
-	    continue;
-	  if (from[2] != 'r' && from[2] != 'R')
-	    continue;
-	  if (from[3] == 'u' || from[3] == 'U')
-	    return true;
-	  if (from[3] != 'o' && from[3] != 'O')
-	    continue;
-	  if (from[4] != 'u' && from[4] != 'U')
-	    continue;
-	  if (from[5] != 'g' && from[5] != 'G')
-	    continue;
-	  if (from[6] != 'h' && from[6] != 'H')
-	    continue;
-	  return true;
-	}
-      return false;
-    case 3:
-    case 4:
-      break;
-    }
-
-  /* Whole comment contents:
-     -fallthrough
-     @fallthrough@
-   */
-  if (*from == '-' || *from == '@')
-    {
-      size_t len = sizeof "fallthrough" - 1;
-      if ((size_t) (pfile->buffer->cur - from - 1) < len)
-	return false;
-      if (memcmp (from + 1, "fallthrough", len))
-	return false;
-      if (*from == '@')
-	{
-	  if (from[len + 1] != '@')
-	    return false;
-	  len++;
-	}
-      from += 1 + len;
-    }
-  /* Whole comment contents (regex):
-     lint -fallthrough[ \t]*
-   */
-  else if (*from == 'l')
-    {
-      size_t len = sizeof "int -fallthrough" - 1;
-      if ((size_t) (pfile->buffer->cur - from - 1) < len)
-	return false;
-      if (memcmp (from + 1, "int -fallthrough", len))
-	return false;
-      from += 1 + len;
-      while (*from == ' ' || *from == '\t')
-	from++;
-    }
-  /* Whole comment contents (regex):
-     [ \t]*FALLTHR(U|OUGH)[ \t]*
-   */
-  else if (CPP_OPTION (pfile, cpp_warn_implicit_fallthrough) == 4)
-    {
-      while (*from == ' ' || *from == '\t')
-	from++;
-      if ((size_t) (pfile->buffer->cur - from)  < sizeof "FALLTHRU" - 1)
-	return false;
-      if (memcmp (from, "FALLTHR", sizeof "FALLTHR" - 1))
-	return false;
-      from += sizeof "FALLTHR" - 1;
-      if (*from == 'U')
-	from++;
-      else if ((size_t) (pfile->buffer->cur - from)  < sizeof "OUGH" - 1)
-	return false;
-      else if (memcmp (from, "OUGH", sizeof "OUGH" - 1))
-	return false;
-      else
-	from += sizeof "OUGH" - 1;
-      while (*from == ' ' || *from == '\t')
-	from++;
-    }
-  /* Whole comment contents (regex):
-     [ \t.!]*(ELSE,? |INTENTIONAL(LY)? )?FALL(S | |-)?THR(OUGH|U)[ \t.!]*(-[^\n\r]*)?
-     [ \t.!]*(Else,? |Intentional(ly)? )?Fall((s | |-)[Tt]|t)hr(ough|u)[ \t.!]*(-[^\n\r]*)?
-     [ \t.!]*([Ee]lse,? |[Ii]ntentional(ly)? )?fall(s | |-)?thr(ough|u)[ \t.!]*(-[^\n\r]*)?
-   */
-  else
-    {
-      while (*from == ' ' || *from == '\t' || *from == '.' || *from == '!')
-	from++;
-      unsigned char f = *from;
-      bool all_upper = false;
-      if (f == 'E' || f == 'e')
-	{
-	  if ((size_t) (pfile->buffer->cur - from)
-	      < sizeof "else fallthru" - 1)
-	    return false;
-	  if (f == 'E' && memcmp (from + 1, "LSE", sizeof "LSE" - 1) == 0)
-	    all_upper = true;
-	  else if (memcmp (from + 1, "lse", sizeof "lse" - 1))
-	    return false;
-	  from += sizeof "else" - 1;
-	  if (*from == ',')
-	    from++;
-	  if (*from != ' ')
-	    return false;
-	  from++;
-	  if (all_upper && *from == 'f')
-	    return false;
-	  if (f == 'e' && *from == 'F')
-	    return false;
-	  f = *from;
-	}
-      else if (f == 'I' || f == 'i')
-	{
-	  if ((size_t) (pfile->buffer->cur - from)
-	      < sizeof "intentional fallthru" - 1)
-	    return false;
-	  if (f == 'I' && memcmp (from + 1, "NTENTIONAL",
-				  sizeof "NTENTIONAL" - 1) == 0)
-	    all_upper = true;
-	  else if (memcmp (from + 1, "ntentional",
-			   sizeof "ntentional" - 1))
-	    return false;
-	  from += sizeof "intentional" - 1;
-	  if (*from == ' ')
-	    {
-	      from++;
-	      if (all_upper && *from == 'f')
-		return false;
-	    }
-	  else if (all_upper)
-	    {
-	      if (memcmp (from, "LY F", sizeof "LY F" - 1))
-		return false;
-	      from += sizeof "LY " - 1;
-	    }
-	  else
-	    {
-	      if (memcmp (from, "ly ", sizeof "ly " - 1))
-		return false;
-	      from += sizeof "ly " - 1;
-	    }
-	  if (f == 'i' && *from == 'F')
-	    return false;
-	  f = *from;
-	}
-      if (f != 'F' && f != 'f')
-	return false;
-      if ((size_t) (pfile->buffer->cur - from) < sizeof "fallthru" - 1)
-	return false;
-      if (f == 'F' && memcmp (from + 1, "ALL", sizeof "ALL" - 1) == 0)
-	all_upper = true;
-      else if (all_upper)
-	return false;
-      else if (memcmp (from + 1, "all", sizeof "all" - 1))
-	return false;
-      from += sizeof "fall" - 1;
-      if (*from == (all_upper ? 'S' : 's') && from[1] == ' ')
-	from += 2;
-      else if (*from == ' ' || *from == '-')
-	from++;
-      else if (*from != (all_upper ? 'T' : 't'))
-	return false;
-      if ((f == 'f' || *from != 'T') && (all_upper || *from != 't'))
-	return false;
-      if ((size_t) (pfile->buffer->cur - from) < sizeof "thru" - 1)
-	return false;
-      if (memcmp (from + 1, all_upper ? "HRU" : "hru", sizeof "hru" - 1))
-	{
-	  if ((size_t) (pfile->buffer->cur - from) < sizeof "through" - 1)
-	    return false;
-	  if (memcmp (from + 1, all_upper ? "HROUGH" : "hrough",
-		      sizeof "hrough" - 1))
-	    return false;
-	  from += sizeof "through" - 1;
-	}
-      else
-	from += sizeof "thru" - 1;
-      while (*from == ' ' || *from == '\t' || *from == '.' || *from == '!')
-	from++;
-      if (*from == '-')
-	{
-	  from++;
-	  if (*comment_start == '*')
-	    {
-	      do
-		{
-		  while (*from && *from != '*'
-			 && *from != '\n' && *from != '\r')
-		    from++;
-		  if (*from != '*' || from[1] == '/')
-		    break;
-		  from++;
-		}
-	      while (1);
-	    }
-	  else
-	    while (*from && *from != '\n' && *from != '\r')
-	      from++;
-	}
-    }
-  /* C block comment.  */
-  if (*comment_start == '*')
-    {
-      if (*from != '*' || from[1] != '/')
-	return false;
-    }
-  /* C++ line comment.  */
-  else if (*from != '\n')
-    return false;
-
-  return true;
 }
 
 /* Allocate COUNT tokens for RUN.  */
@@ -2705,7 +2284,6 @@ _cpp_lex_direct (cpp_reader *pfile)
   cppchar_t c;
   cpp_buffer *buffer;
   const unsigned char *comment_start;
-  bool fallthrough_comment = false;
   cpp_token *result = pfile->cur_token++;
 
  fresh_line:
@@ -2732,8 +2310,6 @@ _cpp_lex_direct (cpp_reader *pfile)
 	    }
 	  return result;
 	}
-      if (buffer != pfile->buffer)
-	fallthrough_comment = false;
       if (!pfile->keep_tokens)
 	{
 	  pfile->cur_run = &pfile->base_run;
@@ -2803,8 +2379,7 @@ _cpp_lex_direct (cpp_reader *pfile)
 		  && CPP_OPTION (pfile, rliterals))
 	      || (*buffer->cur == '8'
 		  && c == 'u'
-		  && ((buffer->cur[1] == '"' || (buffer->cur[1] == '\''
-				&& CPP_OPTION (pfile, utf8_char_literals)))
+		  && (buffer->cur[1] == '"'
 		      || (buffer->cur[1] == 'R' && buffer->cur[2] == '"'
 			  && CPP_OPTION (pfile, rliterals)))))
 	    {
@@ -2840,10 +2415,6 @@ _cpp_lex_direct (cpp_reader *pfile)
 	  result->flags |= NAMED_OP;
 	  result->type = (enum cpp_ttype) result->val.node.node->directive_index;
 	}
-
-      /* Signal FALLTHROUGH comment followed by another token.  */
-      if (fallthrough_comment)
-	result->flags |= PREV_FALLTHROUGH;
       break;
 
     case '\'':
@@ -2929,24 +2500,11 @@ _cpp_lex_direct (cpp_reader *pfile)
 	  break;
 	}
 
-      if (fallthrough_comment_p (pfile, comment_start))
-	fallthrough_comment = true;
-
-      if (pfile->cb.comment)
-	{
-	  size_t len = pfile->buffer->cur - comment_start;
-	  pfile->cb.comment (pfile, result->src_loc, comment_start - 1,
-			     len + 1);
-	}
-
       if (!pfile->state.save_comments)
 	{
 	  result->flags |= PREV_WHITE;
 	  goto update_tokens_line;
 	}
-
-      if (fallthrough_comment)
-	result->flags |= PREV_FALLTHROUGH;
 
       /* Save the comment as a token in its own right.  */
       save_comment (pfile, result, comment_start, c);
@@ -3132,33 +2690,10 @@ _cpp_lex_direct (cpp_reader *pfile)
 	  }
 	buffer->cur++;
       }
-      /* FALLTHRU */
 
     default:
       create_literal (pfile, result, buffer->cur - 1, 1, CPP_OTHER);
       break;
-    }
-
-  /* Potentially convert the location of the token to a range.  */
-  if (result->src_loc >= RESERVED_LOCATION_COUNT
-      && result->type != CPP_EOF)
-    {
-      /* Ensure that any line notes are processed, so that we have the
-	 correct physical line/column for the end-point of the token even
-	 when a logical line is split via one or more backslashes.  */
-      if (buffer->cur >= buffer->notes[buffer->cur_note].pos
-	  && !pfile->overlaid_buffer)
-	_cpp_process_line_notes (pfile, false);
-
-      source_range tok_range;
-      tok_range.m_start = result->src_loc;
-      tok_range.m_finish
-	= linemap_position_for_column (pfile->line_table,
-				       CPP_BUF_COLUMN (buffer, buffer->cur));
-
-      result->src_loc = COMBINE_LOCATION_DATA (pfile->line_table,
-					       result->src_loc,
-					       tok_range, NULL);
     }
 
   return result;
@@ -3572,7 +3107,7 @@ new_buff (size_t len)
     len = MIN_BUFF_SIZE;
   len = CPP_ALIGN (len);
 
-#ifdef ENABLE_VALGRIND_ANNOTATIONS
+#ifdef ENABLE_VALGRIND_CHECKING
   /* Valgrind warns about uses of interior pointers, so put _cpp_buff
      struct first.  */
   size_t slen = CPP_ALIGN2 (sizeof (_cpp_buff), 2 * DEFAULT_ALIGNMENT);
@@ -3669,7 +3204,7 @@ _cpp_free_buff (_cpp_buff *buff)
   for (; buff; buff = next)
     {
       next = buff->next;
-#ifdef ENABLE_VALGRIND_ANNOTATIONS
+#ifdef ENABLE_VALGRIND_CHECKING
       free (buff);
 #else
       free (buff->base);
@@ -3747,7 +3282,7 @@ cpp_token_val_index (const cpp_token *tok)
 	return CPP_TOKEN_FLD_SOURCE;
       else if (tok->type == CPP_PRAGMA)
 	return CPP_TOKEN_FLD_PRAGMA;
-      /* fall through */
+      /* else fall through */
     default:
       return CPP_TOKEN_FLD_NONE;
     }

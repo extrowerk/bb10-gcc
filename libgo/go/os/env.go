@@ -1,4 +1,4 @@
-// Copyright 2010 The Go Authors. All rights reserved.
+// Copyright 2010 The Go Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -6,10 +6,7 @@
 
 package os
 
-import (
-	"internal/testlog"
-	"syscall"
-)
+import "syscall"
 
 // Expand replaces ${var} or $var in the string based on the mapping function.
 // For example, os.ExpandEnv(s) is equivalent to os.Expand(s, os.Getenv).
@@ -30,17 +27,17 @@ func Expand(s string, mapping func(string) string) string {
 }
 
 // ExpandEnv replaces ${var} or $var in the string according to the values
-// of the current environment variables. References to undefined
+// of the current environment variables.  References to undefined
 // variables are replaced by the empty string.
 func ExpandEnv(s string) string {
 	return Expand(s, Getenv)
 }
 
-// isShellSpecialVar reports whether the character identifies a special
+// isSpellSpecialVar reports whether the character identifies a special
 // shell variable such as $*.
 func isShellSpecialVar(c uint8) bool {
 	switch c {
-	case '*', '#', '$', '@', '!', '?', '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+	case '*', '#', '$', '@', '!', '?', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 		return true
 	}
 	return false
@@ -51,8 +48,8 @@ func isAlphaNum(c uint8) bool {
 	return c == '_' || '0' <= c && c <= '9' || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z'
 }
 
-// getShellName returns the name that begins the string and the number of bytes
-// consumed to extract it. If the name is enclosed in {}, it's part of a ${}
+// getName returns the name that begins the string and the number of bytes
+// consumed to extract it.  If the name is enclosed in {}, it's part of a ${}
 // expansion and two more bytes are needed than the length of the name.
 func getShellName(s string) (string, int) {
 	switch {
@@ -79,21 +76,9 @@ func getShellName(s string) (string, int) {
 
 // Getenv retrieves the value of the environment variable named by the key.
 // It returns the value, which will be empty if the variable is not present.
-// To distinguish between an empty value and an unset value, use LookupEnv.
 func Getenv(key string) string {
-	testlog.Getenv(key)
 	v, _ := syscall.Getenv(key)
 	return v
-}
-
-// LookupEnv retrieves the value of the environment variable named
-// by the key. If the variable is present in the environment the
-// value (which may be empty) is returned and the boolean is true.
-// Otherwise the returned value will be empty and the boolean will
-// be false.
-func LookupEnv(key string) (string, bool) {
-	testlog.Getenv(key)
-	return syscall.Getenv(key)
 }
 
 // Setenv sets the value of the environment variable named by the key.

@@ -6,7 +6,7 @@ float
 foo (float f)
 {
   float array[128];
-  float x = 0.;
+  float x;
   int i;
   for (i = 0; i < sizeof(array) / sizeof(*array); i++)
     array[i] = f;

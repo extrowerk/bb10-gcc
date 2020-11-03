@@ -10,7 +10,7 @@ end type t
 
 contains
 
-  subroutine foo(x)             ! { dg-warning "defined but not used" }
+  subroutine foo(x)
     type(t), intent(out) :: x
   end subroutine
 

@@ -93,3 +93,4 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 3 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

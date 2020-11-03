@@ -1,6 +1,7 @@
 /* Check that the 'extu.b' instruction is generated for short jump tables.  */
 /* { dg-do compile }  */
 /* { dg-options "-Os" } */
+/* { dg-skip-if "" { "sh*-*-*" } { "-m5*"} { "" } }  */
 /* { dg-final { scan-assembler "extu.b" } } */
 
 int

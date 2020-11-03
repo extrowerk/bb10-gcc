@@ -14,3 +14,4 @@ void foo4(int*a, int*b)
 { for(;a!=b;a++); }
 
 /* { dg-final { scan-tree-dump-not "if" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

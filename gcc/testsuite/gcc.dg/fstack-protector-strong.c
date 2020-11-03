@@ -1,6 +1,6 @@
 /* Test that stack protection is done on chosen functions. */
 
-/* { dg-do compile { target i?86-*-* x86_64-*-* rs6000-*-* s390x-*-* } } */
+/* { dg-do compile { target i?86-*-* x86_64-*-* } } */
 /* { dg-options "-O2 -fstack-protector-strong" } */
 
 /* This test checks the presence of __stack_chk_fail function in assembler.
@@ -9,6 +9,7 @@
 /* { dg-require-effective-target nonpic } */
 
 #include<string.h>
+#include<stdlib.h>
 
 extern int g0;
 extern int* pg0;
@@ -106,7 +107,7 @@ int
 foo8 ()
 {
   char base[100];
-  memcpy ((void *)base, (const void *)pg0, 105);   /* { dg-warning "writing 105 bytes into a region of size 100" } */
+  memcpy ((void *)base, (const void *)pg0, 105);
   return (int)(base[32]);
 }
 
@@ -114,7 +115,7 @@ foo8 ()
 int
 foo9 ()
 {
-  char* p = __builtin_alloca (100);
+  char* p = alloca (100);
   return goo ((int *)(p + 50));
 }
 

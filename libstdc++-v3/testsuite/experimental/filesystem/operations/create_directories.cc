@@ -1,4 +1,4 @@
-// Copyright (C) 2015-2018 Free Software Foundation, Inc.
+// Copyright (C) 2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,8 +15,7 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// { dg-options "-DUSE_FILESYSTEM_TS -lstdc++fs" }
-// { dg-do run { target c++11 } }
+// { dg-options "-std=gnu++11 -lstdc++fs" }
 // { dg-require-filesystem-ts "" }
 
 #include <experimental/filesystem>
@@ -28,6 +27,7 @@ namespace fs = std::experimental::filesystem;
 void
 test01()
 {
+  bool test __attribute__((unused)) = false;
   std::error_code ec;
 
   // Test empty path.
@@ -65,64 +65,11 @@ test01()
   VERIFY( b );
   VERIFY( is_directory(p/"./d4/../d5") );
 
-  std::uintmax_t count = remove_all(p, ec);
-  VERIFY( count == 6 );
-}
-
-void
-test02()
-{
-  // PR libstdc++/86910
-  const auto p = __gnu_test::nonexistent_path();
-  std::error_code ec;
-  bool result;
-
-  {
-    __gnu_test::scoped_file file;
-
-    result = create_directories(file.path, ec);
-    VERIFY( !result );
-    VERIFY( ec == std::errc::not_a_directory );
-    result = create_directories(file.path / "foo", ec);
-    VERIFY( !result );
-    __builtin_printf("%d\n", ec.value());
-    VERIFY( ec == std::errc::not_a_directory );
-  }
-
-  create_directories(p);
-  {
-    __gnu_test::scoped_file dir(p, __gnu_test::scoped_file::adopt_file);
-    __gnu_test::scoped_file file(dir.path/"file");
-
-    result = create_directories(file.path, ec);
-    VERIFY( !result );
-    VERIFY( ec == std::errc::not_a_directory );
-    result = create_directories(file.path/"../bar", ec);
-    VERIFY( !result );
-    VERIFY( ec == std::errc::not_a_directory );
-  }
-}
-
-void
-test03()
-{
-  // PR libstdc++/87846
-  const auto p = __gnu_test::nonexistent_path() / "/";
-  bool result = create_directories(p);
-  VERIFY( result );
-  VERIFY( exists(p) );
-  remove(p);
-  result = create_directories(p/"foo/");
-  VERIFY( result );
-  VERIFY( exists(p) );
-  VERIFY( exists(p/"foo") );
-  remove_all(p);
+  remove_all(p, ec);
 }
 
 int
 main()
 {
   test01();
-  test02();
-  test03();
 }

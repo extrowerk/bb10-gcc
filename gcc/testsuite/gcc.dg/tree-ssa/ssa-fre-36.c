@@ -23,3 +23,4 @@ void PreEvaluate(int wtm)
 /* We should be able to CSE the second load of opening.  */
 
 /* { dg-final { scan-tree-dump "Replaced opening" "fre1" } } */
+/* { dg-final { cleanup-tree-dump "fre1" } } */

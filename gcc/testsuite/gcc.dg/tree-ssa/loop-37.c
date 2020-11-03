@@ -24,3 +24,4 @@ int f1 (int a [])
 int main() { }
 
 /* { dg-final { scan-tree-dump-not "my_array" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

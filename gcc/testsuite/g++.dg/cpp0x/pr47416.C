@@ -1,6 +1,5 @@
 // PR c++/47416
 // { dg-do compile { target c++11 } }
-// { dg-additional-options "-Wno-return-type" }
 
 namespace std
 {

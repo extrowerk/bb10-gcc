@@ -9,33 +9,33 @@ module m
 end module m
 
 use m
-if (any (a /= 7)) STOP 1
+if (any (a /= 7)) call abort()
 a = 88
-if (any (a /= 88)) STOP 2
+if (any (a /= 88)) call abort()
 
  block
    integer :: b[*] = 8494
-   if (b /= 8494) STOP 3
+   if (b /= 8494) call abort()
  end block
 
-if (any (a /= 88)) STOP 4
+if (any (a /= 88)) call abort()
 call test ()
 end
 
 subroutine test()
   real :: z[*] = sqrt(2.0)
-  if (z /= sqrt(2.0)) STOP 5
+  if (z /= sqrt(2.0)) call abort()
   call sub1()
 contains
   subroutine sub1
     real :: r[4,*] = -1
-    if (r /= -1) STOP 1
+    if (r /= -1) call abort
     r = 10
-    if (r /= 10) STOP 2
+    if (r /= 10) call abort
   end subroutine sub1
 
   subroutine uncalled()
      integer :: not_refed[2:*] = 784
-     if (not_refed /= 784) STOP 6
+     if (not_refed /= 784) call abort()
   end subroutine uncalled
 end subroutine test

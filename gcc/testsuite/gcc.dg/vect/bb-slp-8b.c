@@ -50,4 +50,5 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "basic block vectorized" 1 "slp2"  { target vect_hw_misalign } } } */
+/* { dg-final { cleanup-tree-dump "slp2" } } */
   

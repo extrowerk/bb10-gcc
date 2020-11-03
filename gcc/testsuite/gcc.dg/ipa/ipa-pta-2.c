@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O -fipa-pta -fdump-ipa-pta2-details" } */
+/* { dg-options "-O -fipa-pta -fdump-ipa-pta-details" } */
 
 int (*fn)(int *);
 
@@ -21,4 +21,5 @@ int main()
 /* Make sure that when a local function escapes its argument points-to sets
    are properly adjusted.  */
 
-/* { dg-final { scan-ipa-dump "foo.arg0 = { ESCAPED NONLOCAL }" "pta2" } } */
+/* { dg-final { scan-ipa-dump "foo.arg0 = { ESCAPED NONLOCAL }" "pta" } } */
+/* { dg-final { cleanup-ipa-dump "pta" } } */

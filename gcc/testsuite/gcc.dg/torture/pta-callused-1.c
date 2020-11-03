@@ -22,3 +22,4 @@ int main()
 }
 
 /* { dg-final { scan-tree-dump "p.._. = { i j }" "alias" } } */
+/* { dg-final { cleanup-tree-dump "alias" } } */

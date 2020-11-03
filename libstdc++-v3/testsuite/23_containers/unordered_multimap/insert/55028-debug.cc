@@ -1,6 +1,6 @@
-// { dg-do run { target c++11 } }
+// { dg-options "-std=gnu++11" }
 //
-// Copyright (C) 2012-2018 Free Software Foundation, Inc.
+// Copyright (C) 2012-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -30,7 +30,7 @@ void test()
   // using MyMap = std::multimap<std::string, MyType *>; // works
   using MyMap = std::unordered_multimap<std::string, MyType*>; // fails to link
   MyMap m;
-  m.insert(std::make_pair(std::string("blah"), (MyType*)nullptr));
+  m.insert(std::make_pair(std::string("blah"), new MyType));
 }
 
 int main()

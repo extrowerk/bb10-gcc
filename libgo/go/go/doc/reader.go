@@ -18,7 +18,7 @@ import (
 // Internally, we treat functions like methods and collect them in method sets.
 
 // A methodSet describes a set of methods. Entries where Decl == nil are conflict
-// entries (more than one method with the same name at the same embedding level).
+// entries (more then one method with the same name at the same embedding level).
 //
 type methodSet map[string]*Func
 
@@ -71,7 +71,7 @@ func (mset methodSet) set(f *ast.FuncDecl) {
 
 // add adds method m to the method set; m is ignored if the method set
 // already contains a method with the same name at the same or a higher
-// level than m.
+// level then m.
 //
 func (mset methodSet) add(m *Func) {
 	old := mset[m.Name]
@@ -151,12 +151,10 @@ type reader struct {
 	notes     map[string][]*Note
 
 	// declarations
-	imports   map[string]int
-	hasDotImp bool     // if set, package contains a dot import
-	values    []*Value // consts and vars
-	order     int      // sort order of const and var declarations (when we can't use a name)
-	types     map[string]*namedType
-	funcs     methodSet
+	imports map[string]int
+	values  []*Value // consts and vars
+	types   map[string]*namedType
+	funcs   methodSet
 
 	// support for package-local error type declarations
 	errorDecl bool                 // if set, type "error" was declared locally
@@ -210,7 +208,7 @@ func (r *reader) recordAnonymousField(parent *namedType, fieldType ast.Expr) (fn
 
 func (r *reader) readDoc(comment *ast.CommentGroup) {
 	// By convention there should be only one package comment
-	// but collect all of them if there are more than one.
+	// but collect all of them if there are more then one.
 	text := comment.Text()
 	if r.doc == "" {
 		r.doc = text
@@ -257,9 +255,11 @@ func (r *reader) readValue(decl *ast.GenDecl) {
 			if n, imp := baseTypeName(s.Type); !imp {
 				name = n
 			}
-		case decl.Tok == token.CONST && len(s.Values) == 0:
-			// no type or value is present but we have a constant declaration;
-			// use the previous type name (possibly the empty string)
+		case decl.Tok == token.CONST:
+			// no type is present but we have a constant declaration;
+			// use the previous type name (w/o more type information
+			// we cannot handle the case of unnamed variables with
+			// initializer expressions except for some trivial cases)
 			name = prev
 		}
 		if name != "" {
@@ -296,15 +296,9 @@ func (r *reader) readValue(decl *ast.GenDecl) {
 		Doc:   decl.Doc.Text(),
 		Names: specNames(decl.Specs),
 		Decl:  decl,
-		order: r.order,
+		order: len(*values),
 	})
 	decl.Doc = nil // doc consumed - remove from AST
-
-	// Note: It's important that the order used here is global because the cleanupTypes
-	// methods may move values associated with types back into the global list. If the
-	// order is list-specific, sorting is not deterministic because the same order value
-	// may appear multiple times (was bug, found when fixing #16153).
-	r.order++
 }
 
 // fields returns a struct's fields or an interface's methods.
@@ -367,11 +361,6 @@ func (r *reader) readFunc(fun *ast.FuncDecl) {
 	// associate methods with the receiver type, if any
 	if fun.Recv != nil {
 		// method
-		if len(fun.Recv.List) == 0 {
-			// should not happen (incorrect AST); (See issue 17788)
-			// don't show this method
-			return
-		}
 		recvTypeName, imp := baseTypeName(fun.Recv.List[0].Type)
 		if imp {
 			// should not happen (incorrect AST);
@@ -396,13 +385,7 @@ func (r *reader) readFunc(fun *ast.FuncDecl) {
 			// exactly one (named or anonymous) result associated
 			// with the first type in result signature (there may
 			// be more than one result)
-			factoryType := res.Type
-			if t, ok := factoryType.(*ast.ArrayType); ok && t.Len == nil {
-				// We consider functions that return slices of type T (or
-				// pointers to T) as factory functions of T.
-				factoryType = t.Elt
-			}
-			if n, imp := baseTypeName(factoryType); !imp && r.isVisible(n) {
+			if n, imp := baseTypeName(res.Type); !imp && r.isVisible(n) {
 				if typ := r.lookupType(n); typ != nil {
 					// associate function with typ
 					typ.funcs.set(fun)
@@ -488,9 +471,6 @@ func (r *reader) readFile(src *ast.File) {
 					if s, ok := spec.(*ast.ImportSpec); ok {
 						if import_, err := strconv.Unquote(s.Path.Value); err == nil {
 							r.imports[import_] = 1
-							if s.Name != nil && s.Name.Name == "." {
-								r.hasDotImp = true
-							}
 						}
 					}
 				}
@@ -661,14 +641,11 @@ func (r *reader) computeMethodSets() {
 func (r *reader) cleanupTypes() {
 	for _, t := range r.types {
 		visible := r.isVisible(t.name)
-		predeclared := predeclaredTypes[t.name]
-
-		if t.decl == nil && (predeclared || visible && (t.isEmbedded || r.hasDotImp)) {
+		if t.decl == nil && (predeclaredTypes[t.name] || t.isEmbedded && visible) {
 			// t.name is a predeclared type (and was not redeclared in this package),
 			// or it was embedded somewhere but its declaration is missing (because
-			// the AST is incomplete), or we have a dot-import (and all bets are off):
-			// move any associated values, funcs, and methods back to the top-level so
-			// that they are not lost.
+			// the AST is incomplete): move any associated values, funcs, and methods
+			// back to the top-level so that they are not lost.
 			// 1) move values
 			r.values = append(r.values, t.values...)
 			// 2) move factory functions
@@ -678,12 +655,10 @@ func (r *reader) cleanupTypes() {
 				r.funcs[name] = f
 			}
 			// 3) move methods
-			if !predeclared {
-				for name, m := range t.methods {
-					// don't overwrite functions with the same name - drop them
-					if _, found := r.funcs[name]; !found {
-						r.funcs[name] = m
-					}
+			for name, m := range t.methods {
+				// don't overwrite functions with the same name - drop them
+				if _, found := r.funcs[name]; !found {
+					r.funcs[name] = m
 				}
 			}
 		}
@@ -828,11 +803,6 @@ func noteBodies(notes []*Note) []string {
 
 // ----------------------------------------------------------------------------
 // Predeclared identifiers
-
-// IsPredeclared reports whether s is a predeclared identifier.
-func IsPredeclared(s string) bool {
-	return predeclaredTypes[s] || predeclaredFuncs[s] || predeclaredConstants[s]
-}
 
 var predeclaredTypes = map[string]bool{
 	"bool":       true,

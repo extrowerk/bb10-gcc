@@ -19,14 +19,14 @@ end module foo
 
   a = 0
   forall (i=1:n, foot (i)) a(i) = i  ! { dg-error "impure" }
-  if (any (a .ne. (/0,2,3,0/))) STOP 1
+  if (any (a .ne. (/0,2,3,0/))) call abort ()
 
   forall (i=1:n, s (i) .or. t(i)) a(i) = i  ! { dg-error "impure|LOGICAL" }
-  if (any (a .ne. (/0,3,2,1/))) STOP 2
+  if (any (a .ne. (/0,3,2,1/))) call abort ()
 
   a = 0
   forall (i=1:n, mod (i, 2) == 0) a(i) = w (i)  ! { dg-error "impure" }
-  if (any (a .ne. (/0,2,0,4/))) STOP 3
+  if (any (a .ne. (/0,2,0,4/))) call abort ()
 
 contains
   logical function t(i)

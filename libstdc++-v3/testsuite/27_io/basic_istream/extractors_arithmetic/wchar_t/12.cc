@@ -1,4 +1,4 @@
-// Copyright (C) 2004-2018 Free Software Foundation, Inc.
+// Copyright (C) 2004-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,8 +27,10 @@
 // libstdc++/3720
 // excess input should not cause a core dump
 template<typename T>
-void test12_aux(bool integer_type)
+bool test12_aux(bool integer_type)
 {
+  bool test __attribute__((unused)) = true;
+  
   int digits_overflow;
   if (integer_type)
     // This many digits will overflow integer types in base 10.
@@ -46,16 +48,19 @@ void test12_aux(bool integer_type)
   T t;
   is >> t;
   VERIFY( is.fail() );
+  return test;
 }
 
-void test12()
+bool test12()
 {
-  test12_aux<short>(true);
-  test12_aux<int>(true);
-  test12_aux<long>(true);
-  test12_aux<float>(false);
-  test12_aux<double>(false);
-  test12_aux<long double>(false);
+  bool test __attribute__((unused)) = true;
+  VERIFY( test12_aux<short>(true) );
+  VERIFY( test12_aux<int>(true) );
+  VERIFY( test12_aux<long>(true) );
+  VERIFY( test12_aux<float>(false) );
+  VERIFY( test12_aux<double>(false) );
+  VERIFY( test12_aux<long double>(false) );
+  return test;
 }
 
 int main()

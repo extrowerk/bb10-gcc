@@ -35,3 +35,4 @@ C::C()
     int j = B().foo();
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

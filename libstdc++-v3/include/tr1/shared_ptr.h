@@ -1,6 +1,6 @@
 // <tr1/shared_ptr.h> -*- C++ -*-
 
-// Copyright (C) 2007-2018 Free Software Foundation, Inc.
+// Copyright (C) 2007-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -51,10 +51,10 @@
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
-_GLIBCXX_BEGIN_NAMESPACE_VERSION
-
 namespace tr1
 {
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
+
  /**
    *  @brief  Exception possibly thrown by @c shared_ptr.
    *  @ingroup exceptions
@@ -145,7 +145,8 @@ namespace tr1
 	    // See http://gcc.gnu.org/ml/libstdc++/2005-11/msg00136.html
 	    if (_Mutex_base<_Lp>::_S_need_barriers)
 	      {
-		__atomic_thread_fence (__ATOMIC_ACQ_REL);
+	        _GLIBCXX_READ_MEM_BARRIER;
+	        _GLIBCXX_WRITE_MEM_BARRIER;
 	      }
 
             // Be race-detector-friendly.  For more info see bits/c++config.
@@ -175,7 +176,8 @@ namespace tr1
 	      {
 	        // See _M_release(),
 	        // destroy() must observe results of dispose()
-		__atomic_thread_fence (__ATOMIC_ACQ_REL);
+	        _GLIBCXX_READ_MEM_BARRIER;
+	        _GLIBCXX_WRITE_MEM_BARRIER;
 	      }
 	    _M_destroy();
 	  }
@@ -1162,9 +1164,9 @@ namespace tr1
 
       mutable weak_ptr<_Tp>  _M_weak_this;
     };
-}
 
 _GLIBCXX_END_NAMESPACE_VERSION
+}
 }
 
 #endif // _TR1_SHARED_PTR_H

@@ -1,5 +1,3 @@
-/* { dg-additional-options "-Wno-return-type" } */
-
 typedef __SIZE_TYPE__ size_t;
 template<typename _Iterator, typename _Container> class __normal_iterator {
 public:

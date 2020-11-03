@@ -1,6 +1,6 @@
 // 2003-04-26 Petur Runolfsson  <peturr02@ru.is>
 
-// Copyright (C) 2003-2018 Free Software Foundation, Inc.
+// Copyright (C) 2003-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -36,6 +36,8 @@ protected:
 
 void test06()
 {
+  bool test __attribute__((unused)) = true;
+
   try
     {
       // No-op in current code.
@@ -45,8 +47,9 @@ void test06()
     }
   catch(...)
     {
-      VERIFY( false );
+      test = false;
     }
+  VERIFY( test );
 }
 
 int main()

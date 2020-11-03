@@ -55,6 +55,6 @@
         RESULT = G(10)
         PRINT *, RESULT
         IF (RESULT .NE. 30) THEN
-          STOP 1
+          CALL ABORT
         ENDIF
       END PROGRAM A19

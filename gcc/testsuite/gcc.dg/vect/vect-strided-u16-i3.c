@@ -109,3 +109,4 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 4 loops" 1 "vect"  { target vect_strided3 } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

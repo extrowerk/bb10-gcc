@@ -12,11 +12,11 @@ deallocate(c)
 contains
 subroutine foo(x)
   character (len = *), dimension(:) :: x
-  if (any (x .ne. "BLUBB")) STOP 1
+  if (any (x .ne. "BLUBB")) CALL abort()
 end subroutine foo
 end
 
 subroutine bar(x,n)
   character (len = *), dimension(n) :: x
-  if (any (x .ne. "BLUBB")) STOP 2
+  if (any (x .ne. "BLUBB")) CALL abort()
 end subroutine bar

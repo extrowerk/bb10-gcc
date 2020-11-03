@@ -6,8 +6,6 @@ package runtime_test
 
 import (
 	"flag"
-	"fmt"
-	"reflect"
 	. "runtime"
 	"testing"
 	"time"
@@ -15,142 +13,16 @@ import (
 )
 
 func TestMemStats(t *testing.T) {
-	t.Skip("skipping test with gccgo")
-
-	// Make sure there's at least one forced GC.
-	GC()
-
 	// Test that MemStats has sane values.
 	st := new(MemStats)
 	ReadMemStats(st)
-
-	nz := func(x interface{}) error {
-		if x != reflect.Zero(reflect.TypeOf(x)).Interface() {
-			return nil
-		}
-		return fmt.Errorf("zero value")
-	}
-	le := func(thresh float64) func(interface{}) error {
-		return func(x interface{}) error {
-			if reflect.ValueOf(x).Convert(reflect.TypeOf(thresh)).Float() < thresh {
-				return nil
-			}
-			return fmt.Errorf("insanely high value (overflow?); want <= %v", thresh)
-		}
-	}
-	eq := func(x interface{}) func(interface{}) error {
-		return func(y interface{}) error {
-			if x == y {
-				return nil
-			}
-			return fmt.Errorf("want %v", x)
-		}
-	}
-	// Of the uint fields, HeapReleased, HeapIdle can be 0.
-	// PauseTotalNs can be 0 if timer resolution is poor.
-	fields := map[string][]func(interface{}) error{
-		"Alloc": {nz, le(1e10)}, "TotalAlloc": {nz, le(1e11)}, "Sys": {nz, le(1e10)},
-		"Lookups": {nz, le(1e10)}, "Mallocs": {nz, le(1e10)}, "Frees": {nz, le(1e10)},
-		"HeapAlloc": {nz, le(1e10)}, "HeapSys": {nz, le(1e10)}, "HeapIdle": {le(1e10)},
-		"HeapInuse": {nz, le(1e10)}, "HeapReleased": {le(1e10)}, "HeapObjects": {nz, le(1e10)},
-		"StackInuse": {nz, le(1e10)}, "StackSys": {nz, le(1e10)},
-		"MSpanInuse": {nz, le(1e10)}, "MSpanSys": {nz, le(1e10)},
-		"MCacheInuse": {nz, le(1e10)}, "MCacheSys": {nz, le(1e10)},
-		"BuckHashSys": {nz, le(1e10)}, "GCSys": {nz, le(1e10)}, "OtherSys": {nz, le(1e10)},
-		"NextGC": {nz, le(1e10)}, "LastGC": {nz},
-		"PauseTotalNs": {le(1e11)}, "PauseNs": nil, "PauseEnd": nil,
-		"NumGC": {nz, le(1e9)}, "NumForcedGC": {nz, le(1e9)},
-		"GCCPUFraction": {le(0.99)}, "EnableGC": {eq(true)}, "DebugGC": {eq(false)},
-		"BySize": nil,
-	}
-
-	rst := reflect.ValueOf(st).Elem()
-	for i := 0; i < rst.Type().NumField(); i++ {
-		name, val := rst.Type().Field(i).Name, rst.Field(i).Interface()
-		checks, ok := fields[name]
-		if !ok {
-			t.Errorf("unknown MemStats field %s", name)
-			continue
-		}
-		for _, check := range checks {
-			if err := check(val); err != nil {
-				t.Errorf("%s = %v: %s", name, val, err)
-			}
-		}
+	if st.HeapSys == 0 || /* st.StackSys == 0 || */ st.MSpanSys == 0 || st.MCacheSys == 0 ||
+		st.BuckHashSys == 0 || st.GCSys == 0 || st.OtherSys == 0 {
+		t.Fatalf("Zero sys value: %+v", *st)
 	}
 	if st.Sys != st.HeapSys+st.StackSys+st.MSpanSys+st.MCacheSys+
 		st.BuckHashSys+st.GCSys+st.OtherSys {
 		t.Fatalf("Bad sys value: %+v", *st)
-	}
-
-	if st.HeapIdle+st.HeapInuse != st.HeapSys {
-		t.Fatalf("HeapIdle(%d) + HeapInuse(%d) should be equal to HeapSys(%d), but isn't.", st.HeapIdle, st.HeapInuse, st.HeapSys)
-	}
-
-	if lpe := st.PauseEnd[int(st.NumGC+255)%len(st.PauseEnd)]; st.LastGC != lpe {
-		t.Fatalf("LastGC(%d) != last PauseEnd(%d)", st.LastGC, lpe)
-	}
-
-	var pauseTotal uint64
-	for _, pause := range st.PauseNs {
-		pauseTotal += pause
-	}
-	if int(st.NumGC) < len(st.PauseNs) {
-		// We have all pauses, so this should be exact.
-		if st.PauseTotalNs != pauseTotal {
-			t.Fatalf("PauseTotalNs(%d) != sum PauseNs(%d)", st.PauseTotalNs, pauseTotal)
-		}
-		for i := int(st.NumGC); i < len(st.PauseNs); i++ {
-			if st.PauseNs[i] != 0 {
-				t.Fatalf("Non-zero PauseNs[%d]: %+v", i, st)
-			}
-			if st.PauseEnd[i] != 0 {
-				t.Fatalf("Non-zero PauseEnd[%d]: %+v", i, st)
-			}
-		}
-	} else {
-		if st.PauseTotalNs < pauseTotal {
-			t.Fatalf("PauseTotalNs(%d) < sum PauseNs(%d)", st.PauseTotalNs, pauseTotal)
-		}
-	}
-
-	if st.NumForcedGC > st.NumGC {
-		t.Fatalf("NumForcedGC(%d) > NumGC(%d)", st.NumForcedGC, st.NumGC)
-	}
-}
-
-func TestStringConcatenationAllocs(t *testing.T) {
-	t.Skip("skipping test with gccgo")
-	n := testing.AllocsPerRun(1e3, func() {
-		b := make([]byte, 10)
-		for i := 0; i < 10; i++ {
-			b[i] = byte(i) + '0'
-		}
-		s := "foo" + string(b)
-		if want := "foo0123456789"; s != want {
-			t.Fatalf("want %v, got %v", want, s)
-		}
-	})
-	// Only string concatenation allocates.
-	if n != 1 {
-		t.Fatalf("want 1 allocation, got %v", n)
-	}
-}
-
-func TestTinyAlloc(t *testing.T) {
-	const N = 16
-	var v [N]unsafe.Pointer
-	for i := range v {
-		v[i] = unsafe.Pointer(new(byte))
-	}
-
-	chunks := make(map[uintptr]bool, N)
-	for _, p := range v {
-		chunks[uintptr(p)&^7] = true
-	}
-
-	if len(chunks) == N {
-		t.Fatal("no bytes allocated within the same 8-byte chunk")
 	}
 }
 

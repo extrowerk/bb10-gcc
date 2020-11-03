@@ -1,9 +1,6 @@
 // { dg-do run  }
 template <class T>
-void f()
-#if __cplusplus <= 201402L
-throw (T)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#endif
+void f() throw (T)
 {
   throw 7;
 }

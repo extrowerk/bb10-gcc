@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"log"
 	. "net/http"
+	"net/http/httptest"
 	"reflect"
 	"strconv"
 	"strings"
@@ -39,33 +40,9 @@ var sniffTests = []struct {
 	{"GIF 87a", []byte(`GIF87a`), "image/gif"},
 	{"GIF 89a", []byte(`GIF89a...`), "image/gif"},
 
-	// Audio types.
-	{"MIDI audio", []byte("MThd\x00\x00\x00\x06\x00\x01"), "audio/midi"},
-	{"MP3 audio/MPEG audio", []byte("ID3\x03\x00\x00\x00\x00\x0f"), "audio/mpeg"},
-	{"WAV audio #1", []byte("RIFFb\xb8\x00\x00WAVEfmt \x12\x00\x00\x00\x06"), "audio/wave"},
-	{"WAV audio #2", []byte("RIFF,\x00\x00\x00WAVEfmt \x12\x00\x00\x00\x06"), "audio/wave"},
-	{"AIFF audio #1", []byte("FORM\x00\x00\x00\x00AIFFCOMM\x00\x00\x00\x12\x00\x01\x00\x00\x57\x55\x00\x10\x40\x0d\xf3\x34"), "audio/aiff"},
-
-	{"OGG audio", []byte("OggS\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x7e\x46\x00\x00\x00\x00\x00\x00\x1f\xf6\xb4\xfc\x01\x1e\x01\x76\x6f\x72"), "application/ogg"},
-	{"Must not match OGG", []byte("owow\x00"), "application/octet-stream"},
-	{"Must not match OGG", []byte("oooS\x00"), "application/octet-stream"},
-	{"Must not match OGG", []byte("oggS\x00"), "application/octet-stream"},
-
-	// Video types.
-	{"MP4 video", []byte("\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom<\x06t\xbfmdat"), "video/mp4"},
-	{"AVI video #1", []byte("RIFF,O\n\x00AVI LISTÀ"), "video/avi"},
-	{"AVI video #2", []byte("RIFF,\n\x00\x00AVI LISTÀ"), "video/avi"},
-
-	// Font types.
-	// {"MS.FontObject", []byte("\x00\x00")},
-	{"TTF sample  I", []byte("\x00\x01\x00\x00\x00\x17\x01\x00\x00\x04\x01\x60\x4f"), "application/font-ttf"},
-	{"TTF sample II", []byte("\x00\x01\x00\x00\x00\x0e\x00\x80\x00\x03\x00\x60\x46"), "application/font-ttf"},
-
-	{"OTTO sample  I", []byte("\x4f\x54\x54\x4f\x00\x0e\x00\x80\x00\x03\x00\x60\x42\x41\x53\x45"), "application/font-off"},
-
-	{"woff sample  I", []byte("\x77\x4f\x46\x46\x00\x01\x00\x00\x00\x00\x30\x54\x00\x0d\x00\x00"), "application/font-woff"},
-	// Woff2 is not yet recognized, change this test once mime-sniff working group adds woff2
-	{"woff2 not recognized", []byte("\x77\x4f\x46\x32\x00\x01\x00\x00\x00"), "application/octet-stream"},
+	// TODO(dsymonds): Re-enable this when the spec is sorted w.r.t. MP4.
+	//{"MP4 video", []byte("\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom<\x06t\xbfmdat"), "video/mp4"},
+	//{"MP4 audio", []byte("\x00\x00\x00\x20ftypM4A \x00\x00\x00\x00M4A mp42isom\x00\x00\x00\x00"), "audio/mp4"},
 }
 
 func TestDetectContentType(t *testing.T) {
@@ -77,13 +54,9 @@ func TestDetectContentType(t *testing.T) {
 	}
 }
 
-func TestServerContentType_h1(t *testing.T) { testServerContentType(t, h1Mode) }
-func TestServerContentType_h2(t *testing.T) { testServerContentType(t, h2Mode) }
-
-func testServerContentType(t *testing.T, h2 bool) {
-	setParallel(t)
+func TestServerContentType(t *testing.T) {
 	defer afterTest(t)
-	cst := newClientServerTest(t, h2, HandlerFunc(func(w ResponseWriter, r *Request) {
+	ts := httptest.NewServer(HandlerFunc(func(w ResponseWriter, r *Request) {
 		i, _ := strconv.Atoi(r.FormValue("i"))
 		tt := sniffTests[i]
 		n, err := w.Write(tt.data)
@@ -91,25 +64,16 @@ func testServerContentType(t *testing.T, h2 bool) {
 			log.Fatalf("%v: Write(%q) = %v, %v want %d, nil", tt.desc, tt.data, n, err, len(tt.data))
 		}
 	}))
-	defer cst.close()
+	defer ts.Close()
 
 	for i, tt := range sniffTests {
-		resp, err := cst.c.Get(cst.ts.URL + "/?i=" + strconv.Itoa(i))
+		resp, err := Get(ts.URL + "/?i=" + strconv.Itoa(i))
 		if err != nil {
 			t.Errorf("%v: %v", tt.desc, err)
 			continue
 		}
-		// DetectContentType is defined to return
-		// text/plain; charset=utf-8 for an empty body,
-		// but as of Go 1.10 the HTTP server has been changed
-		// to return no content-type at all for an empty body.
-		// Adjust the expectation here.
-		wantContentType := tt.contentType
-		if len(tt.data) == 0 {
-			wantContentType = ""
-		}
-		if ct := resp.Header.Get("Content-Type"); ct != wantContentType {
-			t.Errorf("%v: Content-Type = %q, want %q", tt.desc, ct, wantContentType)
+		if ct := resp.Header.Get("Content-Type"); ct != tt.contentType {
+			t.Errorf("%v: Content-Type = %q, want %q", tt.desc, ct, tt.contentType)
 		}
 		data, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
@@ -123,17 +87,15 @@ func testServerContentType(t *testing.T, h2 bool) {
 
 // Issue 5953: shouldn't sniff if the handler set a Content-Type header,
 // even if it's the empty string.
-func TestServerIssue5953_h1(t *testing.T) { testServerIssue5953(t, h1Mode) }
-func TestServerIssue5953_h2(t *testing.T) { testServerIssue5953(t, h2Mode) }
-func testServerIssue5953(t *testing.T, h2 bool) {
+func TestServerIssue5953(t *testing.T) {
 	defer afterTest(t)
-	cst := newClientServerTest(t, h2, HandlerFunc(func(w ResponseWriter, r *Request) {
+	ts := httptest.NewServer(HandlerFunc(func(w ResponseWriter, r *Request) {
 		w.Header()["Content-Type"] = []string{""}
 		fmt.Fprintf(w, "<html><head></head><body>hi</body></html>")
 	}))
-	defer cst.close()
+	defer ts.Close()
 
-	resp, err := cst.c.Get(cst.ts.URL)
+	resp, err := Get(ts.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,9 +108,7 @@ func testServerIssue5953(t *testing.T, h2 bool) {
 	resp.Body.Close()
 }
 
-func TestContentTypeWithCopy_h1(t *testing.T) { testContentTypeWithCopy(t, h1Mode) }
-func TestContentTypeWithCopy_h2(t *testing.T) { testContentTypeWithCopy(t, h2Mode) }
-func testContentTypeWithCopy(t *testing.T, h2 bool) {
+func TestContentTypeWithCopy(t *testing.T) {
 	defer afterTest(t)
 
 	const (
@@ -156,7 +116,7 @@ func testContentTypeWithCopy(t *testing.T, h2 bool) {
 		expected = "text/html; charset=utf-8"
 	)
 
-	cst := newClientServerTest(t, h2, HandlerFunc(func(w ResponseWriter, r *Request) {
+	ts := httptest.NewServer(HandlerFunc(func(w ResponseWriter, r *Request) {
 		// Use io.Copy from a bytes.Buffer to trigger ReadFrom.
 		buf := bytes.NewBuffer([]byte(input))
 		n, err := io.Copy(w, buf)
@@ -164,9 +124,9 @@ func testContentTypeWithCopy(t *testing.T, h2 bool) {
 			t.Errorf("io.Copy(w, %q) = %v, %v want %d, nil", input, n, err, len(input))
 		}
 	}))
-	defer cst.close()
+	defer ts.Close()
 
-	resp, err := cst.c.Get(cst.ts.URL)
+	resp, err := Get(ts.URL)
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
@@ -182,12 +142,9 @@ func testContentTypeWithCopy(t *testing.T, h2 bool) {
 	resp.Body.Close()
 }
 
-func TestSniffWriteSize_h1(t *testing.T) { testSniffWriteSize(t, h1Mode) }
-func TestSniffWriteSize_h2(t *testing.T) { testSniffWriteSize(t, h2Mode) }
-func testSniffWriteSize(t *testing.T, h2 bool) {
-	setParallel(t)
+func TestSniffWriteSize(t *testing.T) {
 	defer afterTest(t)
-	cst := newClientServerTest(t, h2, HandlerFunc(func(w ResponseWriter, r *Request) {
+	ts := httptest.NewServer(HandlerFunc(func(w ResponseWriter, r *Request) {
 		size, _ := strconv.Atoi(r.FormValue("size"))
 		written, err := io.WriteString(w, strings.Repeat("a", size))
 		if err != nil {
@@ -198,9 +155,9 @@ func testSniffWriteSize(t *testing.T, h2 bool) {
 			t.Errorf("write of %d bytes wrote %d bytes", size, written)
 		}
 	}))
-	defer cst.close()
+	defer ts.Close()
 	for _, size := range []int{0, 1, 200, 600, 999, 1000, 1023, 1024, 512 << 10, 1 << 20} {
-		res, err := cst.c.Get(fmt.Sprintf("%s/?size=%d", cst.ts.URL, size))
+		res, err := Get(fmt.Sprintf("%s/?size=%d", ts.URL, size))
 		if err != nil {
 			t.Fatalf("size %d: %v", size, err)
 		}

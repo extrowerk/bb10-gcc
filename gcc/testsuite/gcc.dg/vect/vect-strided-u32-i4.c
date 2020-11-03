@@ -12,6 +12,8 @@ typedef struct {
    int d;
 } s;
 
+volatile int y = 0;
+
 __attribute__ ((noinline)) int
 main1 (s *arr)
 {
@@ -54,7 +56,8 @@ int main (void)
       arr[i].b = i * 2;
       arr[i].c = 17;
       arr[i].d = i+34;
-      asm volatile ("" ::: "memory");
+      if (y) /* Avoid vectorization.  */
+        abort ();
     } 
 
   main1 (arr);
@@ -63,4 +66,5 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  { target vect_strided4 } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */
   

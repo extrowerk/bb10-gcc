@@ -14,3 +14,4 @@ void f()
 }
 
 // { dg-final { scan-tree-dump-times "catch" 1 "gimple" } }
+// { dg-final { cleanup-tree-dump "gimple" } }

@@ -1,5 +1,5 @@
 /* Character scanner.
-   Copyright (C) 2000-2018 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -46,7 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gfortran.h"
 #include "toplev.h"	/* For set_src_pwd.  */
 #include "debug.h"
-#include "options.h"
+#include "flags.h"
 #include "cpp.h"
 #include "scanner.h"
 
@@ -80,7 +80,6 @@ static struct gfc_file_change
 size_t file_changes_cur, file_changes_count;
 size_t file_changes_allocated;
 
-static gfc_char_t *last_error_char;
 
 /* Functions dealing with our wide characters (gfc_char_t) and
    sequences of such characters.  */
@@ -270,7 +269,6 @@ gfc_scanner_init_1 (void)
   continue_line = 0;
 
   end_flag = 0;
-  last_error_char = NULL;
 }
 
 
@@ -714,7 +712,7 @@ skip_gcc_attribute (locus start)
 
 /* Return true if CC was matched.  */
 static bool
-skip_free_oacc_sentinel (locus start, locus old_loc)
+skip_oacc_attribute (locus start, locus old_loc, bool continue_flag)
 {
   bool r = false;
   char c;
@@ -754,7 +752,7 @@ skip_free_oacc_sentinel (locus start, locus old_loc)
 
 /* Return true if MP was matched.  */
 static bool
-skip_free_omp_sentinel (locus start, locus old_loc)
+skip_omp_attribute (locus start, locus old_loc, bool continue_flag)
 {
   bool r = false;
   char c;
@@ -843,7 +841,7 @@ skip_free_comments (void)
 		    c = next_char ();
 		    if (c == 'o' || c == 'O')
 		      {
-			if (skip_free_omp_sentinel (start, old_loc))
+			if (skip_omp_attribute (start, old_loc, continue_flag))
 			  return false;
 			gfc_current_locus = old_loc;
 			next_char ();
@@ -851,7 +849,7 @@ skip_free_comments (void)
 		      }
 		    else if (c == 'a' || c == 'A')
 		      {
-			if (skip_free_oacc_sentinel (start, old_loc))
+			if (skip_oacc_attribute (start, old_loc, continue_flag))
 			  return false;
 			gfc_current_locus = old_loc;
 			next_char ();
@@ -876,7 +874,7 @@ skip_free_comments (void)
 		    c = next_char ();
 		    if (c == 'o' || c == 'O')
 		      {
-			if (skip_free_omp_sentinel (start, old_loc))
+			if (skip_omp_attribute (start, old_loc, continue_flag))
 			  return false;
 			gfc_current_locus = old_loc;
 			next_char ();
@@ -901,7 +899,8 @@ skip_free_comments (void)
 		    c = next_char ();
 		      if (c == 'a' || c == 'A')
 			{
-			  if (skip_free_oacc_sentinel (start, old_loc))
+			  if (skip_oacc_attribute (start, old_loc, 
+						   continue_flag))
 			    return false;
 			  gfc_current_locus = old_loc;
 			  next_char();
@@ -936,63 +935,6 @@ skip_free_comments (void)
   return false;
 }
 
-/* Return true if MP was matched in fixed form.  */
-static bool
-skip_fixed_omp_sentinel (locus *start)
-{
-  gfc_char_t c;
-  if (((c = next_char ()) == 'm' || c == 'M')
-      && ((c = next_char ()) == 'p' || c == 'P'))
-    {
-      c = next_char ();
-      if (c != '\n'
-	  && (continue_flag
-	      || c == ' ' || c == '\t' || c == '0'))
-	{
-	  do
-	    c = next_char ();
-	  while (gfc_is_whitespace (c));
-	  if (c != '\n' && c != '!')
-	    {
-	      /* Canonicalize to *$omp.  */
-	      *start->nextc = '*';
-	      openmp_flag = 1;
-	      gfc_current_locus = *start;
-	      return true;
-	    }
-	}
-    }
-  return false;
-}
-
-/* Return true if CC was matched in fixed form.  */
-static bool
-skip_fixed_oacc_sentinel (locus *start)
-{
-  gfc_char_t c;
-  if (((c = next_char ()) == 'c' || c == 'C')
-      && ((c = next_char ()) == 'c' || c == 'C'))
-    {
-      c = next_char ();
-      if (c != '\n'
-	  && (continue_flag
-	      || c == ' ' || c == '\t' || c == '0'))
-	{
-	  do
-	    c = next_char ();
-	  while (gfc_is_whitespace (c));
-	  if (c != '\n' && c != '!')
-	    {
-	      /* Canonicalize to *$acc.  */
-	      *start->nextc = '*';
-	      openacc_flag = 1;
-	      gfc_current_locus = *start;
-	      return true;
-	    }
-	}
-    }
-  return false;
-}
 
 /* Skip comment lines in fixed source mode.  We have the same rules as
    in skip_free_comment(), except that we can have a 'c', 'C' or '*'
@@ -1061,90 +1003,126 @@ skip_fixed_comments (void)
 	      && continue_line < gfc_linebuf_linenum (gfc_current_locus.lb))
 	    continue_line = gfc_linebuf_linenum (gfc_current_locus.lb);
 
-	  if ((flag_openmp || flag_openmp_simd) && !flag_openacc)
+	  if (flag_openmp || flag_openmp_simd)
 	    {
 	      if (next_char () == '$')
 		{
 		  c = next_char ();
 		  if (c == 'o' || c == 'O')
 		    {
-		      if (skip_fixed_omp_sentinel (&start))
-			return;
+		      if (((c = next_char ()) == 'm' || c == 'M')
+			  && ((c = next_char ()) == 'p' || c == 'P'))
+			{
+			  c = next_char ();
+			  if (c != '\n'
+			      && ((openmp_flag && continue_flag)
+				  || c == ' ' || c == '\t' || c == '0'))
+			    {
+			      do
+				c = next_char ();
+			      while (gfc_is_whitespace (c));
+			      if (c != '\n' && c != '!')
+				{
+				  /* Canonicalize to *$omp.  */
+				  *start.nextc = '*';
+				  openmp_flag = 1;
+				  gfc_current_locus = start;
+				  return;
+				}
+			    }
+			}
 		    }
 		  else
-		    goto check_for_digits;
+		    {
+		      int digit_seen = 0;
+
+		      for (col = 3; col < 6; col++, c = next_char ())
+			if (c == ' ')
+			  continue;
+			else if (c == '\t')
+			  {
+			    col = 6;
+			    break;
+			  }
+			else if (c < '0' || c > '9')
+			  break;
+			else
+			  digit_seen = 1;
+
+		      if (col == 6 && c != '\n'
+			  && ((continue_flag && !digit_seen)
+			      || c == ' ' || c == '\t' || c == '0'))
+			{
+			  gfc_current_locus = start;
+			  start.nextc[0] = ' ';
+			  start.nextc[1] = ' ';
+			  continue;
+			}
+		    }
 		}
 	      gfc_current_locus = start;
 	    }
 
-	  if (flag_openacc && !(flag_openmp || flag_openmp_simd))
+	  if (flag_openacc)
 	    {
 	      if (next_char () == '$')
 		{
 		  c = next_char ();
 		  if (c == 'a' || c == 'A')
 		    {
-		      if (skip_fixed_oacc_sentinel (&start))
-			return;
+		      if (((c = next_char ()) == 'c' || c == 'C')
+			  && ((c = next_char ()) == 'c' || c == 'C'))
+			{
+			  c = next_char ();
+			  if (c != '\n'
+			      && ((openacc_flag && continue_flag)
+				  || c == ' ' || c == '\t' || c == '0'))
+			    {
+			      do
+				c = next_char ();
+			      while (gfc_is_whitespace (c));
+			      if (c != '\n' && c != '!')
+				{
+				  /* Canonicalize to *$acc. */
+				  *start.nextc = '*';
+				  openacc_flag = 1;
+				  gfc_current_locus = start;
+				  return;
+				}
+			    }
+			}
 		    }
 		  else
-		    goto check_for_digits;
+		    {
+		      int digit_seen = 0;
+
+		      for (col = 3; col < 6; col++, c = next_char ())
+			if (c == ' ')
+			  continue;
+			else if (c == '\t')
+			  {
+			    col = 6;
+			    break;
+			  }
+			else if (c < '0' || c > '9')
+			  break;
+			else
+			  digit_seen = 1;
+
+		      if (col == 6 && c != '\n'
+			  && ((continue_flag && !digit_seen)
+			      || c == ' ' || c == '\t' || c == '0'))
+			{
+			  gfc_current_locus = start;
+			  start.nextc[0] = ' ';
+			  start.nextc[1] = ' ';
+			  continue;
+			}
+		    }
 		}
 	      gfc_current_locus = start;
 	    }
 
-	  if (flag_openacc || flag_openmp || flag_openmp_simd)
-	    {
-	      if (next_char () == '$')
-		{
-		  c = next_char ();
-		  if (c == 'a' || c == 'A')
-		    {
-		      if (skip_fixed_oacc_sentinel (&start))
-			return;
-		    }
-		  else if (c == 'o' || c == 'O')
-		    {
-		      if (skip_fixed_omp_sentinel (&start))
-			return;
-		    }
-		  else
-		    goto check_for_digits;
-		}
-	      gfc_current_locus = start;
-	    }
-
-	  skip_comment_line ();
-	  continue;
-
-	  gcc_unreachable ();
-check_for_digits:
-	  {
-	    int digit_seen = 0;
-
-	    for (col = 3; col < 6; col++, c = next_char ())
-	      if (c == ' ')
-		continue;
-	      else if (c == '\t')
-		{
-		  col = 6;
-		  break;
-		}
-	      else if (c < '0' || c > '9')
-		break;
-	      else
-		digit_seen = 1;
-
-	    if (col == 6 && c != '\n'
-		&& ((continue_flag && !digit_seen)
-		    || c == ' ' || c == '\t' || c == '0'))
-	      {
-		gfc_current_locus = start;
-		start.nextc[0] = ' ';
-		start.nextc[1] = ' ';
-		continue;
-	      }
-	    }
 	  skip_comment_line ();
 	  continue;
 	}
@@ -1343,7 +1321,7 @@ restart:
 	continue_line = gfc_linebuf_linenum (gfc_current_locus.lb);
 
       if (flag_openmp)
-	if (prev_openmp_flag != openmp_flag && !openacc_flag)
+	if (prev_openmp_flag != openmp_flag)
 	  {
 	    gfc_current_locus = old_loc;
 	    openmp_flag = prev_openmp_flag;
@@ -1352,7 +1330,7 @@ restart:
 	  }
 
       if (flag_openacc)
-	if (prev_openacc_flag != openacc_flag && !openmp_flag)
+	if (prev_openacc_flag != openacc_flag)
 	  {
 	    gfc_current_locus = old_loc;
 	    openacc_flag = prev_openacc_flag;
@@ -1371,7 +1349,7 @@ restart:
       while (gfc_is_whitespace (c))
 	c = next_char ();
 
-      if (openmp_flag && !openacc_flag)
+      if (openmp_flag)
 	{
 	  for (i = 0; i < 5; i++, c = next_char ())
 	    {
@@ -1382,7 +1360,7 @@ restart:
 	  while (gfc_is_whitespace (c))
 	    c = next_char ();
 	}
-      if (openacc_flag && !openmp_flag)
+      if (openacc_flag)
 	{
 	  for (i = 0; i < 5; i++, c = next_char ())
 	    {
@@ -1394,30 +1372,9 @@ restart:
 	    c = next_char ();
 	}
 
-      /* In case we have an OpenMP directive continued by OpenACC
-	 sentinel, or vice versa, we get both openmp_flag and
-	 openacc_flag on.  */
-
-      if (openacc_flag && openmp_flag)
-	{
-	  int is_openmp = 0;
-	  for (i = 0; i < 5; i++, c = next_char ())
-	    {
-	      if (gfc_wide_tolower (c) != (unsigned char) "!$acc"[i])
-		is_openmp = 1;
-	      if (i == 4)
-		old_loc = gfc_current_locus;
-	    }
-	  gfc_error (is_openmp
-		     ? G_("Wrong OpenACC continuation at %C: "
-			  "expected !$ACC, got !$OMP")
-		     : G_("Wrong OpenMP continuation at %C: "
-			  "expected !$OMP, got !$ACC"));
-	}
-
       if (c != '&')
 	{
-	  if (in_string && gfc_current_locus.nextc)
+	  if (in_string)
 	    {
 	      gfc_current_locus.nextc--;
 	      if (warn_ampersand && in_string == INSTRING_WARN)
@@ -1430,10 +1387,7 @@ restart:
 	  /* Both !$omp and !$ -fopenmp continuation lines have & on the
 	     continuation line only optionally.  */
 	  else if (openmp_flag || openacc_flag || openmp_cond_flag)
-	    {
-	      if (gfc_current_locus.nextc)
-		  gfc_current_locus.nextc--;
-	    }
+	    gfc_current_locus.nextc--;
 	  else
 	    {
 	      c = ' ';
@@ -1482,36 +1436,18 @@ restart:
       skip_fixed_comments ();
 
       /* See if this line is a continuation line.  */
-      if (flag_openmp && openmp_flag != prev_openmp_flag && !openacc_flag)
+      if (flag_openmp && openmp_flag != prev_openmp_flag)
 	{
 	  openmp_flag = prev_openmp_flag;
 	  goto not_continuation;
 	}
-      if (flag_openacc && openacc_flag != prev_openacc_flag && !openmp_flag)
+      if (flag_openacc && openacc_flag != prev_openacc_flag)
 	{
 	  openacc_flag = prev_openacc_flag;
 	  goto not_continuation;
 	}
 
-      /* In case we have an OpenMP directive continued by OpenACC
-	 sentinel, or vice versa, we get both openmp_flag and
-	 openacc_flag on.  */
-      if (openacc_flag && openmp_flag)
-	{
-	  int is_openmp = 0;
-	  for (i = 0; i < 5; i++)
-	    {
-	      c = next_char ();
-	      if (gfc_wide_tolower (c) != (unsigned char) "*$acc"[i])
-		is_openmp = 1;
-	    }
-	  gfc_error (is_openmp
-		     ? G_("Wrong OpenACC continuation at %C: "
-			  "expected !$ACC, got !$OMP")
-		     : G_("Wrong OpenMP continuation at %C: "
-			  "expected !$OMP, got !$ACC"));
-	}
-      else if (!openmp_flag && !openacc_flag)
+      if (!openmp_flag && !openacc_flag)
 	for (i = 0; i < 5; i++)
 	  {
 	    c = next_char ();
@@ -1701,14 +1637,6 @@ gfc_gobble_whitespace (void)
 	}
     }
   while (gfc_is_whitespace (c));
-
-  if (!ISPRINT(c) && c != '\n' && last_error_char != gfc_current_locus.nextc)
-    {
-      char buf[20];
-      last_error_char = gfc_current_locus.nextc;
-      snprintf (buf, 20, "%2.2X", c);
-      gfc_error_now ("Invalid character 0x%s at %C", buf);
-    }
 
   gfc_current_locus = old_loc;
 }
@@ -2057,7 +1985,7 @@ preprocessor_line (gfc_char_t *c)
       c++;
       i = wide_atoi (c);
 
-      if (i >= 1 && i <= 4)
+      if (1 <= i && i <= 4)
 	flag[i] = true;
     }
 
@@ -2079,13 +2007,9 @@ preprocessor_line (gfc_char_t *c)
       if (!current_file->up
 	  || filename_cmp (current_file->up->filename, filename) != 0)
 	{
-	  linemap_line_start (line_table, current_file->line, 80);
-	  /* ??? One could compute the exact column where the filename
-	     starts and compute the exact location here.  */
-	  gfc_warning_now_at (linemap_position_for_column (line_table, 1),
-			      0, "file %qs left but not entered",
-			      filename);
-	  current_file->line++;
+	  gfc_warning_now_1 ("%s:%d: file %s left but not entered",
+			     current_file->filename, current_file->line,
+			     filename);
 	  if (unescape)
 	    free (wide_filename);
 	  free (filename);
@@ -2117,11 +2041,8 @@ preprocessor_line (gfc_char_t *c)
   return;
 
  bad_cpp_line:
-  linemap_line_start (line_table, current_file->line, 80);
-  /* ??? One could compute the exact column where the directive
-     starts and compute the exact location here.  */
-  gfc_warning_now_at (linemap_position_for_column (line_table, 2), 0,
-		      "Illegal preprocessor directive");
+  gfc_warning_now_1 ("%s:%d: Illegal preprocessor directive",
+		   current_file->filename, current_file->line);
   current_file->line++;
 }
 
@@ -2216,8 +2137,6 @@ load_file (const char *realfilename, const char *displayedname, bool initial)
   FILE *input;
   int len, line_len;
   bool first_line;
-  struct stat st;
-  int stat_result;
   const char *filename;
   /* If realfilename and displayedname are different and non-null then
      surely realfilename is the preprocessed form of
@@ -2245,7 +2164,6 @@ load_file (const char *realfilename, const char *displayedname, bool initial)
 	}
       else
 	input = gfc_open_file (realfilename);
-
       if (input == NULL)
 	{
 	  gfc_error_now ("Can't open file %qs", filename);
@@ -2259,15 +2177,6 @@ load_file (const char *realfilename, const char *displayedname, bool initial)
 	{
 	  fprintf (stderr, "%s:%d: Error: Can't open included file '%s'\n",
 		   current_file->filename, current_file->line, filename);
-	  return false;
-	}
-      stat_result = stat (realfilename, &st);
-      if (stat_result == 0 && !S_ISREG(st.st_mode))
-	{
-	  fprintf (stderr, "%s:%d: Error: Included path '%s'"
-		   " is not a regular file\n",
-		   current_file->filename, current_file->line, filename);
-	  fclose (input);
 	  return false;
 	}
     }

@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-O3 -save-temps -fno-inline -fno-vect-cost-model" } */
+/* { dg-options "-O3 -save-temps -fno-inline" } */
 
 extern void abort ();
 
@@ -38,3 +38,4 @@ main ()
   return 0;
 }
 
+/* { dg-final { cleanup-saved-temps } } */

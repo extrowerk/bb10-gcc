@@ -33,11 +33,13 @@ program p
   ! (1) check CLASS-to-TYPE transfer
   c%i=3
   t = transfer(c, t)
-  if (t%i /= 3) STOP 1
+  if (t%i /= 3) call abort()
 
   ! (2) check TYPE-to-CLASS transfer
   t%i=4
   c = transfer(t, c)
-  if (c%i /= 4) STOP 2
+  if (c%i /= 4) call abort()
 
 end
+
+! { dg-final { cleanup-modules "m" } }

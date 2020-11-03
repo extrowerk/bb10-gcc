@@ -14,3 +14,4 @@ t(int a, int b, int c)
 }
 /* { dg-final { scan-tree-dump-times "local memory is OK" 1 "local-pure-const1"} } */
 /* { dg-final { scan-tree-dump-times "found to be const" 1 "local-pure-const1"} } */
+/* { dg-final { cleanup-tree-dump "local-pure-const1" } } */

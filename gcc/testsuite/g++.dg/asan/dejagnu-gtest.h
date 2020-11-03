@@ -68,8 +68,7 @@ while (0)
 #define EXPECT_TRUE(condition) \
   if (!(condition))						\
     {								\
-      fprintf (stderr, "%s",					\
-	       "EXPECT_TRUE failed: " #condition "\n");		\
+      fprintf (stderr, "EXPECT_TRUE failed: " #condition "\n");	\
       exit (1);							\
     }
 #define EXPECT_FALSE(condition) EXPECT_TRUE (!condition)

@@ -14,5 +14,5 @@ program read_internal
 
   call init_data
   read(source,*) (x(i), i=1,6)
-  if (any(x/=[1,1,1,4,4,4])) STOP 1
+  if (any(x/=[1,1,1,4,4,4])) call abort
 end program read_internal

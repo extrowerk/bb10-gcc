@@ -10,6 +10,6 @@ program plusconst_1
   integer :: j = +100
 
   if ((p .ne. 3.1415) .or. (i .ne. 42) .or. (q .ne. 1.234) .or. (j .ne. 100)) &
-    STOP 1
+    call abort
 end program
 

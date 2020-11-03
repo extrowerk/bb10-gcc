@@ -26,3 +26,4 @@ void testInlinePsub() {
 }
 
 // { dg-final { scan-tree-dump-not "function_to_inline" "release_ssa" { xfail *-*-* } } }
+// { dg-final { cleanup-tree-dump "release_ssa" } }

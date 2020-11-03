@@ -1,6 +1,6 @@
 ! { dg-do run }
 !
-! Test the behavior of lbound, ubound of shape with assumed rank arguments
+! Test the behaviour of lbound, ubound of shape with assumed rank arguments
 ! in an array context (without DIM argument).
 !
 
@@ -14,64 +14,64 @@ program test
 
   b = foo(a)
   !print *,b(:,1)
-  if (any(b(:,1) /= [11, 101])) STOP 1
+  if (any(b(:,1) /= [11, 101])) call abort
   buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
   write(buffer,*) b(:,1)
-  if (buffer /= '          11         101') STOP 2
+  if (buffer /= '          11         101') call abort
 
   !print *,b(:,2)
-  if (any(b(:,2) /= [3, 8])) STOP 3
+  if (any(b(:,2) /= [3, 8])) call abort
   buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
   write(buffer,*) b(:,2)
-  if (buffer /= '           3           8') STOP 4
+  if (buffer /= '           3           8') call abort
 
   !print *,b(:,3)
-  if (any(b(:,3) /= [13, 108])) STOP 5
+  if (any(b(:,3) /= [13, 108])) call abort
   buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
   write(buffer,*) b(:,3)
-  if (buffer /= '          13         108') STOP 6
+  if (buffer /= '          13         108') call abort
 
 
   allocate(c(1:2,-3:6))
   b = bar(c)
   !print *,b(:,1)
-  if (any(b(:,1) /= [11, 97])) STOP 7
+  if (any(b(:,1) /= [11, 97])) call abort
   buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
   write(buffer,*) b(:,1)
-  if (buffer /= '          11          97') STOP 8
+  if (buffer /= '          11          97') call abort
 
   !print *,b(:,2)
-  if (any(b(:,2) /= [12, 106])) STOP 9
+  if (any(b(:,2) /= [12, 106])) call abort
   buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
   write(buffer,*) b(:,2)
-  if (buffer /= '          12         106') STOP 10
+  if (buffer /= '          12         106') call abort
 
   !print *,b(:,3)
-  if (any(b(:,3) /= [2, 10])) STOP 11
+  if (any(b(:,3) /= [2, 10])) call abort
   buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
   write(buffer,*) b(:,3)
-  if (buffer /= '           2          10') STOP 12
+  if (buffer /= '           2          10') call abort
 
 
   allocate(d(3:5,-1:10))
   b = baz(d)
   !print *,b(:,1)
-  if (any(b(:,1) /= [3, -1])) STOP 13
+  if (any(b(:,1) /= [3, -1])) call abort
   buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
   write(buffer,*) b(:,1)
-  if (buffer /= '           3          -1') STOP 14
+  if (buffer /= '           3          -1') call abort
 
   !print *,b(:,2)
-  if (any(b(:,2) /= [15, 110])) STOP 15
+  if (any(b(:,2) /= [15, 110])) call abort
   buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
   write(buffer,*) b(:,2)
-  if (buffer /= '          15         110') STOP 16
+  if (buffer /= '          15         110') call abort
 
   !print *,b(:,3)
-  if (any(b(:,3) /= [13, 112])) STOP 17
+  if (any(b(:,3) /= [13, 112])) call abort
   buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
   write(buffer,*) b(:,3)
-  if (buffer /= '          13         112') STOP 18
+  if (buffer /= '          13         112') call abort
 
 
 contains

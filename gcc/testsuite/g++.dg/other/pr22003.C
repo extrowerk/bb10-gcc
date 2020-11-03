@@ -21,6 +21,5 @@ struct c3 : c1, c2
 
 c4* c3::func()
 {
-  return 0;
 }
 

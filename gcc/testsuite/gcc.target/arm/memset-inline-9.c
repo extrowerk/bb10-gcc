@@ -38,3 +38,4 @@ main(void)
 }
 /* { dg-final { scan-assembler-not "bl?\[ \t\]*memset" { target { arm_little_endian && arm_neon } } } } */
 /* { dg-final { scan-assembler "vst1" { target { arm_little_endian && arm_neon } } } } */
+/* { dg-final { cleanup-saved-temps } } */

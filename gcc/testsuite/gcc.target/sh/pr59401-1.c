@@ -3,6 +3,7 @@
    and a GBR memory access must not be done.  */
 /* { dg-do compile }  */
 /* { dg-options "-O1" } */
+/* { dg-skip-if "" { "sh*-*-*" } { "-m5*"} { "" } }  */
 /* { dg-final { scan-assembler "stc\tgbr" } } */
 /* { dg-final { scan-assembler "bf|bt" } } */
 

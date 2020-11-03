@@ -4,10 +4,7 @@
 extern int ret;
 
 void *ptr;
-void * operator new[] (std::size_t s)
-#if __cplusplus < 201103L
-throw (std::bad_alloc)
-#endif
+void * operator new[] (std::size_t s) throw (std::bad_alloc)
 {
   ptr = operator new (s);
   return ptr;

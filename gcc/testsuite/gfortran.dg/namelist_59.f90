@@ -21,5 +21,5 @@ subroutine process(string)
  lines(3)='/'
 
  read(lines,nml=cmd,iostat=ios,iomsg=message)
- if (ios.ne.0) STOP 1
+ if (ios.ne.0) call abort
 end subroutine process

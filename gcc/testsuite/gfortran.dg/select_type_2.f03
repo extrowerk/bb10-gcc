@@ -34,7 +34,7 @@
     i = 3
   end select
 
-  if (i /= 1) STOP 1
+  if (i /= 1) call abort()
 
   cp => b
   i = 0
@@ -48,7 +48,7 @@
     i = 3
   end select
 
-  if (i /= 2) STOP 2
+  if (i /= 2) call abort()
 
   cp => c
   i = 0
@@ -62,6 +62,6 @@
     i = 3
   end select
 
-  if (i /= 3) STOP 3
+  if (i /= 3) call abort()
 
 end

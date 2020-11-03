@@ -1,6 +1,6 @@
 /* { dg-do run } */
 /* { dg-require-effective-target avx512f } */
-/* { dg-options "-O3 -mavx512f -ffast-math -mtune=knl" } */
+/* { dg-options "-O3 -mavx512f -ffast-math" } */
 
 #include "avx512f-check.h"
 

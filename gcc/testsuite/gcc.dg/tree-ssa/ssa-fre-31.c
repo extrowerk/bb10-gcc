@@ -44,3 +44,4 @@ void test4 (unsigned char x)
 
 /* { dg-final { scan-tree-dump-times "Replaced \{" 4 "fre1" } } */
 /* { dg-final { scan-tree-dump-times "Deleted redundant store" 4 "fre1" } } */
+/* { dg-final { cleanup-tree-dump "fre1" } } */

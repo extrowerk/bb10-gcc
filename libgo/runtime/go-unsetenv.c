@@ -9,7 +9,10 @@
 #include <stddef.h>
 #include <stdlib.h>
 
+#include "go-alloc.h"
 #include "runtime.h"
+#include "arch.h"
+#include "malloc.h"
 
 /* Unset an environment variable from Go.  This is called by
    syscall.Unsetenv.  */
@@ -21,6 +24,7 @@ unsetenv_c (String k)
 {
   const byte *ks;
   unsigned char *kn;
+  intgo len;
 
   ks = k.str;
   if (ks == NULL)
@@ -29,11 +33,14 @@ unsetenv_c (String k)
 
 #ifdef HAVE_UNSETENV
 
-  if (ks[k.len] != 0)
+  if (ks != NULL && ks[k.len] != 0)
     {
-      kn = malloc (k.len + 1);
-      if (kn == NULL)
-	runtime_throw ("out of malloc memory");
+      // Objects that are explicitly freed must be at least 16 bytes in size,
+      // so that they are not allocated using tiny alloc.
+      len = k.len + 1;
+      if (len < TinySize)
+	len = TinySize;
+      kn = __go_alloc (len);
       __builtin_memcpy (kn, ks, k.len);
       ks = kn;
     }
@@ -43,5 +50,5 @@ unsetenv_c (String k)
 #endif /* !defined(HAVE_UNSETENV) */
 
   if (kn != NULL)
-    free (kn);
+    __go_free (kn);
 }

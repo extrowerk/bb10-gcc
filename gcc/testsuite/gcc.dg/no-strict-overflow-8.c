@@ -22,3 +22,4 @@ foo (struct c *p)
 }
 
 /* { dg-final { scan-tree-dump "i_.* > 0" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

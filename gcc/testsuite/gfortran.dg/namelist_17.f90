@@ -12,19 +12,19 @@ program namelist_17
   rewind (10)
   
   read (10, mynml, iostat = ier)
-  if (ier .ne. 0) STOP 1
+  if (ier .ne. 0) call abort ()
   close (10)
 
   open (10, status = "scratch")
   write (10, mynml, iostat = ier)
-  if (ier .ne. 0) STOP 2
+  if (ier .ne. 0) call abort ()
   rewind (10)
 
   l = (/.true., .false./)
   read (10, mynml, iostat = ier)
-  if (ier .ne. 0) STOP 3
+  if (ier .ne. 0) call abort ()
   close (10)
 
-  if (l(1) .or. (.not.l(2))) STOP 4
+  if (l(1) .or. (.not.l(2))) call abort ()
 
 end program namelist_17 

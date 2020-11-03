@@ -1,5 +1,5 @@
 // go-system.h -- Go frontend inclusion of gcc header files   -*- C++ -*-
-// Copyright (C) 2009-2018 Free Software Foundation, Inc.
+// Copyright (C) 2009-2015 Free Software Foundation, Inc.
 
 // This file is part of GCC.
 
@@ -22,12 +22,6 @@
 
 #include "config.h"
 
-/* Define this so that inttypes.h defines the PRI?64 macros even
-   when compiling with a C++ compiler.  Define it here so in the
-   event inttypes.h gets pulled in by another header it is already
-   defined.  */
-#define __STDC_FORMAT_MACROS
-
 // These must be included before the #poison declarations in system.h.
 
 #include <algorithm>
@@ -36,7 +30,6 @@
 #include <map>
 #include <set>
 #include <vector>
-#include <sstream>
 
 #if defined(HAVE_UNORDERED_MAP)
 
@@ -137,6 +130,7 @@ struct hash<T*>
 #include "coretypes.h"
 
 #include "diagnostic-core.h"	/* For error_at and friends.  */
+#include "input.h"		/* For source_location.  */
 #include "intl.h"		/* For _().  */
 
 // When using gcc, go_assert is just gcc_assert.

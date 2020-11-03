@@ -17,17 +17,17 @@ class(t), allocatable :: x(:)
 allocate(t2 :: x(10))
 select type(x)
  type is(t2)
-  if (size (x) /= 10) STOP 1
+  if (size (x) /= 10) call abort ()
   x = [(t2(a=-i, B=[1*i,2*i,3*i,4*i]), i = 1, 10)]
   do i = 1, 10
     if (x(i)%a /= -i .or. size (x(i)%b) /= 4 &
         .or. any (x(i)%b /= [1*i,2*i,3*i,4*i])) then
-        STOP 2
+        call abort()
     end if
-    if (x(i)%z /= cmplx(3.3, 4.4)) STOP 3
+    if (x(i)%z /= cmplx(3.3, 4.4)) call abort()
   end do
   class default
-    STOP 4
+    call abort()
 end select
 
 call base(x)
@@ -37,22 +37,22 @@ call classExplicit(x, size(x))
 contains
   subroutine base(y)
     type(t) :: y(:)
-    if (size (y) /= 10) STOP 5
+    if (size (y) /= 10) call abort ()
     do i = 1, 10
       if (y(i)%a /= -i .or. size (y(i)%b) /= 4 &
           .or. any (y(i)%b /= [1*i,2*i,3*i,4*i])) then
-        STOP 6
+        call abort()
       end if
     end do
   end subroutine base
   subroutine baseExplicit(v, n)
     integer, intent(in) :: n
     type(t) :: v(n)
-    if (size (v) /= 10) STOP 7
+    if (size (v) /= 10) call abort ()
     do i = 1, 10
       if (v(i)%a /= -i .or. size (v(i)%b) /= 4 &
           .or. any (v(i)%b /= [1*i,2*i,3*i,4*i])) then
-        STOP 8
+        call abort()
       end if
     end do
   end subroutine baseExplicit
@@ -60,16 +60,16 @@ contains
     class(t), intent(in) :: z(:)
     select type(z)
      type is(t2)
-      if (size (z) /= 10) STOP 9
+      if (size (z) /= 10) call abort ()
       do i = 1, 10
         if (z(i)%a /= -i .or. size (z(i)%b) /= 4 &
             .or. any (z(i)%b /= [1*i,2*i,3*i,4*i])) then
-            STOP 10
+            call abort()
         end if
-        if (z(i)%z /= cmplx(3.3, 4.4)) STOP 11
+        if (z(i)%z /= cmplx(3.3, 4.4)) call abort()
       end do
       class default
-        STOP 12
+        call abort()
     end select
     call base(z)
     call baseExplicit(z, size(z))
@@ -79,16 +79,16 @@ contains
     class(t), intent(in) :: u(n)
     select type(u)
      type is(t2)
-      if (size (u) /= 10) STOP 13
+      if (size (u) /= 10) call abort ()
       do i = 1, 10
         if (u(i)%a /= -i .or. size (u(i)%b) /= 4 &
             .or. any (u(i)%b /= [1*i,2*i,3*i,4*i])) then
-            STOP 14
+            call abort()
         end if
-        if (u(i)%z /= cmplx(3.3, 4.4)) STOP 15
+        if (u(i)%z /= cmplx(3.3, 4.4)) call abort()
       end do
       class default
-        STOP 16
+        call abort()
     end select
     call base(u)
     call baseExplicit(u, n)

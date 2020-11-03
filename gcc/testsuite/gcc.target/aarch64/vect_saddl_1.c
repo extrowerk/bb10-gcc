@@ -1,8 +1,6 @@
 /* { dg-do run } */
 /* { dg-options "-O3 -fno-inline -save-temps -fno-vect-cost-model -fno-ipa-icf" } */
 
-#pragma GCC target "+nosve"
-
 typedef signed char S8_t;
 typedef signed short S16_t;
 typedef signed int S32_t;
@@ -313,4 +311,5 @@ main ()
   return 0;
 }
 
+/* { dg-final { cleanup-saved-temps } } */
 

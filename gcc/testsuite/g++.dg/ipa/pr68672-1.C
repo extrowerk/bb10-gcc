@@ -1,6 +1,6 @@
 // PR ipa/68672
 // { dg-do compile }
-// { dg-options "-O -finline-small-functions -fpartial-inlining --param=partial-inlining-entry-probability=100 -Wno-return-type" }
+// { dg-options "-O -finline-small-functions -fpartial-inlining --param=partial-inlining-entry-probability=100" }
 
 void f2 (void *);
 void *a;

@@ -18,7 +18,7 @@ end module b
 
   use a
   use b
-  if (reM .ne. 1.77d0) STOP 1
+  if (reM .ne. 1.77d0) call abort ()
   reM = 0.57d1
-  if (M .ne. 0.57d1) STOP 2
+  if (M .ne. 0.57d1) call abort ()
 end

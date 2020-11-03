@@ -21,3 +21,4 @@ foo (int n, TYPE *x, TYPE *y)
 }
 
 /* { dg-final { scan-tree-dump-times "__asm__" 2 "pre"} } */
+/* { dg-final { cleanup-tree-dump "pre" } } */

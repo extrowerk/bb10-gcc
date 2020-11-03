@@ -14,3 +14,4 @@
       END
 
 ! { dg-final { scan-rtl-dump-times "line\\\+80" 0 "expand" } }
+! { dg-final { cleanup-rtl-dump "expand" } } */

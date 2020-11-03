@@ -3,7 +3,6 @@
 /* { dg-require-weak "" } */
 /* { dg-require-alias "" } */
 /* { dg-options "-O2" } */
-/* { dg-skip-if "" { powerpc-ibm-aix* } } */
 void abort (void);
 extern int undef_var0, undef_var1;
 extern __attribute__ ((weak)) int weak_undef_var0;

@@ -1,4 +1,3 @@
-/* { dg-do compile } */
 /* { dg-options "-O -fselective-scheduling -fschedule-insns -fsel-sched-pipelining -fsel-sched-pipelining-outer-loops -fno-tree-dominator-opts"  } */
 
 extern int n;

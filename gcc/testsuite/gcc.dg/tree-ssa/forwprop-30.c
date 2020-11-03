@@ -12,3 +12,4 @@ int *foo (int *q, int i, int j)
    need q + i as well.  */
 
 /* { dg-final { scan-tree-dump-times "\\+" 2 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

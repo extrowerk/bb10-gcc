@@ -5,5 +5,5 @@ void
 foo()
 {
   union { struct { }; }; // { dg-error "prohibits anonymous struct" "anon" }
-  // { dg-error "not inside" "not inside" { target *-*-* } .-1 }
+  // { dg-error "not inside" "not inside" { target *-*-* } 7 }
 }

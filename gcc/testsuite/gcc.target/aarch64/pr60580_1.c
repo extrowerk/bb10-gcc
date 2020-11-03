@@ -42,3 +42,4 @@ func3 (void)
 
 /* { dg-final { scan-assembler-times "stp\tx29, x30, \\\[sp, -\[0-9\]+\\\]!" 1 } } */
 
+/* { dg-final { cleanup-saved-temps } } */

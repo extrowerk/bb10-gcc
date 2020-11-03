@@ -9,9 +9,9 @@
 subroutine bmp_write(nx)
   implicit none
   integer, value :: nx
-  if(nx /= 10) STOP 1
+  if(nx /= 10) call abort()
   nx = 11
-  if(nx /= 11) STOP 2
+  if(nx /= 11) call abort()
 end subroutine bmp_write
 
 module x
@@ -29,9 +29,9 @@ module x
 contains
    SUBROUTINE Grid2BMP(NX)
      INTEGER, INTENT(IN) :: NX
-     if(nx /= 10) STOP 3
+     if(nx /= 10) call abort()
      call bmp_write(%val(nx))
-     if(nx /= 10) STOP 4
+     if(nx /= 10) call abort()
    END SUBROUTINE Grid2BMP
 END module x
 
@@ -46,15 +46,15 @@ END module x
 !    implicit none
 !    integer :: n
 !    n = 5
-!    if(n /= 5) STOP 5
+!    if(n /= 5) call abort()
 !    call test2(%VAL(n))
-!    if(n /= 5) STOP 6
+!    if(n /= 5) call abort()
 !  contains
 !    subroutine test2(a)
 !      integer, value :: a
-!      if(a /= 5) STOP 7
+!      if(a /= 5) call abort()
 !      a = 2
-!      if(a /= 2) STOP 8
+!      if(a /= 2) call abort()
 !    end subroutine test2
 !end subroutine test
 

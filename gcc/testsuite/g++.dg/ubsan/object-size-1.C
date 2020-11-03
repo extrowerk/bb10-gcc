@@ -1,12 +1,9 @@
 // { dg-do compile }
-// { dg-options "-Wpedantic -Wno-error=pedantic -fsanitize=undefined -fpermissive" }
+// { dg-options "-fsanitize=undefined -fpermissive" }
 
-struct T
-{
-  int c; char d[];   // { dg-warning "forbids flexible array member" }
-};
+struct T { int c; char d[]; };
 
-struct T t = { 1, "a" }; // { dg-warning "initialization of a flexible array member " }
+struct T t = { 1, "a" }; // { dg-warning "initializer-string for array of chars is too long" }
 
 int
 baz (int i)

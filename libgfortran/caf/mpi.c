@@ -1,5 +1,5 @@
 /* MPI implementation of GNU Fortran Coarray Library
-   Copyright (C) 2011-2018 Free Software Foundation, Inc.
+   Copyright (C) 2011-2015 Free Software Foundation, Inc.
    Contributed by Tobias Burnus <burnus@net-b.de>
 
 This file is part of the GNU Fortran Coarray Runtime Library (libcaf).
@@ -131,8 +131,7 @@ _gfortran_caf_num_images (int distance __attribute__ ((unused)),
 
 void *
 _gfortran_caf_register (size_t size, caf_register_t type, caf_token_t *token,
-			int *stat, char *errmsg, size_t errmsg_len,
-			int num_alloc_comps __attribute__ ((unused)))
+			int *stat, char *errmsg, int errmsg_len)
 {
   void *local;
   int err;
@@ -189,8 +188,8 @@ error:
 	*stat = caf_is_finalized ? STAT_STOPPED_IMAGE : 1;
 	if (errmsg_len > 0)
 	  {
-	    size_t len = (strlen (msg) > errmsg_len) ? errmsg_len
-	      : strlen (msg);
+	    int len = ((int) strlen (msg) > errmsg_len) ? errmsg_len
+							: (int) strlen (msg);
 	    memcpy (errmsg, msg, len);
 	    if (errmsg_len > len)
 	      memset (&errmsg[len], ' ', errmsg_len-len);
@@ -205,7 +204,7 @@ error:
 
 
 void
-_gfortran_caf_deregister (caf_token_t *token, int *stat, char *errmsg, size_t errmsg_len)
+_gfortran_caf_deregister (caf_token_t *token, int *stat, char *errmsg, int errmsg_len)
 {
   if (unlikely (caf_is_finalized))
     {
@@ -217,8 +216,8 @@ _gfortran_caf_deregister (caf_token_t *token, int *stat, char *errmsg, size_t er
 	
 	  if (errmsg_len > 0)
 	    {
-	      size_t len = (sizeof (msg) - 1 > errmsg_len)
-		? errmsg_len : sizeof (msg) - 1;
+	      int len = ((int) sizeof (msg) - 1 > errmsg_len)
+			? errmsg_len : (int) sizeof (msg) - 1;
 	      memcpy (errmsg, msg, len);
 	      if (errmsg_len > len)
 		memset (&errmsg[len], ' ', errmsg_len-len);
@@ -239,7 +238,7 @@ _gfortran_caf_deregister (caf_token_t *token, int *stat, char *errmsg, size_t er
 
 
 void
-_gfortran_caf_sync_all (int *stat, char *errmsg, size_t errmsg_len)
+_gfortran_caf_sync_all (int *stat, char *errmsg, int errmsg_len)
 {
   int ierr;
 
@@ -261,8 +260,8 @@ _gfortran_caf_sync_all (int *stat, char *errmsg, size_t errmsg_len)
 
       if (errmsg_len > 0)
 	{
-	  size_t len = (strlen (msg) > errmsg_len) ? errmsg_len
-	    : strlen (msg);
+	  int len = ((int) strlen (msg) > errmsg_len) ? errmsg_len
+						      : (int) strlen (msg);
 	  memcpy (errmsg, msg, len);
 	  if (errmsg_len > len)
 	    memset (&errmsg[len], ' ', errmsg_len-len);
@@ -278,7 +277,7 @@ _gfortran_caf_sync_all (int *stat, char *errmsg, size_t errmsg_len)
    is not equivalent to SYNC ALL. */
 void
 _gfortran_caf_sync_images (int count, int images[], int *stat, char *errmsg,
-			   size_t errmsg_len)
+			   int errmsg_len)
 {
   int ierr;
   if (count == 0 || (count == 1 && images[0] == caf_this_image))
@@ -329,8 +328,8 @@ _gfortran_caf_sync_images (int count, int images[], int *stat, char *errmsg,
 
       if (errmsg_len > 0)
 	{
-	  size_t len = (strlen (msg) > errmsg_len) ? errmsg_len
-	    : strlen (msg);
+	  int len = ((int) strlen (msg) > errmsg_len) ? errmsg_len
+						      : (int) strlen (msg);
 	  memcpy (errmsg, msg, len);
 	  if (errmsg_len > len)
 	    memset (&errmsg[len], ' ', errmsg_len-len);
@@ -358,15 +357,13 @@ error_stop (int error)
 /* ERROR STOP function for string arguments.  */
 
 void
-_gfortran_caf_error_stop_str (const char *string, size_t len, bool quiet)
+_gfortran_caf_error_stop_str (const char *string, int32_t len)
 {
-  if (!quiet)
-    {
-      fputs ("ERROR STOP ", stderr);
-      while (len--)
-	fputc (*(string++), stderr);
-      fputs ("\n", stderr);
-    }
+  fputs ("ERROR STOP ", stderr);
+  while (len--)
+    fputc (*(string++), stderr);
+  fputs ("\n", stderr);
+
   error_stop (1);
 }
 
@@ -374,9 +371,8 @@ _gfortran_caf_error_stop_str (const char *string, size_t len, bool quiet)
 /* ERROR STOP function for numerical arguments.  */
 
 void
-_gfortran_caf_error_stop (int error, bool quiet)
+_gfortran_caf_error_stop (int32_t error)
 {
-  if (!quiet)
-    fprintf (stderr, "ERROR STOP %d\n", error);
+  fprintf (stderr, "ERROR STOP %d\n", error);
   error_stop (error);
 }

@@ -1,7 +1,7 @@
 // Test for propagation of anonymous namespace internal linkage
 
 // { dg-do compile }
-// { dg-final { scan-assembler-not "globl.*_Z1fv" { xfail *-*-aix* } } }
+// { dg-final { scan-assembler-not "globl.*_Z1fv" } }
 // { dg-require-visibility "" }
 
 namespace
@@ -9,4 +9,4 @@ namespace
   struct A { };
 }
 
-A f () { return A(); }
+A f () { }

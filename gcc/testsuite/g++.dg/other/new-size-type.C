@@ -5,5 +5,6 @@
 const char*
 foo()
 {
-    return new char[~static_cast<size_t>(0)];// { dg-error "size of array" }
+    return new char[~static_cast<size_t>(0)];// { dg-bogus "large" }
 }
+

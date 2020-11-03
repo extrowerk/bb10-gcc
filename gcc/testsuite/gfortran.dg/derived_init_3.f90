@@ -22,7 +22,7 @@ program main
 
   ptr => tgt
   call set_ptr (ptr)
-  if (associated(ptr)) STOP 1
+  if (associated(ptr)) call abort()
 
 contains
 

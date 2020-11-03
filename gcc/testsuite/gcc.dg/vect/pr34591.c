@@ -9,3 +9,4 @@ int av_resample(int filter_length, short *src, short *filter)
     return val;
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

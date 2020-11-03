@@ -4,11 +4,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin dragonfly freebsd openbsd netbsd
-
 package syscall
-
-import "unsafe"
 
 const SizeofSockaddrInet4 = 16
 const SizeofSockaddrInet6 = 28
@@ -83,11 +79,4 @@ func BindToDevice(fd int, device string) (err error) {
 
 func anyToSockaddrOS(rsa *RawSockaddrAny) (Sockaddr, error) {
 	return nil, EAFNOSUPPORT
-}
-
-func GetsockoptIPv6MTUInfo(fd, level, opt int) (*IPv6MTUInfo, error) {
-	var value IPv6MTUInfo
-	vallen := Socklen_t(SizeofIPv6MTUInfo)
-	err := getsockopt(fd, level, opt, unsafe.Pointer(&value), &vallen)
-	return &value, err
 }

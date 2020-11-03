@@ -11,12 +11,12 @@ struct c1 {
 struct c5 {};
 
 struct c6 : virtual c1 {
-  virtual c5* f33() const { return 0; }
+  virtual c5* f33() const {}
 };
 
 struct c13 : virtual c5 { };
 
 struct c17 : virtual c6
 {
-  virtual c13* f33() const { return 0; }
+  virtual c13* f33() const {}
 };

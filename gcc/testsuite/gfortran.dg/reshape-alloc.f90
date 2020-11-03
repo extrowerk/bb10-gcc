@@ -21,12 +21,12 @@ program tryreshape
   vect2=1
 
   resh2 = reshape(vect2,s)
-  if (resh2(1,1) /= 1.0) STOP 1
+  if (resh2(1,1) /= 1.0) call abort
 
   resh1 = reshape(vect1,s)
-  if (resh1(1,1) /= 1.0) STOP 2
+  if (resh1(1,1) /= 1.0) call abort
 
   resh = reshape(vect,s)
-  if (resh(1,1) /= 1.0) STOP 3
+  if (resh(1,1) /= 1.0) call abort
 
 end program tryreshape

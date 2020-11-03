@@ -1,5 +1,5 @@
 /* Header file to the Fortran front-end and runtime library
-   Copyright (C) 2007-2018 Free Software Foundation, Inc.
+   Copyright (C) 2007-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,9 +22,8 @@ along with GCC; see the file COPYING3.  If not see
    Note that no features were obsoleted nor deleted in F2003.
    Please remember to keep those definitions in sync with
    gfortran.texi.  */
-#define GFC_STD_F2018_DEL      (1<<12)  /* Deleted in F2018.  */
-#define GFC_STD_F2018_OBS      (1<<11)  /* Obsolescent in F2018.  */
-#define GFC_STD_F2018          (1<<10)  /* New in F2018.  */
+/* For now, use F2015 = GFC_STD_GNU.  */
+#define GFC_STD_F2015	        (1<<5)	/* PLACEHOLDER for Fortran 2015.  */
 #define GFC_STD_F2008_TS	(1<<9)	/* POST-F2008 technical reports.  */
 #define GFC_STD_F2008_OBS	(1<<8)	/* Obsolescent in F2008.  */
 #define GFC_STD_F2008		(1<<7)	/* New in F2008.  */
@@ -69,11 +68,10 @@ along with GCC; see the file COPYING3.  If not see
 				| GFC_RTCHECK_RECURSION | GFC_RTCHECK_DO \
 				| GFC_RTCHECK_POINTER | GFC_RTCHECK_MEM)
 
-/* Special unit numbers used to convey certain conditions.  Numbers -4
+/* Special unit numbers used to convey certain conditions.  Numbers -3
    thru -9 available.  NEWUNIT values start at -10.  */
-#define GFC_INTERNAL_UNIT  -1    /* KIND=1 Internal Unit.  */
-#define GFC_INTERNAL_UNIT4 -2    /* KIND=4 Internal Unit.  */
-#define GFC_INVALID_UNIT   -3
+#define GFC_INTERNAL_UNIT -1
+#define GFC_INVALID_UNIT  -2
 
 /* Possible values for the CONVERT I/O specifier.  */
 /* Keep in sync with GFC_FLAG_CONVERT_* in gcc/flags.h.  */
@@ -118,14 +116,14 @@ typedef enum
 }
 libgfortran_error_codes;
 
-/* Must kept in sync with libgfortran/caf/libcaf.h.  */
+/* Must kept in sync with libgfortrancaf.h.  */
 typedef enum
 {
   GFC_STAT_UNLOCKED = 0,
   GFC_STAT_LOCKED,
   GFC_STAT_LOCKED_OTHER_IMAGE,
   GFC_STAT_STOPPED_IMAGE = 6000, /* See LIBERROR_INQUIRE_INTERNAL_UNIT above. */
-  GFC_STAT_FAILED_IMAGE  = 6001
+  GFC_STAT_FAILED_IMAGE
 }
 libgfortran_stat_codes;
 
@@ -150,13 +148,15 @@ typedef enum
 #define GFC_STDOUT_UNIT_NUMBER 6
 #define GFC_STDERR_UNIT_NUMBER 0
 
-/* F2003 onward. For std < F2003, error caught in array.c(gfc_match_array_ref).  */
-#define GFC_MAX_DIMENSIONS 15
 
-#define GFC_DTYPE_RANK_MASK 0x0F
-#define GFC_DTYPE_TYPE_SHIFT 4
-#define GFC_DTYPE_TYPE_MASK 0x70
-#define GFC_DTYPE_SIZE_SHIFT 7
+/* FIXME: Increase to 15 for Fortran 2008. Also needs changes to
+   GFC_DTYPE_RANK_MASK. See PR 36825.  */
+#define GFC_MAX_DIMENSIONS 7
+
+#define GFC_DTYPE_RANK_MASK 0x07
+#define GFC_DTYPE_TYPE_SHIFT 3
+#define GFC_DTYPE_TYPE_MASK 0x38
+#define GFC_DTYPE_SIZE_SHIFT 6
 
 /* Basic types.  BT_VOID is used by ISO C Binding so funcs like c_f_pointer
    can take any arg with the pointer attribute as a param.  These are also
@@ -164,6 +164,6 @@ typedef enum
 typedef enum
 { BT_UNKNOWN = 0, BT_INTEGER, BT_LOGICAL, BT_REAL, BT_COMPLEX,
   BT_DERIVED, BT_CHARACTER, BT_CLASS, BT_PROCEDURE, BT_HOLLERITH, BT_VOID,
-  BT_ASSUMED, BT_UNION
+  BT_ASSUMED
 }
 bt;

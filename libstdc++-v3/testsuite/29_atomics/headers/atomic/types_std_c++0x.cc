@@ -1,6 +1,7 @@
-// { dg-do compile { target c++11 } }
+// { dg-options "-std=gnu++11" }
+// { dg-do compile }
 
-// Copyright (C) 2008-2018 Free Software Foundation, Inc.
+// Copyright (C) 2008-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -71,14 +72,4 @@ void test01()
   using std::atomic_ptrdiff_t;
   using std::atomic_intmax_t;
   using std::atomic_uintmax_t;
-
-  // DR 2441
-  using std::atomic_int8_t;
-  using std::atomic_uint8_t;
-  using std::atomic_int16_t;
-  using std::atomic_uint16_t;
-  using std::atomic_int32_t;
-  using std::atomic_uint32_t;
-  using std::atomic_int64_t;
-  using std::atomic_uint64_t;
 }

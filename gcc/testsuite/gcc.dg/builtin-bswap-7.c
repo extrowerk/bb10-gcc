@@ -5,7 +5,7 @@
 
 /* The branch cost setting prevents the return value from being
    calculated with arithmetic instead of doing a compare.  */
-/* { dg-additional-options "-mbranch-cost=0" { target branch_cost } } */
+/* { dg-additional-options "-mbranch-cost=0" { target s390x-*-* } } */
 
 #include <stdint.h>
 
@@ -40,3 +40,4 @@ int foo4 (uint64_t a, uint64_t b)
 }
 
 /* { dg-final { scan-rtl-dump-not "bswapdi" "combine" } } */
+/* { dg-final { cleanup-rtl-dump "combine" } } */

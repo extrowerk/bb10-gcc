@@ -1,5 +1,5 @@
 /* Deal with I/O statements & related stuff.
-   Copyright (C) 2000-2018 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -21,15 +21,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "options.h"
+#include "flags.h"
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
-#include "constructor.h"
 
 gfc_st_label
 format_asterisk = {0, NULL, NULL, -1, ST_LABEL_FORMAT, ST_LABEL_FORMAT, NULL,
-		   0, {NULL, NULL}, NULL};
+		   0, {NULL, NULL}};
 
 typedef struct
 {
@@ -39,15 +38,6 @@ typedef struct
 io_tag;
 
 static const io_tag
-	tag_readonly	= {"READONLY", " readonly", NULL, BT_UNKNOWN },
-	tag_shared	= {"SHARE", " shared", NULL, BT_UNKNOWN },
-	tag_noshared	= {"SHARE", " noshared", NULL, BT_UNKNOWN },
-	tag_e_share	= {"SHARE", " share =", " %e", BT_CHARACTER },
-	tag_v_share	= {"SHARE", " share =", " %v", BT_CHARACTER },
-	tag_cc		= {"CARRIAGECONTROL", " carriagecontrol =", " %e",
-			   BT_CHARACTER },
-	tag_v_cc	= {"CARRIAGECONTROL", " carriagecontrol =", " %v",
-			   BT_CHARACTER },
 	tag_file	= {"FILE", " file =", " %e", BT_CHARACTER },
 	tag_status	= {"STATUS", " status =", " %e", BT_CHARACTER},
 	tag_e_access	= {"ACCESS", " access =", " %e", BT_CHARACTER},
@@ -112,22 +102,20 @@ static gfc_dt *current_dt;
 
 #define RESOLVE_TAG(x, y) if (!resolve_tag (x, y)) return false;
 
-/* Are we currently processing an asynchronous I/O statement? */
-
-bool async_io_dt;
 
 /**************** Fortran 95 FORMAT parser  *****************/
 
 /* FORMAT tokens returned by format_lex().  */
-enum format_token
+typedef enum
 {
   FMT_NONE, FMT_UNKNOWN, FMT_SIGNED_INT, FMT_ZERO, FMT_POSINT, FMT_PERIOD,
   FMT_COMMA, FMT_COLON, FMT_SLASH, FMT_DOLLAR, FMT_LPAREN,
   FMT_RPAREN, FMT_X, FMT_SIGN, FMT_BLANK, FMT_CHAR, FMT_P, FMT_IBOZ, FMT_F,
   FMT_E, FMT_EN, FMT_ES, FMT_G, FMT_L, FMT_A, FMT_D, FMT_H, FMT_END,
   FMT_ERROR, FMT_DC, FMT_DP, FMT_T, FMT_TR, FMT_TL, FMT_STAR, FMT_RC,
-  FMT_RD, FMT_RN, FMT_RP, FMT_RU, FMT_RZ, FMT_DT
-};
+  FMT_RD, FMT_RN, FMT_RP, FMT_RU, FMT_RZ
+}
+format_token;
 
 /* Local variables for checking format strings.  The saved_token is
    used to back up by a single format token during the parsing
@@ -204,14 +192,23 @@ unget_char (void)
 /* Eat up the spaces and return a character.  */
 
 static char
-next_char_not_space ()
+next_char_not_space (bool *error)
 {
   char c;
   do
     {
       error_element = c = next_char (NONSTRING);
       if (c == '\t')
-	gfc_warning (OPT_Wtabs, "Nonconforming tab character in format at %C");
+	{
+	  if (gfc_option.allow_std & GFC_STD_GNU)
+	    gfc_warning (0, "Extension: Tab character in format at %C");
+	  else
+	    {
+	      gfc_error ("Extension: Tab character in format at %C");
+	      *error = true;
+	      return c;
+	    }
+	}
     }
   while (gfc_is_whitespace (c));
   return c;
@@ -229,6 +226,7 @@ format_lex (void)
   char c, delim;
   int zflag;
   int negative_flag;
+  bool error = false;
 
   if (saved_token != FMT_NONE)
     {
@@ -237,7 +235,7 @@ format_lex (void)
       return token;
     }
 
-  c = next_char_not_space ();
+  c = next_char_not_space (&error);
   
   negative_flag = 0;
   switch (c)
@@ -247,7 +245,7 @@ format_lex (void)
       /* Falls through.  */
 
     case '+':
-      c = next_char_not_space ();
+      c = next_char_not_space (&error);
       if (!ISDIGIT (c))
 	{
 	  token = FMT_UNKNOWN;
@@ -258,7 +256,7 @@ format_lex (void)
 
       do
 	{
-	  c = next_char_not_space ();
+	  c = next_char_not_space (&error);
 	  if (ISDIGIT (c))
 	    value = 10 * value + c - '0';
 	}
@@ -288,7 +286,7 @@ format_lex (void)
 
       do
 	{
-	  c = next_char_not_space ();
+	  c = next_char_not_space (&error);
 	  if (ISDIGIT (c))
 	    {
 	      value = 10 * value + c - '0';
@@ -323,7 +321,7 @@ format_lex (void)
       break;
 
     case 'T':
-      c = next_char_not_space ();
+      c = next_char_not_space (&error);
       switch (c)
 	{
 	case 'L':
@@ -351,7 +349,7 @@ format_lex (void)
       break;
 
     case 'S':
-      c = next_char_not_space ();
+      c = next_char_not_space (&error);
       if (c != 'P' && c != 'S')
 	unget_char ();
 
@@ -359,7 +357,7 @@ format_lex (void)
       break;
 
     case 'B':
-      c = next_char_not_space ();
+      c = next_char_not_space (&error);
       if (c == 'N' || c == 'Z')
 	token = FMT_BLANK;
       else
@@ -421,7 +419,7 @@ format_lex (void)
       break;
 
     case 'E':
-      c = next_char_not_space ();
+      c = next_char_not_space (&error);
       if (c == 'N' )
 	token = FMT_EN;
       else if (c == 'S')
@@ -451,7 +449,7 @@ format_lex (void)
       break;
 
     case 'D':
-      c = next_char_not_space ();
+      c = next_char_not_space (&error);
       if (c == 'P')
 	{
 	  if (!gfc_notify_std (GFC_STD_F2003, "DP format "
@@ -466,55 +464,6 @@ format_lex (void)
 	    return FMT_ERROR;
 	  token = FMT_DC;
 	}
-      else if (c == 'T')
-	{
-	  if (!gfc_notify_std (GFC_STD_F2003, "Fortran 2003: DT format "
-	      "specifier not allowed at %C"))
-	    return FMT_ERROR;
-	  token = FMT_DT;
-	  c = next_char_not_space ();
-	  if (c == '\'' || c == '"')
-	    {
-	      delim = c;
-	      value = 0;
-
-	      for (;;)
-		{
-		  c = next_char (INSTRING_WARN);
-		  if (c == '\0')
-		    {
-		      token = FMT_END;
-		      break;
-		    }
-
-		  if (c == delim)
-		    {
-		      c = next_char (NONSTRING);
-		      if (c == '\0')
-			{
-			  token = FMT_END;
-			  break;
-			}
-		      if (c == '/')
-			{
-			  token = FMT_SLASH;
-			  break;
-			}
-		      if (c == delim)
-			continue;
-		      unget_char ();
-		      break;
-		    }
-		}
-	    }
-	  else if (c == '/')
-	    {
-	      token = FMT_SLASH;
-	      break;
-	    }
-	  else
-	    unget_char ();
-	}
       else
 	{
 	  token = FMT_D;
@@ -523,7 +472,7 @@ format_lex (void)
       break;
 
     case 'R':
-      c = next_char_not_space ();
+      c = next_char_not_space (&error);
       switch (c)
 	{
 	case 'C':
@@ -564,6 +513,9 @@ format_lex (void)
       break;
     }
 
+  if (error)
+    return FMT_ERROR;
+
   return token;
 }
 
@@ -598,12 +550,12 @@ check_format (bool is_input)
 {
   const char *posint_required	  = _("Positive width required");
   const char *nonneg_required	  = _("Nonnegative width required");
-  const char *unexpected_element  = _("Unexpected element %qc in format "
+  const char *unexpected_element  = _("Unexpected element %<%c%> in format "
 				      "string at %L");
   const char *unexpected_end	  = _("Unexpected end of format string");
   const char *zero_width	  = _("Zero width in format descriptor");
 
-  const char *error = NULL;
+  const char *error;
   format_token t, u;
   int level;
   int repeat;
@@ -749,7 +701,6 @@ format_item_1:
     case FMT_A:
     case FMT_D:
     case FMT_H:
-    case FMT_DT:
       goto data_desc;
 
     case FMT_END:
@@ -822,31 +773,27 @@ data_desc:
 	goto fail;
       if (t == FMT_POSINT)
 	break;
-      if (mode != MODE_FORMAT)
-	format_locus.nextc += format_string_pos;
-      if (t == FMT_ZERO)
+
+      switch (gfc_notification_std (GFC_STD_GNU))
 	{
-	  switch (gfc_notification_std (GFC_STD_GNU))
-	    {
-	      case WARNING:
-		gfc_warning (0, "Extension: Zero width after L "
-			     "descriptor at %L", &format_locus);
-		break;
-	      case ERROR:
-		gfc_error ("Extension: Zero width after L "
-			     "descriptor at %L", &format_locus);
-		goto fail;
-	      case SILENT:
-		break;
-	      default:
-		gcc_unreachable ();
-	    }
-	}
-      else
-	{
-	  saved_token = t;
-	  gfc_notify_std (GFC_STD_GNU, "Missing positive width after "
-			  "L descriptor at %L", &format_locus);
+	  case WARNING:
+	    if (mode != MODE_FORMAT)
+	      format_locus.nextc += format_string_pos;
+	    gfc_warning (0, "Extension: Missing positive width after L "
+			 "descriptor at %L", &format_locus);
+	    saved_token = t;
+	    break;
+
+	  case ERROR:
+	    error = posint_required;
+	    goto syntax;
+
+	  case SILENT:
+	    saved_token = t;
+	    break;
+
+	  default:
+	    gcc_unreachable ();
 	}
       break;
 
@@ -969,56 +916,6 @@ data_desc:
 	    }
 	}
 
-      break;
-
-    case FMT_DT:
-      t = format_lex ();
-      if (t == FMT_ERROR)
-	goto fail;
-      switch (t)
-	{
-	case FMT_RPAREN:
-	  level--;
-	  if (level < 0)
-	    goto finished;
-	  goto between_desc;
-
-	case FMT_COMMA:
-	  goto format_item;
-
-	case FMT_COLON:
-	  goto format_item_1;
-
-	case FMT_LPAREN:
-
-  dtio_vlist:
-	  t = format_lex ();
-	  if (t == FMT_ERROR)
-	    goto fail;
-
-	  if (t != FMT_POSINT)
-	    {
-	      error = posint_required;
-	      goto syntax;
-	    }
-
-	  t = format_lex ();
-	  if (t == FMT_ERROR)
-	    goto fail;
-
-	  if (t == FMT_COMMA)
-	    goto dtio_vlist;
-	  if (t != FMT_RPAREN)
-	    {
-	      error = _("Right parenthesis expected at %C");
-	      goto syntax;
-	    }
-	  goto between_desc;
-
-	default:
-	  error = unexpected_element;
-	  goto syntax;
-	}
       break;
 
     case FMT_F:
@@ -1513,101 +1410,10 @@ match_ltag (const io_tag *tag, gfc_st_label ** label)
 }
 
 
-/* Match a tag using match_etag, but only if -fdec is enabled.  */
-static match
-match_dec_etag (const io_tag *tag, gfc_expr **e)
-{
-  match m = match_etag (tag, e);
-  if (flag_dec && m != MATCH_NO)
-    return m;
-  else if (m != MATCH_NO)
-    {
-      gfc_error ("%s at %C is a DEC extension, enable with "
-		 "%<-fdec%>", tag->name);
-      return MATCH_ERROR;
-    }
-  return m;
-}
-
-
-/* Match a tag using match_vtag, but only if -fdec is enabled.  */
-static match
-match_dec_vtag (const io_tag *tag, gfc_expr **e)
-{
-  match m = match_vtag(tag, e);
-  if (flag_dec && m != MATCH_NO)
-    return m;
-  else if (m != MATCH_NO)
-    {
-      gfc_error ("%s at %C is a DEC extension, enable with "
-		 "%<-fdec%>", tag->name);
-      return MATCH_ERROR;
-    }
-  return m;
-}
-
-
-/* Match a DEC I/O flag tag - a tag with no expression such as READONLY.  */
-
-static match
-match_dec_ftag (const io_tag *tag, gfc_open *o)
-{
-  match m;
-
-  m = gfc_match (tag->spec);
-  if (m != MATCH_YES)
-    return m;
-
-  if (!flag_dec)
-    {
-      gfc_error ("%s at %C is a DEC extension, enable with "
-		 "%<-fdec%>", tag->name);
-      return MATCH_ERROR;
-    }
-
-  /* Just set the READONLY flag, which we use at runtime to avoid delete on
-     close.  */
-  if (tag == &tag_readonly)
-    {
-      o->readonly |= 1;
-      return MATCH_YES;
-    }
-
-  /* Interpret SHARED as SHARE='DENYNONE' (read lock).  */
-  else if (tag == &tag_shared)
-    {
-      if (o->share != NULL)
-	{
-	  gfc_error ("Duplicate %s specification at %C", tag->name);
-	  return MATCH_ERROR;
-	}
-      o->share = gfc_get_character_expr (gfc_default_character_kind,
-	  &gfc_current_locus, "denynone", 8);
-      return MATCH_YES;
-    }
-
-  /* Interpret NOSHARED as SHARE='DENYRW' (exclusive lock).  */
-  else if (tag == &tag_noshared)
-    {
-      if (o->share != NULL)
-	{
-	  gfc_error ("Duplicate %s specification at %C", tag->name);
-	  return MATCH_ERROR;
-	}
-      o->share = gfc_get_character_expr (gfc_default_character_kind,
-	  &gfc_current_locus, "denyrw", 6);
-      return MATCH_YES;
-    }
-
-  /* We handle all DEC tags above.  */
-  gcc_unreachable ();
-}
-
-
 /* Resolution of the FORMAT tag, to be called from resolve_tag.  */
 
 static bool
-resolve_tag_format (gfc_expr *e)
+resolve_tag_format (const gfc_expr *e)
 {
   if (e->expr_type == EXPR_CONSTANT
       && (e->ts.type != BT_CHARACTER
@@ -1616,47 +1422,6 @@ resolve_tag_format (gfc_expr *e)
       gfc_error ("Constant expression in FORMAT tag at %L must be "
 		 "of type default CHARACTER", &e->where);
       return false;
-    }
-
-  /* Concatenate a constant character array into a single character
-     expression.  */
-
-  if ((e->expr_type == EXPR_ARRAY || e->rank > 0)
-      && e->ts.type == BT_CHARACTER
-      && gfc_is_constant_expr (e))
-    {
-      if (e->expr_type == EXPR_VARIABLE
-	  && e->symtree->n.sym->attr.flavor == FL_PARAMETER)
-	gfc_simplify_expr (e, 1);
-
-      if (e->expr_type == EXPR_ARRAY)
-	{
-	  gfc_constructor *c;
-	  gfc_charlen_t n, len;
-	  gfc_expr *r;
-	  gfc_char_t *dest, *src;
-
-	  n = 0;
-	  c = gfc_constructor_first (e->value.constructor);
-	  len = c->expr->value.character.length;
-	  
-	  for ( ; c; c = gfc_constructor_next (c))
-	    n += len;
-
-	  r = gfc_get_character_expr (e->ts.kind, &e->where, NULL, n);
-	  dest = r->value.character.string;
-
-	  for (c = gfc_constructor_first (e->value.constructor);
-	     c; c = gfc_constructor_next (c))
-	    {
-	      src = c->expr->value.character.string;
-	      for (gfc_charlen_t i = 0 ; i < len; i++)
-		*dest++ = *src++;
-	    }
-
-	  gfc_replace_expr (e, r);
-	  return true;
-	}
     }
 
   /* If e's rank is zero and e is not an element of an array, it should be
@@ -1893,23 +1658,6 @@ match_open_element (gfc_open *open)
   if (m != MATCH_NO)
     return m;
 
-  /* The following are extensions enabled with -fdec.  */
-  m = match_dec_etag (&tag_e_share, &open->share);
-  if (m != MATCH_NO)
-    return m;
-  m = match_dec_etag (&tag_cc, &open->cc);
-  if (m != MATCH_NO)
-    return m;
-  m = match_dec_ftag (&tag_readonly, open);
-  if (m != MATCH_NO)
-    return m;
-  m = match_dec_ftag (&tag_shared, open);
-  if (m != MATCH_NO)
-    return m;
-  m = match_dec_ftag (&tag_noshared, open);
-  if (m != MATCH_NO)
-    return m;
-
   return MATCH_NO;
 }
 
@@ -1942,8 +1690,6 @@ gfc_free_open (gfc_open *open)
   gfc_free_expr (open->convert);
   gfc_free_expr (open->asynchronous);
   gfc_free_expr (open->newunit);
-  gfc_free_expr (open->share);
-  gfc_free_expr (open->cc);
   free (open);
 }
 
@@ -1974,8 +1720,6 @@ gfc_resolve_open (gfc_open *open)
   RESOLVE_TAG (&tag_e_sign, open->sign);
   RESOLVE_TAG (&tag_convert, open->convert);
   RESOLVE_TAG (&tag_newunit, open->newunit);
-  RESOLVE_TAG (&tag_e_share, open->share);
-  RESOLVE_TAG (&tag_cc, open->cc);
 
   if (!gfc_reference_st_label (open->err, ST_LABEL_TARGET))
     return false;
@@ -1992,15 +1736,7 @@ static int
 compare_to_allowed_values (const char *specifier, const char *allowed[],
 			   const char *allowed_f2003[], 
 			   const char *allowed_gnu[], gfc_char_t *value,
-			   const char *statement, bool warn,
-			   int *num = NULL);
-
-
-static int
-compare_to_allowed_values (const char *specifier, const char *allowed[],
-			   const char *allowed_f2003[], 
-			   const char *allowed_gnu[], gfc_char_t *value,
-			   const char *statement, bool warn, int *num)
+			   const char *statement, bool warn)
 {
   int i;
   unsigned int len;
@@ -2017,11 +1753,7 @@ compare_to_allowed_values (const char *specifier, const char *allowed[],
   for (i = 0; allowed[i]; i++)
     if (len == strlen (allowed[i])
 	&& gfc_wide_strncasecmp (value, allowed[i], strlen (allowed[i])) == 0)
-      {
-	if (num)
-	  *num = i;
       return 1;
-      }
 
   for (i = 0; allowed_f2003 && allowed_f2003[i]; i++)
     if (len == strlen (allowed_f2003[i])
@@ -2150,6 +1882,30 @@ gfc_match_open (void)
 
   warn = (open->err || open->iostat) ? true : false;
 
+  /* Checks on NEWUNIT specifier.  */
+  if (open->newunit)
+    {
+      if (open->unit)
+	{
+	  gfc_error ("UNIT specifier not allowed with NEWUNIT at %C");
+	  goto cleanup;
+	}
+
+      if (!(open->file || (open->status
+          && gfc_wide_strncasecmp (open->status->value.character.string,
+				   "scratch", 7) == 0)))
+	{
+	  gfc_error ("NEWUNIT specifier must have FILE= "
+		     "or STATUS='scratch' at %C");
+	  goto cleanup;
+	}
+    }
+  else if (!open->unit)
+    {
+      gfc_error ("OPEN statement at %C must have UNIT or NEWUNIT specified");
+      goto cleanup;
+    }
+
   /* Checks on the ACCESS specifier.  */
   if (open->access && open->access->expr_type == EXPR_CONSTANT)
     {
@@ -2170,29 +1926,15 @@ gfc_match_open (void)
   /* Checks on the ACTION specifier.  */
   if (open->action && open->action->expr_type == EXPR_CONSTANT)
     {
-      gfc_char_t *str = open->action->value.character.string;
       static const char *action[] = { "READ", "WRITE", "READWRITE", NULL };
 
       if (!is_char_type ("ACTION", open->action))
 	goto cleanup;
 
       if (!compare_to_allowed_values ("ACTION", action, NULL, NULL,
-				      str, "OPEN", warn))
+				      open->action->value.character.string,
+				      "OPEN", warn))
 	goto cleanup;
-
-      /* With READONLY, only allow ACTION='READ'.  */
-      if (open->readonly && (gfc_wide_strlen (str) != 4
-			     || gfc_wide_strncasecmp (str, "READ", 4) != 0))
-	{
-	  gfc_error ("ACTION type conflicts with READONLY specifier at %C");
-	  goto cleanup;
-	}
-    }
-  /* If we see READONLY and no ACTION, set ACTION='READ'.  */
-  else if (open->readonly && open->action == NULL)
-    {
-      open->action = gfc_get_character_expr (gfc_default_character_kind,
-					     &gfc_current_locus, "read", 4);
     }
 
   /* Checks on the ASYNCHRONOUS specifier.  */
@@ -2204,21 +1946,6 @@ gfc_match_open (void)
 
       if (!is_char_type ("ASYNCHRONOUS", open->asynchronous))
 	goto cleanup;
-
-      if (open->asynchronous->ts.kind != 1)
-	{
-	  gfc_error ("ASYNCHRONOUS= specifier at %L must be of default "
-		     "CHARACTER kind", &open->asynchronous->where);
-	  return MATCH_ERROR;
-	}
-
-      if (open->asynchronous->expr_type == EXPR_ARRAY
-	  || open->asynchronous->expr_type == EXPR_STRUCTURE)
-	{
-	  gfc_error ("ASYNCHRONOUS= specifier at %L must be scalar",
-		     &open->asynchronous->where);
-	  return MATCH_ERROR;
-	}
 
       if (open->asynchronous->expr_type == EXPR_CONSTANT)
 	{
@@ -2252,22 +1979,6 @@ gfc_match_open (void)
 	}
     }
 
-  /* Checks on the CARRIAGECONTROL specifier.  */
-  if (open->cc)
-    {
-      if (!is_char_type ("CARRIAGECONTROL", open->cc))
-	goto cleanup;
-
-      if (open->cc->expr_type == EXPR_CONSTANT)
-	{
-	  static const char *cc[] = { "LIST", "FORTRAN", "NONE", NULL };
-	  if (!compare_to_allowed_values ("CARRIAGECONTROL", cc, NULL, NULL,
-					  open->cc->value.character.string,
-					  "OPEN", warn))
-	    goto cleanup;
-	}
-    }
-
   /* Checks on the DECIMAL specifier.  */
   if (open->decimal)
     {
@@ -2296,8 +2007,8 @@ gfc_match_open (void)
 	{
 	  static const char *delim[] = { "APOSTROPHE", "QUOTE", "NONE", NULL };
 
-	  if (!is_char_type ("DELIM", open->delim))
-	    goto cleanup;
+	if (!is_char_type ("DELIM", open->delim))
+	  goto cleanup;
 
 	  if (!compare_to_allowed_values ("DELIM", delim, NULL, NULL,
 					  open->delim->value.character.string,
@@ -2392,22 +2103,6 @@ gfc_match_open (void)
 	}
     }
 
-  /* Checks on the SHARE specifier.  */
-  if (open->share)
-    {
-      if (!is_char_type ("SHARE", open->share))
-	goto cleanup;
-
-      if (open->share->expr_type == EXPR_CONSTANT)
-	{
-	  static const char *share[] = { "DENYNONE", "DENYRW", NULL };
-	  if (!compare_to_allowed_values ("SHARE", share, NULL, NULL,
-					  open->share->value.character.string,
-					  "OPEN", warn))
-	    goto cleanup;
-	}
-    }
-
   /* Checks on the SIGN specifier.  */
   if (open->sign) 
     {
@@ -2487,33 +2182,6 @@ gfc_match_open (void)
 			 "cannot have the value SCRATCH if a FILE specifier "
 			 "is present");
 	}
-    }
-
-  /* Checks on NEWUNIT specifier.  */
-  if (open->newunit)
-    {
-      if (open->unit)
-	{
-	  gfc_error ("UNIT specifier not allowed with NEWUNIT at %C");
-	  goto cleanup;
-	}
-
-      if (!open->file && open->status)
-        {
-	  if (open->status->expr_type == EXPR_CONSTANT
-	     && gfc_wide_strncasecmp (open->status->value.character.string,
-				       "scratch", 7) != 0)
-	   {
-	     gfc_error ("NEWUNIT specifier must have FILE= "
-			"or STATUS='scratch' at %C");
-	     goto cleanup;
-	   }
-	}
-    }
-  else if (!open->unit)
-    {
-      gfc_error ("OPEN statement at %C must have UNIT or NEWUNIT specified");
-      goto cleanup;
     }
 
   /* Things that are not allowed for unformatted I/O.  */
@@ -2849,20 +2517,21 @@ cleanup:
 
 
 bool
-gfc_resolve_filepos (gfc_filepos *fp, locus *where)
+gfc_resolve_filepos (gfc_filepos *fp)
 {
   RESOLVE_TAG (&tag_unit, fp->unit);
   RESOLVE_TAG (&tag_iostat, fp->iostat);
   RESOLVE_TAG (&tag_iomsg, fp->iomsg);
-
-  if (!fp->unit && (fp->iostat || fp->iomsg || fp->err))
-    {
-      gfc_error ("UNIT number missing in statement at %L", where);
-      return false;
-    }
-
   if (!gfc_reference_st_label (fp->err, ST_LABEL_TARGET))
     return false;
+
+  if (!fp->unit && (fp->iostat || fp->iomsg))
+    {
+      locus where;
+      where = fp->iostat ? fp->iostat->where : fp->iomsg->where;
+      gfc_error ("UNIT number missing in statement at %L", &where);
+      return false;
+    }
 
   if (fp->unit->expr_type == EXPR_CONSTANT
       && fp->unit->ts.type == BT_INTEGER
@@ -2931,7 +2600,6 @@ static match
 match_dt_unit (io_kind k, gfc_dt *dt)
 {
   gfc_expr *e;
-  char c;
 
   if (gfc_match_char ('*') == MATCH_YES)
     {
@@ -2939,11 +2607,6 @@ match_dt_unit (io_kind k, gfc_dt *dt)
 	goto conflict;
 
       dt->io_unit = default_unit (k);
-
-      c = gfc_peek_ascii_char ();
-      if (c == ')')
-	gfc_error_now ("Missing format with default unit at %C");
-
       return MATCH_YES;
     }
 
@@ -3040,30 +2703,6 @@ conflict:
   return MATCH_ERROR;
 }
 
-/* Check for formatted read and write DTIO procedures.  */
-
-static bool
-dtio_procs_present (gfc_symbol *sym, io_kind k)
-{
-  gfc_symbol *derived;
-
-  if (sym && sym->ts.u.derived)
-    {
-      if (sym->ts.type == BT_CLASS && CLASS_DATA (sym))
-	derived = CLASS_DATA (sym)->ts.u.derived;
-      else if (sym->ts.type == BT_DERIVED)
-	derived = sym->ts.u.derived;
-      else
-	return false;
-      if ((k == M_WRITE || k == M_PRINT) && 
-	  (gfc_find_specific_dtio_proc (derived, true, true) != NULL))
-	return true;
-      if ((k == M_READ) &&
-	  (gfc_find_specific_dtio_proc (derived, false, true) != NULL))
-	return true;
-    }
-  return false;
-}
 
 /* Traverse a namelist that is part of a READ statement to make sure
    that none of the variables in the namelist are INTENT(IN).  Returns
@@ -3342,7 +2981,7 @@ gfc_resolve_dt (gfc_dt *dt, locus *loc)
 
   /* If we are reading and have a namelist, check that all namelist symbols
      can appear in a variable definition context.  */
-  if (dt->namelist)
+  if (k == M_READ && dt->namelist)
     {
       gfc_namelist* n;
       for (n = dt->namelist->namelist; n; n = n->next)
@@ -3350,56 +2989,23 @@ gfc_resolve_dt (gfc_dt *dt, locus *loc)
 	  gfc_expr* e;
 	  bool t;
 
-	  if (k == M_READ)
-	    {
-	      e = gfc_get_variable_expr (gfc_find_sym_in_symtree (n->sym));
-	      t = gfc_check_vardef_context (e, false, false, false, NULL);
-	      gfc_free_expr (e);
-    
-	      if (!t)
-		{
-		  gfc_error ("NAMELIST %qs in READ statement at %L contains"
-			     " the symbol %qs which may not appear in a"
-			     " variable definition context",
-			     dt->namelist->name, loc, n->sym->name);
-		  return false;
-		}
-	    }
+	  e = gfc_get_variable_expr (gfc_find_sym_in_symtree (n->sym));
+	  t = gfc_check_vardef_context (e, false, false, false, NULL);
+	  gfc_free_expr (e);
 
-	  t = dtio_procs_present (n->sym, k);
-
-	  if (n->sym->ts.type == BT_CLASS && !t)
+	  if (!t)
 	    {
-	      gfc_error ("NAMELIST object %qs in namelist %qs at %L is "
-			 "polymorphic and requires a defined input/output "
-			 "procedure", n->sym->name, dt->namelist->name, loc);
+	      gfc_error ("NAMELIST %qs in READ statement at %L contains"
+			 " the symbol %qs which may not appear in a"
+			 " variable definition context",
+			 dt->namelist->name, loc, n->sym->name);
 	      return false;
-	    }
-    
-	  if ((n->sym->ts.type == BT_DERIVED)
-	      && (n->sym->ts.u.derived->attr.alloc_comp
-		  || n->sym->ts.u.derived->attr.pointer_comp))
-	    {
-	      if (!gfc_notify_std (GFC_STD_F2003, "NAMELIST object %qs in "
-				   "namelist %qs at %L with ALLOCATABLE "
-				   "or POINTER components", n->sym->name,
-				   dt->namelist->name, loc))
-		return false;
-    
-	      if (!t)
-		{
-		  gfc_error ("NAMELIST object %qs in namelist %qs at %L has "
-			     "ALLOCATABLE or POINTER components and thus requires "
-			     "a defined input/output procedure", n->sym->name,
-			     dt->namelist->name, loc);
-		  return false;
-		}
 	    }
 	}
     }
 
   if (dt->extra_comma
-      && !gfc_notify_std (GFC_STD_LEGACY, "Comma before i/o item list at %L", 
+      && !gfc_notify_std (GFC_STD_GNU, "Comma before i/o item list at %L", 
 			  &dt->extra_comma->where))
     return false;
 
@@ -3444,7 +3050,7 @@ gfc_resolve_dt (gfc_dt *dt, locus *loc)
       && dt->format_label->defined == ST_LABEL_UNKNOWN)
     {
       gfc_error ("FORMAT label %d at %L not defined", dt->format_label->value,
-		 loc);
+		 &dt->format_label->where);
       return false;
     }
 
@@ -3685,20 +3291,16 @@ terminate_io (gfc_code *io_code)
 
 /* Check the constraints for a data transfer statement.  The majority of the
    constraints appearing in 9.4 of the standard appear here.  Some are handled
-   in resolve_tag and others in gfc_resolve_dt.  Also set the async_io_dt flag
-   and, if necessary, the asynchronous flag on the SIZE argument.  */
+   in resolve_tag and others in gfc_resolve_dt.  */
 
 static match
 check_io_constraints (io_kind k, gfc_dt *dt, gfc_code *io_code,
 		      locus *spec_end)
 {
-#define io_constraint(condition, msg, arg)\
+#define io_constraint(condition,msg,arg)\
 if (condition) \
   {\
-    if ((arg)->lb != NULL)\
-      gfc_error ((msg), (arg));\
-    else\
-      gfc_error ((msg), &gfc_current_locus);\
+    gfc_error(msg,arg);\
     m = MATCH_ERROR;\
   }
 
@@ -3758,14 +3360,11 @@ if (condition) \
   if (expr && expr->ts.type != BT_CHARACTER)
     {
 
-      if (gfc_pure (NULL) && (k == M_READ || k == M_WRITE))
-	{
-	  gfc_error ("IO UNIT in %s statement at %C must be "
+      io_constraint (gfc_pure (NULL) && (k == M_READ || k == M_WRITE),
+		     "IO UNIT in %s statement at %C must be "
 		     "an internal file in a PURE procedure",
 		     io_kind_name (k));
-	  return MATCH_ERROR;
-	}
-	  
+
       if (k == M_READ || k == M_WRITE)
 	gfc_unset_implicit_pure (NULL);
     }
@@ -3800,7 +3399,6 @@ if (condition) \
 
   if (dt->asynchronous) 
     {
-      int num;
       static const char * asynchronous[] = { "YES", "NO", NULL };
 
       if (!gfc_reduce_init_expr (dt->asynchronous))
@@ -3813,34 +3411,12 @@ if (condition) \
       if (!is_char_type ("ASYNCHRONOUS", dt->asynchronous))
 	return MATCH_ERROR;
 
-      if (dt->asynchronous->ts.kind != 1)
-	{
-	  gfc_error ("ASYNCHRONOUS= specifier at %L must be of default "
-		     "CHARACTER kind", &dt->asynchronous->where);
-	  return MATCH_ERROR;
-	}
-
-      if (dt->asynchronous->expr_type == EXPR_ARRAY
-	  || dt->asynchronous->expr_type == EXPR_STRUCTURE)
-	{
-	  gfc_error ("ASYNCHRONOUS= specifier at %L must be scalar",
-		     &dt->asynchronous->where);
-	  return MATCH_ERROR;
-	}
-
       if (!compare_to_allowed_values
 		("ASYNCHRONOUS", asynchronous, NULL, NULL,
 		 dt->asynchronous->value.character.string,
-		 io_kind_name (k), warn, &num))
+		 io_kind_name (k), warn))
 	return MATCH_ERROR;
-
-      /* Best to put this here because the yes/no info is still around.  */
-      async_io_dt = num == 0;
-      if (async_io_dt && dt->size)
-	dt->size->symtree->n.sym->attr.asynchronous = 1;
     }
-  else
-    async_io_dt = false;
 
   if (dt->id)
     {
@@ -4008,7 +3584,7 @@ if (condition) \
 
 	  io_constraint (unformatted && dt->namelist == NULL,
 			 "DELIM= specifier at %L must be with FMT=* or "
-			 "NML= specifier", &dt->delim->where);
+			 "NML= specifier ", &dt->delim->where);
 	}
     }
   
@@ -4111,7 +3687,7 @@ match_io (io_kind k)
   gfc_symbol *sym;
   int comma_flag;
   locus where;
-  locus spec_end, control;
+  locus spec_end;
   gfc_dt *dt;
   match m;
 
@@ -4173,59 +3749,21 @@ match_io (io_kind k)
     {
       /* Before issuing an error for a malformed 'print (1,*)' type of
 	 error, check for a default-char-expr of the form ('(I0)').  */
-      if (m == MATCH_YES)
-        {
-	  control = gfc_current_locus;
-	  if (k == M_PRINT)
-	    {
-	      /* Reset current locus to get the initial '(' in an expression.  */
-	      gfc_current_locus = where;
-	      dt->format_expr = NULL;
-	      m = match_dt_format (dt);
+      if (k == M_PRINT && m == MATCH_YES)
+	{
+	  /* Reset current locus to get the initial '(' in an expression.  */
+	  gfc_current_locus = where;
+	  dt->format_expr = NULL;
+	  m = match_dt_format (dt);
 
-	      if (m == MATCH_ERROR)
-		goto cleanup;
-	      if (m == MATCH_NO || dt->format_expr == NULL)
-		goto syntax;
+	  if (m == MATCH_ERROR)
+	    goto cleanup;
+	  if (m == MATCH_NO || dt->format_expr == NULL)
+	    goto syntax;
 
-	      comma_flag = 1;
-	      dt->io_unit = default_unit (k);
-	      goto get_io_list;
-	    }
-	  if (k == M_READ)
-	    {
-	      /* Commit any pending symbols now so that when we undo
-		 symbols later we wont lose them.  */
-	      gfc_commit_symbols ();
-	      /* Reset current locus to get the initial '(' in an expression.  */
-	      gfc_current_locus = where;
-	      dt->format_expr = NULL;
-	      m = gfc_match_expr (&dt->format_expr);
-	      if (m == MATCH_YES)
-	        {
-		  if (dt->format_expr
-		      && dt->format_expr->ts.type == BT_CHARACTER)
-		    {
-		      comma_flag = 1;
-		      dt->io_unit = default_unit (k);
-		      goto get_io_list;
-		    }
-		  else
-		    {
-		      gfc_free_expr (dt->format_expr);
-		      dt->format_expr = NULL;
-		      gfc_current_locus = control;
-		    }
-		}
-	      else
-	        {
-		  gfc_clear_error ();
-		  gfc_undo_symbols ();
-		  gfc_free_expr (dt->format_expr);
-		  dt->format_expr = NULL;
-		  gfc_current_locus = control;
-		}
-	    }
+	  comma_flag = 1;
+	  dt->io_unit = default_unit (k);
+	  goto get_io_list;
 	}
     }
 
@@ -4325,11 +3863,6 @@ get_io_list:
       if (m == MATCH_NO)
 	goto syntax;
     }
-
-  /* See if we want to use defaults for missing exponents in real transfers
-     and other DEC runtime extensions.  */
-  if (flag_dec)
-    dt->dec_ext = 1;
 
   /* A full IO statement has been matched.  Check the constraints.  spec_end is
      supplied for cases where no locus is supplied.  */
@@ -4437,8 +3970,6 @@ gfc_free_inquire (gfc_inquire *inquire)
   gfc_free_expr (inquire->sign);
   gfc_free_expr (inquire->size);
   gfc_free_expr (inquire->round);
-  gfc_free_expr (inquire->share);
-  gfc_free_expr (inquire->cc);
   free (inquire);
 }
 
@@ -4494,8 +4025,6 @@ match_inquire_element (gfc_inquire *inquire)
   RETM m = match_vtag (&tag_pending, &inquire->pending);
   RETM m = match_vtag (&tag_id, &inquire->id);
   RETM m = match_vtag (&tag_s_iqstream, &inquire->iqstream);
-  RETM m = match_dec_vtag (&tag_v_share, &inquire->share);
-  RETM m = match_dec_vtag (&tag_v_cc, &inquire->cc);
   RETM return MATCH_NO;
 }
 
@@ -4601,11 +4130,9 @@ gfc_match_inquire (void)
 
   if (inquire->unit != NULL && inquire->unit->expr_type == EXPR_CONSTANT
       && inquire->unit->ts.type == BT_INTEGER
-      && ((mpz_get_si (inquire->unit->value.integer) == GFC_INTERNAL_UNIT4)
-      || (mpz_get_si (inquire->unit->value.integer) == GFC_INTERNAL_UNIT)))
+      && mpz_get_si (inquire->unit->value.integer) == GFC_INTERNAL_UNIT)
     {
-      gfc_error ("UNIT number in INQUIRE statement at %L can not "
-		 "be %d", &loc, (int) mpz_get_si (inquire->unit->value.integer));
+      gfc_error ("UNIT number in INQUIRE statement at %L can not be -1", &loc);
       goto cleanup;
     }
 
@@ -4693,8 +4220,6 @@ gfc_resolve_inquire (gfc_inquire *inquire)
   INQUIRE_RESOLVE_TAG (&tag_size, inquire->size);
   INQUIRE_RESOLVE_TAG (&tag_s_decimal, inquire->decimal);
   INQUIRE_RESOLVE_TAG (&tag_s_iqstream, inquire->iqstream);
-  INQUIRE_RESOLVE_TAG (&tag_v_share, inquire->share);
-  INQUIRE_RESOLVE_TAG (&tag_v_cc, inquire->cc);
 #undef INQUIRE_RESOLVE_TAG
 
   if (!gfc_reference_st_label (inquire->err, ST_LABEL_TARGET))
@@ -4746,8 +4271,8 @@ match_wait_element (gfc_wait *wait)
 
   m = match_etag (&tag_unit, &wait->unit);
   RETM m = match_ltag (&tag_err, &wait->err);
-  RETM m = match_ltag (&tag_end, &wait->end);
-  RETM m = match_ltag (&tag_eor, &wait->eor);
+  RETM m = match_ltag (&tag_end, &wait->eor);
+  RETM m = match_ltag (&tag_eor, &wait->end);
   RETM m = match_etag (&tag_iomsg, &wait->iomsg);
   if (m == MATCH_YES && !check_char_variable (wait->iomsg))
     return MATCH_ERROR;

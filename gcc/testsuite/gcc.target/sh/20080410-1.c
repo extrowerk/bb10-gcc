@@ -1,5 +1,6 @@
-/* { dg-do compile { target { little_endian } } }  */
+/* { dg-do compile }  */
 /* { dg-options "-O0" } */
+/* { dg-skip-if "" { "sh*-*-*" } "-mb" "" }  */
 /* { dg-final { scan-assembler-not "add\tr0,r0" } } */
 
 /* This test checks chain reloads conflicts.  If they don't

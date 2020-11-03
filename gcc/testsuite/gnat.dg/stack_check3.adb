@@ -1,5 +1,4 @@
 -- { dg-do compile }
--- { dg-require-stack-check "" }
 -- { dg-options "-O -fstack-check" }
 
 package body Stack_Check3 is

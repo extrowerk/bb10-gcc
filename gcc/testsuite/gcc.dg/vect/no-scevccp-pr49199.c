@@ -15,3 +15,4 @@ int foo (void)
   return x;
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

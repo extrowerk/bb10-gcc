@@ -7,6 +7,6 @@ template<int> struct A
 };
 
 template<int> int A<0>::i(0);	// { dg-error "template" "error" }
-// { dg-message "note" "note" { target *-*-* } .-1 }
+// { dg-message "note" "note" { target *-*-* } 9 }
 
 A<0> a;

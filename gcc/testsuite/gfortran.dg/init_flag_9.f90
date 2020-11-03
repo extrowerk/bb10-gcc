@@ -7,7 +7,7 @@
 subroutine foo(n)
   character(len=n) :: str
 !  print *, str
-  if (str /= repeat ('Y', n)) STOP 1
+  if (str /= repeat ('Y', n)) call abort()
 end subroutine foo
 
 call foo(3)

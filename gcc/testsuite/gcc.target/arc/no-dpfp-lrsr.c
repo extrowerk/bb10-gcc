@@ -1,5 +1,4 @@
 /* { dg-do compile } */
-/* { dg-skip-if "FPX cannot execute on ARC HS" { archs } } */
 /* { dg-options "-O2 -mdpfp -mno-dpfp-lrsr" } */
 
 double i;

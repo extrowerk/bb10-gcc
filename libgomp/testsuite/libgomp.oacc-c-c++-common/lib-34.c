@@ -1,8 +1,5 @@
-/* Exercise an invalid acc_present_or_create on nvidia targets.  */
+/* { dg-do run } */
 
-/* { dg-do run { target openacc_nvidia_accel_selected } } */
-
-#include <stdio.h>
 #include <stdlib.h>
 #include <openacc.h>
 
@@ -19,7 +16,6 @@ main (int argc, char **argv)
   if (!d1)
     abort ();
 
-  fprintf (stderr, "CheCKpOInT\n");
   d2 = acc_present_or_create (h + 2, N);
   if (!d2)
     abort ();
@@ -34,6 +30,4 @@ main (int argc, char **argv)
   return 0;
 }
 
-/* { dg-output "CheCKpOInT(\n|\r\n|\r).*" } */
-/* { dg-output "\\\[\[0-9a-fA-FxX\]+,\\\+256\\\] not mapped" } */
-/* { dg-shouldfail "" } */
+/* { dg-shouldfail "libgomp: \[\h+,\+256\] not mapped" } */

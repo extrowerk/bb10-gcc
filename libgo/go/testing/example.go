@@ -9,26 +9,17 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sort"
 	"strings"
 	"time"
 )
 
 type InternalExample struct {
-	Name      string
-	F         func()
-	Output    string
-	Unordered bool
+	Name   string
+	F      func()
+	Output string
 }
 
-// An internal function but exported because it is cross-package; part of the implementation
-// of the "go test" command.
 func RunExamples(matchString func(pat, str string) (bool, error), examples []InternalExample) (ok bool) {
-	_, ok = runExamples(matchString, examples)
-	return ok
-}
-
-func runExamples(matchString func(pat, str string) (bool, error), examples []InternalExample) (ran, ok bool) {
 	ok = true
 
 	var eg InternalExample
@@ -42,24 +33,17 @@ func runExamples(matchString func(pat, str string) (bool, error), examples []Int
 		if !matched {
 			continue
 		}
-		ran = true
 		if !runExample(eg) {
 			ok = false
 		}
 	}
 
-	return ran, ok
-}
-
-func sortLines(output string) string {
-	lines := strings.Split(output, "\n")
-	sort.Strings(lines)
-	return strings.Join(lines, "\n")
+	return
 }
 
 func runExample(eg InternalExample) (ok bool) {
 	if *chatty {
-		fmt.Printf("=== RUN   %s\n", eg.Name)
+		fmt.Printf("=== RUN: %s\n", eg.Name)
 	}
 
 	// Capture stdout.
@@ -72,8 +56,8 @@ func runExample(eg InternalExample) (ok bool) {
 	os.Stdout = w
 	outC := make(chan string)
 	go func() {
-		var buf bytes.Buffer
-		_, err := io.Copy(&buf, r)
+		buf := new(bytes.Buffer)
+		_, err := io.Copy(buf, r)
 		r.Close()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "testing: copying pipe: %v\n", err)
@@ -87,7 +71,7 @@ func runExample(eg InternalExample) (ok bool) {
 
 	// Clean up in a deferred call so we can recover if the example panics.
 	defer func() {
-		dstr := fmtDuration(time.Since(start))
+		dstr := fmtDuration(time.Now().Sub(start))
 
 		// Close pipe, restore stdout, get output.
 		w.Close()
@@ -96,16 +80,8 @@ func runExample(eg InternalExample) (ok bool) {
 
 		var fail string
 		err := recover()
-		got := strings.TrimSpace(out)
-		want := strings.TrimSpace(eg.Output)
-		if eg.Unordered {
-			if sortLines(got) != sortLines(want) && err == nil {
-				fail = fmt.Sprintf("got:\n%s\nwant (unordered):\n%s\n", out, eg.Output)
-			}
-		} else {
-			if got != want && err == nil {
-				fail = fmt.Sprintf("got:\n%s\nwant:\n%s\n", got, want)
-			}
+		if g, e := strings.TrimSpace(out), strings.TrimSpace(eg.Output); g != e && err == nil {
+			fail = fmt.Sprintf("got:\n%s\nwant:\n%s\n", g, e)
 		}
 		if fail != "" || err != nil {
 			fmt.Printf("--- FAIL: %s (%s)\n%s", eg.Name, dstr, fail)

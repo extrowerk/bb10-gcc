@@ -17,3 +17,4 @@ test (void)
 }
 /* { dg-final { scan-tree-dump-times "return 9" 1 "optimized"} } */
  
+/* { dg-final { cleanup-tree-dump "optimized" } } */

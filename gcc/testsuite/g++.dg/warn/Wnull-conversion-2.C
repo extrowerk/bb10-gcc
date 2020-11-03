@@ -34,7 +34,6 @@ void func1(long int a) {
 
 int x = 1;
 
-int
 main()
 {
   int *p = &x;
@@ -43,6 +42,4 @@ main()
   Foo::Compare<long int, int>(NULL, p);  // { dg-warning "passing NULL to" }
   Foo::Compare(NULL, p);
   func1(NULL);                           // { dg-warning "passing NULL to" }
-
-  return 0;
 }

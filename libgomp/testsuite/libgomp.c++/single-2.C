@@ -7,7 +7,6 @@ struct X
   int c;
 };
 
-int
 main()
 {
   int i = 0;

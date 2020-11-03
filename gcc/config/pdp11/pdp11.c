@@ -1,5 +1,5 @@
 /* Subroutines for gcc2 for pdp11.
-   Copyright (C) 1994-2018 Free Software Foundation, Inc.
+   Copyright (C) 1994-2015 Free Software Foundation, Inc.
    Contributed by Michael K. Gschwind (mike@vlsivie.tuwien.ac.at).
 
 This file is part of GCC.
@@ -18,35 +18,60 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-#define IN_TARGET_CODE 1
-
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
-#include "target.h"
+#include "tm.h"
 #include "rtl.h"
-#include "tree.h"
-#include "stringpool.h"
-#include "attribs.h"
-#include "df.h"
-#include "memmodel.h"
-#include "tm_p.h"
-#include "insn-config.h"
 #include "regs.h"
-#include "emit-rtl.h"
-#include "recog.h"
+#include "hard-reg-set.h"
+#include "insn-config.h"
 #include "conditions.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
 #include "output.h"
+#include "insn-attr.h"
+#include "flags.h"
+#include "recog.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "calls.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
-#include "builtins.h"
-#include "dbxout.h"
-
-/* This file should be included last.  */
+#include "diagnostic-core.h"
+#include "tm_p.h"
+#include "target.h"
 #include "target-def.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
+#include "predict.h"
+#include "basic-block.h"
+#include "df.h"
+#include "opts.h"
+#include "dbxout.h"
+#include "builtins.h"
 
 /* this is the current value returned by the macro FIRST_PARM_OFFSET 
    defined in tm.h */
@@ -75,7 +100,6 @@ const struct real_format pdp11_f_format =
     127,
     15,
     15,
-    0,
     false,
     false,
     false,
@@ -98,7 +122,6 @@ const struct real_format pdp11_d_format =
     127,
     15,
     15,
-    0,
     false,
     false,
     false,
@@ -151,7 +174,7 @@ decode_pdp11_d (const struct real_format *fmt ATTRIBUTE_UNUSED,
 
 static const char *singlemove_string (rtx *);
 static bool pdp11_assemble_integer (rtx, unsigned int, int);
-static bool pdp11_rtx_costs (rtx, machine_mode, int, int, int *, bool);
+static bool pdp11_rtx_costs (rtx, int, int, int, int *, bool);
 static bool pdp11_return_in_memory (const_tree, const_tree);
 static rtx pdp11_function_value (const_tree, const_tree, bool);
 static rtx pdp11_libcall_value (machine_mode, const_rtx);
@@ -164,7 +187,7 @@ static void pdp11_function_arg_advance (cumulative_args_t,
 static void pdp11_conditional_register_usage (void);
 static bool pdp11_legitimate_constant_p (machine_mode, rtx);
 
-static bool pdp11_scalar_mode_supported_p (scalar_mode);
+static bool pdp11_scalar_mode_supported_p (machine_mode);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_BYTE_OP
@@ -214,9 +237,6 @@ static bool pdp11_scalar_mode_supported_p (scalar_mode);
 #undef  TARGET_PREFERRED_OUTPUT_RELOAD_CLASS
 #define TARGET_PREFERRED_OUTPUT_RELOAD_CLASS pdp11_preferred_output_reload_class
 
-#undef TARGET_LRA_P
-#define TARGET_LRA_P hook_bool_void_false
-
 #undef  TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P pdp11_legitimate_address_p
 
@@ -237,20 +257,6 @@ static bool pdp11_scalar_mode_supported_p (scalar_mode);
 
 #undef  TARGET_SCALAR_MODE_SUPPORTED_P
 #define TARGET_SCALAR_MODE_SUPPORTED_P pdp11_scalar_mode_supported_p
-
-#undef  TARGET_HARD_REGNO_NREGS
-#define TARGET_HARD_REGNO_NREGS pdp11_hard_regno_nregs
-#undef  TARGET_HARD_REGNO_MODE_OK
-#define TARGET_HARD_REGNO_MODE_OK pdp11_hard_regno_mode_ok
-
-#undef  TARGET_MODES_TIEABLE_P
-#define TARGET_MODES_TIEABLE_P pdp11_modes_tieable_p
-
-#undef  TARGET_SECONDARY_MEMORY_NEEDED
-#define TARGET_SECONDARY_MEMORY_NEEDED pdp11_secondary_memory_needed
-
-#undef  TARGET_CAN_CHANGE_MODE_CLASS
-#define TARGET_CAN_CHANGE_MODE_CLASS pdp11_can_change_mode_class
 
 /* A helper function to determine if REGNO should be saved in the
    current function's stack frame.  */
@@ -497,6 +503,7 @@ pdp11_expand_operands (rtx *operands, rtx exops[][2], int opcount,
   pdp11_partorder useorder;
   bool sameoff = false;
   enum { REGOP, OFFSOP, MEMOP, PUSHOP, POPOP, CNSTOP, RNDOP } optype;
+  REAL_VALUE_TYPE r;
   long sval[2];
   
   words = GET_MODE_BITSIZE (GET_MODE (operands[0])) / 16;
@@ -610,8 +617,10 @@ pdp11_expand_operands (rtx *operands, rtx exops[][2], int opcount,
 	}
 
       if (GET_CODE (operands[op]) == CONST_DOUBLE)
-	REAL_VALUE_TO_TARGET_DOUBLE
-	  (*CONST_DOUBLE_REAL_VALUE (operands[op]), sval);
+	{
+	  REAL_VALUE_FROM_CONST_DOUBLE (r, operands[op]);
+	  REAL_VALUE_TO_TARGET_DOUBLE (r, sval);
+	}
       
       for (i = 0; i < words; i++)
 	{
@@ -735,6 +744,7 @@ pdp11_asm_output_var (FILE *file, const char *name, int size,
 static void
 pdp11_asm_print_operand (FILE *file, rtx x, int code)
 {
+  REAL_VALUE_TYPE r;
   long sval[2];
  
   if (code == '#')
@@ -749,10 +759,11 @@ pdp11_asm_print_operand (FILE *file, rtx x, int code)
   else if (GET_CODE (x) == REG)
     fprintf (file, "%s", reg_names[REGNO (x)]);
   else if (GET_CODE (x) == MEM)
-    output_address (GET_MODE (x), XEXP (x, 0));
+    output_address (XEXP (x, 0));
   else if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) != SImode)
     {
-      REAL_VALUE_TO_TARGET_DOUBLE (*CONST_DOUBLE_REAL_VALUE (x), sval);
+      REAL_VALUE_FROM_CONST_DOUBLE (r, x);
+      REAL_VALUE_TO_TARGET_DOUBLE (r, sval);
       fprintf (file, "$%#lo", sval[0] >> 16);
     }
   else
@@ -915,12 +926,10 @@ pdp11_register_move_cost (machine_mode mode ATTRIBUTE_UNUSED,
 }
 
 static bool
-pdp11_rtx_costs (rtx x, machine_mode mode, int outer_code ATTRIBUTE_UNUSED,
+pdp11_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
 		 int opno ATTRIBUTE_UNUSED, int *total,
 		 bool speed ATTRIBUTE_UNUSED)
 {
-  int code = GET_CODE (x);
-
   switch (code)
     {
     case CONST_INT:
@@ -979,9 +988,9 @@ pdp11_rtx_costs (rtx x, machine_mode mode, int outer_code ATTRIBUTE_UNUSED,
       return false;
 
     case SIGN_EXTEND:
-      if (mode == HImode)
+      if (GET_MODE (x) == HImode)
       	*total = COSTS_N_INSNS (1);
-      else if (mode == SImode)
+      else if (GET_MODE (x) == SImode)
 	*total = COSTS_N_INSNS (6);
       else
 	*total = COSTS_N_INSNS (2);
@@ -992,14 +1001,14 @@ pdp11_rtx_costs (rtx x, machine_mode mode, int outer_code ATTRIBUTE_UNUSED,
     case ASHIFTRT:
       if (optimize_size)
         *total = COSTS_N_INSNS (1);
-      else if (mode ==  QImode)
+      else if (GET_MODE (x) ==  QImode)
         {
           if (GET_CODE (XEXP (x, 1)) != CONST_INT)
    	    *total = COSTS_N_INSNS (8); /* worst case */
           else
 	    *total = COSTS_N_INSNS (INTVAL (XEXP (x, 1)));
         }
-      else if (mode == HImode)
+      else if (GET_MODE (x) == HImode)
         {
           if (GET_CODE (XEXP (x, 1)) == CONST_INT)
             {
@@ -1011,7 +1020,7 @@ pdp11_rtx_costs (rtx x, machine_mode mode, int outer_code ATTRIBUTE_UNUSED,
           else
             *total = COSTS_N_INSNS (10); /* worst case */
         }
-      else if (mode == SImode)
+      else if (GET_MODE (x) == SImode)
         {
           if (GET_CODE (XEXP (x, 1)) == CONST_INT)
 	    *total = COSTS_N_INSNS (2.5 + 0.5 * INTVAL (XEXP (x, 1)));
@@ -1370,27 +1379,29 @@ output_block_move(rtx *operands)
 int
 legitimate_const_double_p (rtx address)
 {
+  REAL_VALUE_TYPE r;
   long sval[2];
-  REAL_VALUE_TO_TARGET_DOUBLE (*CONST_DOUBLE_REAL_VALUE (address), sval);
+  REAL_VALUE_FROM_CONST_DOUBLE (r, address);
+  REAL_VALUE_TO_TARGET_DOUBLE (r, sval);
   if ((sval[0] & 0xffff) == 0 && sval[1] == 0)
     return 1;
   return 0;
 }
 
-/* Implement TARGET_CAN_CHANGE_MODE_CLASS.  */
-static bool
-pdp11_can_change_mode_class (machine_mode from,
-			     machine_mode to,
-			     reg_class_t rclass)
+/* Implement CANNOT_CHANGE_MODE_CLASS.  */
+bool
+pdp11_cannot_change_mode_class (machine_mode from,
+				machine_mode to,
+				enum reg_class rclass)
 {
   /* Also, FPU registers contain a whole float value and the parts of
      it are not separately accessible.
 
      So we disallow all mode changes involving FPRs.  */
   if (FLOAT_MODE_P (from) != FLOAT_MODE_P (to))
-    return false;
+    return true;
   
-  return !reg_classes_intersect_p (FPU_REGS, rclass);
+  return reg_classes_intersect_p (FPU_REGS, rclass);
 }
 
 /* TARGET_PREFERRED_RELOAD_CLASS
@@ -1461,13 +1472,14 @@ pdp11_secondary_reload (bool in_p ATTRIBUTE_UNUSED,
   return LOAD_FPU_REGS;
 }
 
-/* Implement TARGET_SECONDARY_MEMORY_NEEDED.
+/* Target routine to check if register to register move requires memory.
 
    The answer is yes if we're going between general register and FPU 
    registers.  The mode doesn't matter in making this check.
 */
-static bool
-pdp11_secondary_memory_needed (machine_mode, reg_class_t c1, reg_class_t c2)
+bool 
+pdp11_secondary_memory_needed (reg_class_t c1, reg_class_t c2, 
+			       machine_mode mode ATTRIBUTE_UNUSED)
 {
   int fromfloat = (c1 == LOAD_FPU_REGS || c1 == NO_LOAD_FPU_REGS || 
 		   c1 == FPU_REGS);
@@ -1926,64 +1938,12 @@ pdp11_legitimate_constant_p (machine_mode mode ATTRIBUTE_UNUSED, rtx x)
 /* Implement TARGET_SCALAR_MODE_SUPPORTED_P.  */
 
 static bool
-pdp11_scalar_mode_supported_p (scalar_mode mode)
+pdp11_scalar_mode_supported_p (machine_mode mode)
 {
   /* Support SFmode even with -mfloat64.  */
   if (mode == SFmode)
     return true;
   return default_scalar_mode_supported_p (mode);
-}
-
-int
-pdp11_branch_cost ()
-{
-  return (TARGET_BRANCH_CHEAP ? 0 : 1);
-}
-
-/* Implement TARGET_HARD_REGNO_NREGS.  */
-
-static unsigned int
-pdp11_hard_regno_nregs (unsigned int regno, machine_mode mode)
-{
-  if (regno <= PC_REGNUM)
-    return CEIL (GET_MODE_SIZE (mode), UNITS_PER_WORD);
-  return 1;
-}
-
-/* Implement TARGET_HARD_REGNO_MODE_OK.  On the pdp, the cpu registers
-   can hold any mode other than float (because otherwise we may end up
-   being asked to move from CPU to FPU register, which isn't a valid
-   operation on the PDP11).  For CPU registers, check alignment.
-
-   FPU accepts SF and DF but actually holds a DF - simplifies life!  */
-
-static bool
-pdp11_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
-{
-  if (regno <= PC_REGNUM)
-    return (GET_MODE_BITSIZE (mode) <= 16
-	    || (GET_MODE_BITSIZE (mode) >= 32
-		&& !(regno & 1)
-		&& !FLOAT_MODE_P (mode)));
-
-  return FLOAT_MODE_P (mode);
-}
-
-/* Implement TARGET_MODES_TIEABLE_P.  */
-
-static bool
-pdp11_modes_tieable_p (machine_mode, machine_mode)
-{
-  return false;
-}
-
-/* Implement PUSH_ROUNDING.  On the pdp11, the stack is on an even
-   boundary.  */
-
-poly_int64
-pdp11_push_rounding (poly_int64 bytes)
-{
-  return (bytes + 1) & ~1;
 }
 
 struct gcc_target targetm = TARGET_INITIALIZER;

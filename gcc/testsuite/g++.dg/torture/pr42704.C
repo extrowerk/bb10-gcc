@@ -1,5 +1,4 @@
 /* { dg-do compile } */
-/* { dg-additional-options "-Wno-return-type" } */
 
 typedef int PRInt32;
 class nsTreeRows {

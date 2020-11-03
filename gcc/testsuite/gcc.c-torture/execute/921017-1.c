@@ -1,6 +1,4 @@
 /* { dg-skip-if "requires alloca" { ! alloca } { "-O0" } { "" } } */
-/* { dg-require-effective-target trampolines } */
-
 f(n)
 {
   int a[n];
@@ -13,7 +11,8 @@ f(n)
 }
 main()
 {
+#ifndef NO_TRAMPOLINES
   if(f(2)!=4711)abort();
-
+#endif
   exit(0);
 }

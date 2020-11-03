@@ -1,5 +1,5 @@
 /* Discovery of auto-inc and auto-dec instructions.
-   Copyright (C) 2006-2018 Free Software Foundation, Inc.
+   Copyright (C) 2006-2015 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -21,21 +21,48 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
-#include "target.h"
-#include "rtl.h"
+#include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "rtl.h"
+#include "tm_p.h"
+#include "hard-reg-set.h"
 #include "predict.h"
-#include "df.h"
-#include "insn-config.h"
-#include "memmodel.h"
-#include "emit-rtl.h"
-#include "recog.h"
+#include "hashtab.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "cfgrtl.h"
+#include "basic-block.h"
+#include "insn-config.h"
+#include "regs.h"
+#include "flags.h"
+#include "except.h"
+#include "diagnostic-core.h"
+#include "recog.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-pass.h"
+#include "df.h"
 #include "dbgcnt.h"
-#include "print-rtl.h"
+#include "target.h"
 
 /* This pass was originally removed from flow.c. However there is
    almost nothing that remains of that code.
@@ -107,6 +134,7 @@ along with GCC; see the file COPYING3.  If not see
   before the ref or +c if the increment was after the ref, then if we
   can do the combination but switch the pre/post bit.  */
 
+#ifdef AUTO_INC_DEC
 
 enum form
 {
@@ -152,14 +180,14 @@ enum gen_form
 static rtx mem_tmp;
 
 static enum inc_state
-set_inc_state (HOST_WIDE_INT val, poly_int64 size)
+set_inc_state (HOST_WIDE_INT val, int size)
 {
   if (val == 0)
     return INC_ZERO;
   if (val < 0)
-    return known_eq (val, -size) ? INC_NEG_SIZE : INC_NEG_ANY;
+    return (val == -size) ? INC_NEG_SIZE : INC_NEG_ANY;
   else
-    return known_eq (val, size) ? INC_POS_SIZE : INC_POS_ANY;
+    return (val == size) ? INC_POS_SIZE : INC_POS_ANY;
 }
 
 /* The DECISION_TABLE that describes what form, if any, the increment
@@ -428,6 +456,24 @@ move_dead_notes (rtx_insn *to_insn, rtx_insn *from_insn, rtx pattern)
     }
 }
 
+
+/* Create a mov insn DEST_REG <- SRC_REG and insert it before
+   NEXT_INSN.  */
+
+static rtx_insn *
+insert_move_insn_before (rtx_insn *next_insn, rtx dest_reg, rtx src_reg)
+{
+  rtx_insn *insns;
+
+  start_sequence ();
+  emit_move_insn (dest_reg, src_reg);
+  insns = get_insns ();
+  end_sequence ();
+  emit_insn_before (insns, next_insn);
+  return insns;
+}
+
+
 /* Change mem_insn.mem_loc so that uses NEW_ADDR which has an
    increment of INC_REG.  To have reached this point, the change is a
    legitimate one from a dataflow point of view.  The only questions
@@ -459,22 +505,9 @@ attempt_change (rtx new_addr, rtx inc_reg)
   PUT_MODE (mem_tmp, mode);
   XEXP (mem_tmp, 0) = new_addr;
 
-  old_cost = (set_src_cost (mem, mode, speed)
+  old_cost = (set_src_cost (mem, speed)
 	      + set_rtx_cost (PATTERN (inc_insn.insn), speed));
-
-  new_cost = set_src_cost (mem_tmp, mode, speed);
-
-  /* In the FORM_PRE_ADD and FORM_POST_ADD cases we emit an extra move
-     whose cost we should account for.  */
-  if (inc_insn.form == FORM_PRE_ADD
-      || inc_insn.form == FORM_POST_ADD)
-    {
-      start_sequence ();
-      emit_move_insn (inc_insn.reg_res, inc_insn.reg0);
-      mov_insn = get_insns ();
-      end_sequence ();
-      new_cost += seq_cost (mov_insn, speed);
-    }
+  new_cost = set_src_cost (mem_tmp, speed);
 
   /* The first item of business is to see if this is profitable.  */
   if (old_cost < new_cost)
@@ -506,13 +539,9 @@ attempt_change (rtx new_addr, rtx inc_reg)
       /* Replace the addition with a move.  Do it at the location of
 	 the addition since the operand of the addition may change
 	 before the memory reference.  */
-      gcc_assert (mov_insn);
-      emit_insn_before (mov_insn, inc_insn.insn);
-      regno = REGNO (inc_insn.reg0);
-      if (reg_next_use[regno] == mem_insn.insn)
-	move_dead_notes (mov_insn, mem_insn.insn, inc_insn.reg0);
-      else
-	move_dead_notes (mov_insn, inc_insn.insn, inc_insn.reg0);
+      mov_insn = insert_move_insn_before (inc_insn.insn,
+					  inc_insn.reg_res, inc_insn.reg0);
+      move_dead_notes (mov_insn, inc_insn.insn, inc_insn.reg0);
 
       regno = REGNO (inc_insn.reg_res);
       reg_next_def[regno] = mov_insn;
@@ -536,8 +565,8 @@ attempt_change (rtx new_addr, rtx inc_reg)
       break;
 
     case FORM_POST_ADD:
-      gcc_assert (mov_insn);
-      emit_insn_before (mov_insn, mem_insn.insn);
+      mov_insn = insert_move_insn_before (mem_insn.insn,
+					  inc_insn.reg_res, inc_insn.reg0);
       move_dead_notes (mov_insn, inc_insn.insn, inc_insn.reg0);
 
       /* Do not move anything to the mov insn because the instruction
@@ -605,7 +634,7 @@ try_merge (void)
     inc_insn.reg_res : mem_insn.reg0;
 
   /* The width of the mem being accessed.  */
-  poly_int64 size = GET_MODE_SIZE (GET_MODE (mem));
+  int size = GET_MODE_SIZE (GET_MODE (mem));
   rtx_insn *last_insn = NULL;
   machine_mode reg_mode = GET_MODE (inc_reg);
 
@@ -663,21 +692,25 @@ try_merge (void)
       if (dump_file)
 	fprintf (dump_file, "trying SIMPLE_PRE_INC\n");
       return attempt_change (gen_rtx_PRE_INC (reg_mode, inc_reg), inc_reg);
+      break;
 
     case SIMPLE_POST_INC:    /* size++  */
       if (dump_file)
 	fprintf (dump_file, "trying SIMPLE_POST_INC\n");
       return attempt_change (gen_rtx_POST_INC (reg_mode, inc_reg), inc_reg);
+      break;
 
     case SIMPLE_PRE_DEC:     /* --size  */
       if (dump_file)
 	fprintf (dump_file, "trying SIMPLE_PRE_DEC\n");
       return attempt_change (gen_rtx_PRE_DEC (reg_mode, inc_reg), inc_reg);
+      break;
 
     case SIMPLE_POST_DEC:    /* size--  */
       if (dump_file)
 	fprintf (dump_file, "trying SIMPLE_POST_DEC\n");
       return attempt_change (gen_rtx_POST_DEC (reg_mode, inc_reg), inc_reg);
+      break;
 
     case DISP_PRE:           /* ++con   */
       if (dump_file)
@@ -688,6 +721,7 @@ try_merge (void)
 							       inc_reg,
 							       inc_insn.reg1)),
 			     inc_reg);
+      break;
 
     case DISP_POST:          /* con++   */
       if (dump_file)
@@ -698,6 +732,7 @@ try_merge (void)
 								inc_reg,
 								inc_insn.reg1)),
 			     inc_reg);
+      break;
 
     case REG_PRE:            /* ++reg   */
       if (dump_file)
@@ -708,6 +743,7 @@ try_merge (void)
 							       inc_reg,
 							       inc_insn.reg1)),
 			     inc_reg);
+      break;
 
     case REG_POST:            /* reg++   */
       if (dump_file)
@@ -718,6 +754,7 @@ try_merge (void)
 								inc_reg,
 								inc_insn.reg1)),
 			     inc_reg);
+      break;
     }
 }
 
@@ -738,6 +775,28 @@ get_next_ref (int regno, basic_block bb, rtx_insn **next_array)
     }
 
   return insn;
+}
+
+
+/* Reverse the operands in a mem insn.  */
+
+static void
+reverse_mem (void)
+{
+  rtx tmp = mem_insn.reg1;
+  mem_insn.reg1 = mem_insn.reg0;
+  mem_insn.reg0 = tmp;
+}
+
+
+/* Reverse the operands in a inc insn.  */
+
+static void
+reverse_inc (void)
+{
+  rtx tmp = inc_insn.reg1;
+  inc_insn.reg1 = inc_insn.reg0;
+  inc_insn.reg0 = tmp;
 }
 
 
@@ -773,12 +832,6 @@ parse_add_or_inc (rtx_insn *insn, bool before_mem)
   inc_insn.pat = pat;
   inc_insn.reg_res = SET_DEST (pat);
   inc_insn.reg0 = XEXP (SET_SRC (pat), 0);
-
-  /* Block any auto increment of the frame pointer since it expands into
-     an addition and cannot be removed by copy propagation.  */
-  if (inc_insn.reg0 == frame_pointer_rtx)
-    return false;
-
   if (rtx_equal_p (inc_insn.reg_res, inc_insn.reg0))
     inc_insn.form = before_mem ? FORM_PRE_INC : FORM_POST_INC;
   else
@@ -815,7 +868,7 @@ parse_add_or_inc (rtx_insn *insn, bool before_mem)
 	{
 	  /* Reverse the two operands and turn *_ADD into *_INC since
 	     a = c + a.  */
-	  std::swap (inc_insn.reg0, inc_insn.reg1);
+	  reverse_inc ();
 	  inc_insn.form = before_mem ? FORM_PRE_INC : FORM_POST_INC;
 	  return true;
 	}
@@ -829,15 +882,13 @@ parse_add_or_inc (rtx_insn *insn, bool before_mem)
 
 /* A recursive function that checks all of the mem uses in
    ADDRESS_OF_X to see if any single one of them is compatible with
-   what has been found in inc_insn.  To avoid accidental matches, we
-   will only find MEMs with FINDREG, be it inc_insn.reg_res, be it
-   inc_insn.reg0.
+   what has been found in inc_insn.
 
    -1 is returned for success.  0 is returned if nothing was found and
    1 is returned for failure. */
 
 static int
-find_address (rtx *address_of_x, rtx findreg)
+find_address (rtx *address_of_x)
 {
   rtx x = *address_of_x;
   enum rtx_code code = GET_CODE (x);
@@ -846,10 +897,9 @@ find_address (rtx *address_of_x, rtx findreg)
   int value = 0;
   int tem;
 
-  if (code == MEM && findreg == inc_insn.reg_res
-      && rtx_equal_p (XEXP (x, 0), inc_insn.reg_res))
+  if (code == MEM && rtx_equal_p (XEXP (x, 0), inc_insn.reg_res))
     {
-      /* Match with *reg_res.  */
+      /* Match with *reg0.  */
       mem_insn.mem_loc = address_of_x;
       mem_insn.reg0 = inc_insn.reg_res;
       mem_insn.reg1_is_const = true;
@@ -857,21 +907,7 @@ find_address (rtx *address_of_x, rtx findreg)
       mem_insn.reg1 = GEN_INT (0);
       return -1;
     }
-  if (code == MEM && inc_insn.reg1_is_const && inc_insn.reg0
-      && findreg == inc_insn.reg0
-      && rtx_equal_p (XEXP (x, 0), inc_insn.reg0))
-    {
-      /* Match with *reg0, assumed to be equivalent to
-         *(reg_res - reg1_val); callers must check whether this is the case.  */
-      mem_insn.mem_loc = address_of_x;
-      mem_insn.reg0 = inc_insn.reg_res;
-      mem_insn.reg1_is_const = true;
-      mem_insn.reg1_val = -inc_insn.reg1_val;
-      mem_insn.reg1 = GEN_INT (mem_insn.reg1_val);
-      return -1;
-    }
-  if (code == MEM && findreg == inc_insn.reg_res
-      && GET_CODE (XEXP (x, 0)) == PLUS
+  if (code == MEM && GET_CODE (XEXP (x, 0)) == PLUS
       && rtx_equal_p (XEXP (XEXP (x, 0), 0), inc_insn.reg_res))
     {
       rtx b = XEXP (XEXP (x, 0), 1);
@@ -900,7 +936,7 @@ find_address (rtx *address_of_x, rtx findreg)
     {
       /* If REG occurs inside a MEM used in a bit-field reference,
 	 that is unacceptable.  */
-      if (find_address (&XEXP (x, 0), findreg))
+      if (find_address (&XEXP (x, 0)))
 	return 1;
     }
 
@@ -912,7 +948,7 @@ find_address (rtx *address_of_x, rtx findreg)
     {
       if (fmt[i] == 'e')
 	{
-	  tem = find_address (&XEXP (x, i), findreg);
+	  tem = find_address (&XEXP (x, i));
 	  /* If this is the first use, let it go so the rest of the
 	     insn can be checked.  */
 	  if (value == 0)
@@ -926,7 +962,7 @@ find_address (rtx *address_of_x, rtx findreg)
 	  int j;
 	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 	    {
-	      tem = find_address (&XVECEXP (x, i, j), findreg);
+	      tem = find_address (&XVECEXP (x, i, j));
 	      /* If this is the first use, let it go so the rest of
 		 the insn can be checked.  */
 	      if (value == 0)
@@ -992,7 +1028,7 @@ find_inc (bool first_try)
 	 find this.  Only try it once though.  */
       if (first_try && !mem_insn.reg1_is_const)
 	{
-	  std::swap (mem_insn.reg0, mem_insn.reg1);
+	  reverse_mem ();
 	  return find_inc (false);
 	}
       else
@@ -1093,7 +1129,7 @@ find_inc (bool first_try)
 		    return false;
 
 		  if (!rtx_equal_p (mem_insn.reg0, inc_insn.reg0))
-		    std::swap (inc_insn.reg0, inc_insn.reg1);
+		    reverse_inc ();
 		}
 
 	      other_insn
@@ -1143,7 +1179,7 @@ find_inc (bool first_try)
 		  /* See comment above on find_inc (false) call.  */
 		  if (first_try)
 		    {
-		      std::swap (mem_insn.reg0, mem_insn.reg1);
+		      reverse_mem ();
 		      return find_inc (false);
 		    }
 		  else
@@ -1162,7 +1198,7 @@ find_inc (bool first_try)
 	    {
 	      /* We know that mem_insn.reg0 must equal inc_insn.reg1
 		 or else we would not have found the inc insn.  */
-	      std::swap (mem_insn.reg0, mem_insn.reg1);
+	      reverse_mem ();
 	      if (!rtx_equal_p (mem_insn.reg0, inc_insn.reg0))
 		{
 		  /* See comment above on find_inc (false) call.  */
@@ -1201,7 +1237,7 @@ find_inc (bool first_try)
 	    {
 	      if (first_try)
 		{
-		  std::swap (mem_insn.reg0, mem_insn.reg1);
+		  reverse_mem ();
 		  return find_inc (false);
 		}
 	      else
@@ -1381,106 +1417,7 @@ merge_in_block (int max_reg, basic_block bb)
 		  if (dump_file)
 		    dump_inc_insn (dump_file);
 
-		  if (ok && find_address (&PATTERN (mem_insn.insn),
-					  inc_insn.reg_res) == -1)
-		    {
-		      if (dump_file)
-			dump_mem_insn (dump_file);
-		      if (try_merge ())
-			{
-			  success_in_block++;
-			  insn_is_add_or_inc = false;
-			}
-		    }
-		}
-
-	      if (insn_is_add_or_inc
-		  /* find_address will only recognize an address
-		     with a reg0 that's not reg_res when
-		     reg1_is_const, so cut it off early if we
-		     already know it won't match.  */
-		  && inc_insn.reg1_is_const
-		  && inc_insn.reg0
-		  && inc_insn.reg0 != inc_insn.reg_res)
-		{
-		  /* If we identified an inc_insn that uses two
-		     different pseudos, it's of the form
-
-		     (set reg_res (plus reg0 reg1))
-
-		     where reg1 is a constant (*).
-
-		     The next use of reg_res was not idenfied by
-		     find_address as a mem_insn that we could turn
-		     into auto-inc, so see if we find a suitable
-		     MEM in the next use of reg0, as long as it's
-		     before any subsequent use of reg_res:
-
-		     ... (mem (... reg0 ...)) ...
-
-		     ... reg_res ...
-
-		     In this case, we can turn the plus into a
-		     copy, and the reg0 in the MEM address into a
-		     post_inc of reg_res:
-
-		     (set reg_res reg0)
-
-		     ... (mem (... (post_add reg_res reg1) ...)) ...
-
-		     reg_res will then have the correct value at
-		     subsequent uses, and reg0 will remain
-		     unchanged.
-
-		     (*) We could support non-const reg1, but then
-		     we'd have to check that reg1 remains
-		     unchanged all the way to the modified MEM,
-		     and we'd have to extend find_address to
-		     represent a non-const negated reg1.  */
-		  regno = REGNO (inc_insn.reg0);
-		  rtx_insn *reg0_use = get_next_ref (regno, bb,
-						     reg_next_use);
-
-		  /* Give up if the next use of reg0 is after the next
-		     use of reg_res (same insn is ok; we might have
-		     found a MEM with reg_res before, and that failed,
-		     but now we try reg0, which might work), or defs
-		     of reg_res (same insn is not ok, we'd introduce
-		     another def in the same insn) or reg0.  */
-		  if (reg0_use)
-		    {
-		      int luid = DF_INSN_LUID (reg0_use);
-
-		      /* It might seem pointless to introduce an
-			 auto-inc if there's no subsequent use of
-			 reg_res (i.e., mem_insn.insn == NULL), but
-			 the next use might be in the next iteration
-			 of a loop, and it won't hurt if we make the
-			 change even if it's not needed.  */
-		      if (mem_insn.insn
-			  && luid > DF_INSN_LUID (mem_insn.insn))
-			reg0_use = NULL;
-
-		      rtx_insn *other_insn
-			= get_next_ref (REGNO (inc_insn.reg_res), bb,
-					reg_next_def);
-
-		      if (other_insn && luid >= DF_INSN_LUID (other_insn))
-			reg0_use = NULL;
-
-		      other_insn
-			= get_next_ref (REGNO (inc_insn.reg0), bb,
-					reg_next_def);
-
-		      if (other_insn && luid > DF_INSN_LUID (other_insn))
-			reg0_use = NULL;
-		    }
-
-		  mem_insn.insn = reg0_use;
-
-		  if (mem_insn.insn
-		      && find_address (&PATTERN (mem_insn.insn),
-				       inc_insn.reg0) == -1)
+		  if (ok && find_address (&PATTERN (mem_insn.insn)) == -1)
 		    {
 		      if (dump_file)
 			dump_mem_insn (dump_file);
@@ -1544,6 +1481,8 @@ merge_in_block (int max_reg, basic_block bb)
     }
 }
 
+#endif
+
 /* Discover auto-inc auto-dec instructions.  */
 
 namespace {
@@ -1571,10 +1510,11 @@ public:
   /* opt_pass methods: */
   virtual bool gate (function *)
     {
-      if (!AUTO_INC_DEC)
-	return false;
-
+#ifdef AUTO_INC_DEC
       return (optimize > 0 && flag_auto_inc_dec);
+#else
+      return false;
+#endif
     }
 
 
@@ -1585,9 +1525,7 @@ public:
 unsigned int
 pass_inc_dec::execute (function *fun ATTRIBUTE_UNUSED)
 {
-  if (!AUTO_INC_DEC)
-    return 0;
-
+#ifdef AUTO_INC_DEC
   basic_block bb;
   int max_reg = max_reg_num ();
 
@@ -1610,7 +1548,7 @@ pass_inc_dec::execute (function *fun ATTRIBUTE_UNUSED)
   free (reg_next_def);
 
   mem_tmp = NULL;
-
+#endif
   return 0;
 }
 

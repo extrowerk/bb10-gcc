@@ -23,3 +23,4 @@ float t(float a)
 }
 
 /* { dg-final { scan-tree-dump-times "union" 0 "optimized"} } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

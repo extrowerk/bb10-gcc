@@ -14,4 +14,5 @@ void bar(B& b)
         b.d[i] = b.foo(i);
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */
 

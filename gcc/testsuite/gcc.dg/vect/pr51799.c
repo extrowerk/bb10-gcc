@@ -15,3 +15,4 @@ f0a (uint32_t * __restrict__ result, int8_t * __restrict__ arg1,
     }
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

@@ -1,5 +1,5 @@
 /* Definitions for 64-bit PowerPC running FreeBSD using the ELF format
-   Copyright (C) 2012-2018 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -143,7 +143,7 @@ extern int dot_symbols;
 #define	LINK_OS_FREEBSD_SPEC "%{m32:%(link_os_freebsd_spec32)}%{!m32:%(link_os_freebsd_spec64)}"
 
 #define ASM_SPEC32 "-a32 \
-%{mrelocatable} %{mrelocatable-lib} %{" FPIE_OR_FPIC_SPEC ":-K PIC} \
+%{mrelocatable} %{mrelocatable-lib} %{" FPIC_SPEC ":-K PIC} \
 %{memb} %{!memb: %{msdata=eabi: -memb}} \
 %{!mlittle: %{!mlittle-endian: %{!mbig: %{!mbig-endian: \
     %{mcall-freebsd: -mbig} \
@@ -225,7 +225,7 @@ extern int dot_symbols;
    registers and memory.  FIRST is nonzero if this is the only
    element.  */
 #define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
-  (!(FIRST) ? PAD_UPWARD : targetm.calls.function_arg_padding (MODE, TYPE))
+  (!(FIRST) ? upward : FUNCTION_ARG_PADDING (MODE, TYPE))
 
 /* FreeBSD doesn't support saving and restoring 64-bit regs with a 32-bit
    kernel. This is supported when running on a 64-bit kernel with
@@ -349,7 +349,7 @@ extern int dot_symbols;
    true if the symbol may be affected by dynamic relocations.  */
 #undef	ASM_PREFERRED_EH_DATA_FORMAT
 #define	ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL) \
-  (TARGET_64BIT || flag_pic						\
+  ((TARGET_64BIT || flag_pic || TARGET_RELOCATABLE)			\
    ? (((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel		\
       | (TARGET_64BIT ? DW_EH_PE_udata8 : DW_EH_PE_sdata4))		\
    : DW_EH_PE_absptr)
@@ -365,12 +365,12 @@ extern int dot_symbols;
 
 /* PowerPC64 Linux word-aligns FP doubles when -malign-power is given.  */
 #undef  ADJUST_FIELD_ALIGN
-#define ADJUST_FIELD_ALIGN(FIELD, TYPE, COMPUTED) \
-  (rs6000_special_adjust_field_align_p ((TYPE), (COMPUTED))		\
+#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
+  (rs6000_special_adjust_field_align_p ((FIELD), (COMPUTED))		\
    ? 128                                                                \
    : (TARGET_64BIT                                                      \
       && TARGET_ALIGN_NATURAL == 0                                      \
-      && TYPE_MODE (strip_array_types (TYPE)) == DFmode)   		\
+      && TYPE_MODE (strip_array_types (TREE_TYPE (FIELD))) == DFmode)   \
    ? MIN ((COMPUTED), 32)                                               \
    : (COMPUTED))
 
@@ -384,7 +384,7 @@ extern int dot_symbols;
 #define MINIMAL_TOC_SECTION_ASM_OP \
   (TARGET_64BIT                                         \
    ? "\t.section\t\".toc1\",\"aw\""                     \
-   : (flag_pic						\
+   : ((TARGET_RELOCATABLE || flag_pic)                  \
       ? "\t.section\t\".got2\",\"aw\""                  \
       : "\t.section\t\".got1\",\"aw\""))
 
@@ -422,6 +422,7 @@ extern int dot_symbols;
                         && ! TARGET_NO_FP_IN_TOC)))                     \
                || (!TARGET_64BIT                                        \
                    && !TARGET_NO_FP_IN_TOC                              \
+                   && !TARGET_RELOCATABLE                               \
                    && SCALAR_FLOAT_MODE_P (GET_MODE (X))                \
                    && BITS_PER_WORD == HOST_BITS_PER_INT)))))
 

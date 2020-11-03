@@ -4,7 +4,7 @@ class wxPaintEvent {  };
 struct wxDCBase
 { 
   wxDCBase ();
-  virtual int GetLayoutDirection() const{ return 0; }
+  virtual int GetLayoutDirection() const{}
   virtual void SetLayoutDirection(int){}
 };
 struct wxWindowDC  : public wxDCBase {};
@@ -28,3 +28,5 @@ void  OnPaint(wxPaintEvent & event) {
   wxBufferedPaintDC dc;
 }
 /* { dg-final { scan-ipa-dump-times "Discovered a virtual call to a known target" 2 "cp"  } } */
+/* { dg-final { cleanup-ipa-dump "inline" } } */
+/* { dg-final { cleanup-ipa-dump "cp" } } */

@@ -1,5 +1,4 @@
 ! { dg-do compile }
-! { dg-require-visibility "" }
 !
 ! PR fortran/47399
 !
@@ -34,7 +33,7 @@ subroutine test()
    integer, dimension (a%i()) :: y              ! #2
    integer, dimension (a_const%i()) :: z        ! #3
 
-   if (size (x) /= 13 .or. size(y) /= 13 .or. size(z) /= 13) STOP 1
+   if (size (x) /= 13 .or. size(y) /= 13 .or. size(z) /= 13) call abort()
 !   print *, size (x), size(y), size(z)
 end subroutine test
 

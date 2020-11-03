@@ -5,7 +5,7 @@ struct Geometry
 {
         int type:16;
 };
-struct Geometry get() { return Geometry(); };
+struct Geometry get() {};
 int f()
 {
         struct Geometry test;

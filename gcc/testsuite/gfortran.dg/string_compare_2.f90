@@ -31,7 +31,7 @@ program pack_bug
       print '(55L1)', tmp(:,i)
 
       if (any ((exprs(:)(1:1)=='a') .neqv. tmp(:,i))) then
-        STOP 1
+        call abort ()
       end if
     end do
 end

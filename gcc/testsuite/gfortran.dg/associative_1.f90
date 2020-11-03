@@ -7,3 +7,4 @@ SUBROUTINE S1(a)
  a=1+a-1
 END SUBROUTINE S1
 ! { dg-final { scan-tree-dump-times " \\\+ " 0 "optimized" } }
+! { dg-final { cleanup-tree-dump "optimized" } }

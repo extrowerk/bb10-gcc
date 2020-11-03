@@ -53,6 +53,7 @@ end
 subroutine bar(x)
   integer :: x(1:*)
   print *, x(1:3)
-  if (any (x(1:3) /= [1,3,5])) STOP 1
+  if (any (x(1:3) /= [1,3,5])) call abort ()
 end subroutine bar
 ! { dg-final { scan-tree-dump-times "unpack" 4 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

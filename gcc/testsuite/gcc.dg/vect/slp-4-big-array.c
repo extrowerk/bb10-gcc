@@ -4,6 +4,7 @@
 #include "tree-vect.h"
 
 #define N 128
+volatile int y = 0;
 
 int
 main1 ()
@@ -16,7 +17,8 @@ main1 ()
   for (i = 0; i < N*8; i++)
     {
       in[i] = i;
-      asm volatile ("" ::: "memory");
+      if (y) /* Avoid vectorization.  */
+	abort ();
     }
 
   for (i = 0; i < N; i++)
@@ -129,4 +131,5 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect"  } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 3 "vect"  } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */
 

@@ -1,6 +1,7 @@
 /* Check that the rotcr instruction is generated.  */
 /* { dg-do compile }  */
 /* { dg-options "-O1" } */
+/* { dg-skip-if "" { "sh*-*-*" } { "-m5*"} { "" } }  */
 /* { dg-final { scan-assembler-times "rotcl" 4 } } */
 /* { dg-final { scan-assembler-not "movt" } } */
 /* { dg-final { scan-assembler-not "or\t" } } */

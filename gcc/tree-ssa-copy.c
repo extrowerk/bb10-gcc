@@ -1,5 +1,5 @@
 /* Copy propagation and SSA_NAME replacement support routines.
-   Copyright (C) 2004-2018 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,18 +20,46 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
+#include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
-#include "gimple.h"
-#include "tree-pass.h"
-#include "ssa.h"
-#include "gimple-pretty-print.h"
 #include "fold-const.h"
+#include "flags.h"
+#include "tm_p.h"
+#include "predict.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "basic-block.h"
+#include "gimple-pretty-print.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
 #include "gimple-iterator.h"
+#include "gimple-ssa.h"
 #include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "tree-pass.h"
 #include "tree-ssa-propagate.h"
+#include "langhooks.h"
 #include "cfgloop.h"
 #include "tree-scalar-evolution.h"
+#include "tree-ssa-dom.h"
 #include "tree-ssa-loop-niter.h"
 
 
@@ -68,13 +96,6 @@ struct prop_value_t {
     tree value;
 };
 
-class copy_prop : public ssa_propagation_engine
-{
- public:
-  enum ssa_prop_result visit_stmt (gimple *, edge *, tree *) FINAL OVERRIDE;
-  enum ssa_prop_result visit_phi (gphi *) FINAL OVERRIDE;
-};
-
 static prop_value_t *copy_of;
 static unsigned n_copy_of;
 
@@ -82,7 +103,7 @@ static unsigned n_copy_of;
 /* Return true if this statement may generate a useful copy.  */
 
 static bool
-stmt_may_generate_copy (gimple *stmt)
+stmt_may_generate_copy (gimple stmt)
 {
   if (gimple_code (stmt) == GIMPLE_PHI)
     return !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (gimple_phi_result (stmt));
@@ -155,7 +176,7 @@ set_copy_of_val (tree var, tree val)
   copy_of[ver].value = val;
 
   if (old != val
-      && (!old || !operand_equal_p (old, val, 0)))
+      || (val && !operand_equal_p (old, val, 0)))
     return true;
 
   return false;
@@ -175,7 +196,7 @@ dump_copy_of (FILE *file, tree var)
 
   val = copy_of[SSA_NAME_VERSION (var)].value;
   fprintf (file, " copy-of chain: ");
-  print_generic_expr (file, var);
+  print_generic_expr (file, var, 0);
   fprintf (file, " ");
   if (!val)
     fprintf (file, "[UNDEFINED]");
@@ -184,7 +205,7 @@ dump_copy_of (FILE *file, tree var)
   else
     {
       fprintf (file, "-> ");
-      print_generic_expr (file, val);
+      print_generic_expr (file, val, 0);
       fprintf (file, " ");
       fprintf (file, "[COPY]");
     }
@@ -195,7 +216,7 @@ dump_copy_of (FILE *file, tree var)
    value and store the LHS into *RESULT_P.  */
 
 static enum ssa_prop_result
-copy_prop_visit_assignment (gimple *stmt, tree *result_p)
+copy_prop_visit_assignment (gimple stmt, tree *result_p)
 {
   tree lhs, rhs;
 
@@ -225,7 +246,7 @@ copy_prop_visit_assignment (gimple *stmt, tree *result_p)
    SSA_PROP_VARYING.  */
 
 static enum ssa_prop_result
-copy_prop_visit_cond_stmt (gimple *stmt, edge *taken_edge_p)
+copy_prop_visit_cond_stmt (gimple stmt, edge *taken_edge_p)
 {
   enum ssa_prop_result retval = SSA_PROP_VARYING;
   location_t loc = gimple_location (stmt);
@@ -238,7 +259,7 @@ copy_prop_visit_cond_stmt (gimple *stmt, edge *taken_edge_p)
     {
       fprintf (dump_file, "Trying to determine truth value of ");
       fprintf (dump_file, "predicate ");
-      print_gimple_stmt (dump_file, stmt, 0);
+      print_gimple_stmt (dump_file, stmt, 0, 0);
     }
 
   /* Fold COND and see whether we get a useful result.  */
@@ -270,8 +291,8 @@ copy_prop_visit_cond_stmt (gimple *stmt, edge *taken_edge_p)
    If the new value produced by STMT is varying, return
    SSA_PROP_VARYING.  */
 
-enum ssa_prop_result
-copy_prop::visit_stmt (gimple *stmt, edge *taken_edge_p, tree *result_p)
+static enum ssa_prop_result
+copy_prop_visit_stmt (gimple stmt, edge *taken_edge_p, tree *result_p)
 {
   enum ssa_prop_result retval;
 
@@ -324,8 +345,8 @@ copy_prop::visit_stmt (gimple *stmt, edge *taken_edge_p, tree *result_p)
 /* Visit PHI node PHI.  If all the arguments produce the same value,
    set it to be the value of the LHS of PHI.  */
 
-enum ssa_prop_result
-copy_prop::visit_phi (gphi *phi)
+static enum ssa_prop_result
+copy_prop_visit_phi_node (gphi *phi)
 {
   enum ssa_prop_result retval;
   unsigned i;
@@ -449,7 +470,7 @@ init_copy_prop (void)
       for (gimple_stmt_iterator si = gsi_start_bb (bb); !gsi_end_p (si);
 	   gsi_next (&si))
 	{
-	  gimple *stmt = gsi_stmt (si);
+	  gimple stmt = gsi_stmt (si);
 	  ssa_op_iter iter;
           tree def;
 
@@ -489,16 +510,10 @@ init_copy_prop (void)
     }
 }
 
-class copy_folder : public substitute_and_fold_engine
-{
- public:
-  tree get_value (tree) FINAL OVERRIDE;
-};
-
 /* Callback for substitute_and_fold to get at the final copy-of values.  */
 
-tree
-copy_folder::get_value (tree name)
+static tree
+get_value (tree name)
 {
   tree val;
   if (SSA_NAME_VERSION (name) >= n_copy_of)
@@ -516,13 +531,14 @@ static bool
 fini_copy_prop (void)
 {
   unsigned i;
-  tree var;
 
   /* Set the final copy-of value for each variable by traversing the
      copy-of chains.  */
-  FOR_EACH_SSA_NAME (i, var, cfun)
+  for (i = 1; i < num_ssa_names; i++)
     {
-      if (!copy_of[i].value
+      tree var = ssa_name (i);
+      if (!var
+	  || !copy_of[i].value
 	  || copy_of[i].value == var)
 	continue;
 
@@ -563,11 +579,10 @@ fini_copy_prop (void)
 	}
     }
 
-  class copy_folder copy_folder;
-  bool changed = copy_folder.substitute_and_fold ();
+  bool changed = substitute_and_fold (get_value, NULL, true);
   if (changed)
     {
-      free_numbers_of_iterations_estimates (cfun);
+      free_numbers_of_iterations_estimates ();
       if (scev_initialized_p ())
 	scev_reset ();
     }
@@ -615,8 +630,7 @@ static unsigned int
 execute_copy_prop (void)
 {
   init_copy_prop ();
-  class copy_prop copy_prop;
-  copy_prop.ssa_propagate ();
+  ssa_propagate (copy_prop_visit_stmt, copy_prop_visit_phi_node);
   if (fini_copy_prop ())
     return TODO_cleanup_cfg;
   return 0;

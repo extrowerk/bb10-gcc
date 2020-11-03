@@ -1,13 +1,13 @@
-// Copyright 2009 The Go Authors. All rights reserved.
+// Copyright 2009 The Go Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build aix darwin dragonfly freebsd linux netbsd openbsd solaris windows
+// +build darwin dragonfly freebsd linux netbsd openbsd solaris windows
 
 package net
 
 import (
-	"runtime"
+	"os"
 	"syscall"
 )
 
@@ -101,21 +101,27 @@ done:
 }
 
 func setReadBuffer(fd *netFD, bytes int) error {
-	err := fd.pfd.SetsockoptInt(syscall.SOL_SOCKET, syscall.SO_RCVBUF, bytes)
-	runtime.KeepAlive(fd)
-	return wrapSyscallError("setsockopt", err)
+	if err := fd.incref(); err != nil {
+		return err
+	}
+	defer fd.decref()
+	return os.NewSyscallError("setsockopt", syscall.SetsockoptInt(fd.sysfd, syscall.SOL_SOCKET, syscall.SO_RCVBUF, bytes))
 }
 
 func setWriteBuffer(fd *netFD, bytes int) error {
-	err := fd.pfd.SetsockoptInt(syscall.SOL_SOCKET, syscall.SO_SNDBUF, bytes)
-	runtime.KeepAlive(fd)
-	return wrapSyscallError("setsockopt", err)
+	if err := fd.incref(); err != nil {
+		return err
+	}
+	defer fd.decref()
+	return os.NewSyscallError("setsockopt", syscall.SetsockoptInt(fd.sysfd, syscall.SOL_SOCKET, syscall.SO_SNDBUF, bytes))
 }
 
 func setKeepAlive(fd *netFD, keepalive bool) error {
-	err := fd.pfd.SetsockoptInt(syscall.SOL_SOCKET, syscall.SO_KEEPALIVE, boolint(keepalive))
-	runtime.KeepAlive(fd)
-	return wrapSyscallError("setsockopt", err)
+	if err := fd.incref(); err != nil {
+		return err
+	}
+	defer fd.decref()
+	return os.NewSyscallError("setsockopt", syscall.SetsockoptInt(fd.sysfd, syscall.SOL_SOCKET, syscall.SO_KEEPALIVE, boolint(keepalive)))
 }
 
 func setLinger(fd *netFD, sec int) error {
@@ -127,7 +133,9 @@ func setLinger(fd *netFD, sec int) error {
 		l.Onoff = 0
 		l.Linger = 0
 	}
-	err := fd.pfd.SetsockoptLinger(syscall.SOL_SOCKET, syscall.SO_LINGER, &l)
-	runtime.KeepAlive(fd)
-	return wrapSyscallError("setsockopt", err)
+	if err := fd.incref(); err != nil {
+		return err
+	}
+	defer fd.decref()
+	return os.NewSyscallError("setsockopt", syscall.SetsockoptLinger(fd.sysfd, syscall.SOL_SOCKET, syscall.SO_LINGER, &l))
 }

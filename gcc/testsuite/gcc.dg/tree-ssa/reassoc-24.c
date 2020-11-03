@@ -22,3 +22,4 @@ foo (void)
 /* Verify there are two pairs of __asm__ statements with no
    intervening stmts.  */
 /* { dg-final { scan-tree-dump-times "__asm__\[^;\n]*;\n *__asm__" 2 "reassoc1"} } */
+/* { dg-final { cleanup-tree-dump "reassoc1" } } */

@@ -1,5 +1,5 @@
 /* GCC backend definitions for the Renesas RX processor.
-   Copyright (C) 2008-2018 Free Software Foundation, Inc.
+   Copyright (C) 2008-2015 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -67,11 +67,6 @@
 	builtin_define ("__RX_GCC_ABI__");	\
       else					\
 	builtin_define ("__RX_ABI__");		\
-						\
-      if (rx_allow_string_insns)		\
-	builtin_define ("__RX_ALLOW_STRING_INSNS__"); \
-      else					\
-	builtin_define ("__RX_DISALLOW_STRING_INSNS__");\
     }                                           \
   while (0)
 
@@ -102,7 +97,6 @@
 %{msmall-data-limit*:-msmall-data-limit} \
 %{mrelax:-relax} \
 %{mpid} \
-%{mno-allow-string-insns} \
 %{mint-register=*} \
 %{mgcc-abi:-mgcc-abi} %{!mgcc-abi:-mrx-abi} \
 %{mcpu=*} \
@@ -169,6 +163,9 @@
 #define HAS_LONG_UNCOND_BRANCH		0
 
 #define MOVE_MAX 			4
+#define STARTING_FRAME_OFFSET		0
+
+#define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC)   1
 
 #define HAVE_PRE_DECREMENT		1
 #define HAVE_POST_INCREMENT		1
@@ -264,7 +261,6 @@ enum reg_class
 #define LIBCALL_VALUE(MODE)				\
   gen_rtx_REG (((GET_MODE_CLASS (MODE) != MODE_INT	\
                  || COMPLEX_MODE_P (MODE)		\
-                 || VECTOR_MODE_P (MODE)		\
 		 || GET_MODE_SIZE (MODE) >= 4)		\
 		? (MODE)				\
 		: SImode),				\
@@ -326,6 +322,18 @@ typedef unsigned int CUMULATIVE_ARGS;
 
 #define FUNCTION_PROFILER(FILE, LABELNO)	\
     fprintf (FILE, "\tbsr\t__mcount\n");
+
+
+#define HARD_REGNO_NREGS(REGNO, MODE)   CLASS_MAX_NREGS (0, MODE)
+
+#define HARD_REGNO_MODE_OK(REGNO, MODE)				\
+  (REGNO_REG_CLASS (REGNO) == GR_REGS)
+
+#define MODES_TIEABLE_P(MODE1, MODE2)				\
+  (   (   GET_MODE_CLASS (MODE1) == MODE_FLOAT			\
+       || GET_MODE_CLASS (MODE1) == MODE_COMPLEX_FLOAT)		\
+   == (   GET_MODE_CLASS (MODE2) == MODE_FLOAT			\
+       || GET_MODE_CLASS (MODE2) == MODE_COMPLEX_FLOAT))
 
 
 #define REGISTER_NAMES						\
@@ -548,15 +556,15 @@ typedef unsigned int CUMULATIVE_ARGS;
 	  switch ((ALIGN) / BITS_PER_UNIT)				\
             {								\
             case 4:							\
-              fprintf ((FILE), ":\t.BLKL\t" HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
+              fprintf ((FILE), ":\t.BLKL\t"HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
 		       (SIZE) / 4);					\
 	      break;							\
             case 2:							\
-              fprintf ((FILE), ":\t.BLKW\t" HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
+              fprintf ((FILE), ":\t.BLKW\t"HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
 		       (SIZE) / 2);					\
 	      break;							\
             default:							\
-              fprintf ((FILE), ":\t.BLKB\t" HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
+              fprintf ((FILE), ":\t.BLKB\t"HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
 		       (SIZE));						\
 	      break;							\
             }								\
@@ -565,7 +573,7 @@ typedef unsigned int CUMULATIVE_ARGS;
         {								\
           fprintf ((FILE), "%s", COMMON_ASM_OP);			\
           assemble_name ((FILE), (NAME));				\
-          fprintf ((FILE), "," HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",	\
+          fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",	\
 	           (SIZE), (ALIGN) / BITS_PER_UNIT);			\
 	}								\
     }									\

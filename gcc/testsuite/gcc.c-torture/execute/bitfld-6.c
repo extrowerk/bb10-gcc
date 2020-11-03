@@ -1,4 +1,3 @@
-/* { dg-require-effective-target int32plus } */
 union U
 {
   const int a;

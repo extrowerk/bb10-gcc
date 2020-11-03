@@ -1,4 +1,4 @@
-/* { dg-do compile { target int32plus } } */
+/* { dg-do compile } */
 /* { dg-options "-O2 -fdump-rtl-expand-details" } */
 
 int foo(unsigned int cc )
@@ -13,3 +13,4 @@ int foo(unsigned int cc )
 }
 
 /* { dg-final { scan-rtl-dump-not "_\[0-9\]* = 1;" "expand" } } */
+/* { dg-final { cleanup-rtl-dump "expand" } } */

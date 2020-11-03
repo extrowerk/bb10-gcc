@@ -67,17 +67,17 @@ program value_4
   b = 0.0
   c = a
   b = f_to_f (a, c)
-  if (delta ((2.0 * a), b)) STOP 1
+  if (delta ((2.0 * a), b)) call abort ()
 
   i = 99
   j = 0
   k = i
   j = i_to_i (i, k)
-  if (delta ((3_4 * i), j)) STOP 2
+  if (delta ((3_4 * i), j)) call abort ()
 
   u = (-1.0, 2.0)
   v = (1.0, -2.0)
   w = u
   v = c_to_c (u, w)
-  if (delta ((4.0 * u), v)) STOP 3
+  if (delta ((4.0 * u), v)) call abort ()
 end program value_4

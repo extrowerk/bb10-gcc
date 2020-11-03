@@ -15,18 +15,12 @@ class Statement_inserter;
 class Block;
 class Function;
 class Unnamed_label;
-class Assignment_statement;
 class Temporary_statement;
 class Variable_declaration_statement;
 class Expression_statement;
-class Block_statement;
 class Return_statement;
 class Thunk_statement;
-class Goto_statement;
-class Goto_unnamed_statement;
 class Label_statement;
-class Unnamed_label_statement;
-class If_statement;
 class For_statement;
 class For_range_statement;
 class Switch_statement;
@@ -120,6 +114,7 @@ class Statement
     STATEMENT_ASSIGNMENT_OPERATION,
     STATEMENT_TUPLE_ASSIGNMENT,
     STATEMENT_TUPLE_MAP_ASSIGNMENT,
+    STATEMENT_MAP_ASSIGNMENT,
     STATEMENT_TUPLE_RECEIVE_ASSIGNMENT,
     STATEMENT_TUPLE_TYPE_GUARD_ASSIGNMENT,
     STATEMENT_INCDEC,
@@ -164,6 +159,11 @@ class Statement
   static Statement*
   make_tuple_map_assignment(Expression* val, Expression* present,
 			    Expression*, Location);
+
+  // Make a statement which assigns a pair of values to a map.
+  static Statement*
+  make_map_assignment(Expression*, Expression* val,
+		      Expression* should_set, Location);
 
   // Make an assignment from a nonblocking receive to a pair of
   // variables.
@@ -331,22 +331,6 @@ class Statement
   is_block_statement() const
   { return this->classification_ == STATEMENT_BLOCK; }
 
-  // If this is an assignment statement, return it.  Otherwise return
-  // NULL.
-  Assignment_statement*
-  assignment_statement()
-  {
-    return this->convert<Assignment_statement, STATEMENT_ASSIGNMENT>();
-  }
-
-  // If this is an temporary statement, return it.  Otherwise return
-  // NULL.
-  Temporary_statement*
-  temporary_statement()
-  {
-    return this->convert<Temporary_statement, STATEMENT_TEMPORARY>();
-  }
-
   // If this is a variable declaration statement, return it.
   // Otherwise return NULL.
   Variable_declaration_statement*
@@ -364,12 +348,6 @@ class Statement
     return this->convert<Expression_statement, STATEMENT_EXPRESSION>();
   }
 
-  // If this is an block statement, return it.  Otherwise return
-  // NULL.
-  Block_statement*
-  block_statement()
-  { return this->convert<Block_statement, STATEMENT_BLOCK>(); }
-
   // If this is a return statement, return it.  Otherwise return NULL.
   Return_statement*
   return_statement()
@@ -380,30 +358,10 @@ class Statement
   Thunk_statement*
   thunk_statement();
 
-  // If this is a goto statement, return it.  Otherwise return NULL.
-  Goto_statement*
-  goto_statement()
-  { return this->convert<Goto_statement, STATEMENT_GOTO>(); }
-
-  // If this is a goto_unnamed statement, return it.  Otherwise return NULL.
-  Goto_unnamed_statement*
-  goto_unnamed_statement()
-  { return this->convert<Goto_unnamed_statement, STATEMENT_GOTO_UNNAMED>(); }
-
   // If this is a label statement, return it.  Otherwise return NULL.
   Label_statement*
   label_statement()
   { return this->convert<Label_statement, STATEMENT_LABEL>(); }
-
-  // If this is an unnamed_label statement, return it.  Otherwise return NULL.
-  Unnamed_label_statement*
-  unnamed_label_statement()
-  { return this->convert<Unnamed_label_statement, STATEMENT_UNNAMED_LABEL>(); }
-
-  // If this is an if statement, return it.  Otherwise return NULL.
-  If_statement*
-  if_statement()
-  { return this->convert<If_statement, STATEMENT_IF>(); }
 
   // If this is a for statement, return it.  Otherwise return NULL.
   For_statement*
@@ -426,11 +384,6 @@ class Statement
   Type_switch_statement*
   type_switch_statement()
   { return this->convert<Type_switch_statement, STATEMENT_TYPE_SWITCH>(); }
-
-  // If this is a send statement, return it.  Otherwise return NULL.
-  Send_statement*
-  send_statement()
-  { return this->convert<Send_statement, STATEMENT_SEND>(); }
 
   // If this is a select statement, return it.  Otherwise return NULL.
   Select_statement*
@@ -552,57 +505,6 @@ class Statement
   Statement_classification classification_;
   // The location in the input file of the start of this statement.
   Location location_;
-};
-
-// An assignment statement.
-
-class Assignment_statement : public Statement
-{
- public:
-  Assignment_statement(Expression* lhs, Expression* rhs,
-		       Location location)
-    : Statement(STATEMENT_ASSIGNMENT, location),
-      lhs_(lhs), rhs_(rhs)
-  { }
-
-  Expression*
-  lhs() const
-  { return this->lhs_; }
-
-  Expression*
-  rhs() const
-  { return this->rhs_; }
-
- protected:
-  int
-  do_traverse(Traverse* traverse);
-
-  bool
-  do_traverse_assignments(Traverse_assignments*);
-
-  virtual Statement*
-  do_lower(Gogo*, Named_object*, Block*, Statement_inserter*);
-
-  void
-  do_determine_types();
-
-  void
-  do_check_types(Gogo*);
-
-  Statement*
-  do_flatten(Gogo*, Named_object*, Block*, Statement_inserter*);
-
-  Bstatement*
-  do_get_backend(Translate_context*);
-
-  void
-  do_dump_statement(Ast_dump_context*) const;
-
- private:
-  // Left hand side--the lvalue.
-  Expression* lhs_;
-  // Right hand side--the rvalue.
-  Expression* rhs_;
 };
 
 // A statement which creates and initializes a temporary variable.
@@ -784,50 +686,6 @@ class Expression_statement : public Statement
   bool is_ignored_;
 };
 
-// A block statement--a list of statements which may include variable
-// definitions.
-
-class Block_statement : public Statement
-{
- public:
-  Block_statement(Block* block, Location location)
-    : Statement(STATEMENT_BLOCK, location),
-      block_(block), is_lowered_for_statement_(false)
-  { }
-
-  void
-  set_is_lowered_for_statement()
-  { this->is_lowered_for_statement_ = true; }
-
-  bool
-  is_lowered_for_statement()
-  { return this->is_lowered_for_statement_; }
-
- protected:
-  int
-  do_traverse(Traverse* traverse)
-  { return this->block_->traverse(traverse); }
-
-  void
-  do_determine_types()
-  { this->block_->determine_types(); }
-
-  bool
-  do_may_fall_through() const
-  { return this->block_->may_fall_through(); }
-
-  Bstatement*
-  do_get_backend(Translate_context* context);
-
-  void
-  do_dump_statement(Ast_dump_context*) const;
-
- private:
-  Block* block_;
-  // True if this block statement represents a lowered for statement.
-  bool is_lowered_for_statement_;
-};
-
 // A send statement.
 
 class Send_statement : public Statement
@@ -838,14 +696,6 @@ class Send_statement : public Statement
     : Statement(STATEMENT_SEND, location),
       channel_(channel), val_(val)
   { }
-
-  Expression*
-  channel()
-  { return this->channel_; }  
-
-  Expression*
-  val()
-  { return this->val_; }
 
  protected:
   int
@@ -899,9 +749,10 @@ class Select_clauses
       Named_object* var, Named_object* closedvar, bool is_default,
       Block* statements, Location location)
   {
-    this->clauses_.push_back(Select_clause(is_send, channel, val, closed, var,
-					   closedvar, is_default, statements,
-					   location));
+    int index = static_cast<int>(this->clauses_.size());
+    this->clauses_.push_back(Select_clause(index, is_send, channel, val,
+					   closed, var, closedvar, is_default,
+					   statements, location));
   }
 
   size_t
@@ -949,14 +800,20 @@ class Select_clauses
 	is_default_(false)
     { }
 
-    Select_clause(bool is_send, Expression* channel, Expression* val,
-		  Expression* closed, Named_object* var,
+    Select_clause(int index, bool is_send, Expression* channel,
+		  Expression* val, Expression* closed, Named_object* var,
 		  Named_object* closedvar, bool is_default, Block* statements,
 		  Location location)
-      : channel_(channel), val_(val), closed_(closed), var_(var),
-	closedvar_(closedvar), statements_(statements), location_(location),
-	is_send_(is_send), is_default_(is_default), is_lowered_(false)
+      : index_(index), channel_(channel), val_(val), closed_(closed),
+	var_(var), closedvar_(closedvar), statements_(statements),
+	location_(location), is_send_(is_send), is_default_(is_default),
+	is_lowered_(false)
     { go_assert(is_default ? channel == NULL : channel != NULL); }
+
+    // Return the index of this clause.
+    int
+    index() const
+    { return this->index_; }
 
     // Traverse the select clause.
     int
@@ -1018,14 +875,17 @@ class Select_clauses
 
    private:
     void
-    lower_default(Block*, Expression*);
+    lower_default(Block*, Expression*, Expression*);
 
     void
-    lower_send(Block*, Expression*, Expression*);
+    lower_send(Block*, Expression*, Expression*, Expression*);
 
     void
-    lower_recv(Gogo*, Named_object*, Block*, Expression*, Expression*);
+    lower_recv(Gogo*, Named_object*, Block*, Expression*, Expression*,
+	       Expression*);
 
+    // The index of this case in the generated switch statement.
+    int index_;
     // The channel.
     Expression* channel_;
     // The value to send or the lvalue to receive into.
@@ -1131,6 +991,10 @@ class Thunk_statement : public Statement
   bool
   simplify_statement(Gogo*, Named_object*, Block*);
 
+  // Return whether ST is a type created to hold thunk parameters.
+  static bool
+  is_thunk_struct(const Struct_type *st);
+
  protected:
   int
   do_traverse(Traverse* traverse);
@@ -1168,6 +1032,9 @@ class Thunk_statement : public Statement
   // Set the name to use for thunk field N.
   void
   thunk_field_param(int n, char* buf, size_t buflen);
+
+  // A list of all the struct types created for thunk statements.
+  static Unordered_set(const Struct_type*) thunk_types;
 
   // The function call to be executed in a separate thread (go) or
   // later (defer).
@@ -1211,74 +1078,6 @@ class Defer_statement : public Thunk_statement
   do_dump_statement(Ast_dump_context*) const;
 };
 
-// A goto statement.
-
-class Goto_statement : public Statement
-{
- public:
-  Goto_statement(Label* label, Location location)
-    : Statement(STATEMENT_GOTO, location),
-      label_(label)
-  { }
-
-  // Return the label being jumped to.
-  Label*
-  label() const
-  { return this->label_; }
-
- protected:
-  int
-  do_traverse(Traverse*);
-
-  void
-  do_check_types(Gogo*);
-
-  bool
-  do_may_fall_through() const
-  { return false; }
-
-  Bstatement*
-  do_get_backend(Translate_context*);
-
-  void
-  do_dump_statement(Ast_dump_context*) const;
-
- private:
-  Label* label_;
-};
-
-// A goto statement to an unnamed label.
-
-class Goto_unnamed_statement : public Statement
-{
- public:
-  Goto_unnamed_statement(Unnamed_label* label, Location location)
-    : Statement(STATEMENT_GOTO_UNNAMED, location),
-      label_(label)
-  { }
-
-  Unnamed_label*
-  unnamed_label() const
-  { return this->label_; }
-
- protected:
-  int
-  do_traverse(Traverse*);
-
-  bool
-  do_may_fall_through() const
-  { return false; }
-
-  Bstatement*
-  do_get_backend(Translate_context* context);
-
-  void
-  do_dump_statement(Ast_dump_context*) const;
-
- private:
-  Unnamed_label* label_;
-};
-
 // A label statement.
 
 class Label_statement : public Statement
@@ -1290,7 +1089,7 @@ class Label_statement : public Statement
   { }
 
   // Return the label itself.
-  Label*
+  const Label*
   label() const
   { return this->label_; }
 
@@ -1307,68 +1106,6 @@ class Label_statement : public Statement
  private:
   // The label.
   Label* label_;
-};
-
-// An unnamed label statement.
-
-class Unnamed_label_statement : public Statement
-{
- public:
-  Unnamed_label_statement(Unnamed_label* label);
-
- protected:
-  int
-  do_traverse(Traverse*);
-
-  Bstatement*
-  do_get_backend(Translate_context* context);
-
-  void
-  do_dump_statement(Ast_dump_context*) const;
-
- private:
-  // The label.
-  Unnamed_label* label_;
-};
-
-// An if statement.
-
-class If_statement : public Statement
-{
- public:
-  If_statement(Expression* cond, Block* then_block, Block* else_block,
-	       Location location)
-    : Statement(STATEMENT_IF, location),
-      cond_(cond), then_block_(then_block), else_block_(else_block)
-  { }
-
-  Expression*
-  condition() const
-  { return this->cond_; }
-
- protected:
-  int
-  do_traverse(Traverse*);
-
-  void
-  do_determine_types();
-
-  void
-  do_check_types(Gogo*);
-
-  bool
-  do_may_fall_through() const;
-
-  Bstatement*
-  do_get_backend(Translate_context*);
-
-  void
-  do_dump_statement(Ast_dump_context*) const;
-
- private:
-  Expression* cond_;
-  Block* then_block_;
-  Block* else_block_;
 };
 
 // A for statement.
@@ -1490,7 +1227,7 @@ class For_range_statement : public Statement
   Expression*
   make_range_ref(Named_object*, Temporary_statement*, Location);
 
-  Call_expression*
+  Expression*
   call_builtin(Gogo*, const char* funcname, Expression* arg, Location);
 
   void
@@ -1509,10 +1246,9 @@ class For_range_statement : public Statement
 		     Block**, Expression**, Block**, Block**);
 
   void
-  lower_range_map(Gogo*, Map_type*, Block*, Block*, Named_object*,
+  lower_range_map(Gogo*, Block*, Block*, Named_object*, Temporary_statement*,
 		  Temporary_statement*, Temporary_statement*,
-		  Temporary_statement*, Block**, Expression**, Block**,
-		  Block**);
+		  Block**, Expression**, Block**, Block**);
 
   void
   lower_range_channel(Gogo*, Block*, Block*, Named_object*,
@@ -1614,7 +1350,7 @@ class Case_clauses
    public:
     Case_clause()
       : cases_(NULL), statements_(NULL), is_default_(false),
-	is_fallthrough_(false), location_(Linemap::unknown_location())
+	is_fallthrough_(false), location_(UNKNOWN_LOCATION)
     { }
 
     Case_clause(Expression_list* cases, bool is_default, Block* statements,
@@ -1801,7 +1537,7 @@ class Type_case_clauses
    public:
     Type_case_clause()
       : type_(NULL), statements_(NULL), is_default_(false),
-	location_(Linemap::unknown_location())
+	location_(UNKNOWN_LOCATION)
     { }
 
     Type_case_clause(Type* type, bool is_fallthrough, bool is_default,

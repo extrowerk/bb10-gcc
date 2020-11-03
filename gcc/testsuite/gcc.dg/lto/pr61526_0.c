@@ -1,5 +1,4 @@
 /* { dg-require-effective-target fpic } */
-/* { dg-require-effective-target shared } */
 /* { dg-lto-do link } */
 /* { dg-lto-options { { -fPIC -flto -flto-partition=1to1 } } } */
 /* { dg-extra-ld-options { -shared } } */

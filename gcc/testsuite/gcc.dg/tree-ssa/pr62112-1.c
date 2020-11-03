@@ -20,3 +20,4 @@ char*i(){
 }
 
 /* { dg-final { scan-tree-dump-times "Deleted dead call" 4 "dse1" } } */
+/* { dg-final { cleanup-tree-dump "dse1" } } */

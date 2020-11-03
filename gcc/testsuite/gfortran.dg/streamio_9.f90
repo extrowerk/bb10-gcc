@@ -21,9 +21,9 @@ program pr29053
    do i = 1, 10
       t = i * dt
       read(12) a
-      if (any(a.ne.b)) STOP 1
+      if (any(a.ne.b)) call abort()
       read(11) u
-      if (u.ne.t) STOP 2
+      if (u.ne.t) call abort()
    end do
    close(11, status="delete")
    close(12, status="delete")

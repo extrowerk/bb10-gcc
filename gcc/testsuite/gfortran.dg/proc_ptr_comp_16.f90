@@ -21,7 +21,7 @@ use m
  character(len=4) :: str
  x%ptr => abc
  print *,x%ptr(4)
- if (x%ptr(4)/='abcd') STOP 1
+ if (x%ptr(4)/='abcd') call abort
  str = x%ptr(3)
- if (str/='abc') STOP 1
+ if (str/='abc') call abort()
 end

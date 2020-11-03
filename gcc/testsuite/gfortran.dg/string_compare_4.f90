@@ -20,3 +20,4 @@ contains
   end subroutine foo
 end program main
 ! { dg-final { scan-tree-dump-times "_gfortran_string_len_trim" 4 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

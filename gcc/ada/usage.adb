@@ -6,7 +6,7 @@
 --                                                                          --
 --                                B o d y                                   --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -26,6 +26,7 @@
 --  Warning: the output of this usage for warnings is duplicated in the GNAT
 --  reference manual. Be sure to update that if you change the warning list.
 
+with Targparm; use Targparm;
 with Namet;    use Namet;
 with Opt;      use Opt;
 with Osint;    use Osint;
@@ -90,7 +91,20 @@ begin
 
    Write_Eol;
 
-   --  Common switches available everywhere
+   --  Common GCC switches not available for JVM, .NET, and AAMP targets
+
+   if VM_Target = No_VM and then not AAMP_On_Target then
+      Write_Switch_Char ("fstack-check ", "");
+      Write_Line ("Generate stack checking code");
+
+      Write_Switch_Char ("fno-inline   ", "");
+      Write_Line ("Inhibit all inlining (makes executable smaller)");
+
+      Write_Switch_Char ("fpreserve-control-flow ", "");
+      Write_Line ("Preserve control flow for coverage analysis");
+   end if;
+
+   --  Common switches available to both GCC and JGNAT
 
    Write_Switch_Char ("g            ", "");
    Write_Line ("Generate debugging information");
@@ -302,11 +316,6 @@ begin
    Write_Switch_Char ("h");
    Write_Line ("Output this usage (help) information");
 
-   --  Line for -gnatH switch
-
-   Write_Switch_Char ("H");
-   Write_Line ("Legacy elaboration checking mode enabled");
-
    --  Line for -gnati switch
 
    Write_Switch_Char ("i?");
@@ -321,11 +330,6 @@ begin
 
    Write_Switch_Char ("jnn");
    Write_Line ("Format error and warning messages to fit nn character lines");
-
-   --  Line for -gnatJ switch
-
-   Write_Switch_Char ("J");
-   Write_Line ("Relaxed elaboration checking mode enabled");
 
    --  Line for -gnatk switch
 
@@ -356,11 +360,8 @@ begin
 
    --  Line for -gnato switch
 
-   Write_Switch_Char ("o0");
-   Write_Line ("Disable overflow checking");
-
    Write_Switch_Char ("o");
-   Write_Line ("Enable overflow checking in STRICT (-gnato1) mode (default)");
+   Write_Line ("Enable overflow checking mode to CHECKED (off by default)");
 
    --  Lines for -gnato? switches
 
@@ -402,7 +403,7 @@ begin
 
    Write_Switch_Char ("R?");
    Write_Line
-     ("List rep info (?=0/1/2/3/e/m for none/types/all/symbolic/ext/mech)");
+     ("List rep info (?=0/1/2/3/m for none/types/all/variable/mechanisms)");
    Write_Switch_Char ("R?s");
    Write_Line ("List rep info to file.rep instead of standard output");
 
@@ -498,7 +499,6 @@ begin
    Write_Line ("        e    treat all warnings (but not info) as errors");
    Write_Line ("        .e   turn on every optional info/warning " &
                                                   "(no exceptions)");
-   Write_Line ("        E    treat all run-time warnings as errors");
    Write_Line ("        f+   turn on warnings for unreferenced formal");
    Write_Line ("        F*   turn off warnings for unreferenced formal");
    Write_Line ("        .f   turn on warnings for suspicious Subp'Access");
@@ -518,10 +518,6 @@ begin
                                                   "(annex J) feature");
    Write_Line ("        J*   turn off warnings for obsolescent " &
                                                   "(annex J) feature");
-   Write_Line ("        .j+  turn on warnings for late dispatching " &
-                                                  "primitives");
-   Write_Line ("        .J*  turn off warnings for late dispatching " &
-                                                  "primitives");
    Write_Line ("        k+   turn on warnings on constant variable");
    Write_Line ("        K*   turn off warnings on constant variable");
    Write_Line ("        .k   turn on warnings for standard redefinition");
@@ -559,10 +555,6 @@ begin
                                                   "missing parenthesis");
    Write_Line ("        Q    turn off warnings for questionable " &
                                                   "missing parenthesis");
-   Write_Line ("        .q+  turn on warnings for questionable layout of " &
-                                                  "record types");
-   Write_Line ("        .Q*  turn off warnings for questionable layout of " &
-                                                  "record types");
    Write_Line ("        r+   turn on warnings for redundant construct");
    Write_Line ("        R*   turn off warnings for redundant construct");
    Write_Line ("        .r+  turn on warnings for object renaming function");
@@ -686,32 +678,29 @@ begin
    Write_Switch_Char ("zr");
    Write_Line ("Distribution stub generation for receiver stubs");
 
-   if not Latest_Ada_Only then
+   --  Line for -gnat83 switch
 
-      --  Line for -gnat83 switch
+   Write_Switch_Char ("83");
+   Write_Line ("Ada 83 mode");
 
-      Write_Switch_Char ("83");
-      Write_Line ("Ada 83 mode");
+   --  Line for -gnat95 switch
 
-      --  Line for -gnat95 switch
+   Write_Switch_Char ("95");
 
-      Write_Switch_Char ("95");
+   if Ada_Version_Default = Ada_95 then
+      Write_Line ("Ada 95 mode (default)");
+   else
+      Write_Line ("Ada 95 mode");
+   end if;
 
-      if Ada_Version_Default = Ada_95 then
-         Write_Line ("Ada 95 mode (default)");
-      else
-         Write_Line ("Ada 95 mode");
-      end if;
+   --  Line for -gnat2005 switch
 
-      --  Line for -gnat2005 switch
+   Write_Switch_Char ("2005");
 
-      Write_Switch_Char ("2005");
-
-      if Ada_Version_Default = Ada_2005 then
-         Write_Line ("Ada 2005 mode (default)");
-      else
-         Write_Line ("Ada 2005 mode");
-      end if;
+   if Ada_Version_Default = Ada_2005 then
+      Write_Line ("Ada 2005 mode (default)");
+   else
+      Write_Line ("Ada 2005 mode");
    end if;
 
    --  Line for -gnat2012 switch

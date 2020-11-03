@@ -1,7 +1,7 @@
 // { dg-do run { xfail { ! { *-*-linux* *-*-gnu* } } } }
-// { dg-require-namedlocale "de_DE.ISO8859-15" }
+// { dg-require-namedlocale "de_DE" }
 
-// Copyright (C) 2000-2018 Free Software Foundation, Inc.
+// Copyright (C) 2000-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -34,6 +34,8 @@ void test02()
   typedef ctype_base::mask	mask;
   typedef vector<mask> 		vector_type;
 
+  bool test __attribute__((unused)) = true;
+
   //  const int max = numeric_limits<char>::max();
   const int max = 255;
   const int ctype_mask_max = 10;
@@ -57,8 +59,8 @@ void test02()
       v_c[i] = mask_is;
     }   
 
-  // "de_DE.ISO8859-15"
-  locale loc_de = locale(ISO_8859(15,de_DE));
+  // "de_DE"
+  locale loc_de = locale("de_DE");
   const ctype<char>& ctype_de = use_facet<ctype<char> >(loc_de); 
   for (int i = 0; i < max; ++i)
     {

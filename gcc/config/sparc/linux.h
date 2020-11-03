@@ -1,5 +1,5 @@
 /* Definitions for SPARC running Linux-based GNU systems with ELF.
-   Copyright (C) 1996-2018 Free Software Foundation, Inc.
+   Copyright (C) 1996-2015 Free Software Foundation, Inc.
    Contributed by Eddie C. Dost (ecd@skynet.be)
 
 This file is part of GCC.
@@ -138,6 +138,12 @@ do {									\
 
 /* Static stack checking is supported by means of probes.  */
 #define STACK_CHECK_STATIC_BUILTIN 1
+
+/* Linux currently uses RMO in uniprocessor mode, which is equivalent to
+   TMO, and TMO in multiprocessor mode.  But they reserve the right to
+   change their minds.  */
+#undef SPARC_RELAXED_ORDERING
+#define SPARC_RELAXED_ORDERING true
 
 #undef NEED_INDICATE_EXEC_STACK
 #define NEED_INDICATE_EXEC_STACK 1

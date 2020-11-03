@@ -19,7 +19,6 @@ const (
 	BestSpeed          = flate.BestSpeed
 	BestCompression    = flate.BestCompression
 	DefaultCompression = flate.DefaultCompression
-	HuffmanOnly        = flate.HuffmanOnly
 )
 
 // A Writer takes data written to it and writes the compressed
@@ -48,9 +47,9 @@ func NewWriter(w io.Writer) *Writer {
 // NewWriterLevel is like NewWriter but specifies the compression level instead
 // of assuming DefaultCompression.
 //
-// The compression level can be DefaultCompression, NoCompression, HuffmanOnly
-// or any integer value between BestSpeed and BestCompression inclusive.
-// The error returned will be nil if the level is valid.
+// The compression level can be DefaultCompression, NoCompression, or any
+// integer value between BestSpeed and BestCompression inclusive. The error
+// returned will be nil if the level is valid.
 func NewWriterLevel(w io.Writer, level int) (*Writer, error) {
 	return NewWriterLevelDict(w, level, nil)
 }
@@ -61,7 +60,7 @@ func NewWriterLevel(w io.Writer, level int) (*Writer, error) {
 // The dictionary may be nil. If not, its contents should not be modified until
 // the Writer is closed.
 func NewWriterLevelDict(w io.Writer, level int, dict []byte) (*Writer, error) {
-	if level < HuffmanOnly || level > BestCompression {
+	if level < DefaultCompression || level > BestCompression {
 		return nil, fmt.Errorf("zlib: invalid compression level: %d", level)
 	}
 	return &Writer{
@@ -100,7 +99,7 @@ func (z *Writer) writeHeader() (err error) {
 	// The next bit, FDICT, is set if a dictionary is given.
 	// The final five FCHECK bits form a mod-31 checksum.
 	switch z.level {
-	case -2, 0, 1:
+	case 0, 1:
 		z.scratch[1] = 0 << 6
 	case 2, 3, 4, 5:
 		z.scratch[1] = 1 << 6

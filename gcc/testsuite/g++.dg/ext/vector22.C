@@ -18,3 +18,5 @@ void h(vec*a){
 }
 
 /* { dg-final { scan-tree-dump-not "~" "gimple" } } */
+/* { dg-final { scan-tree-dump-not "VEC_COND_EXPR" "gimple" } } */
+/* { dg-final { cleanup-tree-dump "gimple" } } */

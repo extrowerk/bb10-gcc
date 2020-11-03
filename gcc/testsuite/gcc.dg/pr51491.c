@@ -22,3 +22,4 @@ int f(void)
 }
 
 /* { dg-final { scan-rtl-dump-times "Partition" 1 "expand"} } */
+/* { dg-final { cleanup-rtl-dump "expand" } } */

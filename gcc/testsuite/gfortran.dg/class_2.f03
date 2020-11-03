@@ -1,5 +1,4 @@
 ! { dg-do compile }
-! { dg-options "-std=f2003" }
 !
 ! PR 40940: CLASS statement
 !

@@ -1,6 +1,7 @@
-// { dg-do compile { target c++11 } }
+// { dg-options "-std=gnu++11" }
+// { dg-do compile }
 
-// Copyright (C) 2013-2018 Free Software Foundation, Inc.
+// Copyright (C) 2013-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -25,5 +26,5 @@ void test01()
 {
   std::default_delete<void> d;
   d(nullptr);   // { dg-error "here" }
-  // { dg-error "incomplete" "" { target *-*-* } 77 }
+  // { dg-error "incomplete" "" { target *-*-* } 72 }
 }

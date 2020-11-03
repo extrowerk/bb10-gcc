@@ -7,7 +7,7 @@
 
 template <typename> struct A
 {
-    template <typename> A(typename A::X) {} // { dg-error "incomplete" }
+    template <typename> A(typename A::X) {} // { dg-error "no type" }
 };
 
 // We currently don't give the "no match" error because we don't add the

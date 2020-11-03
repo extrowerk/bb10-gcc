@@ -40,3 +40,5 @@ contains
   type(c_stv), allocatable, intent(out) :: y
  end subroutine
 end
+
+! { dg-final { cleanup-modules "m1 m2" } }

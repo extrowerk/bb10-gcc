@@ -1,7 +1,6 @@
 /* { dg-do run } */
 /* { dg-require-effective-target fpic } */
 /* { dg-options "-O -fprofile-arcs -fPIC -fno-dce -fno-forward-propagate" } */
-/* { dg-require-profiling "-fprofile-generate" } */
 
 int test_goto2 (int f)
 {

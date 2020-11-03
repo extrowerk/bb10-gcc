@@ -12,13 +12,13 @@
   call associate_pointer(f,ptr)
   select type (ptr)
     type is (real)
-      if (abs (ptr(1) - 0.99) > 1e-5) STOP 1
+      if (abs (ptr(1) - 0.99) > 1e-5) call abort
   end select
   ptr => return_pointer(f)  ! runtime segmentation fault
-  if (associated(return_pointer(f)) .neqv. .true.) STOP 2
+  if (associated(return_pointer(f)) .neqv. .true.) call abort
   select type (ptr)
     type is (real)
-      if (abs (ptr(1) - 0.99) > 1e-5) STOP 3
+      if (abs (ptr(1) - 0.99) > 1e-5) call abort
   end select
 contains
   subroutine associate_pointer(this, item)

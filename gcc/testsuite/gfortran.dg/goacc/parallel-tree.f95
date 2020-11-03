@@ -6,7 +6,7 @@
 program test
   implicit none
   integer :: q, i, j, k, m, n, o, p, r, s, t, u, v, w
-  logical :: l = .true.
+  logical :: l
 
   !$acc parallel if(l) async num_gangs(i) num_workers(i) vector_length(i) &
   !$acc reduction(max:q), copy(i), copyin(j), copyout(k), create(m) &
@@ -37,3 +37,5 @@ end program test
 
 ! { dg-final { scan-tree-dump-times "map\\(force_deviceptr:u\\)" 1 "original" } } 
 ! { dg-final { scan-tree-dump-times "private\\(v\\)" 1 "original" } } 
+! { dg-final { scan-tree-dump-times "firstprivate\\(w\\)" 1 "original" } } 
+! { dg-final { cleanup-tree-dump "original" } } 

@@ -14,3 +14,4 @@ void foo(int f0, int f1, int e0, int e1)
 }
 
 /* { dg-final { scan-tree-dump-times "~" 0 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

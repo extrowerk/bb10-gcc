@@ -28,5 +28,5 @@
       close(10)
       stop
    99 close(10)
-      STOP 1
+      call abort()
       end program test

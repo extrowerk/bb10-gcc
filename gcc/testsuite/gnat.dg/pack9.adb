@@ -1,7 +1,6 @@
 -- { dg-do compile }
 -- { dg-options "-O2 -gnatp -fdump-tree-optimized" }
-
-pragma Optimize_Alignment (Space);
+-- See PR tree-optimization/46801 for the expected failure
 
 package body Pack9 is
 
@@ -17,3 +16,4 @@ package body Pack9 is
 end Pack9;
 
 -- { dg-final { scan-tree-dump-not "gnat_rcheck" "optimized" } }
+-- { dg-final { cleanup-tree-dump "optimized" } }

@@ -8,6 +8,6 @@
 	end
 
 	program entrytest
-	if (foo () .ne. 2) STOP 1
-	if (bar () .ne. 3) STOP 2
+	if (foo () .ne. 2) call abort ()
+	if (bar () .ne. 3) call abort ()
 	end

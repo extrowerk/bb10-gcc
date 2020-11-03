@@ -13,7 +13,7 @@ int main1 ()
   int ia[N*2][4][N];
 
   /* Multidimensional array. Aligned. 
-     The first dimension depends on j: use strided stores. */
+     The first dimension depends on j: not vectorizable. */
   for (i = 0; i < N; i++)
     {
       for (j = 0; j < N; j++)
@@ -42,4 +42,5 @@ int main (void)
   return main1 ();
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail *-*-* } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

@@ -78,3 +78,4 @@ void makeUseOfTimerWait( unsigned char val ) {
 /* We should not inline the delay loops.  */
 /* { dg-final { scan-tree-dump "delay_wait_us" "optimized"} } */
 /* { dg-final { scan-tree-dump "delay_wait_us_ms" "optimized"} } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

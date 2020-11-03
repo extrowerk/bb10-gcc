@@ -12,6 +12,6 @@
       r = 3.14159d0
       ok=.true.
       read(temp,'(f20.0)',err=8888) r
-      STOP 1
+      call abort
 8888  continue
       end

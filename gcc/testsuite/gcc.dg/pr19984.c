@@ -1,6 +1,6 @@
 /* PR c/19984 */
 /* { dg-do compile } */
-/* { dg-options "-O2 -std=c99 -Wpedantic" } */
+/* { dg-options "-O2 -std=c99" } */
 
 
 double nan (const char *);

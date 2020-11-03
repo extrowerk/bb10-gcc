@@ -21,4 +21,5 @@ void dacP98FillRGBMap (unsigned char *pBuffer)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target { vect_interleave || vect_strided4 } } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */
 

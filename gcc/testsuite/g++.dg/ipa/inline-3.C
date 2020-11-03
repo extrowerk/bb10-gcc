@@ -26,3 +26,4 @@ int main(int argc, char **argv)
 
 /* { dg-final { scan-ipa-dump-times "Considering void inline_me\\(" 1 "inline"} } */
 /* { dg-final { scan-ipa-dump-times "Considering void inline_me_too\\(" 1 "inline"} } */
+/* { dg-final { cleanup-ipa-dump "inline" } } */

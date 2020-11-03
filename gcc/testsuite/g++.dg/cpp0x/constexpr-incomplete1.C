@@ -2,6 +2,6 @@
 
 struct A
 {
-  static constexpr A a = 1;  // { dg-error "22:'constexpr const A A::a' has incomplete type" }
+  static constexpr A a = 1;	// { dg-error "incomplete" }
   constexpr A(int i) { }
 };

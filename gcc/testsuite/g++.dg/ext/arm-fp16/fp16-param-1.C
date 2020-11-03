@@ -1,14 +1,10 @@
 /* { dg-do compile { target arm*-*-* } } */
 /* { dg-options "-mfp16-format=ieee" } */
 
-/* Test that the ACLE macro is defined.  */
-#if __ARM_FP16_ARGS != 1
-#error Unexpected value for __ARM_FP16_ARGS
-#endif
+/* Functions cannot have parameters of type __fp16.  */
+extern void f (__fp16);		/* { dg-error "parameters cannot have __fp16 type" } */
+extern void (*pf) (__fp16);	/* { dg-error "parameters cannot have __fp16 type" } */
 
-/* Test that __fp16 is supported as a parameter type.  */
-extern void f (__fp16);
-extern void (*pf) (__fp16);
-
+/* These should be OK.  */
 extern void g (__fp16 *);
 extern void (*pg) (__fp16 *);

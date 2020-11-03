@@ -1,5 +1,5 @@
 ! { dg-do run }
-! { dg-options "-fcray-pointer" }
+! { dg-options "-fopenmp -fcray-pointer" }
 ! { dg-require-effective-target tls_runtime }
 
   use omp_lib
@@ -27,5 +27,5 @@
   l = l .or. (p .ne. d + 1)
 !$omp end parallel
 
-  if (l) STOP 1
+  if (l) call abort
 end

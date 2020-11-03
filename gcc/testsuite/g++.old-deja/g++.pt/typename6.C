@@ -11,7 +11,7 @@ template <class U>
 struct B : public A<U>
 {
   A_Type Func();		// { dg-error "does not name a type" "err" }
-  // { dg-message "note" "note" { target *-*-* } .-1 }
+  // { dg-message "note" "note" { target *-*-* } 13 }
 };
 
 template <class U>

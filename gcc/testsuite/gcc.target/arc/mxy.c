@@ -1,3 +1,4 @@
+/* { dg-do compile } */
 /* { dg-options "-mxy" } */
 /* { dg-do assemble } */
 

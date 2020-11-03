@@ -1,6 +1,5 @@
 // { dg-do compile }
 // { dg-additional-options "-std=c++14" }
-// { dg-require-effective-target alloca }
 
 namespace std {
     typedef __SIZE_TYPE__ size_t;
@@ -16,7 +15,6 @@ namespace vespamalloc {
 	unsigned long A<StackRep>::fillStack(unsigned long p1) {
 	    void *retAddr[p1];
 	    fn1(retAddr);
-	    return 0;
 	}
     class B {
     protected:
@@ -35,7 +33,6 @@ namespace vespamalloc {
 	void *C<MemBlockPtrT, ThreadListT>::malloc(unsigned long) {
 	    MemBlockPtrT mem;
 	    mem.alloc(0);
-	    return 0;
 	}
     C<D<16>, int> *_GmemP;
 }

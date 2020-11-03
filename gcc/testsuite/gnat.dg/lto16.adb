@@ -1,5 +1,6 @@
 -- { dg-do link }
--- { dg-options "-O -flto" { target lto } }
+-- { dg-options "-O -flto" }
+-- { dg-require-effective-target lto }
 
 with Lto16_Pkg; use Lto16_Pkg;
 with Text_IO; use Text_IO;

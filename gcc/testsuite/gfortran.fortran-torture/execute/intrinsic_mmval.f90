@@ -12,34 +12,34 @@ program testmmval
    tr = .true.
 
    b = minval (a, 1)
-   if (any(b .ne. (/1, 4, 7/))) STOP 1
+   if (any(b .ne. (/1, 4, 7/))) call abort
    write (line, 9000) minval (a, 1)
-   if (line .ne. '  1  4  7') STOP 2
+   if (line .ne. '  1  4  7') call abort
 
    m = .true.
    m(1, 1) = .false.
    m(1, 2) = .false.
    b = minval (a, 1, m)
-   if (any(b .ne. (/2, 4, 7/))) STOP 3
+   if (any(b .ne. (/2, 4, 7/))) call abort
    b = minval (a, 1, m .and. tr)
-   if (any(b .ne. (/2, 4, 7/))) STOP 4
+   if (any(b .ne. (/2, 4, 7/))) call abort
    write (line, 9000) minval(a, 1, m)
-   if (line .ne. '  2  4  7') STOP 5
+   if (line .ne. '  2  4  7') call abort
 
    b = maxval (a, 1)
-   if (any(b .ne. (/3, 6, 9/))) STOP 6
+   if (any(b .ne. (/3, 6, 9/))) call abort
    write (line, 9000) maxval (a, 1)
-   if (line .ne. '  3  6  9') STOP 7
+   if (line .ne. '  3  6  9') call abort
 
    m = .true.
    m(1, 2) = .false.
    m(1, 3) = .false.
    b = maxval (a, 1, m)
-   if (any(b .ne. (/3, 6, 8/))) STOP 8
+   if (any(b .ne. (/3, 6, 8/))) call abort
    b = maxval (a, 1, m .and. tr)
-   if (any(b .ne. (/3, 6, 8/))) STOP 9
+   if (any(b .ne. (/3, 6, 8/))) call abort
    write (line, 9000) maxval(a, 1, m)
-   if (line .ne. '  3  6  8') STOP 10
+   if (line .ne. '  3  6  8') call abort
 
 9000 format(3I3)
 end program

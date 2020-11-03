@@ -1,4 +1,4 @@
-// Copyright (C) 2003-2018 Free Software Foundation, Inc.
+// Copyright (C) 2003-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -29,6 +29,7 @@ struct buf: std::streambuf
 template<typename T>
 void testthrow(T arg)
 {
+  bool test __attribute__((unused)) = true;
   buf b;
   std::istream is(&b);
   is.exceptions(std::ios::badbit);
@@ -44,7 +45,8 @@ void testthrow(T arg)
       }
   catch(...) 
     {
-      VERIFY( false );
+      test = false;
+      VERIFY( test );
     }    
 }
 

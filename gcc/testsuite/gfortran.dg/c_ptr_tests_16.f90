@@ -59,3 +59,4 @@ function fun()
 end function fun 
 
 ! { dg-final { scan-tree-dump-times "i_do_not_exist" 0 "optimized" } }
+! { dg-final { cleanup-tree-dump "optimized" } }

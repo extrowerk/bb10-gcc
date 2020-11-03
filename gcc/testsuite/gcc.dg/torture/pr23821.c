@@ -26,3 +26,4 @@ main ()
    induction variable increment.  */
 
 /* { dg-final { scan-tree-dump "Added canonical iv" "ivcanon" } } */
+/* { dg-final { cleanup-tree-dump "ivcanon" } } */

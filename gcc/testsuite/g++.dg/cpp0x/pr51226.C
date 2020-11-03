@@ -6,7 +6,4 @@ template<int> struct A           // { dg-message "provided" }
   enum E : int;
 };
 
-template<> enum A<>::E : int {}  // { dg-error "wrong number" }
-
-// { dg-prune-output "expected" }
-// { dg-prune-output "specialization" }
+template<> enum A<>::E : int {}  // { dg-error "wrong number|expected" }

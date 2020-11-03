@@ -1,5 +1,5 @@
 /* { dg-do link } */
-/* { dg-options "-O -ffast-math" } */
+/* { dg-options "-ffast-math" } */
 
 extern void link_error(void);
 

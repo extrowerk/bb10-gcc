@@ -1,5 +1,4 @@
 ! { dg-do run }
-! { dg-additional-options "-std=f2003 -fall-intrinsics" }
 ! { dg-require-effective-target tls_runtime }
 
 module threadprivate4
@@ -72,7 +71,7 @@ end module threadprivate4
   vi = -1
 !$omp end parallel
 
-  if (l) STOP 1
+  if (l) call abort
 
 end
 

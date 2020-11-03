@@ -1,6 +1,6 @@
 /* Input functions for reading LTO sections.
 
-   Copyright (C) 2009-2018 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -22,10 +22,49 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
-#include "rtl.h"
+#include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
+#include "predict.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
+#include "expr.h"
+#include "params.h"
+#include "diagnostic-core.h"
+#include "except.h"
+#include "timevar.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "lto-streamer.h"
 #include "lto-compress.h"
@@ -51,8 +90,7 @@ const char *lto_section_name[LTO_N_SECTION_TYPES] =
   "ipcp_trans",
   "icf",
   "offload_table",
-  "mode_table",
-  "hsa"
+  "mode_table"
 };
 
 
@@ -131,7 +169,7 @@ const char *
 lto_get_section_data (struct lto_file_decl_data *file_data,
 		      enum lto_section_type section_type,
 		      const char *name,
-		      size_t *len, bool decompress)
+		      size_t *len)
 {
   const char *data = (get_section_f) (file_data, section_type, name, len);
   const size_t header_length = sizeof (struct lto_data_header);
@@ -143,10 +181,9 @@ lto_get_section_data (struct lto_file_decl_data *file_data,
   if (data == NULL)
     return NULL;
 
-  /* WPA->ltrans streams are not compressed with exception of function bodies
-     and variable initializers that has been verbatim copied from earlier
-     compilations.  */
-  if (!flag_ltrans || decompress)
+  /* FIXME lto: WPA mode does not write compressed sections, so for now
+     suppress uncompression if flag_ltrans.  */
+  if (!flag_ltrans)
     {
       /* Create a mapping header containing the underlying data and length,
 	 and prepend this to the uncompression buffer.  The uncompressed data
@@ -168,21 +205,10 @@ lto_get_section_data (struct lto_file_decl_data *file_data,
     }
 
   lto_check_version (((const lto_header *)data)->major_version,
-		     ((const lto_header *)data)->minor_version,
-		     file_data->file_name);
+		     ((const lto_header *)data)->minor_version);
   return data;
 }
 
-/* Get the section data without any header parsing or uncompression.  */
-
-const char *
-lto_get_raw_section_data (struct lto_file_decl_data *file_data,
-			  enum lto_section_type section_type,
-			  const char *name,
-			  size_t *len)
-{
-  return (get_section_f) (file_data, section_type, name, len);
-}
 
 /* Free the data found from the above call.  The first three
    parameters are the same as above.  DATA is the data to be freed and
@@ -193,7 +219,7 @@ lto_free_section_data (struct lto_file_decl_data *file_data,
 		       enum lto_section_type section_type,
 		       const char *name,
 		       const char *data,
-		       size_t len, bool decompress)
+		       size_t len)
 {
   const size_t header_length = sizeof (struct lto_data_header);
   const char *real_data = data - header_length;
@@ -202,7 +228,9 @@ lto_free_section_data (struct lto_file_decl_data *file_data,
 
   gcc_assert (free_section_f);
 
-  if (flag_ltrans && !decompress)
+  /* FIXME lto: WPA mode does not write compressed sections, so for now
+     suppress uncompression mapping if flag_ltrans.  */
+  if (flag_ltrans)
     {
       (free_section_f) (file_data, section_type, name, data, len);
       return;
@@ -214,17 +242,6 @@ lto_free_section_data (struct lto_file_decl_data *file_data,
   free (CONST_CAST (char *, real_data));
 }
 
-/* Free data allocated by lto_get_raw_section_data.  */
-
-void
-lto_free_raw_section_data (struct lto_file_decl_data *file_data,
-		           enum lto_section_type section_type,
-		           const char *name,
-		           const char *data,
-		           size_t len)
-{
-  (free_section_f) (file_data, section_type, name, data, len);
-}
 
 /* Load a section of type SECTION_TYPE from FILE_DATA, parse the
    header and then return an input block pointing to the section.  The

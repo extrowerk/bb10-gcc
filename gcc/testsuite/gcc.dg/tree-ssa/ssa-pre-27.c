@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdump-tree-pre -fno-code-hoisting" } */
+/* { dg-options "-O2 -fdump-tree-pre" } */
 
 int foo (int i, int j, int b)
 {
@@ -25,3 +25,4 @@ int foo2 (int i, int j, int b)
 }
 
 /* { dg-final { scan-tree-dump-times "# prephitmp" 2 "pre" } } */
+/* { dg-final { cleanup-tree-dump "pre" } } */

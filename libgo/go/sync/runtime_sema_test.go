@@ -18,16 +18,13 @@ func BenchmarkSemaUncontended(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		sem := new(PaddedSem)
 		for pb.Next() {
-			Runtime_Semrelease(&sem.sem, false)
+			Runtime_Semrelease(&sem.sem)
 			Runtime_Semacquire(&sem.sem)
 		}
 	})
 }
 
 func benchmarkSema(b *testing.B, block, work bool) {
-	if b.N == 0 {
-		return
-	}
 	sem := uint32(0)
 	if block {
 		done := make(chan bool)
@@ -44,7 +41,7 @@ func benchmarkSema(b *testing.B, block, work bool) {
 	b.RunParallel(func(pb *testing.PB) {
 		foo := 0
 		for pb.Next() {
-			Runtime_Semrelease(&sem, false)
+			Runtime_Semrelease(&sem)
 			if work {
 				for i := 0; i < 100; i++ {
 					foo *= 2
@@ -54,7 +51,7 @@ func benchmarkSema(b *testing.B, block, work bool) {
 			Runtime_Semacquire(&sem)
 		}
 		_ = foo
-		Runtime_Semrelease(&sem, false)
+		Runtime_Semrelease(&sem)
 	})
 }
 

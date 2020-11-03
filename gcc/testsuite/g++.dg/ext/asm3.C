@@ -7,12 +7,9 @@
 
 int two(int in)
 {
-#if __cplusplus <= 201402L
-  register
-#endif
-  int out;
+  register int out;
   __asm__ ("" : "r" (out) : "r" (in));
   return out;
 }
 
-// { dg-message "error:" "" { target *-*-* } 14 }
+// { dg-message "error:" "" { target *-*-* } 11 }

@@ -15,7 +15,7 @@ contains
 
     write (ca,f) a
     write (cb,f) b
-    if (ca /= cb) STOP 1
+    if (ca /= cb) call abort
   end subroutine testoutput
 
   subroutine outputstring (a,f,s)
@@ -26,7 +26,7 @@ contains
     character(len=len(s)) :: c
     
     write (c,f) a
-    if (c /= s) STOP 2
+    if (c /= s) call abort
   end subroutine outputstring
 end module testmod
 
@@ -61,9 +61,9 @@ program test
 
   write (c1,'(G20.10E5)') x
   write (c2,'(G20.10E5)') -x
-  if (c2(1:1) /= '-') STOP 3
+  if (c2(1:1) /= '-') call abort
   c2(1:1) = ' '
-  if (c1 /= c2) STOP 4
+  if (c1 /= c2) call abort
 
   x = tiny(x)
   call outputstring (x,'(F20.15)','   0.000000000000000')
@@ -71,7 +71,7 @@ program test
 
   write (c1,'(G20.10E5)') x
   write (c2,'(G20.10E5)') -x
-  if (c2(1:1) /= '-') STOP 5
+  if (c2(1:1) /= '-') call abort
   c2(1:1) = ' '
-  if (c1 /= c2) STOP 6
+  if (c1 /= c2) call abort
 end program test

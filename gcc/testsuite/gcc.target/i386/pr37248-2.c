@@ -21,3 +21,4 @@ foo (struct S x)
 
 /* { dg-final { scan-tree-dump "& (3758096391|0x0e0000007);" "optimized" } } */
 /* { dg-final { scan-tree-dump "== (3758096391|0x0e0000007);" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

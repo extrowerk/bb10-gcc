@@ -14,4 +14,5 @@ void f1 (const char *c)
 }
 
 /* { dg-final { scan-tree-dump-not "abort" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */
 

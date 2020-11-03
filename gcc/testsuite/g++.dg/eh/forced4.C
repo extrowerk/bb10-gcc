@@ -38,10 +38,7 @@ force_unwind ()
 }
 
 static void
-doit ()
-#if __cplusplus <= 201402L
-throw(int)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#endif
+doit () throw(int)
 {
   force_unwind ();
 }

@@ -10,6 +10,6 @@ PROGRAM test
 
   array = [ INTEGER ]
   IF (array(1) /= 42) THEN
-    STOP 1
+    CALL abort()
   END IF
 END PROGRAM test

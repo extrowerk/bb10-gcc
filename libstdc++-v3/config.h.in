@@ -6,9 +6,6 @@
 /* Define to 1 if you have the `acosl' function. */
 #undef HAVE_ACOSL
 
-/* Define to 1 if you have the `aligned_alloc' function. */
-#undef HAVE_ALIGNED_ALLOC
-
 /* Define to 1 if you have the `asinf' function. */
 #undef HAVE_ASINF
 
@@ -123,9 +120,6 @@
 /* Define if EWOULDBLOCK exists. */
 #undef HAVE_EWOULDBLOCK
 
-/* Define to 1 if GCC 4.6 supported std::exception_ptr for the target */
-#undef HAVE_EXCEPTION_PTR_SINCE_GCC46
-
 /* Define to 1 if you have the <execinfo.h> header file. */
 #undef HAVE_EXECINFO_H
 
@@ -186,7 +180,7 @@
 /* Define if _Unwind_GetIPInfo is available. */
 #undef HAVE_GETIPINFO
 
-/* Define if gets is available in <stdio.h> before C++14. */
+/* Define if gets is available in <stdio.h>. */
 #undef HAVE_GETS
 
 /* Define to 1 if you have the `hypot' function. */
@@ -267,12 +261,6 @@
 /* Define if futex syscall is available. */
 #undef HAVE_LINUX_FUTEX
 
-/* Define to 1 if you have the <linux/random.h> header file. */
-#undef HAVE_LINUX_RANDOM_H
-
-/* Define to 1 if you have the <linux/types.h> header file. */
-#undef HAVE_LINUX_TYPES_H
-
 /* Define to 1 if you have the <locale.h> header file. */
 #undef HAVE_LOCALE_H
 
@@ -297,9 +285,6 @@
 /* Define if mbstate_t exists in wchar.h. */
 #undef HAVE_MBSTATE_T
 
-/* Define to 1 if you have the `memalign' function. */
-#undef HAVE_MEMALIGN
-
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
 
@@ -315,17 +300,8 @@
 /* Define to 1 if you have the <nan.h> header file. */
 #undef HAVE_NAN_H
 
-/* Define if <math.h> defines obsolete isinf function. */
-#undef HAVE_OBSOLETE_ISINF
-
-/* Define if <math.h> defines obsolete isnan function. */
-#undef HAVE_OBSOLETE_ISNAN
-
 /* Define if poll is available in <poll.h>. */
 #undef HAVE_POLL
-
-/* Define to 1 if you have the `posix_memalign' function. */
-#undef HAVE_POSIX_MEMALIGN
 
 /* Define to 1 if you have the `powf' function. */
 #undef HAVE_POWF
@@ -460,7 +436,7 @@
 /* Define if S_IFREG is available in <sys/stat.h>. */
 #undef HAVE_S_IFREG
 
-/* Define if S_ISREG is available in <sys/stat.h>. */
+/* Define if S_IFREG is available in <sys/stat.h>. */
 #undef HAVE_S_ISREG
 
 /* Define to 1 if you have the `tanf' function. */
@@ -480,9 +456,6 @@
 
 /* Define to 1 if the target supports thread-local storage. */
 #undef HAVE_TLS
-
-/* Define to 1 if you have the <uchar.h> header file. */
-#undef HAVE_UCHAR_H
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
@@ -522,9 +495,6 @@
 
 /* Define to 1 if you have the `_acosl' function. */
 #undef HAVE__ACOSL
-
-/* Define to 1 if you have the `_aligned_malloc' function. */
-#undef HAVE__ALIGNED_MALLOC
 
 /* Define to 1 if you have the `_asinf' function. */
 #undef HAVE__ASINF
@@ -706,9 +676,6 @@
 /* Define to 1 if you have the `_tanl' function. */
 #undef HAVE__TANL
 
-/* Define to 1 if you have the `__cxa_thread_atexit' function. */
-#undef HAVE___CXA_THREAD_ATEXIT
-
 /* Define to 1 if you have the `__cxa_thread_atexit_impl' function. */
 #undef HAVE___CXA_THREAD_ATEXIT_IMPL
 
@@ -761,48 +728,6 @@
 /* Version number of package */
 #undef VERSION
 
-/* Define if C99 functions in <complex.h> should be used in <complex> for
-   C++11. Using compiler builtins for these functions requires corresponding
-   C99 library functions to be present. */
-#undef _GLIBCXX11_USE_C99_COMPLEX
-
-/* Define if C99 functions or macros in <math.h> should be imported in <cmath>
-   in namespace std for C++11. */
-#undef _GLIBCXX11_USE_C99_MATH
-
-/* Define if C99 functions or macros in <stdio.h> should be imported in
-   <cstdio> in namespace std for C++11. */
-#undef _GLIBCXX11_USE_C99_STDIO
-
-/* Define if C99 functions or macros in <stdlib.h> should be imported in
-   <cstdlib> in namespace std for C++11. */
-#undef _GLIBCXX11_USE_C99_STDLIB
-
-/* Define if C99 functions or macros in <wchar.h> should be imported in
-   <cwchar> in namespace std for C++11. */
-#undef _GLIBCXX11_USE_C99_WCHAR
-
-/* Define if C99 functions in <complex.h> should be used in <complex> for
-   C++98. Using compiler builtins for these functions requires corresponding
-   C99 library functions to be present. */
-#undef _GLIBCXX98_USE_C99_COMPLEX
-
-/* Define if C99 functions or macros in <math.h> should be imported in <cmath>
-   in namespace std for C++98. */
-#undef _GLIBCXX98_USE_C99_MATH
-
-/* Define if C99 functions or macros in <stdio.h> should be imported in
-   <cstdio> in namespace std for C++98. */
-#undef _GLIBCXX98_USE_C99_STDIO
-
-/* Define if C99 functions or macros in <stdlib.h> should be imported in
-   <cstdlib> in namespace std for C++98. */
-#undef _GLIBCXX98_USE_C99_STDLIB
-
-/* Define if C99 functions or macros in <wchar.h> should be imported in
-   <cwchar> in namespace std for C++98. */
-#undef _GLIBCXX98_USE_C99_WCHAR
-
 /* Define if the compiler supports C++11 atomics. */
 #undef _GLIBCXX_ATOMIC_BUILTINS
 
@@ -822,12 +747,6 @@
 /* Define if compatibility should be provided for -mlong-double-64. */
 #undef _GLIBCXX_LONG_DOUBLE_COMPAT
 
-/* Define to the letter to which size_t is mangled. */
-#undef _GLIBCXX_MANGLE_SIZE_T
-
-/* Define if C99 llrint and llround functions are missing from <math.h>. */
-#undef _GLIBCXX_NO_C99_ROUNDING_FUNCS
-
 /* Define if ptrdiff_t is int. */
 #undef _GLIBCXX_PTRDIFF_T_IS_INT
 
@@ -836,6 +755,9 @@
 
 /* Define if size_t is unsigned int. */
 #undef _GLIBCXX_SIZE_T_IS_UINT
+
+/* Define if the compiler is configured for setjmp/longjmp exceptions. */
+#undef _GLIBCXX_SJLJ_EXCEPTIONS
 
 /* Define to the value of the EOF integer constant. */
 #undef _GLIBCXX_STDIO_EOF
@@ -861,13 +783,14 @@
 /* Define to use Sun versioning in the shared library. */
 #undef _GLIBCXX_SYMVER_SUN
 
-/* Define if C11 functions in <uchar.h> should be imported into namespace std
-   in <cuchar>. */
-#undef _GLIBCXX_USE_C11_UCHAR_CXX11
-
 /* Define if C99 functions or macros from <wchar.h>, <math.h>, <complex.h>,
    <stdio.h>, and <stdlib.h> can be used or exposed. */
 #undef _GLIBCXX_USE_C99
+
+/* Define if C99 functions in <complex.h> should be used in <complex>. Using
+   compiler builtins for these functions requires corresponding C99 library
+   functions to be present. */
+#undef _GLIBCXX_USE_C99_COMPLEX
 
 /* Define if C99 functions in <complex.h> should be used in <tr1/complex>.
    Using compiler builtins for these functions requires corresponding C99
@@ -889,6 +812,10 @@
 /* Define if wchar_t C99 functions in <inttypes.h> should be imported in
    <tr1/cinttypes> in namespace std::tr1. */
 #undef _GLIBCXX_USE_C99_INTTYPES_WCHAR_T_TR1
+
+/* Define if C99 functions or macros in <math.h> should be imported in <cmath>
+   in namespace std. */
+#undef _GLIBCXX_USE_C99_MATH
 
 /* Define if C99 functions or macros in <math.h> should be imported in
    <tr1/cmath> in namespace std::tr1. */
@@ -917,6 +844,9 @@
 
 /* Define if fchmodat is available in <sys/stat.h>. */
 #undef _GLIBCXX_USE_FCHMODAT
+
+/* Define if __float128 is supported on this host. */
+#undef _GLIBCXX_USE_FLOAT128
 
 /* Defined if gettimeofday is available. */
 #undef _GLIBCXX_USE_GETTIMEOFDAY
@@ -961,7 +891,7 @@
 /* Define if _SC_NPROC_ONLN is available in <unistd.h>. */
 #undef _GLIBCXX_USE_SC_NPROC_ONLN
 
-/* Define if sendfile is available in <sys/sendfile.h>. */
+/* Define if sendfile is available in <sys/stat.h>. */
 #undef _GLIBCXX_USE_SENDFILE
 
 /* Define if struct stat has timespec members. */
@@ -989,14 +919,9 @@
 /* Define to 1 if mutex_timedlock is available. */
 #undef _GTHREAD_USE_MUTEX_TIMEDLOCK
 
-/* Define if all C++11 floating point overloads are available in <math.h>.  */
+/* Define if all C++11 overloads are available in <math.h>.  */
 #if __cplusplus >= 201103L
-#undef __CORRECT_ISO_CPP11_MATH_H_PROTO_FP
-#endif
-
-/* Define if all C++11 integral type overloads are available in <math.h>.  */
-#if __cplusplus >= 201103L
-#undef __CORRECT_ISO_CPP11_MATH_H_PROTO_INT
+#undef __CORRECT_ISO_CPP11_MATH_H_PROTO
 #endif
 
 #if defined (HAVE__ACOSF) && ! defined (HAVE_ACOSF)

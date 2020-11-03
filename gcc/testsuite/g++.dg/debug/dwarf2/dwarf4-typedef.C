@@ -6,12 +6,12 @@
 namespace {
 
 struct A {
-  virtual ~A(); // { dg-warning "used but never defined" }
+  virtual ~A();
 };
 
 struct B : public A {
   template <typename A>
-  bool foo(A x[2]) { return true; }
+  bool foo(A x[2]) { }
 };
 
 template <typename T>

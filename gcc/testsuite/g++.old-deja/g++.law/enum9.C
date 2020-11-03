@@ -15,7 +15,6 @@
 
   enum E { A = 0x80000000, B = 0 };
 
-  int
   main()
   {
     if (sizeof (E) != 4)

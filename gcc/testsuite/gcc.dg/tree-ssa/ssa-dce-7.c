@@ -30,3 +30,4 @@ int main()
    to the allocated memory.  */
 
 /* { dg-final { scan-tree-dump-times "\\\*D" 0 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

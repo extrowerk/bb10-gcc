@@ -1,7 +1,6 @@
 // PR c++/59012
 // { dg-do compile { target c++11 } }
-// { dg-final { scan-assembler "align 8" { target { { i?86-*-* x86_64-*-* } && { { ! ia32 } && { ! *-*-darwin* } } } } } }
-// { dg-final { scan-assembler "align 4" { target ia32 } } }
+// { dg-final { scan-assembler "align 8" { target x86_64-*-*-gnu } } }
 
 template <class... T>
 struct A

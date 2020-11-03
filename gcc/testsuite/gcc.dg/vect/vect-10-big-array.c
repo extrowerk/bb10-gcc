@@ -1,12 +1,13 @@
 /* { dg-do compile } */
 /* { dg-require-effective-target vect_int } */
-
-extern void abort (void);
+#include <stdlib.h>
 
 #define N 128
 
 short a[N];
 short d[N];
+
+volatile int y = 0;
 
 int foo ()
 {
@@ -17,7 +18,10 @@ int foo ()
     {
       b[i] = i*3;
       c[i] = i;
-      asm volatile ("" ::: "memory");
+
+      /* Avoid vectorization.  */
+      if (y)
+	abort ();
     }
 
   /* Strided access pattern.  */
@@ -31,3 +35,4 @@ int foo ()
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail { ! vect_strided2 } } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

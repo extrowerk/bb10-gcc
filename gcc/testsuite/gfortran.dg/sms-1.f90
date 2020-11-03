@@ -20,10 +20,10 @@ contains
 
     j = 1
     do i = l, u, step
-      if (a (j) .ne. i) STOP 1
+      if (a (j) .ne. i) call abort
       j = j + 1
     end do
-    if (size (a, 1) .ne. j - 1) STOP 2
+    if (size (a, 1) .ne. j - 1) call abort
   end subroutine test
 end program main
 

@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O -fnon-call-exceptions -Wno-return-type" } */
+/* { dg-options "-O -fnon-call-exceptions" } */
 int f (float g)
 {
   try { return g >= 0; }

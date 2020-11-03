@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -ftree-parallelize-loops=4 -fdump-tree-parloops2-details -fdump-tree-optimized" } */
+/* { dg-options "-O2 -ftree-parallelize-loops=4 -fdump-tree-parloops-details -fdump-tree-optimized" } */
 
 #include <stdlib.h>
 
@@ -40,8 +40,7 @@ testmin (const T *c, T init, T result)
     abort ();
 }
 
-int __attribute__((optimize ("-ftree-parallelize-loops=0")))
-main (void)
+int main (void)
 { 
   static signed char A[N] = {
     0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
@@ -85,5 +84,7 @@ main (void)
 }
 
 
-/* { dg-final { scan-tree-dump-times "Detected reduction" 2 "parloops2" } } */
-/* { dg-final { scan-tree-dump-times "SUCCESS: may be parallelized" 2 "parloops2" } } */
+/* { dg-final { scan-tree-dump-times "Detected reduction" 2 "parloops" } } */
+/* { dg-final { scan-tree-dump-times "SUCCESS: may be parallelized" 3 "parloops" } } */
+/* { dg-final { cleanup-tree-dump "parloops" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

@@ -5,7 +5,7 @@
       real :: r(5) = 0.0
 
       call random_number(r)
-      if (all (r .eq. 0)) STOP 1
+      if (all (r .eq. 0)) call abort
       end program
 
 

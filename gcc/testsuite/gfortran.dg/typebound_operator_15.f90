@@ -61,18 +61,18 @@ program test_override
 
 !  write(*,*) .tr. o
 !  write(*,*) .tr. p
-  if (base_cnt /= 0 .or. ext_cnt /= 0) STOP 1
+  if (base_cnt /= 0 .or. ext_cnt /= 0) call abort ()
   r = .tr. o
-  if (base_cnt /= 1 .or. ext_cnt /= 0) STOP 2
+  if (base_cnt /= 1 .or. ext_cnt /= 0) call abort ()
   r = .tr. p
-  if (base_cnt /= 2 .or. ext_cnt /= 1) STOP 3
+  if (base_cnt /= 2 .or. ext_cnt /= 1) call abort ()
 
   if (abs(.tr. o - 5.0 ) < 1.0e-6  .and. abs( .tr. p - (5.0,2.5)) < 1.0e-6) &
   then
-    if (base_cnt /= 4 .or. ext_cnt /= 2) STOP 4
+    if (base_cnt /= 4 .or. ext_cnt /= 2) call abort ()
 !     write(*,*) 'OK'
   else
-    STOP 5
+    call abort()
 !     write(*,*) 'FAIL'
   end if
 end program test_override

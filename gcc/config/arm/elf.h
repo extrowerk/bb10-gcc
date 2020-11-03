@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    For ARM with ELF obj format.
-   Copyright (C) 1995-2018 Free Software Foundation, Inc.
+   Copyright (C) 1995-2015 Free Software Foundation, Inc.
    Contributed by Philip Blundell <philb@gnu.org> and
    Catherine Moore <clm@cygnus.com>
    
@@ -64,7 +64,7 @@
 %{mapcs-*:-mapcs-%*} \
 %(subtarget_asm_float_spec) \
 %{mthumb-interwork:-mthumb-interwork} \
-%{mfloat-abi=*} %{!mfpu=auto: %{mfpu=*}} \
+%{mfloat-abi=*} %{mfpu=*} \
 %(subtarget_extra_asm_spec)"
 #endif
 
@@ -75,7 +75,16 @@
 
 /* We might need a ARM specific header to function declarations.  */
 #undef  ASM_DECLARE_FUNCTION_NAME
-#define ASM_DECLARE_FUNCTION_NAME arm_asm_declare_function_name
+#define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)		\
+  do								\
+    {								\
+      ARM_DECLARE_FUNCTION_NAME (FILE, NAME, DECL);		\
+      ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "function");	\
+      ASM_DECLARE_RESULT (FILE, DECL_RESULT (DECL));		\
+      ASM_OUTPUT_LABEL(FILE, NAME);				\
+      ARM_OUTPUT_FN_UNWIND (FILE, TRUE);			\
+    }								\
+  while (0)
 
 /* We might need an ARM specific trailer for function declarations.  */
 #undef  ASM_DECLARE_FUNCTION_SIZE
@@ -95,8 +104,7 @@
    the code more efficient, but for Thumb-1 it's better to put them out of
    band unless we are generating compressed tables.  */
 #define JUMP_TABLES_IN_TEXT_SECTION					\
-   ((TARGET_32BIT || (TARGET_THUMB && (optimize_size || flag_pic))) \
-    && !target_pure_code)
+   (TARGET_32BIT || (TARGET_THUMB && (optimize_size || flag_pic)))
 
 #ifndef LINK_SPEC
 #define LINK_SPEC "%{mbig-endian:-EB} %{mlittle-endian:-EL} -X"
@@ -107,7 +115,12 @@
 #define TARGET_DEFAULT (MASK_APCS_FRAME)
 #endif
 
+#ifndef MULTILIB_DEFAULTS
+#define MULTILIB_DEFAULTS \
+  { "marm", "mlittle-endian", "mfloat-abi=soft", "mno-thumb-interwork", "fno-leading-underscore" }
+#endif
 
+#define TARGET_ASM_FILE_START_APP_OFF true
 #define TARGET_ASM_FILE_START_FILE_DIRECTIVE true
 
 
@@ -136,9 +149,8 @@
   while (0)
 
 /* Horrible hack: We want to prevent some libgcc routines being included
-   for some multilibs.  The condition should match the one in
-   libgcc/config/arm/lib1funcs.S.  */
-#if __ARM_ARCH_ISA_ARM || __ARM_ARCH_ISA_THUMB != 1
+   for some multilibs.  */
+#ifndef __ARM_ARCH_6M__
 #undef L_fixdfsi
 #undef L_fixunsdfsi
 #undef L_truncdfsf2

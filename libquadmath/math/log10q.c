@@ -188,14 +188,11 @@ log10q (__float128 x)
 /* Test for domain */
   GET_FLT128_WORDS64 (hx, lx, x);
   if (((hx & 0x7fffffffffffffffLL) | lx) == 0)
-    return (-1.0Q / fabsq (x));		/* log10l(+-0)=-inf  */
+    return (-1.0Q / (x - x));
   if (hx < 0)
     return (x - x) / (x - x);
   if (hx >= 0x7fff000000000000LL)
     return (x + x);
-
-  if (x == 1.0Q)
-    return 0.0Q;
 
 /* separate mantissa from exponent */
 

@@ -21,3 +21,4 @@ int l (int d) {
 /* { dg-final { scan-tree-dump "b & -32" "gimple" } } */
 /* { dg-final { scan-tree-dump "c & 15" "gimple" } } */
 /* { dg-final { scan-tree-dump "d << 6" "gimple" } } */
+/* { dg-final { cleanup-tree-dump "gimple" } } */

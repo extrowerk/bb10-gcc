@@ -11,3 +11,4 @@ void f1(void)
 }
 
 /* { dg-final { scan-tree-dump-times "__atomic_fetch_add" 1 "ompexp" } } */
+/* { dg-final { cleanup-tree-dump "ompexp" } } */

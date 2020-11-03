@@ -22,7 +22,7 @@ contains
       class is (t)
         list = [w(o)] ! This caused an ICE
       class default
-        STOP 1
+        call abort()
     end select
   end subroutine
 end program

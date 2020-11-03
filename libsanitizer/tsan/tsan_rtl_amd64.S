@@ -1,20 +1,8 @@
-// The content of this file is x86_64-only:
-#if defined(__x86_64__)
-
 #include "sanitizer_common/sanitizer_asm.h"
-#include "cet.h"
-
-#if !defined(__APPLE__)
-.section .text
-#else
-.section __TEXT,__text
-#endif
-
-ASM_HIDDEN(__tsan_trace_switch)
-.globl ASM_TSAN_SYMBOL(__tsan_trace_switch_thunk)
-ASM_TSAN_SYMBOL(__tsan_trace_switch_thunk):
+.hidden __tsan_trace_switch
+.globl __tsan_trace_switch_thunk
+__tsan_trace_switch_thunk:
   CFI_STARTPROC
-  _CET_ENDBR
   # Save scratch registers.
   push %rax
   CFI_ADJUST_CFA_OFFSET(8)
@@ -52,7 +40,7 @@ ASM_TSAN_SYMBOL(__tsan_trace_switch_thunk):
   shr $4, %rsp  # clear 4 lsb, align to 16
   shl $4, %rsp
 
-  call ASM_TSAN_SYMBOL(__tsan_trace_switch)
+  call __tsan_trace_switch
 
   # Unalign stack frame back.
   mov %rbx, %rsp  # restore the original rsp
@@ -91,11 +79,10 @@ ASM_TSAN_SYMBOL(__tsan_trace_switch_thunk):
   ret
   CFI_ENDPROC
 
-ASM_HIDDEN(__tsan_report_race)
-.globl ASM_TSAN_SYMBOL(__tsan_report_race_thunk)
-ASM_TSAN_SYMBOL(__tsan_report_race_thunk):
+.hidden __tsan_report_race
+.globl __tsan_report_race_thunk
+__tsan_report_race_thunk:
   CFI_STARTPROC
-  _CET_ENDBR
   # Save scratch registers.
   push %rax
   CFI_ADJUST_CFA_OFFSET(8)
@@ -133,7 +120,7 @@ ASM_TSAN_SYMBOL(__tsan_report_race_thunk):
   shr $4, %rsp  # clear 4 lsb, align to 16
   shl $4, %rsp
 
-  call ASM_TSAN_SYMBOL(__tsan_report_race)
+  call __tsan_report_race
 
   # Unalign stack frame back.
   mov %rbx, %rsp  # restore the original rsp
@@ -172,15 +159,12 @@ ASM_TSAN_SYMBOL(__tsan_report_race_thunk):
   ret
   CFI_ENDPROC
 
-ASM_HIDDEN(__tsan_setjmp)
-#if !defined(__APPLE__)
+.hidden __tsan_setjmp
 .comm _ZN14__interception11real_setjmpE,8,8
-#endif
-.globl ASM_TSAN_SYMBOL_INTERCEPTOR(setjmp)
-ASM_TYPE_FUNCTION(ASM_TSAN_SYMBOL_INTERCEPTOR(setjmp))
-ASM_TSAN_SYMBOL_INTERCEPTOR(setjmp):
+.globl setjmp
+.type setjmp, @function
+setjmp:
   CFI_STARTPROC
-  _CET_ENDBR
   // save env parameter
   push %rdi
   CFI_ADJUST_CFA_OFFSET(8)
@@ -189,40 +173,30 @@ ASM_TSAN_SYMBOL_INTERCEPTOR(setjmp):
 #if defined(__FreeBSD__)
   lea 8(%rsp), %rdi
   mov %rdi, %rsi
-#elif defined(__APPLE__)
-  lea 16(%rsp), %rdi
-  mov %rdi, %rsi
-#elif defined(__linux__)
+#else
   lea 16(%rsp), %rdi
   mov %rdi, %rsi
   xor %fs:0x30, %rsi  // magic mangling of rsp (see libc setjmp)
   rol $0x11, %rsi
-#else
-# error "Unknown platform"
 #endif
   // call tsan interceptor
-  call ASM_TSAN_SYMBOL(__tsan_setjmp)
+  call __tsan_setjmp
   // restore env parameter
   pop %rdi
   CFI_ADJUST_CFA_OFFSET(-8)
   CFI_RESTORE(%rdi)
   // tail jump to libc setjmp
   movl $0, %eax
-#if !defined(__APPLE__)
   movq _ZN14__interception11real_setjmpE@GOTPCREL(%rip), %rdx
   jmp *(%rdx)
-#else
-  jmp ASM_TSAN_SYMBOL(setjmp)
-#endif
   CFI_ENDPROC
-ASM_SIZE(ASM_TSAN_SYMBOL_INTERCEPTOR(setjmp))
+.size setjmp, .-setjmp
 
 .comm _ZN14__interception12real__setjmpE,8,8
-.globl ASM_TSAN_SYMBOL_INTERCEPTOR(_setjmp)
-ASM_TYPE_FUNCTION(ASM_TSAN_SYMBOL_INTERCEPTOR(_setjmp))
-ASM_TSAN_SYMBOL_INTERCEPTOR(_setjmp):
+.globl _setjmp
+.type _setjmp, @function
+_setjmp:
   CFI_STARTPROC
-  _CET_ENDBR
   // save env parameter
   push %rdi
   CFI_ADJUST_CFA_OFFSET(8)
@@ -231,40 +205,30 @@ ASM_TSAN_SYMBOL_INTERCEPTOR(_setjmp):
 #if defined(__FreeBSD__)
   lea 8(%rsp), %rdi
   mov %rdi, %rsi
-#elif defined(__APPLE__)
-  lea 16(%rsp), %rdi
-  mov %rdi, %rsi
-#elif defined(__linux__)
+#else
   lea 16(%rsp), %rdi
   mov %rdi, %rsi
   xor %fs:0x30, %rsi  // magic mangling of rsp (see libc setjmp)
   rol $0x11, %rsi
-#else
-# error "Unknown platform"
 #endif
   // call tsan interceptor
-  call ASM_TSAN_SYMBOL(__tsan_setjmp)
+  call __tsan_setjmp
   // restore env parameter
   pop %rdi
   CFI_ADJUST_CFA_OFFSET(-8)
   CFI_RESTORE(%rdi)
   // tail jump to libc setjmp
   movl $0, %eax
-#if !defined(__APPLE__)
   movq _ZN14__interception12real__setjmpE@GOTPCREL(%rip), %rdx
   jmp *(%rdx)
-#else
-  jmp ASM_TSAN_SYMBOL(_setjmp)
-#endif
   CFI_ENDPROC
-ASM_SIZE(ASM_TSAN_SYMBOL_INTERCEPTOR(_setjmp))
+.size _setjmp, .-_setjmp
 
 .comm _ZN14__interception14real_sigsetjmpE,8,8
-.globl ASM_TSAN_SYMBOL_INTERCEPTOR(sigsetjmp)
-ASM_TYPE_FUNCTION(ASM_TSAN_SYMBOL_INTERCEPTOR(sigsetjmp))
-ASM_TSAN_SYMBOL_INTERCEPTOR(sigsetjmp):
+.globl sigsetjmp
+.type sigsetjmp, @function
+sigsetjmp:
   CFI_STARTPROC
-  _CET_ENDBR
   // save env parameter
   push %rdi
   CFI_ADJUST_CFA_OFFSET(8)
@@ -280,19 +244,14 @@ ASM_TSAN_SYMBOL_INTERCEPTOR(sigsetjmp):
 #if defined(__FreeBSD__)
   lea 24(%rsp), %rdi
   mov %rdi, %rsi
-#elif defined(__APPLE__)
-  lea 32(%rsp), %rdi
-  mov %rdi, %rsi
-#elif defined(__linux__)
+#else
   lea 32(%rsp), %rdi
   mov %rdi, %rsi
   xor %fs:0x30, %rsi  // magic mangling of rsp (see libc setjmp)
   rol $0x11, %rsi
-#else
-# error "Unknown platform"
 #endif
   // call tsan interceptor
-  call ASM_TSAN_SYMBOL(__tsan_setjmp)
+  call __tsan_setjmp
   // unalign stack frame
   add $8, %rsp
   CFI_ADJUST_CFA_OFFSET(-8)
@@ -306,22 +265,16 @@ ASM_TSAN_SYMBOL_INTERCEPTOR(sigsetjmp):
   CFI_RESTORE(%rdi)
   // tail jump to libc sigsetjmp
   movl $0, %eax
-#if !defined(__APPLE__)
   movq _ZN14__interception14real_sigsetjmpE@GOTPCREL(%rip), %rdx
   jmp *(%rdx)
-#else
-  jmp ASM_TSAN_SYMBOL(sigsetjmp)
-#endif
   CFI_ENDPROC
-ASM_SIZE(ASM_TSAN_SYMBOL_INTERCEPTOR(sigsetjmp))
+.size sigsetjmp, .-sigsetjmp
 
-#if !defined(__APPLE__)
 .comm _ZN14__interception16real___sigsetjmpE,8,8
-.globl ASM_TSAN_SYMBOL_INTERCEPTOR(__sigsetjmp)
-ASM_TYPE_FUNCTION(ASM_TSAN_SYMBOL_INTERCEPTOR(__sigsetjmp))
-ASM_TSAN_SYMBOL_INTERCEPTOR(__sigsetjmp):
+.globl __sigsetjmp
+.type __sigsetjmp, @function
+__sigsetjmp:
   CFI_STARTPROC
-  _CET_ENDBR
   // save env parameter
   push %rdi
   CFI_ADJUST_CFA_OFFSET(8)
@@ -344,7 +297,7 @@ ASM_TSAN_SYMBOL_INTERCEPTOR(__sigsetjmp):
   rol $0x11, %rsi
 #endif
   // call tsan interceptor
-  call ASM_TSAN_SYMBOL(__tsan_setjmp)
+  call __tsan_setjmp
   // unalign stack frame
   add $8, %rsp
   CFI_ADJUST_CFA_OFFSET(-8)
@@ -361,12 +314,9 @@ ASM_TSAN_SYMBOL_INTERCEPTOR(__sigsetjmp):
   movq _ZN14__interception16real___sigsetjmpE@GOTPCREL(%rip), %rdx
   jmp *(%rdx)
   CFI_ENDPROC
-ASM_SIZE(ASM_TSAN_SYMBOL_INTERCEPTOR(__sigsetjmp))
-#endif  // !defined(__APPLE__)
+.size __sigsetjmp, .-__sigsetjmp
 
 #if defined(__FreeBSD__) || defined(__linux__)
 /* We do not need executable stack.  */
 .section        .note.GNU-stack,"",@progbits
-#endif
-
 #endif

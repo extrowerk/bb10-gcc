@@ -1,6 +1,6 @@
 /* Operating system specific defines to be used when targeting GCC for
    hosting on Windows32, using a Unix style C library and tools.
-   Copyright (C) 1995-2018 Free Software Foundation, Inc.
+   Copyright (C) 1995-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -153,7 +153,6 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 #define LIBGCC_SONAME "cyggcc_s" LIBGCC_EH_EXTN "-1.dll"
 
-/* Make stack executable to avoid DEP problems with trampolines.  */
-#define HAVE_ENABLE_EXECUTE_STACK
-#undef  CHECK_EXECUTE_STACK_ENABLED
-#define CHECK_EXECUTE_STACK_ENABLED flag_setstackexecutable
+/* We should find a way to not have to update this manually.  */
+#define LIBGCJ_SONAME "cyggcj" /*LIBGCC_EH_EXTN*/ "-16.dll"
+

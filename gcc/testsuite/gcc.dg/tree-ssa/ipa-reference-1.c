@@ -12,3 +12,4 @@ int f(void)
    inlined the 0 as IPA reference should have marked the variable as a const
    as it is not set in the IR.  */
 /* { dg-final { scan-tree-dump-times "conststaticvariable" 0 "optimized"} } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

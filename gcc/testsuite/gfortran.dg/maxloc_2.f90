@@ -1,6 +1,6 @@
 ! { dg-do run }
 ! { dg-add-options ieee }
-! { dg-skip-if "NaN not supported" { spu-*-* } }
+! { dg-skip-if "NaN not supported" { spu-*-* } { "*" } { "" } }
   real :: a(3), nan, minf, pinf
   real, allocatable :: c(:)
   integer :: ia(1)
@@ -17,140 +17,140 @@
   allocate (c(3))
   a(:) = nan
   ia = maxloc (a)
-  if (ia(1).ne.1) STOP 1
+  if (ia(1).ne.1) call abort
   a(:) = minf
   ia = maxloc (a)
-  if (ia(1).ne.1) STOP 2
+  if (ia(1).ne.1) call abort
   a(1:2) = nan
   ia = maxloc (a)
-  if (ia(1).ne.3) STOP 3
+  if (ia(1).ne.3) call abort
   a(2) = 1.0
   ia = maxloc (a)
-  if (ia(1).ne.2) STOP 4
+  if (ia(1).ne.2) call abort
   a(2) = pinf
   ia = maxloc (a)
-  if (ia(1).ne.2) STOP 5
+  if (ia(1).ne.2) call abort
   c(:) = nan
   ia = maxloc (c)
-  if (ia(1).ne.1) STOP 6
+  if (ia(1).ne.1) call abort
   c(:) = minf
   ia = maxloc (c)
-  if (ia(1).ne.1) STOP 7
+  if (ia(1).ne.1) call abort
   c(1:2) = nan
   ia = maxloc (c)
-  if (ia(1).ne.3) STOP 8
+  if (ia(1).ne.3) call abort
   c(2) = 1.0
   ia = maxloc (c)
-  if (ia(1).ne.2) STOP 9
+  if (ia(1).ne.2) call abort
   c(2) = pinf
   ia = maxloc (c)
-  if (ia(1).ne.2) STOP 10
+  if (ia(1).ne.2) call abort
   l = .false.
   l2(:) = .false.
   a(:) = nan
   ia = maxloc (a, mask = l)
-  if (ia(1).ne.0) STOP 11
+  if (ia(1).ne.0) call abort
   ia = maxloc (a, mask = l2)
-  if (ia(1).ne.0) STOP 12
+  if (ia(1).ne.0) call abort
   a(:) = minf
   ia = maxloc (a, mask = l)
-  if (ia(1).ne.0) STOP 13
+  if (ia(1).ne.0) call abort
   ia = maxloc (a, mask = l2)
-  if (ia(1).ne.0) STOP 14
+  if (ia(1).ne.0) call abort
   a(1:2) = nan
   ia = maxloc (a, mask = l)
-  if (ia(1).ne.0) STOP 15
+  if (ia(1).ne.0) call abort
   ia = maxloc (a, mask = l2)
-  if (ia(1).ne.0) STOP 16
+  if (ia(1).ne.0) call abort
   a(2) = 1.0
   ia = maxloc (a, mask = l)
-  if (ia(1).ne.0) STOP 17
+  if (ia(1).ne.0) call abort
   ia = maxloc (a, mask = l2)
-  if (ia(1).ne.0) STOP 18
+  if (ia(1).ne.0) call abort
   a(2) = pinf
   ia = maxloc (a, mask = l)
-  if (ia(1).ne.0) STOP 19
+  if (ia(1).ne.0) call abort
   ia = maxloc (a, mask = l2)
-  if (ia(1).ne.0) STOP 20
+  if (ia(1).ne.0) call abort
   c(:) = nan
   ia = maxloc (c, mask = l)
-  if (ia(1).ne.0) STOP 21
+  if (ia(1).ne.0) call abort
   ia = maxloc (c, mask = l2)
-  if (ia(1).ne.0) STOP 22
+  if (ia(1).ne.0) call abort
   c(:) = minf
   ia = maxloc (c, mask = l)
-  if (ia(1).ne.0) STOP 23
+  if (ia(1).ne.0) call abort
   ia = maxloc (c, mask = l2)
-  if (ia(1).ne.0) STOP 24
+  if (ia(1).ne.0) call abort
   c(1:2) = nan
   ia = maxloc (c, mask = l)
-  if (ia(1).ne.0) STOP 25
+  if (ia(1).ne.0) call abort
   ia = maxloc (c, mask = l2)
-  if (ia(1).ne.0) STOP 26
+  if (ia(1).ne.0) call abort
   c(2) = 1.0
   ia = maxloc (c, mask = l)
-  if (ia(1).ne.0) STOP 27
+  if (ia(1).ne.0) call abort
   ia = maxloc (c, mask = l2)
-  if (ia(1).ne.0) STOP 28
+  if (ia(1).ne.0) call abort
   c(2) = pinf
   ia = maxloc (c, mask = l)
-  if (ia(1).ne.0) STOP 29
+  if (ia(1).ne.0) call abort
   ia = maxloc (c, mask = l2)
-  if (ia(1).ne.0) STOP 30
+  if (ia(1).ne.0) call abort
   l = .true.
   l2(:) = .true.
   a(:) = nan
   ia = maxloc (a, mask = l)
-  if (ia(1).ne.1) STOP 31
+  if (ia(1).ne.1) call abort
   ia = maxloc (a, mask = l2)
-  if (ia(1).ne.1) STOP 32
+  if (ia(1).ne.1) call abort
   a(:) = minf
   ia = maxloc (a, mask = l)
-  if (ia(1).ne.1) STOP 33
+  if (ia(1).ne.1) call abort
   ia = maxloc (a, mask = l2)
-  if (ia(1).ne.1) STOP 34
+  if (ia(1).ne.1) call abort
   a(1:2) = nan
   ia = maxloc (a, mask = l)
-  if (ia(1).ne.3) STOP 35
+  if (ia(1).ne.3) call abort
   ia = maxloc (a, mask = l2)
-  if (ia(1).ne.3) STOP 36
+  if (ia(1).ne.3) call abort
   a(2) = 1.0
   ia = maxloc (a, mask = l)
-  if (ia(1).ne.2) STOP 37
+  if (ia(1).ne.2) call abort
   ia = maxloc (a, mask = l2)
-  if (ia(1).ne.2) STOP 38
+  if (ia(1).ne.2) call abort
   a(2) = pinf
   ia = maxloc (a, mask = l)
-  if (ia(1).ne.2) STOP 39
+  if (ia(1).ne.2) call abort
   ia = maxloc (a, mask = l2)
-  if (ia(1).ne.2) STOP 40
+  if (ia(1).ne.2) call abort
   c(:) = nan
   ia = maxloc (c, mask = l)
-  if (ia(1).ne.1) STOP 41
+  if (ia(1).ne.1) call abort
   ia = maxloc (c, mask = l2)
-  if (ia(1).ne.1) STOP 42
+  if (ia(1).ne.1) call abort
   c(:) = minf
   ia = maxloc (c, mask = l)
-  if (ia(1).ne.1) STOP 43
+  if (ia(1).ne.1) call abort
   ia = maxloc (c, mask = l2)
-  if (ia(1).ne.1) STOP 44
+  if (ia(1).ne.1) call abort
   c(1:2) = nan
   ia = maxloc (c, mask = l)
-  if (ia(1).ne.3) STOP 45
+  if (ia(1).ne.3) call abort
   ia = maxloc (c, mask = l2)
-  if (ia(1).ne.3) STOP 46
+  if (ia(1).ne.3) call abort
   c(2) = 1.0
   ia = maxloc (c, mask = l)
-  if (ia(1).ne.2) STOP 47
+  if (ia(1).ne.2) call abort
   ia = maxloc (c, mask = l2)
-  if (ia(1).ne.2) STOP 48
+  if (ia(1).ne.2) call abort
   c(2) = pinf
   ia = maxloc (c, mask = l)
-  if (ia(1).ne.2) STOP 49
+  if (ia(1).ne.2) call abort
   ia = maxloc (c, mask = l2)
-  if (ia(1).ne.2) STOP 50
+  if (ia(1).ne.2) call abort
   deallocate (c)
   allocate (c(-2:-3))
   ia = maxloc (c)
-  if (ia(1).ne.0) STOP 51
+  if (ia(1).ne.0) call abort
 end

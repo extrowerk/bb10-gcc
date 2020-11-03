@@ -11,7 +11,7 @@ foo (int x)
   #pragma omp target teams
     {
       bad2: ;			// { dg-error "jump to label" }
-                                // { dg-message "enters OpenMP" "" { target *-*-* } .-1 }
+                                // { dg-message "enters OpenMP" "" { target *-*-* } 13 }
     }
 
   #pragma omp target teams
@@ -26,7 +26,6 @@ foo (int x)
   {
   #pragma omp target teams
     { case 0:; }		// { dg-error "jump" }
-				// { dg-warning "statement will never be executed" "" { target *-*-* } 27 }
                                 // { dg-message "enters" "" { target *-*-* } 28 }
   }
 }
@@ -44,7 +43,7 @@ bar (int x)
   #pragma omp teams
     {
       bad2: ;			// { dg-error "jump to label" }
-                                // { dg-message "enters OpenMP" "" { target *-*-* } .-1 }
+                                // { dg-message "enters OpenMP" "" { target *-*-* } 45 }
     }
 
   #pragma omp target
@@ -58,14 +57,14 @@ bar (int x)
 
   switch (x)
   {
-  #pragma omp target		// { dg-warning "statement will never be executed" }
+  #pragma omp target
   #pragma omp teams
     { case 0:; }		// { dg-error "jump" }
-                                // { dg-message "enters" "" { target *-*-* } .-1 }
+                                // { dg-message "enters" "" { target *-*-* } 62 }
   }
 }
 
 // { dg-error "invalid branch to/from OpenMP structured block" "" { target *-*-* } 8 }
 // { dg-error "invalid entry to OpenMP structured block" "" { target *-*-* } 10 }
-// { dg-error "invalid branch to/from OpenMP structured block" "" { target *-*-* } 40 }
-// { dg-error "invalid entry to OpenMP structured block" "" { target *-*-* } 42 }
+// { dg-error "invalid branch to/from OpenMP structured block" "" { target *-*-* } 39 }
+// { dg-error "invalid entry to OpenMP structured block" "" { target *-*-* } 41 }

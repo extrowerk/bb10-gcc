@@ -1,7 +1,6 @@
-// { dg-options "-Wno-deprecated" }
-// { dg-do run { target c++11 } }
+// { dg-options "-std=gnu++11 -Wno-deprecated" }
 
-// Copyright (C) 2010-2018 Free Software Foundation, Inc.
+// Copyright (C) 2010-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,6 +30,8 @@ struct A { };
 void
 test01()
 {
+  bool test __attribute__((unused)) = true;
+
   std::auto_ptr<A> a(new A);
   std::unique_ptr<A> a2(std::move(a));
   VERIFY( a.get() == nullptr );

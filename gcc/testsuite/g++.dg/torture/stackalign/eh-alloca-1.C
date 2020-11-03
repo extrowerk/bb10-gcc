@@ -1,6 +1,5 @@
 /* { dg-do run } */
-/* { dg-skip-if "Stack alignment is too small" { hppa*-*-hpux* } } */
-/* { dg-require-effective-target alloca } */
+/* { dg-skip-if "Stack alignment is too small" { hppa*-*-hpux* } "*" "" } */
 
 #include "check.h"
 
@@ -28,10 +27,7 @@ struct A : virtual public Base
 struct B {};
 
 void
-foo (int size)
-#if __cplusplus <= 201402L
-throw (B,A)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#endif
+foo (int size) throw (B,A)
 {
   char *p = (char*) __builtin_alloca (size + 1);
   aligned i;

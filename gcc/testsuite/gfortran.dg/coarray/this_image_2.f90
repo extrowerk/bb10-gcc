@@ -14,82 +14,82 @@ implicit none
 integer :: a[2:2, 3:4, 7:*]
 integer :: i
 
-if (this_image(A, dim=1) /= 2) STOP 1
+if (this_image(A, dim=1) /= 2) call abort()
 i = 1
-if (this_image(A, dim=i) /= 2) STOP 2
+if (this_image(A, dim=i) /= 2) call abort()
 
 select case (this_image())
   case (1)
-    if (this_image(A, dim=2) /= 3) STOP 3
-    if (this_image(A, dim=3) /= 7) STOP 4
+    if (this_image(A, dim=2) /= 3) call abort()
+    if (this_image(A, dim=3) /= 7) call abort()
     i = 2
-    if (this_image(A, dim=i) /= 3) STOP 5
+    if (this_image(A, dim=i) /= 3) call abort()
     i = 3
-    if (this_image(A, dim=i) /= 7) STOP 6
-    if (any (this_image(A) /= [2,3,7])) STOP 7
+    if (this_image(A, dim=i) /= 7) call abort()
+    if (any (this_image(A) /= [2,3,7])) call abort()
 
   case (2)
-    if (this_image(A, dim=2) /= 4) STOP 8
-    if (this_image(A, dim=3) /= 7) STOP 9
+    if (this_image(A, dim=2) /= 4) call abort()
+    if (this_image(A, dim=3) /= 7) call abort()
     i = 2
-    if (this_image(A, dim=i) /= 4) STOP 10
+    if (this_image(A, dim=i) /= 4) call abort()
     i = 3
-    if (this_image(A, dim=i) /= 7) STOP 11
-    if (any (this_image(A) /= [2,4,7])) STOP 12
+    if (this_image(A, dim=i) /= 7) call abort()
+    if (any (this_image(A) /= [2,4,7])) call abort()
 
   case (3)
-    if (this_image(A, dim=2) /= 3) STOP 13
-    if (this_image(A, dim=3) /= 8) STOP 14
+    if (this_image(A, dim=2) /= 3) call abort()
+    if (this_image(A, dim=3) /= 8) call abort()
     i = 2
-    if (this_image(A, dim=i) /= 3) STOP 15
+    if (this_image(A, dim=i) /= 3) call abort()
     i = 3
-    if (this_image(A, dim=i) /= 8) STOP 16
-    if (any (this_image(A) /= [2,3,8])) STOP 17
+    if (this_image(A, dim=i) /= 8) call abort()
+    if (any (this_image(A) /= [2,3,8])) call abort()
 
   case (4)
-    if (this_image(A, dim=2) /= 4) STOP 18
-    if (this_image(A, dim=3) /= 8) STOP 19
+    if (this_image(A, dim=2) /= 4) call abort()
+    if (this_image(A, dim=3) /= 8) call abort()
     i = 2
-    if (this_image(A, dim=i) /= 4) STOP 20
+    if (this_image(A, dim=i) /= 4) call abort()
     i = 3
-    if (this_image(A, dim=i) /= 8) STOP 21
-    if (any (this_image(A) /= [2,4,8])) STOP 22
+    if (this_image(A, dim=i) /= 8) call abort()
+    if (any (this_image(A) /= [2,4,8])) call abort()
 
   case (5)
-    if (this_image(A, dim=2) /= 3) STOP 23
-    if (this_image(A, dim=3) /= 9) STOP 24
+    if (this_image(A, dim=2) /= 3) call abort()
+    if (this_image(A, dim=3) /= 9) call abort()
     i = 2
-    if (this_image(A, dim=i) /= 3) STOP 25
+    if (this_image(A, dim=i) /= 3) call abort()
     i = 3
-    if (this_image(A, dim=i) /= 9) STOP 26
-    if (any (this_image(A) /= [2,3,9])) STOP 27
+    if (this_image(A, dim=i) /= 9) call abort()
+    if (any (this_image(A) /= [2,3,9])) call abort()
 
   case (6)
-    if (this_image(A, dim=2) /= 4) STOP 28
-    if (this_image(A, dim=3) /= 9) STOP 29
+    if (this_image(A, dim=2) /= 4) call abort()
+    if (this_image(A, dim=3) /= 9) call abort()
     i = 2
-    if (this_image(A, dim=i) /= 4) STOP 30
+    if (this_image(A, dim=i) /= 4) call abort()
     i = 3
-    if (this_image(A, dim=i) /= 9) STOP 31
-    if (any (this_image(A) /= [2,4,9])) STOP 32
+    if (this_image(A, dim=i) /= 9) call abort()
+    if (any (this_image(A) /= [2,4,9])) call abort()
 
   case (7)
-    if (this_image(A, dim=2) /= 3) STOP 33
-    if (this_image(A, dim=3) /= 10) STOP 34
+    if (this_image(A, dim=2) /= 3) call abort()
+    if (this_image(A, dim=3) /= 10) call abort()
     i = 2
-    if (this_image(A, dim=i) /= 3) STOP 35
+    if (this_image(A, dim=i) /= 3) call abort()
     i = 3
-    if (this_image(A, dim=i) /= 10) STOP 36
-    if (any (this_image(A) /= [2,3,10])) STOP 37
+    if (this_image(A, dim=i) /= 10) call abort()
+    if (any (this_image(A) /= [2,3,10])) call abort()
 
   case (8)
-    if (this_image(A, dim=2) /= 4) STOP 38
-    if (this_image(A, dim=3) /= 10) STOP 39
+    if (this_image(A, dim=2) /= 4) call abort()
+    if (this_image(A, dim=3) /= 10) call abort()
     i = 2
-    if (this_image(A, dim=i) /= 4) STOP 40
+    if (this_image(A, dim=i) /= 4) call abort()
     i = 3
-    if (this_image(A, dim=i) /= 10) STOP 41
-    if (any (this_image(A) /= [2,4,10])) STOP 42
+    if (this_image(A, dim=i) /= 10) call abort()
+    if (any (this_image(A) /= [2,4,10])) call abort()
 end select
 
 contains
@@ -108,17 +108,17 @@ index1 = image_index(d, [-1, 1] )
 index2 = image_index(d, [0, 1] )
 
 if (one .and. (index1 /= 1 .or. index2 /= 0)) &
-  STOP 43
+  call abort()
 if (.not. one .and. (index1 /= 1 .or. index2 /= 2)) &
-  STOP 44
+  call abort()
 
 index1 = image_index(e, [-1, 3] )
 index2 = image_index(e, [-1, 4] )
 
 if (one .and. (index1 /= 1 .or. index2 /= 0)) &
-  STOP 45
+  call abort()
 if (.not. one .and. (index1 /= 1 .or. index2 /= 2)) &
-  STOP 46
+  call abort()
 
 end subroutine test_image_index
 

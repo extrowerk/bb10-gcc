@@ -9,3 +9,4 @@ foo (unsigned int x)
 }
 
 /* { dg-final { scan-tree-dump "return 0;" "original" { target { ilp32 || lp64 } } } } */
+/* { dg-final { cleanup-tree-dump "original" } } */

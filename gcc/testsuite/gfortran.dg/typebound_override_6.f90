@@ -35,3 +35,5 @@ contains
     integer     :: info
   end subroutine
 end module
+
+! { dg-final { cleanup-modules "base_mod r_mod" } }

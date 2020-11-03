@@ -13,3 +13,4 @@
 
 /* { dg-final { scan-assembler-times "stp\tx29, x30, \\\[sp, -\[0-9\]+\\\]!" 2 } } */
 
+/* { dg-final { cleanup-saved-temps } } */

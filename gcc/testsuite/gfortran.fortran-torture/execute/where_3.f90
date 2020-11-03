@@ -16,6 +16,6 @@ subroutine sub(B)
       B(:,1) = B(:,1) + 10
    endwhere
    if (any (B .ne. reshape ((/0, 0, 0, 0, 0, 15, 15, 15, 15, 15, &
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0/), (/10, 2/)))) STOP 1
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0/), (/10, 2/)))) call abort
 end subroutine
 end program

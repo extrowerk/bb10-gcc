@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -ftree-vectorize -mavx2" } */
+/* { dg-options "-O2 -ftree-vectorize -mavx2" { target avx2 } } */
 
 int a[1024];
 
@@ -18,3 +18,4 @@ foo (int *p)
     }
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

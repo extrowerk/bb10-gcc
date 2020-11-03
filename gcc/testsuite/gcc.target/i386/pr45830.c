@@ -28,3 +28,4 @@ foo (int *a)
 
 /* { dg-final { scan-tree-dump "expanding as bit test is preferable" "switchconv" } } */
 /* { dg-final { scan-assembler-not "CSWTCH" } } */
+/* { dg-final { cleanup-tree-dump "switchconv" } } */

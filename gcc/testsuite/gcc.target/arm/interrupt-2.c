@@ -1,8 +1,8 @@
 /* Verify that prologue and epilogue are correct for functions with
    __attribute__ ((interrupt)).  */
-/* { dg-do assemble } */
+/* { dg-do compile } */
 /* { dg-require-effective-target arm_nothumb } */
-/* { dg-options "-O1 -marm -save-temps" } */
+/* { dg-options "-O1 -marm" } */
 
 /* This test is not valid when -mthumb.  */
 extern void bar (int);
@@ -15,5 +15,5 @@ void test()
   foo = 0;
 }
 
-/* { dg-final { scan-assembler "push\t{r0, r1, r2, r3, r4, r5, ip, lr}" } } */
+/* { dg-final { scan-assembler "stmfd\tsp!, {r0, r1, r2, r3, r4, r5, ip, lr}" } } */
 /* { dg-final { scan-assembler "ldmfd\tsp!, {r0, r1, r2, r3, r4, r5, ip, pc}\\^" } } */

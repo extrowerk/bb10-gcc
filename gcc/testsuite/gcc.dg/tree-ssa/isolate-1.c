@@ -1,5 +1,6 @@
+
 /* { dg-do compile } */ 
-/* { dg-options "-O2 -fdump-tree-isolate-paths -fdelete-null-pointer-checks -Wnull-dereference" } */
+/* { dg-options "-O2 -fdump-tree-isolate-paths" } */
 /* { dg-skip-if "" keeps_null_pointer_checks } */
 
 
@@ -38,8 +39,8 @@ d_type (struct d_info *di)
 {
    struct demangle_component *ret;
    ret = d_make_empty (di);
-   ret->type = 42;		/* { dg-warning "null pointer dereference" } */
-   ret->zzz = -1;		/* { dg-warning "null pointer dereference" } */
+   ret->type = 42;
+   ret->zzz = -1;
    return ret;
 }
 
@@ -52,3 +53,9 @@ d_type (struct d_info *di)
 /* { dg-final { scan-tree-dump-times "->type = 42" 1 "isolate-paths"} } */
 /* { dg-final { scan-tree-dump-times "->type ={v} 0" 1 "isolate-paths"} } */
 /* { dg-final { scan-tree-dump-times "->zzz" 1 "isolate-paths"} } */
+/* { dg-final { cleanup-tree-dump "isolate-paths" } } */
+
+
+
+
+

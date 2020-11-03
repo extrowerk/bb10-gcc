@@ -1,6 +1,6 @@
 // <atomic> compatibility -*- C++ -*-
 
-// Copyright (C) 2008-2018 Free Software Foundation, Inc.
+// Copyright (C) 2008-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -29,7 +29,7 @@
 // XXX GLIBCXX_ABI Deprecated
 // gcc-4.7.0
 
-#ifdef _GLIBCXX_SHARED
+#ifdef PIC
 
 #define LOGSIZE 4
 
@@ -64,7 +64,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
      bool
      test_and_set(memory_order) noexcept;
-
+     
      void
      clear(memory_order) noexcept;
     };
@@ -146,7 +146,7 @@ _GLIBCXX_END_NAMESPACE_VERSION
 // In the future, GLIBCXX_ABI > 6 should remove all uses of
 // _GLIBCXX_*_SYMVER macros in this file.
 
-#if defined(_GLIBCXX_SYMVER_GNU) && defined(_GLIBCXX_SHARED) \
+#if defined(_GLIBCXX_SYMVER_GNU) && defined(PIC) \
     && defined(_GLIBCXX_HAVE_AS_SYMVER_DIRECTIVE) \
     && defined(_GLIBCXX_HAVE_SYMVER_SYMBOL_RENAMING_RUNTIME_SUPPORT)
 

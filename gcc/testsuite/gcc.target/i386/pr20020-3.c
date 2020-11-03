@@ -25,3 +25,4 @@ copy_sptr (void)
 
 /* { dg-final { scan-rtl-dump "\\\(set \\\(reg:TI \[0-9\]*" "expand" } } */
 /* { dg-final { scan-rtl-dump "\\\(set \\\(mem/c:TI" "expand" } } */
+/* { dg-final { cleanup-rtl-dump "expand" } } */

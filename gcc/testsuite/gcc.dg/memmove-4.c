@@ -9,3 +9,4 @@ void b(char *a, char *b, int i)
 }
 
 /* { dg-final { scan-tree-dump-not "memmove" "optimized" { xfail { ! non_strict_align } } } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

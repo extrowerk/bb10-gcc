@@ -32,3 +32,4 @@ int main(void)
 }
 
 /* { dg-final { scan-tree-dump-not "link_error" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

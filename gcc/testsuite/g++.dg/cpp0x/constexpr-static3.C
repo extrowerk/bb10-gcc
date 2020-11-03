@@ -1,6 +1,7 @@
 // Test for constant initialization of class with vtable
 // { dg-options "-save-temps" }
 // { dg-final { scan-assembler-not "static_initialization" } }
+// { dg-final cleanup-saved-temps }
 // { dg-do run { target c++11 } }
 
 int r = 1;

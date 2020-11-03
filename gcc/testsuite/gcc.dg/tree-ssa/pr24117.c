@@ -23,3 +23,4 @@ void foo(void)
     link_error ();
 }
 /* { dg-final { scan-tree-dump-times "link_error" 1 "optimized"} } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

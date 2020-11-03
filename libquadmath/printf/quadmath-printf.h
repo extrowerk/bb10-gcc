@@ -43,10 +43,6 @@ Boston, MA 02110-1301, USA.  */
 #endif
 #include "quadmath-imp.h"
 #include "gmp-impl.h"
-/* needed for ssize_t */
-#ifdef __QNXNTO__
-#include <unistd.h>
-#endif
 
 #ifdef HAVE_WCHAR_H
 #define L_(x) L##x

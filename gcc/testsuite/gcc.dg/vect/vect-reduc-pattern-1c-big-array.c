@@ -7,6 +7,8 @@
 unsigned char udata_ch[N];
 #define SUM N*(N-1)
 
+volatile int y = 0;
+
 __attribute__ ((noinline)) int
 foo ()
 {
@@ -16,7 +18,9 @@ foo ()
   for (i = 0; i < N; i++)
     {
       udata_ch[i] = i*2;
-      asm volatile ("" ::: "memory");
+      /* Avoid vectorization.  */
+      if (y)
+	abort ();
     }
 
   /* widenning sum: sum chars into short.  */
@@ -42,3 +46,4 @@ main (void)
 /* { dg-final { scan-tree-dump-times "vect_recog_widen_sum_pattern: detected" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_widen_sum_qi_to_hi } } } */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 0 "vect" { target { ! vect_widen_sum_qi_to_hi } } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

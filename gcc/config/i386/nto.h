@@ -1,5 +1,5 @@
 /* Definitions for Intel 386 running QNX/Neutrino.
-   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,7 +26,7 @@ along with GCC; see the file COPYING3.  If not see
     {						\
         NTO_TARGET_OS_CPP_BUILTINS();           \
         builtin_define_std ("__X86__");		\
-        builtin_define ("__LITTLEENDIAN__");	\
+        builtin_define ("__LITTLEENDIAN__");    \
     }						\
   while (0)
 
@@ -35,10 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 QNX_SYSTEM_INCLUDES \
 " %(cpp_cpu) \
  %{posix:-D_POSIX_SOURCE} %{pthread:}"
-
-#ifdef CROSS_DIRECTORY_STRUCTURE
-#define SYSROOT_SUFFIX_SPEC "x86"
-#endif
 
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC \
@@ -76,8 +72,8 @@ QNX_SYSTEM_INCLUDES \
    --warn-shared-textrel \
    " QNX_RELRO_SPEC " \
    %{static:-dn -Bstatic} \
-   %{shared:-G -dy -z text} \
-   %{symbolic:-Bsymbolic -G -dy -z text} \
+   %{shared:-G -dy} \
+   %{symbolic:-Bsymbolic -G -dy} \
    %{G:-G} \
    %{YP,*} \
    %{!YP,*:%{p:-Y P,%R/lib} \
@@ -88,9 +84,6 @@ QNX_SYSTEM_INCLUDES \
      %{!static: \
        %{rdynamic:-export-dynamic}} \
      --dynamic-linker /usr/lib/ldqnx.so.2} "
-
-#undef  ASM_SPEC
-#define ASM_SPEC ""
 
 #undef SIZE_TYPE
 #define SIZE_TYPE "unsigned int"

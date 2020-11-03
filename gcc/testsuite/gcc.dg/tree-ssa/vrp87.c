@@ -1,8 +1,9 @@
 /* Setting LOGICAL_OP_NON_SHORT_CIRCUIT to 0 leads to two conditional jumps
-   when evaluating an && condition.  */
-/* { dg-do compile { target { ! { logical_op_short_circuit || { m68k*-*-* mmix*-*-* bfin*-*-* v850*-*-* moxie*-*-* cris*-*-* m32c*-*-* fr30*-*-* mcore*-*-* powerpc*-*-* xtensa*-*-* hppa*-*-* } } } } } */
+   when evaluating an && condition.  VRP is not able to optimize this.  */
+/* { dg-do compile { target { ! { logical_op_short_circuit || { m68k*-*-* mmix*-*-* mep*-*-* bfin*-*-* v850*-*-* moxie*-*-* cris*-*-* m32c*-*-* fr30*-*-* mcore*-*-* powerpc*-*-* xtensa*-*-* hppa*-*-* } } } } } */
 
-/* { dg-options "-O2 -fdump-tree-fre1-details" } */
+/* { dg-options "-O2 -fdump-tree-vrp2-details -fdump-tree-cddce2-details" } */
+/* { dg-options "-O2 -fdump-tree-vrp2-details -fdump-tree-cddce2-details -march=i686" { target { { i?86-*-* x86_64-*-* } && ia32 } } } */
 
 struct bitmap_head_def;
 typedef struct bitmap_head_def *bitmap;
@@ -74,6 +75,11 @@ bitmap_ior_into (bitmap a, const_bitmap b)
   return changed;
 }
 
-/* Verify that FRE simplified an if stmt.  */
-/* { dg-final { scan-tree-dump "Replaced a_elt_\[0-9\]+ != 0B with 1" "fre1" } } */
-/* { dg-final { scan-tree-dump "Replaced _\[0-9\]+ & _\[0-9\]+ with _\[0-9\]+" "fre1" } } */
+/* Verify that VRP simplified an "if" statement.  */
+/* { dg-final { scan-tree-dump "Folded into: if.*" "vrp2"} } */
+/* Verify that DCE after VRP2 eliminates a dead conversion
+   to a (Bool).  */
+/* { dg-final { scan-tree-dump "Deleting.*_Bool.*;" "cddce2"} } */
+/* { dg-final { cleanup-tree-dump "vrp2" } } */
+/* { dg-final { cleanup-tree-dump "cddce2" } } */
+

@@ -1,5 +1,6 @@
 /* PR middle-end/66199 */
 /* { dg-do run } */
+/* { dg-options "-O2 -fopenmp" } */
 
 #pragma omp declare target
 int u[1024], v[1024], w[1024];
@@ -18,11 +19,12 @@ __attribute__((noinline, noclone)) void
 f2 (long a, long b, long c)
 {
   long d, e;
-  #pragma omp target teams distribute parallel for simd default(none) firstprivate (a, b, c) shared(u, v, w) linear(d) lastprivate(e)
+  #pragma omp target teams distribute parallel for simd default(none) firstprivate (a, b) shared(u, v, w) linear(d) linear(c:5) lastprivate(e)
   for (d = a; d < b; d++)
     {
       u[d] = v[d] + w[d];
-      e = c + d * 5;
+      c += 5;
+      e = c;
     }
 }
 

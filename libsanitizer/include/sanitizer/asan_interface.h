@@ -108,7 +108,12 @@ extern "C" {
   void __asan_report_error(void *pc, void *bp, void *sp,
                            void *addr, int is_write, size_t access_size);
 
-  // Deprecated. Call __sanitizer_set_death_callback instead.
+  // Sets the exit code to use when reporting an error.
+  // Returns the old value.
+  int __asan_set_error_exit_code(int exit_code);
+
+  // Sets the callback to be called right before death on error.
+  // Passing 0 will unset the callback.
   void __asan_set_death_callback(void (*callback)(void));
 
   void __asan_set_error_report_callback(void (*callback)(const char*));
@@ -141,10 +146,6 @@ extern "C" {
   // fake_stack, but the owner thread need to be alive.
   void *__asan_addr_is_in_fake_stack(void *fake_stack, void *addr, void **beg,
                                      void **end);
-
-  // Performs cleanup before a [[noreturn]] function.  Must be called
-  // before things like _exit and execl to avoid false positives on stack.
-  void __asan_handle_no_return(void);
 
 #ifdef __cplusplus
 }  // extern "C"

@@ -9,18 +9,18 @@
     integer:: i=3
   end type A
   type(A):: x,y
-  if (associated(x%p) .or. x%i /= 3) STOP 1
+  if (associated(x%p) .or. x%i /= 3) call abort ()
   x=f()
-  if (associated(x%p) .or. x%i /= 3) STOP 2
+  if (associated(x%p) .or. x%i /= 3) call abort ()
   x=g()
-  if (associated(x%p) .or. x%i /= 3) STOP 3
+  if (associated(x%p) .or. x%i /= 3) call abort ()
 contains
   function f() result (fr)
     type(A):: fr
-    if (associated(fr%p) .or. fr%i /= 3) STOP 4
+    if (associated(fr%p) .or. fr%i /= 3) call abort ()
   end function f
   function g()
     type(A):: g
-    if (associated(g%p) .or. g%i /= 3) STOP 5
+    if (associated(g%p) .or. g%i /= 3) call abort ()
   end function g
 end

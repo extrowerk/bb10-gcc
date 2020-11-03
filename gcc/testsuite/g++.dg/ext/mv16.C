@@ -44,30 +44,6 @@ foo ()
   return 12;
 }
 
-int __attribute__ ((target("arch=broadwell"))) foo () {
-  return 13;
-}
-
-int __attribute__ ((target("arch=skylake"))) foo () {
-  return 14;
-}
-
-int __attribute__ ((target("arch=skylake-avx512"))) foo () {
-  return 15;
-}
-
-int __attribute__ ((target("arch=cannonlake"))) foo () {
-  return 16;
-}
-
-int __attribute__ ((target("arch=icelake-client"))) foo () {
-  return 17;
-}
-
-int __attribute__ ((target("arch=icelake-server"))) foo () {
-  return 18;
-}
-
 int main ()
 {
   int val = foo ();
@@ -82,18 +58,6 @@ int main ()
     assert (val == 9);
   else if (__builtin_cpu_is ("haswell"))
     assert (val == 12);
-  else if (__builtin_cpu_is ("broadwell"))
-    assert (val == 13);
-  else if (__builtin_cpu_is ("skylake"))
-    assert (val == 14);
-  else if (__builtin_cpu_is ("skylake-avx512"))
-    assert (val == 15);
-  else if (__builtin_cpu_is ("cannonlake"))
-    assert (val == 16);
-  else if (__builtin_cpu_is ("icelake-client"))
-    assert (val == 17);
-  else if (__builtin_cpu_is ("icelake-server"))
-    assert (val == 18);
   else
     assert (val == 0);
 

@@ -1,5 +1,3 @@
-/* { dg-require-effective-target label_values } */
-
 void fn (void);
 
 void

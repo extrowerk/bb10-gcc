@@ -4,12 +4,12 @@
 #include <typeinfo>
 extern "C" void abort();
 
-int f() { return 0; }
+int f() {}
 
 struct A
 {
   int i;
-  int f() { return 0; }
+  int f() {}
   A operator+(A a) { return a; }
 };
 
@@ -70,5 +70,4 @@ int main()
     }
 
   auto j = 42, k = 24;
-  return 0;
 }

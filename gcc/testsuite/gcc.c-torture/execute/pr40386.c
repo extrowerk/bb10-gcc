@@ -1,4 +1,4 @@
-/* { dg-options "-fno-ira-share-spill-slots -Wno-shift-overflow" } */
+/* { dg-options "-fno-ira-share-spill-slots" } */
 
 extern void abort (void);
 extern void exit (int);

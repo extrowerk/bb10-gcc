@@ -21,3 +21,4 @@ long foo(long* p, long* p2, int N1, int N2)
 }
 
 /* { dg-final { scan-tree-dump-times "Replacing" 1 "ivopts"} } */
+/* { dg-final { cleanup-tree-dump "ivopts" } } */

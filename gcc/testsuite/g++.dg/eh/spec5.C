@@ -8,20 +8,12 @@ struct A;
 
 struct B
 {
-  void f ()
-#if __cplusplus <= 201402L
-  throw (A)
-#endif
-  ;
+  void f () throw (A);
 };
 
 struct A {};
 
-void B::f ()
-#if __cplusplus <= 201402L
-throw (A)
-#endif
-{}
+void B::f () throw (A) {}
 
 int main ()
 {

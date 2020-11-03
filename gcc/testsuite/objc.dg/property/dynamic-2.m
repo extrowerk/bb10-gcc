@@ -38,8 +38,8 @@
 @end
 
 @implementation AnotherTest
-@dynamic one; /* { dg-line dynamic_one_first } */
+@dynamic one;
 @dynamic one; /* { dg-error "property .one. already specified in .@dynamic." } */
-              /* { dg-message "originally specified here" "" { target *-*-* } dynamic_one_first } */
+              /* { dg-message "originally specified here" "" { target *-*-* } 41 } */
 @dynamic three; /* { dg-error "no declaration of property .three. found in the interface" } */
 @end

@@ -1,4 +1,4 @@
-// Copyright (C) 2008-2018 Free Software Foundation, Inc.
+// Copyright (C) 2008-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -16,16 +16,17 @@
 // <http://www.gnu.org/licenses/>.
 //
 
-// { dg-do run { target c++11 } }
-// { dg-require-effective-target cxx11-abi }
+// { dg-options "-std=gnu++11" }
 
 #include <string>
 #include <testsuite_hooks.h>
 
 using namespace std;
 
-void test01(void)
+int test01(void)
 {
+  bool test = true;
+
   string s1 = { 'a', 'b', 'c' };
   VERIFY(s1 == "abc");
 
@@ -59,6 +60,8 @@ void test01(void)
   i2 = i1+6;
   s1.replace(i1, i2, { 'y', 'z' });
   VERIFY(s1 == "mnyzo");
+
+  return test;
 }
 
 int main()

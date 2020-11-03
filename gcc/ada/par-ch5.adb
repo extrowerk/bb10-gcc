@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -42,7 +42,7 @@ package body Ch5 is
    function P_Label                              return Node_Id;
    function P_Null_Statement                     return Node_Id;
 
-   function P_Assignment_Statement (LHS : Node_Id) return Node_Id;
+   function P_Assignment_Statement (LHS : Node_Id)  return Node_Id;
    --  Parse assignment statement. On entry, the caller has scanned the left
    --  hand side (passed in as Lhs), and the colon-equal (or some symbol
    --  taken to be an error equivalent such as equal).
@@ -342,9 +342,8 @@ package body Ch5 is
 
                --  Case of end or EOF
 
-               when Tok_End
-                  | Tok_EOF
-               =>
+               when Tok_End | Tok_EOF =>
+
                   --  These tokens always terminate the statement sequence
 
                   Test_Statement_Required;
@@ -460,14 +459,13 @@ package body Ch5 is
 
                --  Case of WHEN (error because we are not in a case)
 
-               when Tok_Others
-                  | Tok_When
-               =>
+               when Tok_When | Tok_Others =>
+
                   --  Terminate if Whtm set or if the WHEN is to the left of
                   --  the expected column of the end for this sequence.
 
                   if SS_Flags.Whtm
-                    or else Start_Column < Scope.Table (Scope.Last).Ecol
+                     or else Start_Column < Scope.Table (Scope.Last).Ecol
                   then
                      Test_Statement_Required;
                      exit;
@@ -950,6 +948,7 @@ package body Ch5 is
                --  handling of a bad statement.
 
                when others =>
+
                   if Token in Token_Class_Declk then
                      Junk_Declaration;
 
@@ -973,9 +972,11 @@ package body Ch5 is
          end;
 
          exit when SS_Flags.Unco;
+
       end loop;
 
       return Statement_List;
+
    end P_Sequence_Of_Statements;
 
    --------------------
@@ -1067,11 +1068,9 @@ package body Ch5 is
 
    begin
       Assign_Node := New_Node (N_Assignment_Statement, Prev_Token_Ptr);
-      Current_Assign_Node := Assign_Node;
       Set_Name (Assign_Node, LHS);
       Set_Expression (Assign_Node, P_Expression_No_Right_Paren);
       TF_Semicolon;
-      Current_Assign_Node := Empty;
       return Assign_Node;
    end P_Assignment_Statement;
 
@@ -1730,7 +1729,7 @@ package body Ch5 is
       Node1 : Node_Id;
 
    begin
-      Node1 := New_Node (N_Iterator_Specification, Sloc (Def_Id));
+      Node1 :=  New_Node (N_Iterator_Specification, Sloc (Def_Id));
       Set_Defining_Identifier (Node1, Def_Id);
 
       if Token = Tok_Colon then

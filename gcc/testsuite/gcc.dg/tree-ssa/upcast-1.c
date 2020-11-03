@@ -9,3 +9,4 @@ Foo *bar(void)
 }
 
 /* { dg-final { scan-tree-dump "&foo;" "gimple" } } */
+/* { dg-final { cleanup-tree-dump "gimple" } } */

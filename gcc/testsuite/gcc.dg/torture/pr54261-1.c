@@ -32,10 +32,7 @@ void g (int *at, int val)
 
 int main(void)
 {
-  /* On PTX it is not valid to perform atomic operations on auto
-     variables, which end up in .local.  Making this static places it
-     in .global.  */
-  static int x = 41;
+  int x = 41;
   int a = 1;
   g (&x, a);
 

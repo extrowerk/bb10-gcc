@@ -16,3 +16,4 @@ main (void)
 }
 
 // { dg-final { scan-tree-dump-times "Optimizing" 4 "sanopt"} }
+// { dg-final { cleanup-tree-dump "sanopt" } }

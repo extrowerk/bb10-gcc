@@ -19,21 +19,21 @@ program main
   allocate (mol(1))
   allocate (mol(1), stat=i)
   !print *, i  ! /= 0
-  if (i == 0) STOP 1
+  if (i == 0) call abort()
 
   allocate (mol(1)%array(5))
   allocate (mol(1)%array(5),stat=i)
   !print *, i  ! /= 0
-  if (i == 0) STOP 2
+  if (i == 0) call abort()
 
   allocate (molp(1))
   allocate (molp(1), stat=i)
   !print *, i  ! == 0
-  if (i /= 0) STOP 3
+  if (i /= 0) call abort()
 
   allocate (molp(1)%array(5))
   allocate (molp(1)%array(5),stat=i)
   !print *, i  ! /= 0
-  if (i == 0) STOP 4
+  if (i == 0) call abort()
 
 end program main

@@ -1,5 +1,5 @@
 /* Generate code from to output assembler insns as recognized from rtl.
-   Copyright (C) 1987-2018 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -103,6 +103,17 @@ static char general_mem[] = { TARGET_MEM_CONSTRAINT, 0 };
 static int n_occurrences		(int, const char *);
 static const char *strip_whitespace	(const char *);
 
+/* insns in the machine description are assigned sequential code numbers
+   that are used by insn-recog.c (produced by genrecog) to communicate
+   to insn-output.c (produced by this program).  */
+
+static int next_code_number;
+
+/* This counts all definitions in the md file,
+   for the sake of error messages.  */
+
+static int next_index_number;
+
 /* This counts all operands used in the md file.  The first is null.  */
 
 static int next_operand_number = 1;
@@ -127,7 +138,7 @@ struct operand_data
 
 static struct operand_data null_operand =
 {
-  0, 0, "", "", E_VOIDmode, 0, 0, 0, 0, 0
+  0, 0, "", "", VOIDmode, 0, 0, 0, 0, 0
 };
 
 static struct operand_data *odata = &null_operand;
@@ -148,8 +159,10 @@ struct data
   struct data *next;
   const char *name;
   const char *template_code;
-  file_location loc;
   int code_number;
+  int index_number;
+  const char *filename;
+  int lineno;
   int n_generator_args;		/* Number of arguments passed to generator */
   int n_operands;		/* Number of operands this insn recognizes */
   int n_dups;			/* Number times match_dup appears in pattern */
@@ -159,12 +172,15 @@ struct data
   struct operand_data operand[MAX_MAX_OPERANDS];
 };
 
+/* A dummy insn, for CODE_FOR_nothing.  */
+static struct data nothing;
+
 /* This variable points to the first link in the insn chain.  */
-static struct data *idata;
+static struct data *idata = &nothing;
 
 /* This variable points to the end of the insn chain.  This is where
    everything relevant from the machien description is appended to.  */
-static struct data **idata_end;
+static struct data **idata_end = &nothing.next;
 
 
 static void output_prologue (void);
@@ -178,13 +194,17 @@ static void place_operands (struct data *);
 static void process_template (struct data *, const char *);
 static void validate_insn_alternatives (struct data *);
 static void validate_insn_operands (struct data *);
+static void gen_insn (rtx, int);
+static void gen_peephole (rtx, int);
+static void gen_expand (rtx, int);
+static void gen_split (rtx, int);
 
 struct constraint_data
 {
   struct constraint_data *next_this_letter;
-  file_location loc;
+  int lineno;
   unsigned int namelen;
-  char name[1];
+  const char name[1];
 };
 
 /* All machine-independent constraint characters (except digits) that
@@ -194,8 +214,8 @@ static const char indep_constraints[] = ",=+%*?!^$#&g";
 static struct constraint_data *
 constraints_by_letter_table[1 << CHAR_BIT];
 
-static int mdep_constraint_len (const char *, file_location, int);
-static void note_constraint (md_rtx_info *);
+static int mdep_constraint_len (const char *, int, int);
+static void note_constraint (rtx, int);
 
 static void
 output_prologue (void)
@@ -203,24 +223,36 @@ output_prologue (void)
   printf ("/* Generated automatically by the program `genoutput'\n\
    from the machine description file `md'.  */\n\n");
 
-  printf ("#define IN_TARGET_CODE 1\n");
   printf ("#include \"config.h\"\n");
   printf ("#include \"system.h\"\n");
   printf ("#include \"coretypes.h\"\n");
-  printf ("#include \"backend.h\"\n");
-  printf ("#include \"predict.h\"\n");
-  printf ("#include \"tree.h\"\n");
-  printf ("#include \"rtl.h\"\n");
+  printf ("#include \"tm.h\"\n");
   printf ("#include \"flags.h\"\n");
+  printf ("#include \"ggc.h\"\n");
+  printf ("#include \"hash-set.h\"\n");
+  printf ("#include \"machmode.h\"\n");
+  printf ("#include \"vec.h\"\n");
+  printf ("#include \"double-int.h\"\n");
+  printf ("#include \"input.h\"\n");
   printf ("#include \"alias.h\"\n");
+  printf ("#include \"symtab.h\"\n");
+  printf ("#include \"wide-int.h\"\n");
+  printf ("#include \"inchash.h\"\n");
+  printf ("#include \"tree.h\"\n");
   printf ("#include \"varasm.h\"\n");
   printf ("#include \"stor-layout.h\"\n");
   printf ("#include \"calls.h\"\n");
+  printf ("#include \"rtl.h\"\n");
+  printf ("#include \"hashtab.h\"\n");
+  printf ("#include \"hard-reg-set.h\"\n");
+  printf ("#include \"function.h\"\n");
+  printf ("#include \"statistics.h\"\n");
+  printf ("#include \"real.h\"\n");
+  printf ("#include \"fixed-value.h\"\n");
   printf ("#include \"insn-config.h\"\n");
   printf ("#include \"expmed.h\"\n");
   printf ("#include \"dojump.h\"\n");
   printf ("#include \"explow.h\"\n");
-  printf ("#include \"memmodel.h\"\n");
   printf ("#include \"emit-rtl.h\"\n");
   printf ("#include \"stmt.h\"\n");
   printf ("#include \"expr.h\"\n");
@@ -234,6 +266,7 @@ output_prologue (void)
   printf ("#include \"output.h\"\n");
   printf ("#include \"target.h\"\n");
   printf ("#include \"tm-constrs.h\"\n");
+  printf ("#include \"predict.h\"\n");
 }
 
 static void
@@ -254,7 +287,7 @@ output_operand_data (void)
 
       printf ("    \"%s\",\n", d->constraint ? d->constraint : "");
 
-      printf ("    E_%smode,\n", GET_MODE_NAME (d->mode));
+      printf ("    %smode,\n", GET_MODE_NAME (d->mode));
 
       printf ("    %d,\n", d->strict_low);
 
@@ -294,7 +327,7 @@ output_insn_data (void)
 
   for (d = idata; d; d = d->next)
     {
-      printf ("  /* %s:%d */\n", d->loc.filename, d->loc.lineno);
+      printf ("  /* %s:%d */\n", d->filename, d->lineno);
       printf ("  {\n");
 
       if (d->name)
@@ -437,11 +470,11 @@ scan_operands (struct data *d, rtx part, int this_address_p,
       opno = XINT (part, 0);
       if (opno >= MAX_MAX_OPERANDS)
 	{
-	  error_at (d->loc, "maximum number of operands exceeded");
+	  error_with_line (d->lineno, "maximum number of operands exceeded");
 	  return;
 	}
       if (d->operand[opno].seen)
-	error_at (d->loc, "repeated operand number %d\n", opno);
+	error_with_line (d->lineno, "repeated operand number %d\n", opno);
 
       d->operand[opno].seen = 1;
       d->operand[opno].mode = GET_MODE (part);
@@ -458,11 +491,11 @@ scan_operands (struct data *d, rtx part, int this_address_p,
       opno = XINT (part, 0);
       if (opno >= MAX_MAX_OPERANDS)
 	{
-	  error_at (d->loc, "maximum number of operands exceeded");
+	  error_with_line (d->lineno, "maximum number of operands exceeded");
 	  return;
 	}
       if (d->operand[opno].seen)
-	error_at (d->loc, "repeated operand number %d\n", opno);
+	error_with_line (d->lineno, "repeated operand number %d\n", opno);
 
       d->operand[opno].seen = 1;
       d->operand[opno].mode = GET_MODE (part);
@@ -480,11 +513,11 @@ scan_operands (struct data *d, rtx part, int this_address_p,
       opno = XINT (part, 0);
       if (opno >= MAX_MAX_OPERANDS)
 	{
-	  error_at (d->loc, "maximum number of operands exceeded");
+	  error_with_line (d->lineno, "maximum number of operands exceeded");
 	  return;
 	}
       if (d->operand[opno].seen)
-	error_at (d->loc, "repeated operand number %d\n", opno);
+	error_with_line (d->lineno, "repeated operand number %d\n", opno);
 
       d->operand[opno].seen = 1;
       d->operand[opno].mode = GET_MODE (part);
@@ -632,7 +665,7 @@ process_template (struct data *d, const char *template_code)
       printf ("output_%d (rtx *operands ATTRIBUTE_UNUSED, rtx_insn *insn ATTRIBUTE_UNUSED)\n",
 	      d->code_number);
       puts ("{");
-      rtx_reader_ptr->print_md_ptr_loc (template_code);
+      print_md_ptr_loc (template_code);
       puts (template_code + 1);
       puts ("}");
     }
@@ -696,7 +729,8 @@ process_template (struct data *d, const char *template_code)
 	      sp = ep + 1;
 
 	  if (sp != ep)
-	    message_at (d->loc, "trailing whitespace in output template");
+	    message_with_line (d->lineno,
+			       "trailing whitespace in output template");
 
 	  while (cp < sp)
 	    {
@@ -719,11 +753,11 @@ process_template (struct data *d, const char *template_code)
 	  i++;
 	}
       if (i == 1)
-	message_at (d->loc, "'@' is redundant for output template with"
-		    " single alternative");
+	message_with_line (d->lineno,
+			   "'@' is redundant for output template with single alternative");
       if (i != d->n_alternatives)
-	error_at (d->loc, "wrong number of alternatives in the output"
-		  " template");
+	error_with_line (d->lineno,
+			 "wrong number of alternatives in the output template");
 
       if (found_star)
 	puts ("      default: gcc_unreachable ();\n    }\n}");
@@ -760,8 +794,9 @@ validate_insn_alternatives (struct data *d)
 	  {
 	    if ((c == '%' || c == '=' || c == '+')
 		&& p != d->operand[start].constraint)
-	      error_at (d->loc, "character '%c' can only be used at the"
-			" beginning of a constraint string", c);
+	      error_with_line (d->lineno,
+			       "character '%c' can only be used at the"
+			       " beginning of a constraint string", c);
 
 	    if (c == '=' || c == '+')
 	      seen_write = true;
@@ -769,8 +804,10 @@ validate_insn_alternatives (struct data *d)
 	    /* Earlyclobber operands must always be marked write-only
 	       or read/write.  */
 	    if (!seen_write && c == '&')
-	      error_at (d->loc, "earlyclobber operands may not be"
-			" read-only in alternative %d", which_alternative);
+	      error_with_line (d->lineno,
+			       "earlyclobber operands may not be"
+			       " read-only in alternative %d",
+			       which_alternative);
 
 	    if (ISSPACE (c) || strchr (indep_constraints, c))
 	      len = 1;
@@ -783,7 +820,7 @@ validate_insn_alternatives (struct data *d)
 		len = q - p;
 	      }
 	    else
-	      len = mdep_constraint_len (p, d->loc, start);
+	      len = mdep_constraint_len (p, d->lineno, start);
 
 	    if (c == ',')
 	      {
@@ -794,15 +831,17 @@ validate_insn_alternatives (struct data *d)
 	    for (i = 1; i < len; i++)
 	      if (p[i] == '\0')
 		{
-		  error_at (d->loc, "NUL in alternative %d of operand %d",
-			    which_alternative, start);
+		  error_with_line (d->lineno,
+				   "NUL in alternative %d of operand %d",
+				   which_alternative, start);
 		  alternative_count_unsure = 1;
 		  break;
 		}
 	      else if (strchr (",#*", p[i]))
 		{
-		  error_at (d->loc, "'%c' in alternative %d of operand %d",
-			    p[i], which_alternative, start);
+		  error_with_line (d->lineno,
+				   "'%c' in alternative %d of operand %d",
+				   p[i], which_alternative, start);
 		  alternative_count_unsure = 1;
 		}
 	  }
@@ -811,8 +850,9 @@ validate_insn_alternatives (struct data *d)
 	    if (n == 0)
 	      n = d->operand[start].n_alternatives;
 	    else if (n != d->operand[start].n_alternatives)
-	      error_at (d->loc, "wrong number of alternatives in operand %d",
-			start);
+	      error_with_line (d->lineno,
+			       "wrong number of alternatives in operand %d",
+			       start);
 	  }
       }
 
@@ -829,7 +869,7 @@ validate_insn_operands (struct data *d)
 
   for (i = 0; i < d->n_operands; ++i)
     if (d->operand[i].seen == 0)
-      error_at (d->loc, "missing operand %d", i);
+      error_with_line (d->lineno, "missing operand %d", i);
 }
 
 static void
@@ -843,7 +883,7 @@ validate_optab_operands (struct data *d)
       && d->name[strlen (d->name) - 1] == '4'
       && d->operand[0].mode == VOIDmode)
     {
-      message_at (d->loc, "missing mode for operand 0 of cstore");
+      message_with_line (d->lineno, "missing mode for operand 0 of cstore");
       have_error = 1;
     }
 }
@@ -853,15 +893,16 @@ validate_optab_operands (struct data *d)
    a hairy output action, output a function for now.  */
 
 static void
-gen_insn (md_rtx_info *info)
+gen_insn (rtx insn, int lineno)
 {
   struct pattern_stats stats;
-  rtx insn = info->def;
-  data *d = new data;
+  struct data *d = XNEW (struct data);
   int i;
 
-  d->code_number = info->index;
-  d->loc = info->loc;
+  d->code_number = next_code_number;
+  d->index_number = next_index_number;
+  d->filename = read_md_filename;
+  d->lineno = lineno;
   if (XSTR (insn, 0)[0])
     d->name = XSTR (insn, 0);
   else
@@ -895,14 +936,16 @@ gen_insn (md_rtx_info *info)
    If the insn has a hairy output action, output it now.  */
 
 static void
-gen_peephole (md_rtx_info *info)
+gen_peephole (rtx peep, int lineno)
 {
   struct pattern_stats stats;
-  data *d = new data;
+  struct data *d = XNEW (struct data);
   int i;
 
-  d->code_number = info->index;
-  d->loc = info->loc;
+  d->code_number = next_code_number;
+  d->index_number = next_index_number;
+  d->filename = read_md_filename;
+  d->lineno = lineno;
   d->name = 0;
 
   /* Build up the list in the same order as the insns are seen
@@ -916,7 +959,6 @@ gen_peephole (md_rtx_info *info)
   /* Get the number of operands by scanning all the patterns of the
      peephole optimizer.  But ignore all the rest of the information
      thus obtained.  */
-  rtx peep = info->def;
   for (i = 0; i < XVECLEN (peep, 0); i++)
     scan_operands (d, XVECEXP (peep, 0, i), 0, 0);
 
@@ -934,15 +976,16 @@ gen_peephole (md_rtx_info *info)
    only for the purposes of `insn_gen_function'.  */
 
 static void
-gen_expand (md_rtx_info *info)
+gen_expand (rtx insn, int lineno)
 {
   struct pattern_stats stats;
-  rtx insn = info->def;
-  data *d = new data;
+  struct data *d = XNEW (struct data);
   int i;
 
-  d->code_number = info->index;
-  d->loc = info->loc;
+  d->code_number = next_code_number;
+  d->index_number = next_index_number;
+  d->filename = read_md_filename;
+  d->lineno = lineno;
   if (XSTR (insn, 0)[0])
     d->name = XSTR (insn, 0);
   else
@@ -975,21 +1018,62 @@ gen_expand (md_rtx_info *info)
   place_operands (d);
 }
 
+/* Process a define_split just read.  Assign its code number,
+   only for reasons of consistency and to simplify genrecog.  */
+
+static void
+gen_split (rtx split, int lineno)
+{
+  struct pattern_stats stats;
+  struct data *d = XNEW (struct data);
+  int i;
+
+  d->code_number = next_code_number;
+  d->index_number = next_index_number;
+  d->filename = read_md_filename;
+  d->lineno = lineno;
+  d->name = 0;
+
+  /* Build up the list in the same order as the insns are seen
+     in the machine description.  */
+  d->next = 0;
+  *idata_end = d;
+  idata_end = &d->next;
+
+  memset (d->operand, 0, sizeof (d->operand));
+
+  /* Get the number of operands by scanning all the patterns of the
+     split patterns.  But ignore all the rest of the information thus
+     obtained.  */
+  for (i = 0; i < XVECLEN (split, 0); i++)
+    scan_operands (d, XVECEXP (split, 0, i), 0, 0);
+
+  get_pattern_stats (&stats, XVEC (split, 0));
+  d->n_generator_args = 0;
+  d->n_operands = stats.num_insn_operands;
+  d->n_dups = 0;
+  d->n_alternatives = 0;
+  d->template_code = 0;
+  d->output_format = INSN_OUTPUT_FORMAT_NONE;
+
+  place_operands (d);
+}
+
 static void
 init_insn_for_nothing (void)
 {
-  idata = XCNEW (struct data);
-  new (idata) data ();
-  idata->name = "*placeholder_for_nothing";
-  idata->loc = file_location ("<internal>", 0, 0);
-  idata_end = &idata->next;
+  memset (&nothing, 0, sizeof (nothing));
+  nothing.name = "*placeholder_for_nothing";
+  nothing.filename = "<internal>";
 }
 
-extern int main (int, const char **);
+extern int main (int, char **);
 
 int
-main (int argc, const char **argv)
+main (int argc, char **argv)
 {
+  rtx desc;
+
   progname = "genoutput";
 
   init_insn_for_nothing ();
@@ -998,36 +1082,49 @@ main (int argc, const char **argv)
     return (FATAL_EXIT_CODE);
 
   output_prologue ();
+  next_index_number = 0;
 
   /* Read the machine description.  */
 
-  md_rtx_info info;
-  while (read_md_rtx (&info))
-    switch (GET_CODE (info.def))
-      {
-      case DEFINE_INSN:
-	gen_insn (&info);
+  while (1)
+    {
+      int line_no;
+
+      desc = read_md_rtx (&line_no, &next_code_number);
+      if (desc == NULL)
 	break;
 
-      case DEFINE_PEEPHOLE:
-	gen_peephole (&info);
-	break;
+      switch (GET_CODE (desc))
+	{
+	case DEFINE_INSN:
+	  gen_insn (desc, line_no);
+	  break;
 
-      case DEFINE_EXPAND:
-	gen_expand (&info);
-	break;
+	case DEFINE_PEEPHOLE:
+	  gen_peephole (desc, line_no);
+	  break;
 
-      case DEFINE_CONSTRAINT:
-      case DEFINE_REGISTER_CONSTRAINT:
-      case DEFINE_ADDRESS_CONSTRAINT:
-      case DEFINE_MEMORY_CONSTRAINT:
-      case DEFINE_SPECIAL_MEMORY_CONSTRAINT:
-	note_constraint (&info);
-	break;
+	case DEFINE_EXPAND:
+	  gen_expand (desc, line_no);
+	  break;
 
-      default:
-	break;
-      }
+	case DEFINE_SPLIT:
+	case DEFINE_PEEPHOLE2:
+	  gen_split (desc, line_no);
+	  break;
+
+	case DEFINE_CONSTRAINT:
+	case DEFINE_REGISTER_CONSTRAINT:
+	case DEFINE_ADDRESS_CONSTRAINT:
+	case DEFINE_MEMORY_CONSTRAINT:
+	  note_constraint (desc, line_no);
+	  break;
+
+	default:
+	  break;
+	}
+      next_index_number++;
+    }
 
   printf ("\n\n");
   output_operand_data ();
@@ -1077,14 +1174,15 @@ strip_whitespace (const char *s)
   return q;
 }
 
-/* Record just enough information about the constraint in *INFO to allow
-   checking of operand constraint strings above, in validate_insn_alternatives.
-   Does not validate most properties of the constraint itself; does enforce
-   no duplicate names, no overlap with MI constraints, and no prefixes.  */
+/* Record just enough information about a constraint to allow checking
+   of operand constraint strings above, in validate_insn_alternatives.
+   Does not validate most properties of the constraint itself; does
+   enforce no duplicate names, no overlap with MI constraints, and no
+   prefixes.  EXP is the define_*constraint form, LINENO the line number
+   reported by the reader.  */
 static void
-note_constraint (md_rtx_info *info)
+note_constraint (rtx exp, int lineno)
 {
-  rtx exp = info->def;
   const char *name = XSTR (exp, 0);
   struct constraint_data **iter, **slot, *new_cdata;
 
@@ -1095,12 +1193,12 @@ note_constraint (md_rtx_info *info)
   if (strchr (indep_constraints, name[0]))
     {
       if (name[1] == '\0')
-	error_at (info->loc, "constraint letter '%s' cannot be "
-		  "redefined by the machine description", name);
+	error_with_line (lineno, "constraint letter '%s' cannot be "
+			 "redefined by the machine description", name);
       else
-	error_at (info->loc, "constraint name '%s' cannot be defined by "
-		  "the machine description, as it begins with '%c'",
-		  name, name[0]);
+	error_with_line (lineno, "constraint name '%s' cannot be defined by "
+			 "the machine description, as it begins with '%c'",
+			 name, name[0]);
       return;
     }
 
@@ -1117,31 +1215,29 @@ note_constraint (md_rtx_info *info)
 
       if (!strcmp ((*iter)->name, name))
 	{
-	  error_at (info->loc, "redefinition of constraint '%s'", name);
-	  message_at ((*iter)->loc, "previous definition is here");
+	  error_with_line (lineno, "redefinition of constraint '%s'", name);
+	  message_with_line ((*iter)->lineno, "previous definition is here");
 	  return;
 	}
       else if (!strncmp ((*iter)->name, name, (*iter)->namelen))
 	{
-	  error_at (info->loc, "defining constraint '%s' here", name);
-	  message_at ((*iter)->loc, "renders constraint '%s' "
-		      "(defined here) a prefix", (*iter)->name);
+	  error_with_line (lineno, "defining constraint '%s' here", name);
+	  message_with_line ((*iter)->lineno, "renders constraint '%s' "
+			     "(defined here) a prefix", (*iter)->name);
 	  return;
 	}
       else if (!strncmp ((*iter)->name, name, namelen))
 	{
-	  error_at (info->loc, "constraint '%s' is a prefix", name);
-	  message_at ((*iter)->loc, "of constraint '%s' "
-		      "(defined here)", (*iter)->name);
+	  error_with_line (lineno, "constraint '%s' is a prefix", name);
+	  message_with_line ((*iter)->lineno, "of constraint '%s' "
+			     "(defined here)", (*iter)->name);
 	  return;
 	}
     }
-  new_cdata = XNEWVAR (struct constraint_data,
-		       sizeof (struct constraint_data) + namelen);
-  new (new_cdata) constraint_data ();
+  new_cdata = XNEWVAR (struct constraint_data, sizeof (struct constraint_data) + namelen);
   strcpy (CONST_CAST (char *, new_cdata->name), name);
   new_cdata->namelen = namelen;
-  new_cdata->loc = info->loc;
+  new_cdata->lineno = lineno;
   new_cdata->next_this_letter = *slot;
   *slot = new_cdata;
 }
@@ -1151,7 +1247,7 @@ note_constraint (md_rtx_info *info)
    is no such constraint.  Does not expect to be called for generic
    constraints.  */
 static int
-mdep_constraint_len (const char *s, file_location loc, int opno)
+mdep_constraint_len (const char *s, int lineno, int opno)
 {
   struct constraint_data *p;
 
@@ -1162,8 +1258,9 @@ mdep_constraint_len (const char *s, file_location loc, int opno)
       if (!strncmp (s, p->name, p->namelen))
 	return p->namelen;
 
-  error_at (loc, "error: undefined machine-specific constraint "
-	    "at this point: \"%s\"", s);
-  message_at (loc, "note:  in operand %d", opno);
+  error_with_line (lineno,
+		   "error: undefined machine-specific constraint "
+		   "at this point: \"%s\"", s);
+  message_with_line (lineno, "note:  in operand %d", opno);
   return 1; /* safe */
 }

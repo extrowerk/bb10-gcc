@@ -18,4 +18,5 @@ void uniform_correlation_matrix (VMatrix * v)
     xbar[i] /= m;
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */
 

@@ -3,7 +3,7 @@
    types, not other such types within the definition.  */
 /* Origin: Joseph Myers <jsm@polyomino.org.uk> */
 /* { dg-do compile } */
-/* { dg-options "-pedantic -std=gnu99" } */
+/* { dg-options "-pedantic" } */
 
 volatile void (*y)(int);
 

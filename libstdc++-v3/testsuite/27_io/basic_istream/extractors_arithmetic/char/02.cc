@@ -1,6 +1,6 @@
 // 1999-04-12 bkoz
 
-// Copyright (C) 1999-2018 Free Software Foundation, Inc.
+// Copyright (C) 1999-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -25,8 +25,9 @@
 #include <testsuite_hooks.h>
  
 // elaborated test for ints
-void test02()
+bool test02()
 {
+  bool test __attribute__((unused)) = true;
   const std::string str_01("20000AB");
   std::stringbuf strb_01(str_01, std::ios_base::in);
   std::istream is(&strb_01);
@@ -36,6 +37,7 @@ void test02()
   VERIFY( n == 20000 );
   char c = is.peek();
   VERIFY( c == 65 );
+  return test;
 }
 
 int main()

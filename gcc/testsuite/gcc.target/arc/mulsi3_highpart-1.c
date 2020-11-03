@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-save-temps -O2" } */
+/* { dg-options "-O2 -mARC700 --save-temps" } */
 
 #include <stdlib.h>
 
@@ -7,7 +7,7 @@
 static int
 id (int i)
 {
-  asm ("": "+r" (i));
+  asm ("": "+Xr" (i));
   return i;
 }
 
@@ -25,5 +25,4 @@ main (void)
   return 0;
 }
 
-/* { dg-final { scan-assembler "mpyhu\[ \t\]" { target { arc700 } } } } */
-/* { dg-final { scan-assembler "mpy.u\[ \t\]" { target { { ! { arc700 } } && arcmpy } } } } */
+/* { dg-final { scan-assembler "mpyhu\[ \t\]" } } */

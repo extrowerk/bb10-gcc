@@ -7,23 +7,21 @@
 #include "runtime.h"
 #include "array.h"
 #include "arch.h"
+#include "malloc.h"
 
-extern Slice runtime_get_envs(void);
+extern Slice envs;
 
-String
+const byte*
 runtime_getenv(const char *s)
 {
 	int32 i, j;
 	intgo len;
 	const byte *v, *bs;
-	Slice envs;
 	String* envv;
 	int32 envc;
-	String ret;
 
 	bs = (const byte*)s;
 	len = runtime_findnull(bs);
-	envs = runtime_get_envs();
 	envv = (String*)envs.__values;
 	envc = envs.__count;
 	for(i=0; i<envc; i++){
@@ -35,12 +33,8 @@ runtime_getenv(const char *s)
 				goto nomatch;
 		if(v[len] != '=')
 			goto nomatch;
-		ret.str = v+len+1;
-		ret.len = envv[i].len-len-1;
-		return ret;
+		return v+len+1;
 	nomatch:;
 	}
-	ret.str = nil;
-	ret.len = 0;
-	return ret;
+	return nil;
 }

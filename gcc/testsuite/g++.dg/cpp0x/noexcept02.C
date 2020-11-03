@@ -10,10 +10,8 @@ void f();
 
 SA(!noexcept(f()));
 
-void g() throw (int);		// { dg-message "previous declaration" "" { target { ! c++17 } } }
-				// { dg-error "dynamic exception specification" "" { target c++17 } .-1 }
-				// { dg-warning "deprecated" "" { target { ! c++17 } } .-2 }
-void g() noexcept(false);	// { dg-error "different exception" "" { target { ! c++17 } } }
+void g() throw (int);		// { dg-error "previous declaration" }
+void g() noexcept(false);	// { dg-error "different exception" }
 void g();
 
 void h() throw();
@@ -22,7 +20,7 @@ void h() throw();
 void h() noexcept;
 
 template <class T>
-void g (T) noexcept(noexcept(T())); // { dg-message "previous declaration" }
+void g (T) noexcept(noexcept(T())); // { dg-error "previous declaration" }
 template <class T>
 void g (T) noexcept(noexcept(T(0))); // { dg-error "different exception" }
 

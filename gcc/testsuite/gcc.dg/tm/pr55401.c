@@ -19,3 +19,4 @@ void foo()
    FOO.  */
 /* { dg-final { scan-tree-dump-times "ITM_WU\[0-9\] \\(&george," 2 "optimized" } } */
 
+/* { dg-final { cleanup-tree-dump "optimized" } } */

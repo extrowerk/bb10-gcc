@@ -1,5 +1,5 @@
 /* "Bag-of-pages" garbage collector for the GNU compiler.
-   Copyright (C) 1999-2018 Free Software Foundation, Inc.
+   Copyright (C) 1999-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,20 +20,40 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
+#include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
 #include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "rtl.h"
-#include "memmodel.h"
 #include "tm_p.h"
 #include "diagnostic-core.h"
 #include "flags.h"
+#include "ggc.h"
 #include "ggc-internal.h"
 #include "timevar.h"
 #include "params.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "cfgloop.h"
 #include "plugin.h"
+#include "basic-block.h"
 
 /* Prefer MAP_ANON(YMOUS) to /dev/zero, since we don't need to keep a
    file open.  Prefer either to valloc.  */
@@ -91,6 +111,11 @@ along with GCC; see the file COPYING3.  If not see
      3: Object allocations as well.
      4: Object marks as well.  */
 #define GGC_DEBUG_LEVEL (0)
+
+#ifndef HOST_BITS_PER_PTR
+#define HOST_BITS_PER_PTR  HOST_BITS_PER_LONG
+#endif
+
 
 /* A two-level tree is used to look up the page-entry for a given
    pointer.  Two chunks of the pointer's bits are extracted to index
@@ -212,9 +237,13 @@ static const size_t extra_order_size_table[] = {
 
 #define ROUND_UP_VALUE(x, f) ((f) - 1 - ((f) - 1 + (x)) % (f))
 
+/* Compute the smallest multiple of F that is >= X.  */
+
+#define ROUND_UP(x, f) (CEIL (x, f) * (f))
+
 /* Round X to next multiple of the page size */
 
-#define PAGE_ALIGN(x) ROUND_UP ((x), G.pagesize)
+#define PAGE_ALIGN(x) (((x) + G.pagesize - 1) & ~(G.pagesize - 1))
 
 /* The Ith entry is the number of objects on a page or order I.  */
 
@@ -237,7 +266,7 @@ inverse_table[NUM_ORDERS];
 
 /* A page_entry records the status of an allocation page.  This
    structure is dynamically sized to fit the bitmap in_use_p.  */
-struct page_entry
+typedef struct page_entry
 {
   /* The next page-entry with objects of the same size, or NULL if
      this is the last page-entry.  */
@@ -284,12 +313,12 @@ struct page_entry
      Nth bit is one if the Nth object on this page is allocated.  This
      array is dynamically sized.  */
   unsigned long in_use_p[1];
-};
+} page_entry;
 
 #ifdef USING_MALLOC_PAGE_GROUPS
 /* A page_group describes a large allocation from malloc, from which
    we parcel out aligned pages.  */
-struct page_group
+typedef struct page_group
 {
   /* A linked list of all extant page groups.  */
   struct page_group *next;
@@ -302,7 +331,7 @@ struct page_group
 
   /* A bitmask of pages in use.  */
   unsigned int in_use;
-};
+} page_group;
 #endif
 
 #if HOST_BITS_PER_PTR <= 32
@@ -357,7 +386,7 @@ private:
   void (*m_function)(void *);
   size_t m_object_size;
   size_t m_n_objects;
-};
+  };
 
 #ifdef ENABLE_GC_ALWAYS_COLLECT
 /* List of free objects to be verified as actually free on the
@@ -452,11 +481,11 @@ static struct ggc_globals
      better runtime data access pattern.  */
   unsigned long **save_in_use;
 
-  /* Finalizers for single objects.  The first index is collection_depth.  */
-  vec<vec<finalizer> > finalizers;
+  /* Finalizers for single objects.  */
+  vec<finalizer> finalizers;
 
   /* Finalizers for vectors of objects.  */
-  vec<vec<vec_finalizer> > vec_finalizers;
+  vec<vec_finalizer> vec_finalizers;
 
 #ifdef ENABLE_GC_ALWAYS_COLLECT
   /* List of free objects to be verified as actually free on the
@@ -517,6 +546,7 @@ static bool in_gc = false;
 /* Initial guess as to how many page table entries we might need.  */
 #define INITIAL_PTE_COUNT 128
 
+static int ggc_allocated_p (const void *);
 static page_entry *lookup_page_table_entry (const void *);
 static void set_page_table_entry (void *, page_entry *);
 #ifdef USING_MMAP
@@ -581,11 +611,10 @@ push_by_depth (page_entry *p, unsigned long *s)
 #define save_in_use_p(__p) \
   (save_in_use_p_i (__p->index_by_depth))
 
-/* Traverse the page table and find the entry for a page.
-   If the object wasn't allocated in GC return NULL.  */
+/* Returns nonzero if P was allocated in GC'able memory.  */
 
-static inline page_entry *
-safe_lookup_page_table_entry (const void *p)
+static inline int
+ggc_allocated_p (const void *p)
 {
   page_entry ***base;
   size_t L1, L2;
@@ -598,7 +627,7 @@ safe_lookup_page_table_entry (const void *p)
   while (1)
     {
       if (table == NULL)
-	return NULL;
+	return 0;
       if (table->high_bits == high_bits)
 	break;
       table = table->next;
@@ -609,10 +638,8 @@ safe_lookup_page_table_entry (const void *p)
   /* Extract the level 1 and 2 indices.  */
   L1 = LOOKUP_L1 (p);
   L2 = LOOKUP_L2 (p);
-  if (! base[L1])
-    return NULL;
 
-  return base[L1][L2];
+  return base[L1] && base[L1][L2];
 }
 
 /* Traverse the page table and find the entry for a page.
@@ -1238,25 +1265,6 @@ ggc_round_alloc_size (size_t requested_size)
   return size;
 }
 
-/* Push a finalizer onto the appropriate vec.  */
-
-static void
-add_finalizer (void *result, void (*f)(void *), size_t s, size_t n)
-{
-  if (f == NULL)
-    /* No finalizer.  */;
-  else if (n == 1)
-    {
-      finalizer fin (result, f);
-      G.finalizers[G.context_depth].safe_push (fin);
-    }
-  else
-    {
-      vec_finalizer fin (reinterpret_cast<uintptr_t> (result), f, s, n);
-      G.vec_finalizers[G.context_depth].safe_push (fin);
-    }
-}
-
 /* Allocate a chunk of memory of SIZE bytes.  Its contents are undefined.  */
 
 void *
@@ -1404,8 +1412,11 @@ ggc_internal_alloc (size_t size, void (*f)(void *), size_t s, size_t n
   /* For timevar statistics.  */
   timevar_ggc_mem_total += object_size;
 
-  if (f)
-    add_finalizer (result, f, s, n);
+  if (f && n == 1)
+    G.finalizers.safe_push (finalizer (result, f));
+  else if (f)
+    G.vec_finalizers.safe_push
+      (vec_finalizer (reinterpret_cast<uintptr_t> (result), f, s, n));
 
   if (GATHER_STATISTICS)
     {
@@ -1452,14 +1463,12 @@ gt_ggc_m_S (const void *p)
   unsigned long mask;
   unsigned long offset;
 
-  if (!p)
+  if (!p || !ggc_allocated_p (p))
     return;
 
-  /* Look up the page on which the object is alloced.  If it was not
-     GC allocated, gracefully bail out.  */
-  entry = safe_lookup_page_table_entry (p);
-  if (!entry)
-    return;
+  /* Look up the page on which the object is alloced.  .  */
+  entry = lookup_page_table_entry (p);
+  gcc_assert (entry);
 
   /* Calculate the index of the object on the page; this is its bit
      position in the in_use_p bitmap.  Note that because a char* might
@@ -1804,11 +1813,6 @@ init_ggc (void)
   G.by_depth_max = INITIAL_PTE_COUNT;
   G.by_depth = XNEWVEC (page_entry *, G.by_depth_max);
   G.save_in_use = XNEWVEC (unsigned long *, G.by_depth_max);
-
-  /* Allocate space for the depth 0 finalizers.  */
-  G.finalizers.safe_push (vNULL);
-  G.vec_finalizers.safe_push (vNULL);
-  gcc_assert (G.finalizers.length() == 1);
 }
 
 /* Merge the SAVE_IN_USE_P and IN_USE_P arrays in P so that IN_USE_P
@@ -1896,42 +1900,36 @@ clear_marks (void)
 static void
 ggc_handle_finalizers ()
 {
-  unsigned dlen = G.finalizers.length();
-  for (unsigned d = G.context_depth; d < dlen; ++d)
+  if (G.context_depth != 0)
+    return;
+
+  unsigned length = G.finalizers.length ();
+  for (unsigned int i = 0; i < length;)
     {
-      vec<finalizer> &v = G.finalizers[d];
-      unsigned length = v.length ();
-      for (unsigned int i = 0; i < length;)
+      finalizer &f = G.finalizers[i];
+      if (!ggc_marked_p (f.addr ()))
 	{
-	  finalizer &f = v[i];
-	  if (!ggc_marked_p (f.addr ()))
-	    {
-	      f.call ();
-	      v.unordered_remove (i);
-	      length--;
-	    }
-	  else
-	    i++;
+	  f.call ();
+	  G.finalizers.unordered_remove (i);
+	  length--;
 	}
+      else
+	i++;
     }
 
-  gcc_assert (dlen == G.vec_finalizers.length());
-  for (unsigned d = G.context_depth; d < dlen; ++d)
+
+  length = G.vec_finalizers.length ();
+  for (unsigned int i = 0; i < length;)
     {
-      vec<vec_finalizer> &vv = G.vec_finalizers[d];
-      unsigned length = vv.length ();
-      for (unsigned int i = 0; i < length;)
+      vec_finalizer &f = G.vec_finalizers[i];
+      if (!ggc_marked_p (f.addr ()))
 	{
-	  vec_finalizer &f = vv[i];
-	  if (!ggc_marked_p (f.addr ()))
-	    {
-	      f.call ();
-	      vv.unordered_remove (i);
-	      length--;
-	    }
-	  else
-	    i++;
+	  f.call ();
+	  G.vec_finalizers.unordered_remove (i);
+	  length--;
 	}
+      else
+	i++;
     }
 }
 
@@ -2228,11 +2226,12 @@ ggc_collect (void)
 void
 ggc_grow (void)
 {
-  if (!flag_checking)
-    G.allocated_last_gc = MAX (G.allocated_last_gc,
-			       G.allocated);
-  else
-    ggc_collect ();
+#ifndef ENABLE_CHECKING
+  G.allocated_last_gc = MAX (G.allocated_last_gc,
+			     G.allocated);
+#else
+  ggc_collect ();
+#endif
   if (!quiet_flag)
     fprintf (stderr, " {GC start %luk} ", (unsigned long) G.allocated / 1024);
 }
@@ -2269,7 +2268,7 @@ ggc_print_statistics (void)
      allocation.  */
   fprintf (stderr,
            "Memory still allocated at the end of the compilation process\n");
-  fprintf (stderr, "%-8s %10s  %10s  %10s\n",
+  fprintf (stderr, "%-5s %10s  %10s  %10s\n",
 	   "Size", "Allocated", "Used", "Overhead");
   for (i = 0; i < NUM_ORDERS; ++i)
     {
@@ -2296,51 +2295,47 @@ ggc_print_statistics (void)
 	  overhead += (sizeof (page_entry) - sizeof (long)
 		       + BITMAP_SIZE (OBJECTS_IN_PAGE (p) + 1));
 	}
-      fprintf (stderr, "%-8lu %10lu%c %10lu%c %10lu%c\n",
+      fprintf (stderr, "%-5lu %10lu%c %10lu%c %10lu%c\n",
 	       (unsigned long) OBJECT_SIZE (i),
 	       SCALE (allocated), STAT_LABEL (allocated),
 	       SCALE (in_use), STAT_LABEL (in_use),
 	       SCALE (overhead), STAT_LABEL (overhead));
       total_overhead += overhead;
     }
-  fprintf (stderr, "%-8s %10lu%c %10lu%c %10lu%c\n", "Total",
+  fprintf (stderr, "%-5s %10lu%c %10lu%c %10lu%c\n", "Total",
 	   SCALE (G.bytes_mapped), STAT_LABEL (G.bytes_mapped),
 	   SCALE (G.allocated), STAT_LABEL (G.allocated),
 	   SCALE (total_overhead), STAT_LABEL (total_overhead));
 
   if (GATHER_STATISTICS)
     {
-      fprintf (stderr, "\nTotal allocations and overheads during "
-	       "the compilation process\n");
+      fprintf (stderr, "\nTotal allocations and overheads during the compilation process\n");
 
-      fprintf (stderr, "Total Overhead:                          %10"
-	       HOST_LONG_LONG_FORMAT "d\n", G.stats.total_overhead);
-      fprintf (stderr, "Total Allocated:                         %10"
-	       HOST_LONG_LONG_FORMAT "d\n",
+      fprintf (stderr, "Total Overhead:                        %10" HOST_LONG_LONG_FORMAT "d\n",
+	       G.stats.total_overhead);
+      fprintf (stderr, "Total Allocated:                       %10" HOST_LONG_LONG_FORMAT "d\n",
 	       G.stats.total_allocated);
 
-      fprintf (stderr, "Total Overhead  under  32B:              %10"
-	       HOST_LONG_LONG_FORMAT "d\n", G.stats.total_overhead_under32);
-      fprintf (stderr, "Total Allocated under  32B:              %10"
-	       HOST_LONG_LONG_FORMAT "d\n", G.stats.total_allocated_under32);
-      fprintf (stderr, "Total Overhead  under  64B:              %10"
-	       HOST_LONG_LONG_FORMAT "d\n", G.stats.total_overhead_under64);
-      fprintf (stderr, "Total Allocated under  64B:              %10"
-	       HOST_LONG_LONG_FORMAT "d\n", G.stats.total_allocated_under64);
-      fprintf (stderr, "Total Overhead  under 128B:              %10"
-	       HOST_LONG_LONG_FORMAT "d\n", G.stats.total_overhead_under128);
-      fprintf (stderr, "Total Allocated under 128B:              %10"
-	       HOST_LONG_LONG_FORMAT "d\n", G.stats.total_allocated_under128);
+      fprintf (stderr, "Total Overhead  under  32B:            %10" HOST_LONG_LONG_FORMAT "d\n",
+	       G.stats.total_overhead_under32);
+      fprintf (stderr, "Total Allocated under  32B:            %10" HOST_LONG_LONG_FORMAT "d\n",
+	       G.stats.total_allocated_under32);
+      fprintf (stderr, "Total Overhead  under  64B:            %10" HOST_LONG_LONG_FORMAT "d\n",
+	       G.stats.total_overhead_under64);
+      fprintf (stderr, "Total Allocated under  64B:            %10" HOST_LONG_LONG_FORMAT "d\n",
+	       G.stats.total_allocated_under64);
+      fprintf (stderr, "Total Overhead  under 128B:            %10" HOST_LONG_LONG_FORMAT "d\n",
+	       G.stats.total_overhead_under128);
+      fprintf (stderr, "Total Allocated under 128B:            %10" HOST_LONG_LONG_FORMAT "d\n",
+	       G.stats.total_allocated_under128);
 
       for (i = 0; i < NUM_ORDERS; i++)
 	if (G.stats.total_allocated_per_order[i])
 	  {
-	    fprintf (stderr, "Total Overhead  page size %9lu:     %10"
-		     HOST_LONG_LONG_FORMAT "d\n",
+	    fprintf (stderr, "Total Overhead  page size %7lu:     %10" HOST_LONG_LONG_FORMAT "d\n",
 		     (unsigned long) OBJECT_SIZE (i),
 		     G.stats.total_overhead_per_order[i]);
-	    fprintf (stderr, "Total Allocated page size %9lu:     %10"
-		     HOST_LONG_LONG_FORMAT "d\n",
+	    fprintf (stderr, "Total Allocated page size %7lu:     %10" HOST_LONG_LONG_FORMAT "d\n",
 		     (unsigned long) OBJECT_SIZE (i),
 		     G.stats.total_allocated_per_order[i]);
 	  }
@@ -2502,6 +2497,8 @@ ggc_pch_finish (struct ggc_pch_data *d, FILE *f)
 static void
 move_ptes_to_front (int count_old_page_tables, int count_new_page_tables)
 {
+  unsigned i;
+
   /* First, we swap the new entries to the front of the varrays.  */
   page_entry **new_by_depth;
   unsigned long **new_save_in_use;
@@ -2529,10 +2526,10 @@ move_ptes_to_front (int count_old_page_tables, int count_new_page_tables)
   G.save_in_use = new_save_in_use;
 
   /* Now update all the index_by_depth fields.  */
-  for (unsigned i = G.by_depth_in_use; i--;)
+  for (i = G.by_depth_in_use; i > 0; --i)
     {
-      page_entry *p = G.by_depth[i];
-      p->index_by_depth = i;
+      page_entry *p = G.by_depth[i-1];
+      p->index_by_depth = i-1;
     }
 
   /* And last, we update the depth pointers in G.depth.  The first
@@ -2570,10 +2567,6 @@ ggc_pch_read (FILE *f, void *addr)
      pages to be 1 too.  PCH pages will have depth 0.  */
   gcc_assert (!G.context_depth);
   G.context_depth = 1;
-  /* Allocate space for the depth 1 finalizers.  */
-  G.finalizers.safe_push (vNULL);
-  G.vec_finalizers.safe_push (vNULL);
-  gcc_assert (G.finalizers.length() == 2);
   for (i = 0; i < NUM_ORDERS; i++)
     {
       page_entry *p;

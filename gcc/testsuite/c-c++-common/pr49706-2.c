@@ -10,7 +10,7 @@
 
 bool r;
 
-void
+int
 same (int a, int b)
 {
   r = !a == !b;

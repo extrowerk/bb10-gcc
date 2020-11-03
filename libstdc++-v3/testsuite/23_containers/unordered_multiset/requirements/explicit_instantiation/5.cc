@@ -1,5 +1,6 @@
+// { dg-options "-std=gnu++11" }
 
-// Copyright (C) 2011-2018 Free Software Foundation, Inc.
+// Copyright (C) 2011-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -21,7 +22,7 @@
 #include <unordered_set>
 #include <testsuite_allocator.h>
 
-// { dg-do compile { target c++11 } }
+// { dg-do compile }
 
 // libstdc++/50118
 template class std::unordered_multiset<int, std::hash<int>, std::equal_to<int>,

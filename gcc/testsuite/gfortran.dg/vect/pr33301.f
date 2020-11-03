@@ -11,3 +11,4 @@ c     It is present in original lapack source
    20       CONTINUE
       END
 
+c { dg-final { cleanup-tree-dump "vect" } }

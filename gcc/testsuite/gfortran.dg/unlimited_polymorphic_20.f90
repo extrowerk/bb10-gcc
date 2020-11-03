@@ -34,9 +34,9 @@ program test
     call sub4 (S, 4)
     call sub4 ("This is a longer string.", 24)
     call bar (S, res)
-    if (trim (res) .NE. " 4") STOP 1
+    if (trim (res) .NE. " 4") call abort ()
     call bar(ucp, res)
-    if (trim (res) .NE. " 4") STOP 2
+    if (trim (res) .NE. " 4") call abort ()
 
 contains
 
@@ -50,12 +50,12 @@ contains
 
         select type (ucp)
         type is (character(len=*))
-            if (len(dcl) .NE. ilen) STOP 3
-            if (len(ucp) .NE. ilen) STOP 4
+            if (len(dcl) .NE. ilen) call abort ()
+            if (len(ucp) .NE. ilen) call abort ()
             hlp = ucp
-            if (len(hlp) .NE. ilen) STOP 5
+            if (len(hlp) .NE. ilen) call abort ()
         class default
-            STOP 6
+            call abort()
         end select
     end subroutine
 
@@ -68,9 +68,9 @@ contains
 
         select type (ucp)
         type is (character(len=*))
-            if (len(ucp) .ne. 3) STOP 7
+            if (len(ucp) .ne. 3) call abort ()
         class default
-            STOP 8
+            call abort()
         end select
     end subroutine
 
@@ -80,11 +80,11 @@ contains
 
         select type (ucp)
         type is (character(len=*))
-            if (len(ucp) .ne. 4) STOP 9
+            if (len(ucp) .ne. 4) call abort ()
             hlp = ucp
-            if (len(hlp) .ne. 4) STOP 10
+            if (len(hlp) .ne. 4) call abort ()
         class default
-            STOP 11
+            call abort()
         end select
     end subroutine
 
@@ -95,11 +95,11 @@ contains
 
         select type (ucp)
         type is (character(len=*))
-            if (len(ucp) .ne. ilen) STOP 12
+            if (len(ucp) .ne. ilen) call abort ()
             hlp = ucp
-            if (len(hlp) .ne. ilen) STOP 13
+            if (len(hlp) .ne. ilen) call abort ()
         class default
-            STOP 14
+            call abort()
         end select
     end subroutine
 end program

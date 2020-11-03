@@ -2,7 +2,6 @@
    expressions.  */
 /* { dg-do run } */
 /* { dg-options "-std=c99 -pedantic-errors" } */
-/* { dg-skip-if "ptx only loosely follows IEEE" { "nvptx-*-*" } } */
 
 extern void abort (void);
 extern void exit (int);

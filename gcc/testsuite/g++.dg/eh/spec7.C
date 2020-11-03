@@ -19,11 +19,7 @@ struct D : public B {
         } o; 
          
         struct Raiser { 
-            Raiser()
-#if __cplusplus <= 201402L
-	    throw( int )			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#endif
-	    {throw 1;}; 
+            Raiser()  throw( int ) {throw 1;}; 
         } raiser; 
       }; 
 }; 

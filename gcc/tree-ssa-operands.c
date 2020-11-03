@@ -1,5 +1,5 @@
 /* SSA operands management for trees.
-   Copyright (C) 2003-2018 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,16 +20,44 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
+#include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
-#include "gimple.h"
-#include "timevar.h"
-#include "ssa.h"
-#include "gimple-pretty-print.h"
-#include "diagnostic-core.h"
+#include "fold-const.h"
 #include "stmt.h"
 #include "print-tree.h"
+#include "flags.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "gimple-pretty-print.h"
+#include "bitmap.h"
+#include "predict.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "tree-inline.h"
+#include "timevar.h"
 #include "dumpfile.h"
+#include "timevar.h"
+#include "langhooks.h"
+#include "diagnostic-core.h"
 
 
 /* This file contains the code required to manage the operands cache of the
@@ -100,7 +128,7 @@ along with GCC; see the file COPYING3.  If not see
 #define opf_address_taken (1 << 5)
 
 /* Array for building all the use operands.  */
-static vec<tree *> build_uses;
+static vec<tree> build_uses;
 
 /* The built VDEF operand.  */
 static tree build_vdef;
@@ -112,7 +140,7 @@ static tree build_vuse;
    compilations of multiple functions.  */
 static bitmap_obstack operands_bitmap_obstack;
 
-static void get_expr_operands (struct function *, gimple *, tree *, int);
+static void get_expr_operands (struct function *, gimple, tree *, int);
 
 /* Number of functions with initialized ssa_operands.  */
 static int n_initialized = 0;
@@ -298,7 +326,7 @@ alloc_use (struct function *fn)
 /* Adds OP to the list of uses of statement STMT after LAST.  */
 
 static inline use_optype_p
-add_use_op (struct function *fn, gimple *stmt, tree *op, use_optype_p last)
+add_use_op (struct function *fn, gimple stmt, tree *op, use_optype_p last)
 {
   use_optype_p new_use;
 
@@ -316,7 +344,7 @@ add_use_op (struct function *fn, gimple *stmt, tree *op, use_optype_p last)
    TODO -- Make build_defs vec of tree *.  */
 
 static inline void
-finalize_ssa_defs (struct function *fn, gimple *stmt)
+finalize_ssa_defs (struct function *fn, gimple stmt)
 {
   /* Pre-pend the vdef we may have built.  */
   if (build_vdef != NULL_TREE)
@@ -351,10 +379,11 @@ finalize_ssa_defs (struct function *fn, gimple *stmt)
 }
 
 
-/* Takes elements from build_uses and turns them into use operands of STMT.  */
+/* Takes elements from build_uses and turns them into use operands of STMT.
+   TODO -- Make build_uses vec of tree *.  */
 
 static inline void
-finalize_ssa_uses (struct function *fn, gimple *stmt)
+finalize_ssa_uses (struct function *fn, gimple stmt)
 {
   unsigned new_i;
   struct use_optype_d new_list;
@@ -370,7 +399,7 @@ finalize_ssa_uses (struct function *fn, gimple *stmt)
       if (oldvuse != (build_vuse != NULL_TREE
 		      ? build_vuse : build_vdef))
 	gimple_set_vuse (stmt, NULL_TREE);
-      build_uses.safe_insert (0, gimple_vuse_ptr (stmt));
+      build_uses.safe_insert (0, (tree)gimple_vuse_ptr (stmt));
     }
 
   new_list.next = NULL;
@@ -406,7 +435,7 @@ finalize_ssa_uses (struct function *fn, gimple *stmt)
   /* Now create nodes for all the new nodes.  */
   for (new_i = 0; new_i < build_uses.length (); new_i++)
     {
-      tree *op = build_uses[new_i];
+      tree *op = (tree *) build_uses[new_i];
       last = add_use_op (fn, stmt, op, last);
     }
 
@@ -430,7 +459,7 @@ cleanup_build_arrays (void)
 /* Finalize all the build vectors, fill the new ones into INFO.  */
 
 static inline void
-finalize_ssa_stmt_operands (struct function *fn, gimple *stmt)
+finalize_ssa_stmt_operands (struct function *fn, gimple stmt)
 {
   finalize_ssa_defs (fn, stmt);
   finalize_ssa_uses (fn, stmt);
@@ -454,7 +483,7 @@ start_ssa_stmt_operands (void)
 static inline void
 append_use (tree *use_p)
 {
-  build_uses.safe_push (use_p);
+  build_uses.safe_push ((tree) use_p);
 }
 
 
@@ -488,7 +517,7 @@ append_vuse (tree var)
 
 static void
 add_virtual_operand (struct function *fn,
-		     gimple *stmt ATTRIBUTE_UNUSED, int flags)
+		     gimple stmt ATTRIBUTE_UNUSED, int flags)
 {
   /* Add virtual operands to the stmt, unless the caller has specifically
      requested not to do that (used when adding operands inside an
@@ -511,7 +540,7 @@ add_virtual_operand (struct function *fn,
    added to virtual operands.  */
 
 static void
-add_stmt_operand (struct function *fn, tree *var_p, gimple *stmt, int flags)
+add_stmt_operand (struct function *fn, tree *var_p, gimple stmt, int flags)
 {
   tree var = *var_p;
 
@@ -576,7 +605,7 @@ mark_address_taken (tree ref)
 
 static void
 get_mem_ref_operands (struct function *fn,
-		      gimple *stmt, tree expr, int flags)
+		      gimple stmt, tree expr, int flags)
 {
   tree *pptr = &TREE_OPERAND (expr, 0);
 
@@ -597,7 +626,7 @@ get_mem_ref_operands (struct function *fn,
 /* A subroutine of get_expr_operands to handle TARGET_MEM_REF.  */
 
 static void
-get_tmr_operands (struct function *fn, gimple *stmt, tree expr, int flags)
+get_tmr_operands (struct function *fn, gimple stmt, tree expr, int flags)
 {
   if (!(flags & opf_no_vops)
       && TREE_THIS_VOLATILE (expr))
@@ -698,7 +727,7 @@ get_asm_stmt_operands (struct function *fn, gasm *stmt)
    interpret the operands found.  */
 
 static void
-get_expr_operands (struct function *fn, gimple *stmt, tree *expr_p, int flags)
+get_expr_operands (struct function *fn, gimple stmt, tree *expr_p, int flags)
 {
   enum tree_code code;
   enum tree_code_class codeclass;
@@ -833,7 +862,6 @@ get_expr_operands (struct function *fn, gimple *stmt, tree *expr_p, int flags)
       get_expr_operands (fn, stmt, &TREE_OPERAND (expr, 0), flags);
       return;
 
-    case BIT_INSERT_EXPR:
     case COMPOUND_EXPR:
     case OBJ_TYPE_REF:
     case ASSERT_EXPR:
@@ -874,13 +902,12 @@ get_expr_operands (struct function *fn, gimple *stmt, tree *expr_p, int flags)
     }
 
   /* If we get here, something has gone wrong.  */
-  if (flag_checking)
-    {
-      fprintf (stderr, "unhandled expression in get_expr_operands():\n");
-      debug_tree (expr);
-      fputs ("\n", stderr);
-      gcc_unreachable ();
-    }
+#ifdef ENABLE_CHECKING
+  fprintf (stderr, "unhandled expression in get_expr_operands():\n");
+  debug_tree (expr);
+  fputs ("\n", stderr);
+#endif
+  gcc_unreachable ();
 }
 
 
@@ -888,7 +915,7 @@ get_expr_operands (struct function *fn, gimple *stmt, tree *expr_p, int flags)
    build_* operand vectors will have potential operands in them.  */
 
 static void
-parse_ssa_operands (struct function *fn, gimple *stmt)
+parse_ssa_operands (struct function *fn, gimple stmt)
 {
   enum gimple_code code = gimple_code (stmt);
   size_t i, n, start = 0;
@@ -938,7 +965,7 @@ parse_ssa_operands (struct function *fn, gimple *stmt)
 /* Create an operands cache for STMT.  */
 
 static void
-build_ssa_operands (struct function *fn, gimple *stmt)
+build_ssa_operands (struct function *fn, gimple stmt)
 {
   /* Initially assume that the statement has no volatile operands.  */
   gimple_set_has_volatile_ops (stmt, false);
@@ -951,13 +978,13 @@ build_ssa_operands (struct function *fn, gimple *stmt)
 /* Verifies SSA statement operands.  */
 
 DEBUG_FUNCTION bool
-verify_ssa_operands (struct function *fn, gimple *stmt)
+verify_ssa_operands (struct function *fn, gimple stmt)
 {
   use_operand_p use_p;
   def_operand_p def_p;
   ssa_op_iter iter;
   unsigned i;
-  tree def;
+  tree use, def;
   bool volatile_p = gimple_has_volatile_ops (stmt);
 
   /* build_ssa_operands w/o finalizing them.  */
@@ -983,7 +1010,7 @@ verify_ssa_operands (struct function *fn, gimple *stmt)
       return true;
     }
 
-  tree use = gimple_vuse (stmt);
+  use = gimple_vuse (stmt);
   if (use
       && TREE_CODE (use) == SSA_NAME)
     use = SSA_NAME_VAR (use);
@@ -1002,12 +1029,11 @@ verify_ssa_operands (struct function *fn, gimple *stmt)
 
   FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
     {
-      tree *op;
-      FOR_EACH_VEC_ELT (build_uses, i, op)
+      FOR_EACH_VEC_ELT (build_uses, i, use)
 	{
-	  if (use_p->use == op)
+	  if (use_p->use == (tree *)use)
 	    {
-	      build_uses[i] = NULL;
+	      build_uses[i] = NULL_TREE;
 	      break;
 	    }
 	}
@@ -1018,13 +1044,11 @@ verify_ssa_operands (struct function *fn, gimple *stmt)
 	  return true;
 	}
     }
-
-  tree *op;
-  FOR_EACH_VEC_ELT (build_uses, i, op)
-    if (op != NULL)
+  FOR_EACH_VEC_ELT (build_uses, i, use)
+    if (use != NULL_TREE)
       {
 	error ("use operand missing for stmt");
-	debug_generic_expr (*op);
+	debug_generic_expr (*(tree *)use);
 	return true;
       }
 
@@ -1043,7 +1067,7 @@ verify_ssa_operands (struct function *fn, gimple *stmt)
    the stmt operand lists.  */
 
 void
-free_stmt_operands (struct function *fn, gimple *stmt)
+free_stmt_operands (struct function *fn, gimple stmt)
 {
   use_optype_p uses = gimple_use_ops (stmt), last_use;
 
@@ -1068,7 +1092,7 @@ free_stmt_operands (struct function *fn, gimple *stmt)
 /* Get the operands of statement STMT.  */
 
 void
-update_stmt_operands (struct function *fn, gimple *stmt)
+update_stmt_operands (struct function *fn, gimple stmt)
 {
   /* If update_stmt_operands is called before SSA is initialized, do
      nothing.  */
@@ -1089,7 +1113,7 @@ update_stmt_operands (struct function *fn, gimple *stmt)
    to test the validity of the swap operation.  */
 
 void
-swap_ssa_operands (gimple *stmt, tree *exp0, tree *exp1)
+swap_ssa_operands (gimple stmt, tree *exp0, tree *exp1)
 {
   tree op0, op1;
   op0 = *exp0;
@@ -1139,7 +1163,7 @@ DEBUG_FUNCTION bool
 verify_imm_links (FILE *f, tree var)
 {
   use_operand_p ptr, prev, list;
-  unsigned int count;
+  int count;
 
   gcc_assert (TREE_CODE (var) == SSA_NAME);
 
@@ -1157,31 +1181,20 @@ verify_imm_links (FILE *f, tree var)
   for (ptr = list->next; ptr != list; )
     {
       if (prev != ptr->prev)
-	{
-	  fprintf (f, "prev != ptr->prev\n");
-	  goto error;
-	}
+	goto error;
 
       if (ptr->use == NULL)
-	{
-	  fprintf (f, "ptr->use == NULL\n");
-	  goto error; /* 2 roots, or SAFE guard node.  */
-	}
+	goto error; /* 2 roots, or SAFE guard node.  */
       else if (*(ptr->use) != var)
-	{
-	  fprintf (f, "*(ptr->use) != var\n");
-	  goto error;
-	}
+	goto error;
 
       prev = ptr;
       ptr = ptr->next;
 
-      count++;
-      if (count == 0)
-	{
-	  fprintf (f, "number of immediate uses doesn't fit unsigned int\n");
-	  goto error;
-	}
+      /* Avoid infinite loops.  50,000,000 uses probably indicates a
+	 problem.  */
+      if (count++ > 50000000)
+	goto error;
     }
 
   /* Verify list in the other direction.  */
@@ -1189,25 +1202,15 @@ verify_imm_links (FILE *f, tree var)
   for (ptr = list->prev; ptr != list; )
     {
       if (prev != ptr->next)
-	{
-	  fprintf (f, "prev != ptr->next\n");
-	  goto error;
-	}
+	goto error;
       prev = ptr;
       ptr = ptr->prev;
-      if (count == 0)
-	{
-	  fprintf (f, "count-- < 0\n");
-	  goto error;
-	}
-      count--;
+      if (count-- < 0)
+	goto error;
     }
 
   if (count != 0)
-    {
-      fprintf (f, "count != 0\n");
-      goto error;
-    }
+    goto error;
 
   return false;
 
@@ -1268,8 +1271,11 @@ dump_immediate_uses (FILE *file)
   unsigned int x;
 
   fprintf (file, "Immediate_uses: \n\n");
-  FOR_EACH_SSA_NAME (x, var, cfun)
+  for (x = 1; x < num_ssa_names; x++)
     {
+      var = ssa_name (x);
+      if (!var)
+        continue;
       dump_immediate_uses_for (file, var);
     }
 }
@@ -1296,11 +1302,11 @@ debug_immediate_uses_for (tree var)
 /* Unlink STMTs virtual definition from the IL by propagating its use.  */
 
 void
-unlink_stmt_vdef (gimple *stmt)
+unlink_stmt_vdef (gimple stmt)
 {
   use_operand_p use_p;
   imm_use_iterator iter;
-  gimple *use_stmt;
+  gimple use_stmt;
   tree vdef = gimple_vdef (stmt);
   tree vuse = gimple_vuse (stmt);
 
@@ -1318,17 +1324,33 @@ unlink_stmt_vdef (gimple *stmt)
     SSA_NAME_OCCURS_IN_ABNORMAL_PHI (vuse) = 1;
 }
 
+
+/* Return true if the var whose chain of uses starts at PTR has no
+   nondebug uses.  */
+bool
+has_zero_uses_1 (const ssa_use_operand_t *head)
+{
+  const ssa_use_operand_t *ptr;
+
+  for (ptr = head->next; ptr != head; ptr = ptr->next)
+    if (!is_gimple_debug (USE_STMT (ptr)))
+      return false;
+
+  return true;
+}
+
+
 /* Return true if the var whose chain of uses starts at PTR has a
    single nondebug use.  Set USE_P and STMT to that single nondebug
    use, if so, or to NULL otherwise.  */
 bool
 single_imm_use_1 (const ssa_use_operand_t *head,
-		  use_operand_p *use_p, gimple **stmt)
+		  use_operand_p *use_p, gimple *stmt)
 {
   ssa_use_operand_t *ptr, *single_use = 0;
 
   for (ptr = head->next; ptr != head; ptr = ptr->next)
-    if (USE_STMT(ptr) && !is_gimple_debug (USE_STMT (ptr)))
+    if (!is_gimple_debug (USE_STMT (ptr)))
       {
 	if (single_use)
 	  {
@@ -1346,4 +1368,3 @@ single_imm_use_1 (const ssa_use_operand_t *head,
 
   return single_use;
 }
-

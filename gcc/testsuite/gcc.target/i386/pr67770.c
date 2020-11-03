@@ -3,15 +3,18 @@
 /* { dg-require-effective-target trampolines } */
 /* { dg-options "-O2" } */
 
+#ifndef NO_TRAMPOLINES
 __attribute__ ((noinline)) void
 foo (int i, void (* __attribute__ ((regparm (3))) bar) (int))
 {
   bar (i);
 }
+#endif
 
 int
 main ()
 {
+#ifndef NO_TRAMPOLINES
   int p = 0;
 
   __attribute__ ((regparm (3), noinline)) void
@@ -32,6 +35,6 @@ main ()
 
   if (p != 2)
     __builtin_abort ();
-
+#endif
   return 0;
 }

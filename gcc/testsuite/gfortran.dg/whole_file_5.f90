@@ -17,3 +17,4 @@ PROGRAM main
 END PROGRAM
 
 ! { dg-final { scan-tree-dump-times "= f \\(\\)" 0 "optimized" } }
+! { dg-final { cleanup-tree-dump "optimized" } }

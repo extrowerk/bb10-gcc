@@ -2,7 +2,6 @@
    statements around s[b].  */
 /* { dg-do compile } */
 /* { dg-options "-O1 -fprofile-arcs" } */
-/* { dg-require-profiling "-fprofile-generate" } */
 
 int
 foo (int a, int b)

@@ -1,8 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdelete-null-pointer-checks" } */
-/* { dg-require-weak "" } */
-
-/* { dg-skip-if "" keeps_null_pointer_checks } */
+/* { dg-options "-O2" } */
 extern int a; /* { dg-error "declared weak after being used" } */
 int
 t()

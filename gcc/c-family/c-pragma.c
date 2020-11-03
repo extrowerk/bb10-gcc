@@ -1,5 +1,5 @@
 /* Handle #pragma, system V.4 style.  Supports #pragma weak and #pragma pack.
-   Copyright (C) 1992-2018 Free Software Foundation, Inc.
+   Copyright (C) 1992-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,30 +20,56 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "target.h"
-#include "function.h"		/* For cfun.  */
-#include "c-common.h"
-#include "memmodel.h"
-#include "tm_p.h"		/* For REGISTER_TARGET_PRAGMAS.  */
+#include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
 #include "stringpool.h"
-#include "cgraph.h"
-#include "diagnostic.h"
 #include "attribs.h"
 #include "varasm.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"		/* For cfun.  FIXME: Does the parser know
+				   when it is inside a function, so that
+				   we don't have to look at cfun?  */
+#include "cpplib.h"
 #include "c-pragma.h"
+#include "flags.h"
+#include "c-common.h"
+#include "tm_p.h"		/* For REGISTER_TARGET_PRAGMAS (why is
+				   this not a target hook?).  */
+#include "target.h"
+#include "diagnostic.h"
 #include "opts.h"
 #include "plugin.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 
 #define GCC_BAD(gmsgid) \
   do { warning (OPT_Wpragmas, gmsgid); return; } while (0)
 #define GCC_BAD2(gmsgid, arg) \
   do { warning (OPT_Wpragmas, gmsgid, arg); return; } while (0)
 
-struct GTY(()) align_stack {
+typedef struct GTY(()) align_stack {
   int		       alignment;
   tree		       id;
   struct align_stack * prev;
-};
+} align_stack;
 
 static GTY(()) struct align_stack * alignment_stack;
 
@@ -215,7 +241,6 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
 	    align = maximum_field_alignment;
 	    break;
 	  }
-	/* FALLTHRU */
       default:
 	GCC_BAD2 ("alignment must be a small power of two, not %d", align);
       }
@@ -228,11 +253,11 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
     }
 }
 
-struct GTY(()) pending_weak
+typedef struct GTY(()) pending_weak_d
 {
   tree name;
   tree value;
-};
+} pending_weak;
 
 
 static GTY(()) vec<pending_weak, va_gc> *pending_weaks;
@@ -281,7 +306,7 @@ maybe_apply_pragma_weak (tree decl)
   /* If it's not a function or a variable, it can't be weak.
      FIXME: what kinds of things are visible outside this file but
      aren't functions or variables?   Should this be an assert instead?  */
-  if (!VAR_OR_FUNCTION_DECL_P (decl))
+  if (TREE_CODE (decl) != FUNCTION_DECL && TREE_CODE (decl) != VAR_DECL)
     return;
 
   if (DECL_ASSEMBLER_NAME_SET_P (decl))
@@ -330,7 +355,7 @@ maybe_apply_pending_pragma_weaks (void)
       DECL_ARTIFICIAL (decl) = 1;
       TREE_PUBLIC (decl) = 1;
       DECL_WEAK (decl) = 1;
-      if (VAR_P (decl))
+      if (TREE_CODE (decl) == VAR_DECL)
 	TREE_STATIC (decl) = 1;
       if (!target)
 	{
@@ -374,7 +399,7 @@ handle_pragma_weak (cpp_reader * ARG_UNUSED (dummy))
       if (value)
 	{
 	  DECL_EXTERNAL (decl) = 0;
-	  if (VAR_P (decl))
+	  if (TREE_CODE (decl) == VAR_DECL)
 	    TREE_STATIC (decl) = 1;
 	  assemble_alias (decl, value);
 	}
@@ -384,63 +409,6 @@ handle_pragma_weak (cpp_reader * ARG_UNUSED (dummy))
       pending_weak pe = {name, value};
       vec_safe_push (pending_weaks, pe);
     }
-}
-
-static enum scalar_storage_order_kind global_sso;
-
-void
-maybe_apply_pragma_scalar_storage_order (tree type)
-{
-  if (global_sso == SSO_NATIVE)
-    return;
-
-  gcc_assert (RECORD_OR_UNION_TYPE_P (type));
-
-  if (lookup_attribute ("scalar_storage_order", TYPE_ATTRIBUTES (type)))
-    return;
-
-  if (global_sso == SSO_BIG_ENDIAN)
-    TYPE_REVERSE_STORAGE_ORDER (type) = !BYTES_BIG_ENDIAN;
-  else if (global_sso == SSO_LITTLE_ENDIAN)
-    TYPE_REVERSE_STORAGE_ORDER (type) = BYTES_BIG_ENDIAN;
-  else
-    gcc_unreachable ();
-}
-
-static void
-handle_pragma_scalar_storage_order (cpp_reader *ARG_UNUSED(dummy))
-{
-  const char *kind_string;
-  enum cpp_ttype token;
-  tree x;
-
-  if (BYTES_BIG_ENDIAN != WORDS_BIG_ENDIAN)
-    {
-      error ("scalar_storage_order is not supported because endianness "
-	     "is not uniform");
-      return;
-    }
-
-  if (c_dialect_cxx ())
-    {
-      if (warn_unknown_pragmas > in_system_header_at (input_location))
-	warning (OPT_Wunknown_pragmas,
-		 "%<#pragma scalar_storage_order%> is not supported for C++");
-      return;
-    }
-
-  token = pragma_lex (&x);
-  if (token != CPP_NAME)
-    GCC_BAD ("missing [big-endian|little-endian|default] after %<#pragma scalar_storage_order%>");
-  kind_string = IDENTIFIER_POINTER (x);
-  if (strcmp (kind_string, "default") == 0)
-    global_sso = default_sso;
-  else if (strcmp (kind_string, "big") == 0)
-    global_sso = SSO_BIG_ENDIAN;
-  else if (strcmp (kind_string, "little") == 0)
-    global_sso = SSO_LITTLE_ENDIAN;
-  else
-    GCC_BAD ("expected [big-endian|little-endian|default] after %<#pragma scalar_storage_order%>");
 }
 
 /* GCC supports two #pragma directives for renaming the external
@@ -475,10 +443,10 @@ handle_pragma_scalar_storage_order (cpp_reader *ARG_UNUSED(dummy))
       if it appears afterward, we have no way of knowing whether a modified
       DECL_ASSEMBLER_NAME is due to #pragma extern_prefix.)  */
 
-struct GTY(()) pending_redefinition {
+typedef struct GTY(()) pending_redefinition_d {
   tree oldname;
   tree newname;
-};
+} pending_redefinition;
 
 
 static GTY(()) vec<pending_redefinition, va_gc> *pending_redefine_extname;
@@ -518,7 +486,8 @@ handle_pragma_redefine_extname (cpp_reader * ARG_UNUSED (dummy))
 	}
 
       if ((TREE_PUBLIC (decl) || DECL_EXTERNAL (decl))
-	  && VAR_OR_FUNCTION_DECL_P (decl))
+	  && (TREE_CODE (decl) == FUNCTION_DECL
+	      || TREE_CODE (decl) == VAR_DECL))
 	{
 	  found = true;
 	  if (DECL_ASSEMBLER_NAME_SET_P (decl))
@@ -526,7 +495,7 @@ handle_pragma_redefine_extname (cpp_reader * ARG_UNUSED (dummy))
 	      const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 	      name = targetm.strip_name_encoding (name);
 
-	      if (!id_equal (newname, name))
+	      if (strcmp (name, IDENTIFIER_POINTER (newname)))
 		warning (OPT_Wpragmas, "#pragma redefine_extname ignored due to "
 			 "conflict with previous rename");
 	    }
@@ -578,7 +547,7 @@ maybe_apply_renaming_pragma (tree decl, tree asmname)
 
   /* The renaming pragmas are only applied to declarations with
      external linkage.  */
-  if (!VAR_OR_FUNCTION_DECL_P (decl)
+  if ((TREE_CODE (decl) != FUNCTION_DECL && TREE_CODE (decl) != VAR_DECL)
       || (!TREE_PUBLIC (decl) && !DECL_EXTERNAL (decl))
       || !has_c_linkage (decl))
     return asmname;
@@ -599,14 +568,14 @@ maybe_apply_renaming_pragma (tree decl, tree asmname)
 	if (DECL_NAME (decl) == p->oldname)
 	  {
 	    /* Only warn if there is a conflict.  */
-	    if (!id_equal (p->newname, oldname))
+	    if (strcmp (IDENTIFIER_POINTER (p->newname), oldname))
 	      warning (OPT_Wpragmas, "#pragma redefine_extname ignored due to "
 		       "conflict with previous rename");
 
 	    pending_redefine_extname->unordered_remove (ix);
 	    break;
 	  }
-      return NULL_TREE;
+      return 0;
     }
 
   /* Find out if we have a pending #pragma redefine_extname.  */
@@ -655,7 +624,7 @@ maybe_apply_renaming_pragma (tree decl, tree asmname)
     }
 
   /* Nada.  */
-  return NULL_TREE;
+  return 0;
 }
 
 
@@ -753,19 +722,17 @@ handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
 static void
 handle_pragma_diagnostic(cpp_reader *ARG_UNUSED(dummy))
 {
-  tree x;
-  location_t loc;
-  enum cpp_ttype token = pragma_lex (&x, &loc);
-  if (token != CPP_NAME)
-    {
-      warning_at (loc, OPT_Wpragmas,
-		  "missing [error|warning|ignored|push|pop]"
-		  " after %<#pragma GCC diagnostic%>");
-      return;
-    }
-
+  const char *kind_string, *option_string;
+  unsigned int option_index;
+  enum cpp_ttype token;
   diagnostic_t kind;
-  const char *kind_string = IDENTIFIER_POINTER (x);
+  tree x;
+  struct cl_option_handlers handlers;
+
+  token = pragma_lex (&x);
+  if (token != CPP_NAME)
+    GCC_BAD ("missing [error|warning|ignored] after %<#pragma GCC diagnostic%>");
+  kind_string = IDENTIFIER_POINTER (x);
   if (strcmp (kind_string, "error") == 0)
     kind = DK_ERROR;
   else if (strcmp (kind_string, "warning") == 0)
@@ -783,62 +750,23 @@ handle_pragma_diagnostic(cpp_reader *ARG_UNUSED(dummy))
       return;
     }
   else
-    {
-      warning_at (loc, OPT_Wpragmas,
-		  "expected [error|warning|ignored|push|pop]"
-		  " after %<#pragma GCC diagnostic%>");
-      return;
-    }
+    GCC_BAD ("expected [error|warning|ignored|push|pop] after %<#pragma GCC diagnostic%>");
 
-  token = pragma_lex (&x, &loc);
+  token = pragma_lex (&x);
   if (token != CPP_STRING)
-    {
-      warning_at (loc, OPT_Wpragmas,
-		  "missing option after %<#pragma GCC diagnostic%> kind");
-      return;
-    }
-
-  const char *option_string = TREE_STRING_POINTER (x);
-  unsigned int lang_mask = c_common_option_lang_mask () | CL_COMMON;
-  /* option_string + 1 to skip the initial '-' */
-  unsigned int option_index = find_opt (option_string + 1, lang_mask);
-  if (option_index == OPT_SPECIAL_unknown)
-    {
-      warning_at (loc, OPT_Wpragmas,
-		  "unknown option after %<#pragma GCC diagnostic%> kind");
-      return;
-    }
-  else if (!(cl_options[option_index].flags & CL_WARNING))
-    {
-      warning_at (loc, OPT_Wpragmas,
-		  "%qs is not an option that controls warnings", option_string);
-      return;
-    }
-  else if (!(cl_options[option_index].flags & lang_mask))
-    {
-      char *ok_langs = write_langs (cl_options[option_index].flags);
-      char *bad_lang = write_langs (c_common_option_lang_mask ());
-      warning_at (loc, OPT_Wpragmas,
-		  "option %qs is valid for %s but not for %s",
-		  option_string, ok_langs, bad_lang);
-      free (ok_langs);
-      free (bad_lang);
-      return;
-    }
-
-  struct cl_option_handlers handlers;
-  set_default_handlers (&handlers, NULL);
-  const char *arg = NULL;
-  if (cl_options[option_index].flags & CL_JOINED)
-    arg = option_string + 1 + cl_options[option_index].opt_len;
-  /* FIXME: input_location isn't the best location here, but it is
-     what we used to do here before and changing it breaks e.g.
-     PR69543 and PR69558.  */
-  control_warning_option (option_index, (int) kind,
-			  arg, kind != DK_IGNORED,
-			  input_location, lang_mask, &handlers,
-			  &global_options, &global_options_set,
-			  global_dc);
+    GCC_BAD ("missing option after %<#pragma GCC diagnostic%> kind");
+  option_string = TREE_STRING_POINTER (x);
+  set_default_handlers (&handlers);
+  for (option_index = 0; option_index < cl_options_count; option_index++)
+    if (strcmp (cl_options[option_index].opt_text, option_string) == 0)
+      {
+	control_warning_option (option_index, (int) kind, kind != DK_IGNORED,
+				input_location, c_family_lang_mask, &handlers,
+				&global_options, &global_options_set,
+				global_dc);
+	return;
+      }
+  GCC_BAD ("unknown option after %<#pragma GCC diagnostic%> kind");
 }
 
 /*  Parse #pragma GCC target (xxx) to set target specific options.  */
@@ -905,7 +833,7 @@ handle_pragma_target(cpp_reader *ARG_UNUSED(dummy))
       args = nreverse (args);
 
       if (targetm.target_option.pragma_parse (args, NULL_TREE))
-	current_target_pragma = chainon (current_target_pragma, args);
+	current_target_pragma = args;
     }
 }
 
@@ -984,13 +912,13 @@ handle_pragma_optimize (cpp_reader *ARG_UNUSED(dummy))
 /* Stack of the #pragma GCC options created with #pragma GCC push_option.  Save
    both the binary representation of the options and the TREE_LIST of
    strings that will be added to the function's attribute list.  */
-struct GTY(()) opt_stack {
+typedef struct GTY(()) opt_stack {
   struct opt_stack *prev;
   tree target_binary;
   tree target_strings;
   tree optimize_binary;
   tree optimize_strings;
-};
+} opt_stack;
 
 static GTY(()) struct opt_stack * options_stack;
 
@@ -1255,28 +1183,24 @@ handle_pragma_float_const_decimal64 (cpp_reader *ARG_UNUSED (dummy))
 
 static vec<internal_pragma_handler> registered_pragmas;
 
-struct pragma_ns_name
+typedef struct
 {
   const char *space;
   const char *name;
-};
+} pragma_ns_name;
 
 
 static vec<pragma_ns_name> registered_pp_pragmas;
 
 struct omp_pragma_def { const char *name; unsigned int id; };
 static const struct omp_pragma_def oacc_pragmas[] = {
-  { "atomic", PRAGMA_OACC_ATOMIC },
   { "cache", PRAGMA_OACC_CACHE },
   { "data", PRAGMA_OACC_DATA },
-  { "declare", PRAGMA_OACC_DECLARE },
   { "enter", PRAGMA_OACC_ENTER_DATA },
   { "exit", PRAGMA_OACC_EXIT_DATA },
-  { "host_data", PRAGMA_OACC_HOST_DATA },
   { "kernels", PRAGMA_OACC_KERNELS },
   { "loop", PRAGMA_OACC_LOOP },
   { "parallel", PRAGMA_OACC_PARALLEL },
-  { "routine", PRAGMA_OACC_ROUTINE },
   { "update", PRAGMA_OACC_UPDATE },
   { "wait", PRAGMA_OACC_WAIT }
 };
@@ -1289,6 +1213,7 @@ static const struct omp_pragma_def omp_pragmas[] = {
   { "end", PRAGMA_OMP_END_DECLARE_TARGET },
   { "flush", PRAGMA_OMP_FLUSH },
   { "master", PRAGMA_OMP_MASTER },
+  { "ordered", PRAGMA_OMP_ORDERED },
   { "section", PRAGMA_OMP_SECTION },
   { "sections", PRAGMA_OMP_SECTIONS },
   { "single", PRAGMA_OMP_SINGLE },
@@ -1299,14 +1224,12 @@ static const struct omp_pragma_def omp_pragmas[] = {
   { "threadprivate", PRAGMA_OMP_THREADPRIVATE }
 };
 static const struct omp_pragma_def omp_pragmas_simd[] = {
-  { "declare", PRAGMA_OMP_DECLARE },
+  { "declare", PRAGMA_OMP_DECLARE_REDUCTION },
   { "distribute", PRAGMA_OMP_DISTRIBUTE },
   { "for", PRAGMA_OMP_FOR },
-  { "ordered", PRAGMA_OMP_ORDERED },
   { "parallel", PRAGMA_OMP_PARALLEL },
   { "simd", PRAGMA_OMP_SIMD },
   { "target", PRAGMA_OMP_TARGET },
-  { "taskloop", PRAGMA_OMP_TASKLOOP },
   { "teams", PRAGMA_OMP_TEAMS },
 };
 
@@ -1342,6 +1265,20 @@ c_pp_lookup_pragma (unsigned int id, const char **space, const char **name)
 	*name = omp_pragmas_simd[i].name;
 	return;
       }
+
+  if (id == PRAGMA_CILK_SIMD)
+    {
+      *space = NULL;
+      *name = "simd";
+      return;
+    }
+
+  if (id == PRAGMA_CILK_GRAINSIZE)
+    {
+      *space = "cilk";
+      *name = "grainsize";
+      return;
+    }
 
   if (id >= PRAGMA_FIRST_EXTERNAL
       && (id < PRAGMA_FIRST_EXTERNAL + registered_pp_pragmas.length ()))
@@ -1382,10 +1319,9 @@ c_register_pragma_1 (const char *space, const char *name,
       id = registered_pragmas.length ();
       id += PRAGMA_FIRST_EXTERNAL - 1;
 
-      /* The C front end allocates 8 bits in c_token.  The C++ front end
-	 keeps the pragma kind in the form of INTEGER_CST, so no small
-	 limit applies.  At present this is sufficient.  */
-      gcc_assert (id < 256);
+      /* The C++ front end allocates 6 bits in cp_token; the C front end
+	 allocates 7 bits in c_token.  At present this is sufficient.  */
+      gcc_assert (id < 64);
     }
 
   cpp_register_deferred_pragma (parse_in, space, name, id,
@@ -1518,6 +1454,10 @@ init_pragma (void)
 				      omp_pragmas_simd[i].id, true, true);
     }
 
+  if (flag_cilkplus)
+    cpp_register_deferred_pragma (parse_in, NULL, "simd", PRAGMA_CILK_SIMD,
+				  true, false);
+
   if (!flag_preprocess_only)
     cpp_register_deferred_pragma (parse_in, "GCC", "pch_preprocess",
 				  PRAGMA_GCC_PCH_PREPROCESS, false, false);
@@ -1526,9 +1466,9 @@ init_pragma (void)
     cpp_register_deferred_pragma (parse_in, "GCC", "ivdep", PRAGMA_IVDEP, false,
 				  false);
 
-  if (!flag_preprocess_only)
-    cpp_register_deferred_pragma (parse_in, "GCC", "unroll", PRAGMA_UNROLL,
-				  false, false);
+  if (flag_cilkplus)
+    cpp_register_deferred_pragma (parse_in, "cilk", "grainsize",
+				  PRAGMA_CILK_GRAINSIZE, true, false);
 
 #ifdef HANDLE_PRAGMA_PACK_WITH_EXPANSION
   c_register_pragma_with_expansion (0, "pack", handle_pragma_pack);
@@ -1536,7 +1476,6 @@ init_pragma (void)
   c_register_pragma (0, "pack", handle_pragma_pack);
 #endif
   c_register_pragma (0, "weak", handle_pragma_weak);
-
   c_register_pragma ("GCC", "visibility", handle_pragma_visibility);
 
   c_register_pragma ("GCC", "diagnostic", handle_pragma_diagnostic);
@@ -1557,10 +1496,6 @@ init_pragma (void)
 #ifdef REGISTER_TARGET_PRAGMAS
   REGISTER_TARGET_PRAGMAS ();
 #endif
-
-  global_sso = default_sso;
-  c_register_pragma (0, "scalar_storage_order", 
-		     handle_pragma_scalar_storage_order);
 
   /* Allow plugins to register their own pragmas. */
   invoke_plugin_callbacks (PLUGIN_PRAGMAS, NULL);

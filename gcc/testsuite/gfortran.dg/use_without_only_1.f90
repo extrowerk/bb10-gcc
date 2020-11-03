@@ -19,3 +19,4 @@ CONTAINS
      USE ISO_C_BINDING ! { dg-warning "9:has no ONLY qualifier" }
   END SUBROUTINE S3
 END MODULE
+! { dg-final { cleanup-modules "foo testmod" } }

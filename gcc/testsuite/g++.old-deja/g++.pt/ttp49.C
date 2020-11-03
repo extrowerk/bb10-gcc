@@ -1,4 +1,4 @@
-// { dg-options -fno-new-ttp-matching }
+// { dg-do assemble  }
 
 template <int i> class C {};
 template <template <long> class TT> class D {};

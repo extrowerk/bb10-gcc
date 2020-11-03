@@ -19,3 +19,4 @@ int test2 (void)
 }
 
 /* { dg-final { scan-tree-dump-times "return 0;" 2 "ccp1" } } */
+/* { dg-final { cleanup-tree-dump "ccp1" } } */

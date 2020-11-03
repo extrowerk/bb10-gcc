@@ -8,3 +8,4 @@ void foo(double x)
 }
 
 /* { dg-final { scan-tree-dump-not "-\\(float\\)" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

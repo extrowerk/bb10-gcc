@@ -92,3 +92,4 @@ bad:
 }
 
 /* { dg-final { scan-tree-dump-times "XYZZY" 1 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

@@ -10,3 +10,4 @@ int main ()
 			   sizeof ("foo%sbar%sfred%sbob?""?""?""?""?"));
 }
 
+// { dg-final { cleanup-saved-temps } }

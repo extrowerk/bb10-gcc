@@ -1,6 +1,6 @@
 ;; Machine description for Loongson-specific patterns, such as
 ;; ST Microelectronics Loongson-2E/2F etc.
-;; Copyright (C) 2008-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2008-2015 Free Software Foundation, Inc.
 ;; Contributed by CodeSourcery.
 ;;
 ;; This file is part of GCC.
@@ -119,7 +119,7 @@
 
 ;; Initialization of a vector.
 
-(define_expand "vec_init<mode><unitmode>"
+(define_expand "vec_init<mode>"
   [(set (match_operand:VWHB 0 "register_operand")
 	(match_operand 1 ""))]
   "TARGET_HARD_FLOAT && TARGET_LOONGSON_VECTORS"
@@ -784,6 +784,19 @@
   "punpcklwd\t%0,%1,%2"
   [(set_attr "type" "fcvt")])
 
+(define_expand "vec_perm_const<mode>"
+  [(match_operand:VWHB 0 "register_operand" "")
+   (match_operand:VWHB 1 "register_operand" "")
+   (match_operand:VWHB 2 "register_operand" "")
+   (match_operand:VWHB 3 "" "")]
+  "TARGET_HARD_FLOAT && TARGET_LOONGSON_VECTORS"
+{
+  if (mips_expand_vec_perm_const (operands))
+    DONE;
+  else
+    FAIL;
+})
+
 (define_expand "vec_unpacks_lo_<mode>"
   [(match_operand:<V_stretch_half> 0 "register_operand" "")
    (match_operand:VHB 1 "register_operand" "")]
@@ -839,66 +852,58 @@
   "dsrl\t%0,%1,%2"
   [(set_attr "type" "fcvt")])
 
-(define_insn "vec_loongson_extract_lo_<mode>"
-  [(set (match_operand:<V_inner> 0 "register_operand" "=r")
-        (vec_select:<V_inner>
-          (match_operand:VWHB 1 "register_operand" "f")
-          (parallel [(const_int 0)])))]
-  "TARGET_HARD_FLOAT && TARGET_LOONGSON_VECTORS"
-  "mfc1\t%0,%1"
-  [(set_attr "type" "mfc")])
-
-(define_expand "reduc_plus_scal_<mode>"
-  [(match_operand:<V_inner> 0 "register_operand" "")
-   (match_operand:VWHB 1 "register_operand" "")]
+(define_expand "reduc_uplus_<mode>"
+  [(match_operand:VWH 0 "register_operand" "")
+   (match_operand:VWH 1 "register_operand" "")]
   "TARGET_HARD_FLOAT && TARGET_LOONGSON_VECTORS"
 {
-  rtx tmp = gen_reg_rtx (GET_MODE (operands[1]));
-  mips_expand_vec_reduc (tmp, operands[1], gen_add<mode>3);
-  emit_insn (gen_vec_loongson_extract_lo_<mode> (operands[0], tmp));
+  mips_expand_vec_reduc (operands[0], operands[1], gen_add<mode>3);
   DONE;
 })
 
-(define_expand "reduc_smax_scal_<mode>"
-  [(match_operand:<V_inner> 0 "register_operand" "")
+; ??? Given that we're not describing a widening reduction, we should
+; not have separate optabs for signed and unsigned.
+(define_expand "reduc_splus_<mode>"
+  [(match_operand:VWHB 0 "register_operand" "")
    (match_operand:VWHB 1 "register_operand" "")]
   "TARGET_HARD_FLOAT && TARGET_LOONGSON_VECTORS"
 {
-  rtx tmp = gen_reg_rtx (GET_MODE (operands[1]));
-  mips_expand_vec_reduc (tmp, operands[1], gen_smax<mode>3);
-  emit_insn (gen_vec_loongson_extract_lo_<mode> (operands[0], tmp));
+  emit_insn (gen_reduc_uplus_<mode>(operands[0], operands[1]));
   DONE;
 })
 
-(define_expand "reduc_smin_scal_<mode>"
-  [(match_operand:<V_inner> 0 "register_operand" "")
+(define_expand "reduc_smax_<mode>"
+  [(match_operand:VWHB 0 "register_operand" "")
    (match_operand:VWHB 1 "register_operand" "")]
   "TARGET_HARD_FLOAT && TARGET_LOONGSON_VECTORS"
 {
-  rtx tmp = gen_reg_rtx (GET_MODE (operands[1]));
-  mips_expand_vec_reduc (tmp, operands[1], gen_smin<mode>3);
-  emit_insn (gen_vec_loongson_extract_lo_<mode> (operands[0], tmp));
+  mips_expand_vec_reduc (operands[0], operands[1], gen_smax<mode>3);
   DONE;
 })
 
-(define_expand "reduc_umax_scal_<mode>"
-  [(match_operand:<V_inner> 0 "register_operand" "")
+(define_expand "reduc_smin_<mode>"
+  [(match_operand:VWHB 0 "register_operand" "")
+   (match_operand:VWHB 1 "register_operand" "")]
+  "TARGET_HARD_FLOAT && TARGET_LOONGSON_VECTORS"
+{
+  mips_expand_vec_reduc (operands[0], operands[1], gen_smin<mode>3);
+  DONE;
+})
+
+(define_expand "reduc_umax_<mode>"
+  [(match_operand:VB 0 "register_operand" "")
    (match_operand:VB 1 "register_operand" "")]
   "TARGET_HARD_FLOAT && TARGET_LOONGSON_VECTORS"
 {
-  rtx tmp = gen_reg_rtx (GET_MODE (operands[1]));
-  mips_expand_vec_reduc (tmp, operands[1], gen_umax<mode>3);
-  emit_insn (gen_vec_loongson_extract_lo_<mode> (operands[0], tmp));
+  mips_expand_vec_reduc (operands[0], operands[1], gen_umax<mode>3);
   DONE;
 })
 
-(define_expand "reduc_umin_scal_<mode>"
-  [(match_operand:<V_inner> 0 "register_operand" "")
+(define_expand "reduc_umin_<mode>"
+  [(match_operand:VB 0 "register_operand" "")
    (match_operand:VB 1 "register_operand" "")]
   "TARGET_HARD_FLOAT && TARGET_LOONGSON_VECTORS"
 {
-  rtx tmp = gen_reg_rtx (GET_MODE (operands[1]));
-  mips_expand_vec_reduc (tmp, operands[1], gen_umin<mode>3);
-  emit_insn (gen_vec_loongson_extract_lo_<mode> (operands[0], tmp));
+  mips_expand_vec_reduc (operands[0], operands[1], gen_umin<mode>3);
   DONE;
 })

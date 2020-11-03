@@ -1,5 +1,5 @@
 /* Basic IPA optimizations based on profile.
-   Copyright (C) 2003-2018 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -42,29 +42,55 @@ along with GCC; see the file COPYING3.  If not see
      of inliner. 
    - Finally we propagate the following flags: unlikely executed, executed
      once, executed at startup and executed at exit.  These flags are used to
-     control code size/performance threshold and code placement (by producing
+     control code size/performance threshold and and code placement (by producing
      .text.unlikely/.text.hot/.text.startup/.text.exit subsections).  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
+#include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
-#include "gimple.h"
+#include "fold-const.h"
 #include "predict.h"
-#include "alloc-pool.h"
-#include "tree-pass.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "basic-block.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
-#include "data-streamer.h"
+#include "tree-pass.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "gimple.h"
 #include "gimple-iterator.h"
+#include "flags.h"
+#include "target.h"
+#include "tree-iterator.h"
 #include "ipa-utils.h"
 #include "profile.h"
 #include "params.h"
 #include "value-prof.h"
+#include "alloc-pool.h"
 #include "tree-inline.h"
+#include "lto-streamer.h"
+#include "data-streamer.h"
 #include "symbol-summary.h"
-#include "tree-vrp.h"
 #include "ipa-prop.h"
-#include "ipa-fnsummary.h"
+#include "ipa-inline.h"
 
 /* Entry in the histogram.  */
 
@@ -81,14 +107,16 @@ struct histogram_entry
    duplicate entries.  */
 
 vec<histogram_entry *> histogram;
-static object_allocator<histogram_entry> histogram_pool ("IPA histogram");
+static alloc_pool histogram_pool;
 
 /* Hashtable support for storing SSA names hashed by their SSA_NAME_VAR.  */
 
-struct histogram_hash : nofree_ptr_hash <histogram_entry>
+struct histogram_hash : typed_noop_remove <histogram_entry>
 {
-  static inline hashval_t hash (const histogram_entry *);
-  static inline int equal (const histogram_entry *, const histogram_entry *);
+  typedef histogram_entry value_type;
+  typedef histogram_entry compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline int equal (const value_type *, const compare_type *);
 };
 
 inline hashval_t
@@ -116,7 +144,7 @@ account_time_size (hash_table<histogram_hash> *hashtable,
 
   if (!*val)
     {
-      *val = histogram_pool.allocate ();
+      *val = (histogram_entry *) pool_alloc (histogram_pool);
       **val = key;
       histogram.safe_push (*val);
     }
@@ -158,7 +186,7 @@ dump_histogram (FILE *file, vec<histogram_entry *> histogram)
     {
       cumulated_time += histogram[i]->count * histogram[i]->time;
       cumulated_size += histogram[i]->size;
-      fprintf (file, "  %" PRId64": time:%i (%2.2f) size:%i (%2.2f)\n",
+      fprintf (file, "  %"PRId64": time:%i (%2.2f) size:%i (%2.2f)\n",
 	       (int64_t) histogram[i]->count,
 	       histogram[i]->time,
 	       cumulated_time * 100.0 / overall_time,
@@ -177,56 +205,55 @@ ipa_profile_generate_summary (void)
   basic_block bb;
 
   hash_table<histogram_hash> hashtable (10);
+  histogram_pool = create_alloc_pool ("IPA histogram", sizeof (struct histogram_entry),
+				      10);
   
   FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
-    if (ENTRY_BLOCK_PTR_FOR_FN (DECL_STRUCT_FUNCTION (node->decl))->count.ipa_p ())
-      FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (node->decl))
-	{
-	  int time = 0;
-	  int size = 0;
-	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-	    {
-	      gimple *stmt = gsi_stmt (gsi);
-	      if (gimple_code (stmt) == GIMPLE_CALL
-		  && !gimple_call_fndecl (stmt))
-		{
-		  histogram_value h;
-		  h = gimple_histogram_value_of_type
-			(DECL_STRUCT_FUNCTION (node->decl),
-			 stmt, HIST_TYPE_INDIR_CALL);
-		  /* No need to do sanity check: gimple_ic_transform already
-		     takes away bad histograms.  */
-		  if (h)
-		    {
-		      /* counter 0 is target, counter 1 is number of execution we called target,
-			 counter 2 is total number of executions.  */
-		      if (h->hvalue.counters[2])
-			{
-			  struct cgraph_edge * e = node->get_edge (stmt);
-			  if (e && !e->indirect_unknown_callee)
-			    continue;
-			  e->indirect_info->common_target_id
-			    = h->hvalue.counters [0];
-			  e->indirect_info->common_target_probability
-			    = GCOV_COMPUTE_SCALE (h->hvalue.counters [1], h->hvalue.counters [2]);
-			  if (e->indirect_info->common_target_probability > REG_BR_PROB_BASE)
-			    {
-			      if (dump_file)
-				fprintf (dump_file, "Probability capped to 1\n");
-			      e->indirect_info->common_target_probability = REG_BR_PROB_BASE;
-			    }
-			}
-		      gimple_remove_histogram_value (DECL_STRUCT_FUNCTION (node->decl),
-						      stmt, h);
-		    }
-		}
-	      time += estimate_num_insns (stmt, &eni_time_weights);
-	      size += estimate_num_insns (stmt, &eni_size_weights);
-	    }
-	  if (bb->count.ipa_p () && bb->count.initialized_p ())
-	    account_time_size (&hashtable, histogram, bb->count.ipa ().to_gcov_type (),
-			       time, size);
-	}
+    FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (node->decl))
+      {
+	int time = 0;
+	int size = 0;
+        for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	  {
+	    gimple stmt = gsi_stmt (gsi);
+	    if (gimple_code (stmt) == GIMPLE_CALL
+		&& !gimple_call_fndecl (stmt))
+	      {
+		histogram_value h;
+		h = gimple_histogram_value_of_type
+		      (DECL_STRUCT_FUNCTION (node->decl),
+		       stmt, HIST_TYPE_INDIR_CALL);
+		/* No need to do sanity check: gimple_ic_transform already
+		   takes away bad histograms.  */
+		if (h)
+		  {
+		    /* counter 0 is target, counter 1 is number of execution we called target,
+		       counter 2 is total number of executions.  */
+		    if (h->hvalue.counters[2])
+		      {
+			struct cgraph_edge * e = node->get_edge (stmt);
+			if (e && !e->indirect_unknown_callee)
+			  continue;
+			e->indirect_info->common_target_id
+			  = h->hvalue.counters [0];
+			e->indirect_info->common_target_probability
+			  = GCOV_COMPUTE_SCALE (h->hvalue.counters [1], h->hvalue.counters [2]);
+			if (e->indirect_info->common_target_probability > REG_BR_PROB_BASE)
+			  {
+			    if (dump_file)
+			      fprintf (dump_file, "Probability capped to 1\n");
+			    e->indirect_info->common_target_probability = REG_BR_PROB_BASE;
+			  }
+		      }
+		    gimple_remove_histogram_value (DECL_STRUCT_FUNCTION (node->decl),
+						    stmt, h);
+		  }
+	      }
+	    time += estimate_num_insns (stmt, &eni_time_weights);
+	    size += estimate_num_insns (stmt, &eni_size_weights);
+	  }
+	account_time_size (&hashtable, histogram, bb->count, time, size);
+      }
   histogram.qsort (cmp_counts);
 }
 
@@ -260,6 +287,8 @@ ipa_profile_read_summary (void)
   int j = 0;
 
   hash_table<histogram_hash> hashtable (10);
+  histogram_pool = create_alloc_pool ("IPA histogram", sizeof (struct histogram_entry),
+				      10);
 
   while ((file_data = file_data_vec[j++]))
     {
@@ -331,14 +360,16 @@ ipa_propagate_frequency_1 (struct cgraph_node *node, void *data)
 	 it is executed by the train run.  Transfer the function only if all
 	 callers are unlikely executed.  */
       if (profile_info
-	  && !(edge->callee->count.ipa () == profile_count::zero ())
+	  && opt_for_fn (d->function_symbol->decl, flag_branch_probabilities)
+	  /* Thunks are not profiled.  This is more or less implementation
+	     bug.  */
+	  && !d->function_symbol->thunk.thunk_p
 	  && (edge->caller->frequency != NODE_FREQUENCY_UNLIKELY_EXECUTED
 	      || (edge->caller->global.inlined_to
 		  && edge->caller->global.inlined_to->frequency
 		     != NODE_FREQUENCY_UNLIKELY_EXECUTED)))
 	  d->maybe_unlikely_executed = false;
-      if (edge->count.ipa ().initialized_p ()
-	  && !edge->count.ipa ().nonzero_p ())
+      if (!edge->frequency)
 	continue;
       switch (edge->caller->frequency)
         {
@@ -349,7 +380,7 @@ ipa_propagate_frequency_1 (struct cgraph_node *node, void *data)
 	    fprintf (dump_file, "  Called by %s that is executed once\n",
 		     edge->caller->name ());
 	  d->maybe_unlikely_executed = false;
-	  if (ipa_call_summaries->get (edge)->loop_depth)
+	  if (inline_edge_summary (edge)->loop_depth)
 	    {
 	      d->maybe_executed_once = false;
 	      if (dump_file && (dump_flags & TDF_DETAILS))
@@ -429,11 +460,10 @@ ipa_propagate_frequency (struct cgraph_node *node)
     }
 
   /* With profile we can decide on hot/normal based on count.  */
-  if (node->count. ipa().initialized_p ())
+  if (node->count)
     {
       bool hot = false;
-      if (!(node->count. ipa() == profile_count::zero ())
-	  && node->count. ipa() >= get_hot_bb_threshold ())
+      if (node->count >= get_hot_bb_threshold ())
 	hot = true;
       if (!hot)
 	hot |= contains_hot_call_p (node);
@@ -494,7 +524,6 @@ ipa_profile (void)
   gcov_type overall_time = 0, cutoff = 0, cumulated = 0, overall_size = 0;
   struct cgraph_node *n,*n2;
   int nindirect = 0, ncommon = 0, nunknown = 0, nuseless = 0, nconverted = 0;
-  int nmismatch = 0, nimpossible = 0;
   bool node_map_initialized = false;
 
   if (dump_file)
@@ -513,7 +542,7 @@ ipa_profile (void)
 	{
 	  gcov_type min, cumulated_time = 0, cumulated_size = 0;
 
-	  fprintf (dump_file, "Overall time: %" PRId64"\n",
+	  fprintf (dump_file, "Overall time: %"PRId64"\n",
 		   (int64_t)overall_time);
 	  min = get_hot_bb_threshold ();
           for (i = 0; i < (int)histogram.length () && histogram[i]->count >= min;
@@ -522,7 +551,7 @@ ipa_profile (void)
 	      cumulated_time += histogram[i]->count * histogram[i]->time;
 	      cumulated_size += histogram[i]->size;
 	    }
-	  fprintf (dump_file, "GCOV min count: %" PRId64
+	  fprintf (dump_file, "GCOV min count: %"PRId64
 		   " Time:%3.2f%% Size:%3.2f%%\n", 
 		   (int64_t)min,
 		   cumulated_time * 100.0 / overall_time,
@@ -548,7 +577,7 @@ ipa_profile (void)
 	      cumulated_time += histogram[i]->count * histogram[i]->time;
 	      cumulated_size += histogram[i]->size;
 	    }
-	  fprintf (dump_file, "Determined min count: %" PRId64
+	  fprintf (dump_file, "Determined min count: %"PRId64
 		   " Time:%3.2f%% Size:%3.2f%%\n", 
 		   (int64_t)threshold,
 		   cumulated_time * 100.0 / overall_time,
@@ -563,7 +592,7 @@ ipa_profile (void)
 	}
     }
   histogram.release ();
-  histogram_pool.release ();
+  free_alloc_pool (histogram_pool);
 
   /* Produce speculative calls: we saved common traget from porfiling into
      e->common_target_id.  Now, at link time, we can look up corresponding
@@ -578,7 +607,7 @@ ipa_profile (void)
 
       for (e = n->indirect_calls; e; e = e->next_callee)
 	{
-	  if (n->count.initialized_p ())
+	  if (n->count)
 	    nindirect++;
 	  if (e->indirect_info->common_target_id)
 	    {
@@ -592,9 +621,9 @@ ipa_profile (void)
 		  if (dump_file)
 		    {
 		      fprintf (dump_file, "Indirect call -> direct call from"
-			       " other module %s => %s, prob %3.2f\n",
-			       n->dump_name (),
-			       n2->dump_name (),
+			       " other module %s/%i => %s/%i, prob %3.2f\n",
+			       xstrdup_for_dump (n->name ()), n->order,
+			       xstrdup_for_dump (n2->name ()), n2->order,
 			       e->indirect_info->common_target_probability
 			       / (float)REG_BR_PROB_BASE);
 		    }
@@ -622,32 +651,6 @@ ipa_profile (void)
 				 "Not speculating: target is overwritable "
 				 "and can be discarded.\n");
 		    }
-		  else if (ipa_node_params_sum && ipa_edge_args_sum
-			   && (!vec_safe_is_empty
-			       (IPA_NODE_REF (n2)->descriptors))
-			   && ipa_get_param_count (IPA_NODE_REF (n2))
-			      != ipa_get_cs_argument_count (IPA_EDGE_REF (e))
-			    && (ipa_get_param_count (IPA_NODE_REF (n2))
-				>= ipa_get_cs_argument_count (IPA_EDGE_REF (e))
-				|| !stdarg_p (TREE_TYPE (n2->decl))))
-		    {
-		      nmismatch++;
-		      if (dump_file)
-			fprintf (dump_file,
-				 "Not speculating: "
-				 "parameter count mistmatch\n");
-		    }
-		  else if (e->indirect_info->polymorphic
-			   && !opt_for_fn (n->decl, flag_devirtualize)
-			   && !possible_polymorphic_call_target_p (e, n2))
-		    {
-		      nimpossible++;
-		      if (dump_file)
-			fprintf (dump_file,
-				 "Not speculating: "
-				 "function is not in the polymorphic "
-				 "call target list\n");
-		    }
 		  else
 		    {
 		      /* Target may be overwritable, but profile says that
@@ -664,8 +667,10 @@ ipa_profile (void)
 		      nconverted++;
 		      e->make_speculative
 			(n2,
-			 e->count.apply_probability
-				     (e->indirect_info->common_target_probability));
+			 apply_scale (e->count,
+				      e->indirect_info->common_target_probability),
+			 apply_scale (e->frequency,
+				      e->indirect_info->common_target_probability));
 		      update = true;
 		    }
 		}
@@ -679,7 +684,7 @@ ipa_profile (void)
 	    }
 	 }
        if (update)
-	 ipa_update_overall_fn_summary (n);
+	 inline_update_overall_summary (n);
      }
   if (node_map_initialized)
     del_node_map ();
@@ -688,15 +693,11 @@ ipa_profile (void)
 	     "%i indirect calls trained.\n"
 	     "%i (%3.2f%%) have common target.\n"
 	     "%i (%3.2f%%) targets was not found.\n"
-	     "%i (%3.2f%%) targets had parameter count mismatch.\n"
-	     "%i (%3.2f%%) targets was not in polymorphic call target list.\n"
 	     "%i (%3.2f%%) speculations seems useless.\n"
 	     "%i (%3.2f%%) speculations produced.\n",
 	     nindirect,
 	     ncommon, ncommon * 100.0 / nindirect,
 	     nunknown, nunknown * 100.0 / nindirect,
-	     nmismatch, nmismatch * 100.0 / nindirect,
-	     nimpossible, nimpossible * 100.0 / nindirect,
 	     nuseless, nuseless * 100.0 / nindirect,
 	     nconverted, nconverted * 100.0 / nindirect);
 

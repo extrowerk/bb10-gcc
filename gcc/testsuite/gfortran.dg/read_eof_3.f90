@@ -8,22 +8,22 @@
        write(11)data
        write(11)data
        read(11,end=        1000 )data
-       STOP 1
+       call abort()
  1000  continue
        backspace 11
        rewind 11
        write(11)data
        read(11,end=        1001 )data
-       STOP 2
+       call abort()
  1001  continue
        data = 0
        backspace 11
        rewind 11
        read(11,end=        1002 )data
-       if (.not. all(data == -256)) STOP 3
+       if (.not. all(data == -256)) call abort()
  1002  continue
        read(11,end=        1003 )data
-       STOP 4
+       call abort()
  1003  continue
        close(11)
        end

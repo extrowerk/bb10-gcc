@@ -12,7 +12,7 @@ struct S{
 
 struct S s[6];
 
-void f(struct S *p)
+int f(struct S *p)
 {
   memcpy(p, &s[2], sizeof(*p));
   memcpy(p, &s[1], sizeof(*p));

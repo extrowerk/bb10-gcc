@@ -1,5 +1,4 @@
 /* { dg-do compile } */
-/* { dg-additional-options "-Wno-return-type" } */
 
 typedef unsigned int UT_uint32;
 typedef UT_uint32 PT_DocPosition;
@@ -11,9 +10,9 @@ class PX_ChangeRecord;
 class pf_Frag {
   public:
    typedef enum _PFType { PFT_Object } PFType;
-   inline PFType getType(void) const { return PFType(); }
-   inline pf_Frag * getNext(void) const { return 0; }
-   PT_DocPosition getPos(void) const { return PT_DocPosition(); }
+   inline PFType getType(void) const { }
+   inline pf_Frag * getNext(void) const { }
+   PT_DocPosition getPos(void) const { }
 };
 class pf_Fragments {
   public:

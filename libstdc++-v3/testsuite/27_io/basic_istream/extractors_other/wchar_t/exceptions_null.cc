@@ -1,4 +1,4 @@
-// Copyright (C) 2004-2018 Free Software Foundation, Inc.
+// Copyright (C) 2004-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,6 +15,9 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
+// The library still throws the original definition of std::ios::failure
+// { dg-options "-D_GLIBCXX_USE_CXX11_ABI=0" }
+
 #include <istream>
 #include <ostream>
 #include <streambuf>
@@ -25,6 +28,7 @@ using namespace std;
 
 void test2()
 {
+  bool test __attribute__((unused)) = true;
   wistringstream stream;
   stream >> static_cast<wstreambuf*>(0);
   VERIFY( stream.rdstate() & ios_base::failbit );
@@ -32,6 +36,7 @@ void test2()
 
 void test4()
 {
+  bool test __attribute__((unused)) = true;
   wistringstream stream;
   stream.exceptions(ios_base::failbit);
 
@@ -40,7 +45,7 @@ void test4()
       stream >> static_cast<wstreambuf*>(0);
       VERIFY( false );
     }
-  catch (std::ios_base::failure&)
+  catch (ios_base::failure&)
     {
     }
 

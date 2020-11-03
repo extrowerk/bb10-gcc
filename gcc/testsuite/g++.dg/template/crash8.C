@@ -13,7 +13,7 @@ struct bar
   };
 
   template <typename U>
-  void wom(U c)
+  int wom(U c)
   {
     struct foo b;
   }

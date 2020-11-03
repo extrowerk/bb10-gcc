@@ -65,20 +65,20 @@ complex, pointer :: p
 z = (1.,0.)
 p => c()
 z = (2.,0.)
-if (p /= z) STOP 1
+if (p /= z) call abort ()
 
 NULLIFY(p)
 p => d()
 z = (3.,0.)
-if (p /= z) STOP 2
+if (p /= z) call abort ()
 
 NULLIFY(p)
 p => e()
 z = (4.,0.)
-if (p /= z) STOP 3
+if (p /= z) call abort ()
 
 NULLIFY(p)
 p => f()
 z = (5.,0.)
-if (p /= z) STOP 4
+if (p /= z) call abort ()
 end

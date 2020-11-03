@@ -12,3 +12,4 @@ int foo (void)
 /* We should eliminate the redundant load of i.  */
 
 /* { dg-final { scan-tree-dump-not "= i;" "fre1" } } */
+/* { dg-final { cleanup-tree-dump "fre1" } } */

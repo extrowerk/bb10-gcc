@@ -24,9 +24,10 @@ main ()
     }
   return 0;
 }
-/* autofdo does not do value profiling so far */
-/* { dg-final-use-not-autofdo { scan-ipa-dump "Mod subtract transformation on insn" "profile" } } */
+/* { dg-final-use { scan-ipa-dump "Mod subtract transformation on insn" "profile" } } */
 /* This is part of code checking that n is greater than the divisor so we are sure that it
    didn't get optimized out.  */
-/* { dg-final-use-not-autofdo { scan-tree-dump "if \\(_\[0-9\]* \\< n_\[0-9\]*" "optimized"} } */
+/* { dg-final-use { scan-tree-dump "if \\(n_\[0-9\]* \\>" "optimized"} } */
 /* { dg-final-use { scan-tree-dump-not "Invalid sum" "optimized"} } */
+/* { dg-final-use { cleanup-tree-dump "optimized" } } */
+/* { dg-final-use { cleanup-ipa-dump "profile" } } */

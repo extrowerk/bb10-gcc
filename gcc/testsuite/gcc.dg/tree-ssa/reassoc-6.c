@@ -12,3 +12,4 @@ int main(int a, int b, int c, int d)
 /* We cannot re-associate the additions due to undefined signed overflow.  */
 
 /* { dg-final { scan-tree-dump-times "\\\+ 8" 1 "reassoc1" { xfail *-*-* } } } */
+/* { dg-final { cleanup-tree-dump "reassoc1" } } */

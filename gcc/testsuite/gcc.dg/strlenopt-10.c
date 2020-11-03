@@ -80,3 +80,4 @@ main ()
 /* { dg-final { scan-tree-dump-times "stpcpy \\(" 0 "strlen" } } */
 /* { dg-final { scan-tree-dump-times "\\*q_\[0-9\]* = 32;" 1 "strlen" } } */
 /* { dg-final { scan-tree-dump-times "memcpy \\(\[^\n\r\]*, 1\\)" 1 "strlen" } } */
+/* { dg-final { cleanup-tree-dump "strlen" } } */

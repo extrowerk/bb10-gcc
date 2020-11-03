@@ -1,4 +1,4 @@
-// Copyright (C) 2004-2018 Free Software Foundation, Inc.
+// Copyright (C) 2004-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -26,8 +26,9 @@
 // In the presence of no fmtflags, the input operator should behave
 // like strtol(x, y, 0)
 // libstdc++/90
-void test11()
+bool test11()
 {
+  bool test __attribute__((unused)) = true;
   const wchar_t* cstrlit = L"0x2a";
 
   // sanity check via 'C' library call
@@ -41,6 +42,8 @@ void test11()
 
   VERIFY( !iss.fail() );
   VERIFY( l == i );
+
+  return test;
 }
 
 int main()

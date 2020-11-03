@@ -10,3 +10,4 @@ fx (char *a, __SIZE_TYPE__ sz)
 }
 
 /* { dg-final { scan-tree-dump "return sz" "cddce1" } } */
+/* { dg-final { cleanup-tree-dump "cddce1" } } */

@@ -13,3 +13,4 @@ unsigned long f(unsigned char *p10) {
 /* The p->c memory access should have alignment of 4 bytes.  */
 
 /* { dg-final { scan-rtl-dump "MEM\[^\\n\]*A32" "expand" } } */
+/* { dg-final { cleanup-rtl-dump "expand" } } */

@@ -21,3 +21,4 @@ int foo (float *p)
    other loads should be removed.  */
 
 /* { dg-final { scan-tree-dump-times "\\\*\[^ \]" 1 "cddce1" } } */
+/* { dg-final { cleanup-tree-dump "cddce1" } } */

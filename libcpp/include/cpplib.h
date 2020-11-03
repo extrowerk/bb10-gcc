@@ -1,5 +1,5 @@
 /* Definitions for CPP library.
-   Copyright (C) 1995-2018 Free Software Foundation, Inc.
+   Copyright (C) 1995-2015 Free Software Foundation, Inc.
    Written by Per Bothner, 1994-95.
 
 This program is free software; you can redistribute it and/or modify it
@@ -119,7 +119,6 @@ struct _cpp_file;
   TK(WCHAR,		LITERAL) /* L'char' */				\
   TK(CHAR16,		LITERAL) /* u'char' */				\
   TK(CHAR32,		LITERAL) /* U'char' */				\
-  TK(UTF8CHAR,		LITERAL) /* u8'char' */				\
   TK(OTHER,		LITERAL) /* stray punctuation */		\
 									\
   TK(STRING,		LITERAL) /* "string" */				\
@@ -134,7 +133,6 @@ struct _cpp_file;
   TK(WCHAR_USERDEF,	LITERAL) /* L'char'_suffix - C++-0x */		\
   TK(CHAR16_USERDEF,	LITERAL) /* u'char'_suffix - C++-0x */		\
   TK(CHAR32_USERDEF,	LITERAL) /* U'char'_suffix - C++-0x */		\
-  TK(UTF8CHAR_USERDEF,	LITERAL) /* u8'char'_suffix - C++-0x */		\
   TK(STRING_USERDEF,	LITERAL) /* "string"_suffix - C++-0x */		\
   TK(WSTRING_USERDEF,	LITERAL) /* L"string"_suffix - C++-0x */	\
   TK(STRING16_USERDEF,	LITERAL) /* u"string"_suffix - C++-0x */	\
@@ -168,11 +166,10 @@ enum cpp_ttype
 #undef TK
 
 /* C language kind, used when calling cpp_create_reader.  */
-enum c_lang {CLK_GNUC89 = 0, CLK_GNUC99, CLK_GNUC11, CLK_GNUC17,
-	     CLK_STDC89, CLK_STDC94, CLK_STDC99, CLK_STDC11, CLK_STDC17,
+enum c_lang {CLK_GNUC89 = 0, CLK_GNUC99, CLK_GNUC11,
+	     CLK_STDC89, CLK_STDC94, CLK_STDC99, CLK_STDC11,
 	     CLK_GNUCXX, CLK_CXX98, CLK_GNUCXX11, CLK_CXX11,
-	     CLK_GNUCXX14, CLK_CXX14, CLK_GNUCXX17, CLK_CXX17,
-	     CLK_GNUCXX2A, CLK_CXX2A, CLK_ASM};
+	     CLK_GNUCXX14, CLK_CXX14, CLK_GNUCXX1Z, CLK_CXX1Z, CLK_ASM};
 
 /* Payload of a NUMBER, STRING, CHAR or COMMENT token.  */
 struct GTY(()) cpp_string {
@@ -186,8 +183,7 @@ struct GTY(()) cpp_string {
 #define STRINGIFY_ARG	(1 << 2) /* If macro argument to be stringified.  */
 #define PASTE_LEFT	(1 << 3) /* If on LHS of a ## operator.  */
 #define NAMED_OP	(1 << 4) /* C++ named operators.  */
-#define PREV_FALLTHROUGH (1 << 5) /* On a token preceeded by FALLTHROUGH
-				     comment.  */
+#define NO_EXPAND	(1 << 5) /* Do not macro-expand this token.  */
 #define BOL		(1 << 6) /* Token at beginning of line.  */
 #define PURE_ZERO	(1 << 7) /* Single 0 digit, used by the C++ frontend,
 				    set in c-lex.c.  */
@@ -195,7 +191,6 @@ struct GTY(()) cpp_string {
 #define SP_PREV_WHITE	(1 << 9) /* If whitespace before a ##
 				    operator, or before this token
 				    after a # operator.  */
-#define NO_EXPAND	(1 << 10) /* Do not macro-expand this token.  */
 
 /* Specify which field, if any, of the cpp_token union is used.  */
 
@@ -240,8 +235,7 @@ struct GTY(()) cpp_identifier {
 /* A preprocessing token.  This has been carefully packed and should
    occupy 16 bytes on 32-bit hosts and 24 bytes on 64-bit hosts.  */
 struct GTY(()) cpp_token {
-  source_location src_loc;	/* Location of first char of token,
-				   together with range of full token.  */
+  source_location src_loc;	/* Location of first char of token.  */
   ENUM_BITFIELD(cpp_ttype) type : CHAR_BIT;  /* token type */
   unsigned short flags;		/* flags - see above */
 
@@ -345,9 +339,6 @@ struct cpp_options
   /* Nonzero means process u/U prefix literals (UTF-16/32).  */
   unsigned char uliterals;
 
-  /* Nonzero means process u8 prefixed character literals (UTF-8).  */
-  unsigned char utf8_char_literals;
-
   /* Nonzero means process r/R raw strings.  If this is set, uliterals
      must be set as well.  */
   unsigned char rliterals;
@@ -396,9 +387,6 @@ struct cpp_options
      explicitly undefined.  */
   unsigned char warn_builtin_macro_redefined;
 
-  /* Different -Wimplicit-fallthrough= levels.  */
-  unsigned char cpp_warn_implicit_fallthrough;
-
   /* Nonzero means we should look for header.gcc files that remap file
      names.  */
   unsigned char remap;
@@ -415,10 +403,6 @@ struct cpp_options
 
   /* Nonzero means warn if undefined identifiers are evaluated in an #if.  */
   unsigned char warn_undef;
-
-  /* Nonzero means warn if "defined" is encountered in a place other than
-     an #if.  */
-  unsigned char warn_expansion_to_defined;
 
   /* Nonzero means warn of unused macros from the main file.  */
   unsigned char warn_unused_macros;
@@ -478,9 +462,6 @@ struct cpp_options
   /* Nonzero for C++ 2014 Standard digit separators.  */
   unsigned char digit_separators;
 
-  /* Nonzero for C++2a __VA_OPT__ feature.  */
-  unsigned char va_opt;
-
   /* Holds the name of the target (execution) character set.  */
   const char *narrow_charset;
 
@@ -502,9 +483,6 @@ struct cpp_options
 
   /* True if warn about differences between C90 and C99.  */
   signed char cpp_warn_c90_c99_compat;
-
-  /* True if warn about differences between C++98 and C++11.  */
-  bool cpp_warn_cxx11_compat;
 
   /* Dependency generation.  */
   struct
@@ -568,7 +546,7 @@ struct cpp_callbacks
      The line_map is for the new file.  It is NULL if there is no new file.
      (In C this happens when done with <built-in>+<command line> and also
      when done with a main file.)  This can be used for resource cleanup.  */
-  void (*file_change) (cpp_reader *, const line_map_ordinary *);
+  void (*file_change) (cpp_reader *, const struct line_map *);
 
   void (*dir_change) (cpp_reader *, const char *);
   void (*include) (cpp_reader *, source_location, const unsigned char *,
@@ -587,9 +565,9 @@ struct cpp_callbacks
 
   /* Called to emit a diagnostic.  This callback receives the
      translated message.  */
-  bool (*error) (cpp_reader *, int, int, rich_location *,
+  bool (*error) (cpp_reader *, int, int, source_location, unsigned int,
 		 const char *, va_list *)
-       ATTRIBUTE_FPTR_PRINTF(5,0);
+       ATTRIBUTE_FPTR_PRINTF(6,0);
 
   /* Callbacks for when a macro is expanded, or tested (whether
      defined or not at the time) in #ifdef, #ifndef or "defined".  */
@@ -607,25 +585,6 @@ struct cpp_callbacks
 
   /* Callback that can change a user builtin into normal macro.  */
   bool (*user_builtin_macro) (cpp_reader *, cpp_hashnode *);
-
-  /* Callback to parse SOURCE_DATE_EPOCH from environment.  */
-  time_t (*get_source_date_epoch) (cpp_reader *);
-
-  /* Callback for providing suggestions for misspelled directives.  */
-  const char *(*get_suggestion) (cpp_reader *, const char *, const char *const *);
-
-  /* Callback for when a comment is encountered, giving the location
-     of the opening slash, a pointer to the content (which is not
-     necessarily 0-terminated), and the length of the content.
-     The content contains the opening slash-star (or slash-slash),
-     and for C-style comments contains the closing star-slash.  For
-     C++-style comments it does not include the terminating newline.  */
-  void (*comment) (cpp_reader *, source_location, const unsigned char *,
-		   size_t);
-
-  /* Callback for filename remapping in __FILE__ and __BASE_FILE__ macro
-     expansions.  */
-  const char *(*remap_filename) (const char*);
 };
 
 #ifdef VMS
@@ -719,7 +678,7 @@ enum cpp_builtin_type
   BT_COUNTER,			/* `__COUNTER__' */
   BT_HAS_ATTRIBUTE,		/* `__has_attribute__(x)' */
   BT_FIRST_USER,		/* User defined builtin macros.  */
-  BT_LAST_USER = BT_FIRST_USER + 63
+  BT_LAST_USER = BT_FIRST_USER + 31
 };
 
 #define CPP_HASHNODE(HNODE)	((cpp_hashnode *) (HNODE))
@@ -770,51 +729,6 @@ struct GTY(()) cpp_hashnode {
   unsigned int flags : 10;		/* CPP flags.  */
 
   union _cpp_hashnode_value GTY ((desc ("CPP_HASHNODE_VALUE_IDX (%1)"))) value;
-};
-
-/* A class for iterating through the source locations within a
-   string token (before escapes are interpreted, and before
-   concatenation).  */
-
-class cpp_string_location_reader {
- public:
-  cpp_string_location_reader (source_location src_loc,
-			      line_maps *line_table);
-
-  source_range get_next ();
-
- private:
-  source_location m_loc;
-  int m_offset_per_column;
-  line_maps *m_line_table;
-};
-
-/* A class for storing the source ranges of all of the characters within
-   a string literal, after escapes are interpreted, and after
-   concatenation.
-
-   This is not GTY-marked, as instances are intended to be temporary.  */
-
-class cpp_substring_ranges
-{
- public:
-  cpp_substring_ranges ();
-  ~cpp_substring_ranges ();
-
-  int get_num_ranges () const { return m_num_ranges; }
-  source_range get_range (int idx) const
-  {
-    linemap_assert (idx < m_num_ranges);
-    return m_ranges[idx];
-  }
-
-  void add_range (source_range range);
-  void add_n_ranges (int num, cpp_string_location_reader &loc_reader);
-
- private:
-  source_range *m_ranges;
-  int m_num_ranges;
-  int m_alloc_ranges;
 };
 
 /* Call this first to get a handle to pass to other functions.
@@ -893,7 +807,6 @@ extern const cpp_token *cpp_get_token_with_location (cpp_reader *,
 extern bool cpp_fun_like_macro_p (cpp_hashnode *);
 extern const unsigned char *cpp_macro_definition (cpp_reader *,
 						  cpp_hashnode *);
-extern source_location cpp_macro_definition_location (cpp_hashnode *);
 extern void _cpp_backup_tokens (cpp_reader *, unsigned int);
 extern const cpp_token *cpp_peek_token (cpp_reader *, int);
 
@@ -904,12 +817,6 @@ extern cppchar_t cpp_interpret_charconst (cpp_reader *, const cpp_token *,
 extern bool cpp_interpret_string (cpp_reader *,
 				  const cpp_string *, size_t,
 				  cpp_string *, enum cpp_ttype);
-extern const char *cpp_interpret_string_ranges (cpp_reader *pfile,
-						const cpp_string *from,
-						cpp_string_location_reader *,
-						size_t count,
-						cpp_substring_ranges *out,
-						enum cpp_ttype type);
 extern bool cpp_interpret_string_notranslate (cpp_reader *,
 					      const cpp_string *, size_t,
 					      cpp_string *, enum cpp_ttype);
@@ -961,7 +868,7 @@ struct cpp_num
 #define CPP_N_FLOATING	0x0002
 
 #define CPP_N_WIDTH	0x00F0
-#define CPP_N_SMALL	0x0010	/* int, float, short _Fract/Accum  */
+#define CPP_N_SMALL	0x0010	/* int, float, shrot _Fract/Accum  */
 #define CPP_N_MEDIUM	0x0020	/* long, double, long _Fract/_Accum.  */
 #define CPP_N_LARGE	0x0040	/* long long, long double,
 				   long long _Fract/Accum.  */
@@ -983,15 +890,8 @@ struct cpp_num
 
 #define CPP_N_FRACT	0x100000 /* Fract types.  */
 #define CPP_N_ACCUM	0x200000 /* Accum types.  */
-#define CPP_N_FLOATN	0x400000 /* _FloatN types.  */
-#define CPP_N_FLOATNX	0x800000 /* _FloatNx types.  */
 
 #define CPP_N_USERDEF	0x1000000 /* C++0x user-defined literal.  */
-
-#define CPP_N_WIDTH_FLOATN_NX	0xF0000000 /* _FloatN / _FloatNx value
-					      of N, divided by 16.  */
-#define CPP_FLOATN_SHIFT	24
-#define CPP_FLOATN_MAX	0xF0
 
 /* Classify a CPP_NUMBER token.  The return value is a combination of
    the flags from the above sets.  */
@@ -1061,9 +961,7 @@ enum {
   CPP_W_LITERAL_SUFFIX,
   CPP_W_DATE_TIME,
   CPP_W_PEDANTIC,
-  CPP_W_C90_C99_COMPAT,
-  CPP_W_CXX11_COMPAT,
-  CPP_W_EXPANSION_TO_DEFINED
+  CPP_W_C90_C99_COMPAT
 };
 
 /* Output a diagnostic of some kind.  */
@@ -1081,8 +979,7 @@ extern bool cpp_warning_syshdr (cpp_reader *, int, const char *msgid, ...)
 extern bool cpp_errno (cpp_reader *, int, const char *msgid);
 /* Similarly, but with "FILENAME: " instead of "MSGID: ", where
    the filename is not localized.  */
-extern bool cpp_errno_filename (cpp_reader *, int, const char *filename,
-				source_location loc);
+extern bool cpp_errno_filename (cpp_reader *, int, const char *filename);
 
 /* Same as cpp_error, except additionally specifies a position as a
    (translation unit) physical line and physical column.  If the line is
@@ -1099,15 +996,6 @@ extern bool cpp_pedwarning_with_line (cpp_reader *, int, source_location,
 extern bool cpp_warning_with_line_syshdr (cpp_reader *, int, source_location,
                                           unsigned, const char *msgid, ...)
   ATTRIBUTE_PRINTF_5;
-
-extern bool cpp_error_at (cpp_reader * pfile, int level,
-			  source_location src_loc, const char *msgid, ...)
-  ATTRIBUTE_PRINTF_4;
-
-extern bool cpp_error_at (cpp_reader * pfile, int level,
-			  rich_location *richloc, const char *msgid,
-			  ...)
-  ATTRIBUTE_PRINTF_4;
 
 /* In lex.c */
 extern int cpp_ideq (const cpp_token *, const char *);

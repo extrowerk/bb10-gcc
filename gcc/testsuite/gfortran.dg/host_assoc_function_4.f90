@@ -16,7 +16,7 @@ MODULE M2
   USE M1
 CONTAINS
   SUBROUTINE S2
-    if (s1 () .ne. 1) STOP 1
+    if (s1 () .ne. 1) call abort
   CONTAINS
     integer function S1 ()
       s1 = 1

@@ -1,6 +1,7 @@
 // PR preprocessor/57757
 // { dg-do compile { target c++11 } }
 // { dg-options "-save-temps" }
+// { dg-final cleanup-saved-temps }
 
 #define S(x) x
 extern S("C")void exit (int);

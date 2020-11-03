@@ -33,8 +33,9 @@ int main1 ()
     }
 
   /* Multidimensional array. Aligned. The "inner" dimensions
-     are invariant in the inner loop.  The outer loop is
-     vectorizable after invariant/store motion.  */
+     are invariant in the inner loop. Vectorizable, but the
+     vectorizer detects that everything is invariant and that
+     the loop is better left untouched. (it should be optimized away). */
   for (i = 0; i < N; i++)
     {
       for (j = 0; j < N; j++)
@@ -64,5 +65,6 @@ int main (void)
   return main1 ();
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" } } */
-/* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" { xfail { ! vect_align_stack_vars } } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

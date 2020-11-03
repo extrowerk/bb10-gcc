@@ -1,6 +1,6 @@
-// { dg-do run { target c++11 } }
+// { dg-options "-std=gnu++11" }
 
-// Copyright (C) 2009-2018 Free Software Foundation, Inc.
+// Copyright (C) 2009-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -34,8 +34,8 @@ using __gnu_test::rvalstruct;
 
 typedef test_container<rvalstruct, random_access_iterator_wrapper> Container;
 
-const unsigned int N = 10000;
-int A[N]; // This is made global because we don't want it on the stack
+const int N = 200000;
+int A[N];
 
 void fill_ascending()
 {
@@ -46,6 +46,8 @@ void fill_ascending()
 void
 test01()
 {
+  bool test __attribute__((unused)) = true;
+
   fill_ascending();
   rvalstruct rv[N];
   std::copy(A, A + N, rv);
@@ -66,6 +68,9 @@ int random_generator(int)
 void
 test02()
 {
+  bool test __attribute__((unused)) = true;
+
+  fill_ascending();
   rvalstruct rv[10] = {1,2,3,4,5,6,7,8,9,10};
   int result[10] = {10,1,2,3,4,5,6,7,8,9};
   Container con(rv, rv + 10);

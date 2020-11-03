@@ -10,9 +10,7 @@ private:
 
 void x::fun() { }
 
-int
 main ()
 {
         float foo;
-	return 0;
 }

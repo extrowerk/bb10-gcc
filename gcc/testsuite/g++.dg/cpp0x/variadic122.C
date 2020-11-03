@@ -9,7 +9,7 @@ template < class T > struct Container
 
 template < class T >
 T deref (T)
-{}				// { dg-bogus "no return" }
+{}				// { dg-warning "no return" }
 
 template < class T, class ... Args >
 auto deref (T u, int, Args ... args)->decltype (deref (u.f (), args ...))

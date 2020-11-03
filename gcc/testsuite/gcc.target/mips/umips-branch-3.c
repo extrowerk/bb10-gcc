@@ -1,4 +1,4 @@
-/* { dg-options "(-mmicromips) -mcompact-branches=optimal" } */
+/* { dg-options "(-mmicromips)" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 void MICROMIPS

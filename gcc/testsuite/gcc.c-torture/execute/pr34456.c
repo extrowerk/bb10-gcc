@@ -1,5 +1,3 @@
-/* { dg-skip-if "requires qsort" { freestanding } }  */
-
 #include <stdlib.h>
 
 int __attribute__ ((noinline)) debug (void) { return 1; }

@@ -1,5 +1,5 @@
 // { dg-do assemble  }
-// { dg-options "-Wno-deprecated -Wno-return-type" }
+// { dg-options "-Wno-deprecated" }
 // Test that the named return value extension works when passed as a reference.
 // Origin: Jason Merrill <jason@redhat.com>
 

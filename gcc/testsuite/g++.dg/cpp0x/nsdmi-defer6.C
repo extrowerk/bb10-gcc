@@ -2,7 +2,7 @@
 
 struct A
 {
-  int i = (A(), 42);		// { dg-error "" }
+  int i = (A(), 42);		// { dg-error "constructor required" }
 };
 
 A a;

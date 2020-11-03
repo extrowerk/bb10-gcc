@@ -1,4 +1,4 @@
-// Copyright (C) 2005-2018 Free Software Foundation, Inc.
+// Copyright (C) 2005-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -59,6 +59,7 @@ struct reset_count_struct
 int test01()
 {
   reset_count_struct __attribute__((unused)) reset;
+  bool test __attribute__((unused)) = true;
 
   std::tr1::shared_ptr<A> a1;
   std::tr1::shared_ptr<A> a2(a1);
@@ -75,6 +76,7 @@ int
 test02()
 {
   reset_count_struct __attribute__((unused)) reset;
+  bool test __attribute__((unused)) = true;
 
   std::tr1::shared_ptr<A> a1(new A);
   std::tr1::shared_ptr<A> a2(a1);
@@ -91,6 +93,7 @@ int
 test03()
 {
   reset_count_struct __attribute__((unused)) reset;
+  bool test __attribute__((unused)) = true;
 
   std::tr1::shared_ptr<B> b(new B);
   std::tr1::shared_ptr<A> a(b);
@@ -107,6 +110,7 @@ int
 test04()
 {
   reset_count_struct __attribute__((unused)) reset;
+  bool test __attribute__((unused)) = true;
 
   std::tr1::shared_ptr<B> b(new B, &deleter);
   std::tr1::shared_ptr<A> a(b);

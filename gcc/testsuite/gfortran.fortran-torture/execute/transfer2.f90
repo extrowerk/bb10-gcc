@@ -15,5 +15,5 @@ program test_convert
   value = transfer(byte_string(1:4),value)
   value1 = transfer(byte_array(1:4),value1)
 
-  if (value .ne. value1)  STOP 1
+  if (value .ne. value1)  call abort()
 end program test_convert

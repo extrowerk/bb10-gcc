@@ -34,3 +34,4 @@ void my_memmove (unsigned int n)
 
 /* { dg-final { scan-tree-dump-times "generated memcpy" 2 "ldist" } } */
 /* { dg-final { scan-tree-dump-times "generated memmove" 1 "ldist" } } */
+/* { dg-final { cleanup-tree-dump "ldist" } } */

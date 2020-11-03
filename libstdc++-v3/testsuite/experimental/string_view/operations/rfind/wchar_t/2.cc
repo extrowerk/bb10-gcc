@@ -1,6 +1,6 @@
-// { dg-do run { target c++14 } }
+// { dg-options "-std=gnu++14" }
 
-// Copyright (C) 2013-2018 Free Software Foundation, Inc.
+// Copyright (C) 2013-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -22,9 +22,11 @@
 
 // basic_string_view::find_last_of
 
-void
+bool
 test02()
 {
+  bool test [[gnu::unused]] = true;
+
   std::experimental::wstring_view::size_type pos;
   std::experimental::wstring_view z(L"ab");
   pos = z.find_last_of(L"ab");
@@ -41,6 +43,8 @@ test02()
   VERIFY( pos == 1 );
   pos = z.find_last_of(L'X');
   VERIFY( pos == std::experimental::wstring_view::npos );
+
+  return test;
 }
 
 int

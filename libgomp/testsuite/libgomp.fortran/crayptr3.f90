@@ -1,5 +1,5 @@
 ! { dg-do run }
-! { dg-options "-fcray-pointer" }
+! { dg-options "-fopenmp -fcray-pointer" }
 
   use omp_lib
   integer :: a, b, c, i, p
@@ -18,7 +18,7 @@
   l = l .or. (p .ne. (2 + omp_get_thread_num ()))
 !$omp end parallel
 
-  if (l) STOP 1
+  if (l) call abort
 
   l = .false.
   ip = loc (a)
@@ -31,6 +31,6 @@
     l = l .or. (p .ne. (2 + i))
   end do
 
-  if (l) STOP 2
-  if (p .ne. 3) STOP 3
+  if (l) call abort
+  if (p .ne. 3) call abort
 end

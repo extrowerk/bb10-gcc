@@ -1,5 +1,4 @@
 /* { dg-do compile } */
-/* { dg-additional-options "-Wno-return-type" } */
 
 typedef __SIZE_TYPE__ size_t;
 extern "C" void *memcpy (void *, __const void *, size_t);

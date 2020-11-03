@@ -1,5 +1,3 @@
-// { dg-additional-options "-Wno-return-type" }
-
 typedef unsigned int source_location;
 typedef source_location location_t;
 extern void error_at (location_t, const char *, ...)
@@ -62,6 +60,4 @@ Lex::advance_one_char (const char *p, bool is_single_quote,
 	&& (*value == '\'' || *value == '\n') && !issued_error)
       error_at (this->location (), "invalid character literal");
   }
-
-  return 0;
 }

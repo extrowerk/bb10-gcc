@@ -17,3 +17,5 @@ contains
         print *, "Hello ", a, "!"
     end subroutine
 end module
+
+! { dg-final { cleanup-modules "mod_say_hello" } }

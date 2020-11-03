@@ -1,5 +1,5 @@
 // Origin PR c++/47291
-// { dg-options "-gdwarf-2 -dA" }
+// { dg-options "-g -dA" }
 // { dg-do compile }
 
 struct S;

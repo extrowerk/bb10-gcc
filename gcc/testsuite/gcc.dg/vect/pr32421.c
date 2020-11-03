@@ -8,4 +8,5 @@ int f(int **__restrict a, int ** __restrict b)
     a[i] = b[i] + 1;
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */
 

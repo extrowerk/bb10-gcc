@@ -1,5 +1,4 @@
 /* { dg-do run } */
-/* { dg-require-effective-target indirect_jumps } */
 
 #define INLINE inline __attribute__((always_inline))
 extern "C" void abort (void);

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -23,6 +23,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Aspects;  use Aspects;
 with Atree;    use Atree;
 with Casing;   use Casing;
 with Einfo;    use Einfo;
@@ -34,6 +35,7 @@ with Lib;      use Lib;
 with Opt;      use Opt;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
+with Snames;   use Snames;
 with Stand;    use Stand;
 with Uname;    use Uname;
 
@@ -109,8 +111,6 @@ package body Restrict is
 
    No_Use_Of_Pragma : array (Pragma_Id) of Source_Ptr :=
                         (others => No_Location);
-   --  Source location of pragma No_Use_Of_Pragma for given pragma, a value
-   --  of System_Location indicates occurrence in system.ads.
 
    No_Use_Of_Pragma_Warning : array (Pragma_Id) of Boolean :=
                                 (others => False);
@@ -195,15 +195,6 @@ package body Restrict is
       Check_Restriction (No_Elaboration_Code, N);
    end Check_Elaboration_Code_Allowed;
 
-   -----------------------------------------
-   -- Check_Implicit_Dynamic_Code_Allowed --
-   -----------------------------------------
-
-   procedure Check_Implicit_Dynamic_Code_Allowed (N : Node_Id) is
-   begin
-      Check_Restriction (No_Implicit_Dynamic_Code, N);
-   end Check_Implicit_Dynamic_Code_Allowed;
-
    --------------------------------
    -- Check_No_Implicit_Aliasing --
    --------------------------------
@@ -276,6 +267,15 @@ package body Restrict is
       Check_Restriction (No_Implicit_Aliasing, Obj);
    end Check_No_Implicit_Aliasing;
 
+   -----------------------------------------
+   -- Check_Implicit_Dynamic_Code_Allowed --
+   -----------------------------------------
+
+   procedure Check_Implicit_Dynamic_Code_Allowed (N : Node_Id) is
+   begin
+      Check_Restriction (No_Implicit_Dynamic_Code, N);
+   end Check_Implicit_Dynamic_Code_Allowed;
+
    ----------------------------------
    -- Check_No_Implicit_Heap_Alloc --
    ----------------------------------
@@ -284,24 +284,6 @@ package body Restrict is
    begin
       Check_Restriction (No_Implicit_Heap_Allocations, N);
    end Check_No_Implicit_Heap_Alloc;
-
-   ----------------------------------
-   -- Check_No_Implicit_Task_Alloc --
-   ----------------------------------
-
-   procedure Check_No_Implicit_Task_Alloc (N : Node_Id) is
-   begin
-      Check_Restriction (No_Implicit_Task_Allocations, N);
-   end Check_No_Implicit_Task_Alloc;
-
-   ---------------------------------------
-   -- Check_No_Implicit_Protected_Alloc --
-   ---------------------------------------
-
-   procedure Check_No_Implicit_Protected_Alloc (N : Node_Id) is
-   begin
-      Check_Restriction (No_Implicit_Protected_Object_Allocations, N);
-   end Check_No_Implicit_Protected_Alloc;
 
    -----------------------------------
    -- Check_Obsolescent_2005_Entity --
@@ -498,21 +480,19 @@ package body Restrict is
    begin
       Msg_Issued := False;
 
-      --  In CodePeer mode, we do not want to check for any restriction, or set
-      --  additional restrictions other than those already set in gnat1drv.adb
-      --  so that we have consistency between each compilation.
+      --  In CodePeer and SPARK mode, we do not want to check for any
+      --  restriction, or set additional restrictions other than those already
+      --  set in gnat1drv.adb so that we have consistency between each
+      --  compilation.
 
-      --  In GNATprove mode restrictions are checked, except for
-      --  No_Initialize_Scalars, which is implicitly set in gnat1drv.adb.
+      --  Just checking, SPARK does not allow restrictions to be set ???
 
-      if CodePeer_Mode
-        or else (GNATprove_Mode and then R = No_Initialize_Scalars)
-      then
+      if CodePeer_Mode or GNATprove_Mode then
          return;
       end if;
 
-      --  In SPARK 05 mode, issue an error for any use of class-wide, even if
-      --  the No_Dispatch restriction is not set.
+      --  In SPARK mode, issue an error for any use of class-wide, even if the
+      --  No_Dispatch restriction is not set.
 
       if R = No_Dispatch then
          Check_SPARK_05_Restriction ("class-wide is not allowed", N);
@@ -676,44 +656,31 @@ package body Restrict is
    --------------------------------------------
 
    procedure Check_Restriction_No_Use_Of_Attribute (N : Node_Id) is
-      Attr_Id  : Attribute_Id;
-      Attr_Nam : Name_Id;
+      Id   : constant Name_Id      := Chars (N);
+      A_Id : constant Attribute_Id := Get_Attribute_Id (Id);
 
    begin
-      --  Nothing to do if the attribute is not in the main source unit, since
-      --  we only give messages for the main unit. This avoids giving messages
-      --  for attributes that are specified in withed units.
+      --  Ignore call if node N is not in the main source unit, since we only
+      --  give messages for the main unit. This avoids giving messages for
+      --  aspects that are specified in withed units.
 
       if not In_Extended_Main_Source_Unit (N) then
          return;
+      end if;
 
-      --  Nothing to do if not checking No_Use_Of_Attribute
+      --  If nothing set, nothing to check
 
-      elsif not No_Use_Of_Attribute_Set then
-         return;
-
-      --  Do not consider internally generated attributes because this leads to
-      --  bizarre errors.
-
-      elsif not Comes_From_Source (N) then
+      if not No_Use_Of_Attribute_Set then
          return;
       end if;
 
-      if Nkind (N) = N_Attribute_Definition_Clause then
-         Attr_Nam := Chars (N);
-      else
-         pragma Assert (Nkind (N) = N_Attribute_Reference);
-         Attr_Nam := Attribute_Name (N);
-      end if;
-
-      Attr_Id        := Get_Attribute_Id (Attr_Nam);
-      Error_Msg_Sloc := No_Use_Of_Attribute (Attr_Id);
+      Error_Msg_Sloc := No_Use_Of_Attribute (A_Id);
 
       if Error_Msg_Sloc /= No_Location then
-         Error_Msg_Name_1 := Attr_Nam;
-         Error_Msg_Warn   := No_Use_Of_Attribute_Warning (Attr_Id);
+         Error_Msg_Node_1 := N;
+         Error_Msg_Warn := No_Use_Of_Attribute_Warning (A_Id);
          Error_Msg_N
-           ("<*<violation of restriction `No_Use_Of_Attribute '='> %` #", N);
+           ("<*<violation of restriction `No_Use_Of_Attribute '='> &`#", N);
       end if;
    end Check_Restriction_No_Use_Of_Attribute;
 
@@ -736,10 +703,10 @@ package body Restrict is
          return;
       end if;
 
-      --  Restriction is only recognized within a configuration pragma file,
-      --  or within a unit of the main extended program. Note: the test for
-      --  Main_Unit is needed to properly include the case of configuration
-      --  pragma files.
+      --  Restriction is only recognized within a configuration
+      --  pragma file, or within a unit of the main extended
+      --  program. Note: the test for Main_Unit is needed to
+      --  properly include the case of configuration pragma files.
 
       if Current_Sem_Unit /= Main_Unit
         and then not In_Extended_Main_Source_Unit (N)
@@ -759,16 +726,9 @@ package body Restrict is
             Ent  := Entity (N);
             Expr := NE_Ent.Entity;
             loop
-               --  Here if at outer level of entity name in reference (handle
-               --  also the direct use of Text_IO in the pragma). For example:
-               --  pragma Restrictions (No_Use_Of_Entity => Text_IO.Put);
+               --  Here if at outer level of entity name in reference
 
-               if Scope (Ent) = Standard_Standard
-                 or else (Nkind (Expr) = N_Identifier
-                           and then Chars (Ent) = Name_Text_IO
-                           and then Chars (Scope (Ent)) = Name_Ada
-                           and then Scope (Scope (Ent)) = Standard_Standard)
-               then
+               if Scope (Ent) = Standard_Standard then
                   if Nkind_In (Expr, N_Identifier, N_Operator_Symbol)
                     and then Chars (Ent) = Chars (Expr)
                   then
@@ -781,19 +741,22 @@ package body Restrict is
                      return;
 
                   else
-                     exit;
+                     goto Continue;
                   end if;
 
                --  Here if at outer level of entity name in table
 
                elsif Nkind_In (Expr, N_Identifier, N_Operator_Symbol) then
-                  exit;
+                  goto Continue;
 
                --  Here if neither at the outer level
 
                else
                   pragma Assert (Nkind (Expr) = N_Selected_Component);
-                  exit when Chars (Selector_Name (Expr)) /= Chars (Ent);
+
+                  if Chars (Selector_Name (Expr)) /= Chars (Ent) then
+                     goto Continue;
+                  end if;
                end if;
 
                --  Move up a level
@@ -804,6 +767,10 @@ package body Restrict is
                end loop;
 
                Expr := Prefix (Expr);
+
+               --  Entry did not match
+
+               <<Continue>> null;
             end loop;
          end;
       end loop;
@@ -818,121 +785,29 @@ package body Restrict is
       P_Id : constant Pragma_Id := Get_Pragma_Id (Chars (Id));
 
    begin
-      --  Nothing to do if the pragma is not in the main source unit, since we
-      --  only give messages for the main unit. This avoids giving messages for
-      --  pragmas that are specified in withed units.
+      --  Ignore call if node N is not in the main source unit, since we only
+      --  give messages for the main unit. This avoids giving messages for
+      --  aspects that are specified in withed units.
 
       if not In_Extended_Main_Source_Unit (N) then
          return;
+      end if;
 
-      --  Nothing to do if not checking No_Use_Of_Pragma
+      --  If nothing set, nothing to check
 
-      elsif not No_Use_Of_Pragma_Set then
-         return;
-
-      --  Do not consider internally generated pragmas because this leads to
-      --  bizarre errors.
-
-      elsif not Comes_From_Source (N) then
+      if not No_Use_Of_Pragma_Set then
          return;
       end if;
 
       Error_Msg_Sloc := No_Use_Of_Pragma (P_Id);
 
       if Error_Msg_Sloc /= No_Location then
+         Error_Msg_Node_1 := Id;
          Error_Msg_Warn := No_Use_Of_Pragma_Warning (P_Id);
          Error_Msg_N
-           ("<*<violation of restriction `No_Use_Of_Pragma '='> &` #", Id);
+           ("<*<violation of restriction `No_Use_Of_Pragma '='> &`#", Id);
       end if;
    end Check_Restriction_No_Use_Of_Pragma;
-
-   --------------------------------
-   -- Check_SPARK_05_Restriction --
-   --------------------------------
-
-   procedure Check_SPARK_05_Restriction
-     (Msg   : String;
-      N     : Node_Id;
-      Force : Boolean := False)
-   is
-      Msg_Issued          : Boolean;
-      Save_Error_Msg_Sloc : Source_Ptr;
-      Onode               : constant Node_Id := Original_Node (N);
-
-   begin
-      --  Output message if Force set
-
-      if Force
-
-        --  Or if this node comes from source
-
-        or else Comes_From_Source (N)
-
-        --  Or if this is a range node which rewrites a range attribute and
-        --  the range attribute comes from source.
-
-        or else (Nkind (N) = N_Range
-                  and then Nkind (Onode) = N_Attribute_Reference
-                  and then Attribute_Name (Onode) = Name_Range
-                  and then Comes_From_Source (Onode))
-
-        --  Or this is an expression that does not come from source, which is
-        --  a rewriting of an expression that does come from source.
-
-        or else (Nkind (N) in N_Subexpr and then Comes_From_Source (Onode))
-      then
-         if Restriction_Check_Required (SPARK_05)
-           and then Is_In_Hidden_Part_In_SPARK (Sloc (N))
-         then
-            return;
-         end if;
-
-         --  Since the call to Restriction_Msg from Check_Restriction may set
-         --  Error_Msg_Sloc to the location of the pragma restriction, save and
-         --  restore the previous value of the global variable around the call.
-
-         Save_Error_Msg_Sloc := Error_Msg_Sloc;
-         Check_Restriction (Msg_Issued, SPARK_05, First_Node (N));
-         Error_Msg_Sloc := Save_Error_Msg_Sloc;
-
-         if Msg_Issued then
-            Error_Msg_F ("\\| " & Msg, N);
-         end if;
-      end if;
-   end Check_SPARK_05_Restriction;
-
-   procedure Check_SPARK_05_Restriction
-     (Msg1 : String;
-      Msg2 : String;
-      N    : Node_Id)
-   is
-      Msg_Issued          : Boolean;
-      Save_Error_Msg_Sloc : Source_Ptr;
-
-   begin
-      pragma Assert (Msg2'Length /= 0 and then Msg2 (Msg2'First) = '\');
-
-      if Comes_From_Source (Original_Node (N)) then
-         if Restriction_Check_Required (SPARK_05)
-           and then Is_In_Hidden_Part_In_SPARK (Sloc (N))
-         then
-            return;
-         end if;
-
-         --  Since the call to Restriction_Msg from Check_Restriction may set
-         --  Error_Msg_Sloc to the location of the pragma restriction, save and
-         --  restore the previous value of the global variable around the call.
-
-         Save_Error_Msg_Sloc := Error_Msg_Sloc;
-         Check_Restriction (Msg_Issued, SPARK_05, First_Node (N));
-         Error_Msg_Sloc := Save_Error_Msg_Sloc;
-
-         if Msg_Issued then
-            Error_Msg_F ("\\| " & Msg1, N);
-            Error_Msg_F (Msg2, N);
-         end if;
-      end if;
-   end Check_SPARK_05_Restriction;
 
    --------------------------------------
    -- Check_Wide_Character_Restriction --
@@ -1113,7 +988,8 @@ package body Restrict is
    --  Note: body of this function must be coordinated with list of renaming
    --  declarations in System.Rident.
 
-   function Process_Restriction_Synonyms (N : Node_Id) return Name_Id is
+   function Process_Restriction_Synonyms (N : Node_Id) return Name_Id
+   is
       Old_Name : constant Name_Id := Chars (N);
       New_Name : Name_Id;
 
@@ -1194,18 +1070,16 @@ package body Restrict is
          Restricted_Profile_Cached := True;
 
          declare
-            R : Restriction_Flags  renames
-                  Profile_Info (Restricted_Tasking).Set;
-            V : Restriction_Values renames
-                  Profile_Info (Restricted_Tasking).Value;
+            R : Restriction_Flags  renames Profile_Info (Restricted).Set;
+            V : Restriction_Values renames Profile_Info (Restricted).Value;
          begin
             for J in R'Range loop
                if R (J)
                  and then (Restrictions.Set (J) = False
-                            or else Restriction_Warnings (J)
-                            or else
-                              (J in All_Parameter_Restrictions
-                                and then Restrictions.Value (J) > V (J)))
+                             or else Restriction_Warnings (J)
+                             or else
+                               (J in All_Parameter_Restrictions
+                                  and then Restrictions.Value (J) > V (J)))
                then
                   Restricted_Profile_Result := False;
                   exit;
@@ -1633,7 +1507,7 @@ package body Restrict is
 
    procedure Set_Restriction_No_Use_Of_Entity
      (Entity  : Node_Id;
-      Warning : Boolean;
+      Warn    : Boolean;
       Profile : Profile_Name := No_Profile)
    is
       Nam : Node_Id;
@@ -1649,7 +1523,7 @@ package body Restrict is
 
             --  Error has precedence over warning
 
-            if not Warning then
+            if not Warn then
                No_Use_Of_Entity.Table (J).Warn := False;
             end if;
 
@@ -1659,7 +1533,7 @@ package body Restrict is
 
       --  Entry is not currently in table
 
-      No_Use_Of_Entity.Append ((Entity, Warning, Profile));
+      No_Use_Of_Entity.Append ((Entity, Warn, Profile));
 
       --  Now we need to find the direct name and set Boolean2 flag
 
@@ -1686,16 +1560,13 @@ package body Restrict is
       A_Id : constant Aspect_Id_Exclude_No_Aspect := Get_Aspect_Id (Chars (N));
 
    begin
-      No_Specification_Of_Aspect_Set := True;
       No_Specification_Of_Aspects (A_Id) := Sloc (N);
-      No_Specification_Of_Aspect_Warning (A_Id) := Warning;
-   end Set_Restriction_No_Specification_Of_Aspect;
 
-   procedure Set_Restriction_No_Specification_Of_Aspect (A_Id : Aspect_Id) is
-   begin
+      if Warning = False then
+         No_Specification_Of_Aspect_Warning (A_Id) := False;
+      end if;
+
       No_Specification_Of_Aspect_Set := True;
-      No_Specification_Of_Aspects (A_Id) := System_Location;
-      No_Specification_Of_Aspect_Warning (A_Id) := False;
    end Set_Restriction_No_Specification_Of_Aspect;
 
    -----------------------------------------
@@ -1711,14 +1582,10 @@ package body Restrict is
    begin
       No_Use_Of_Attribute_Set := True;
       No_Use_Of_Attribute (A_Id) := Sloc (N);
-      No_Use_Of_Attribute_Warning (A_Id) := Warning;
-   end Set_Restriction_No_Use_Of_Attribute;
 
-   procedure Set_Restriction_No_Use_Of_Attribute (A_Id : Attribute_Id) is
-   begin
-      No_Use_Of_Attribute_Set := True;
-      No_Use_Of_Attribute (A_Id) := System_Location;
-      No_Use_Of_Attribute_Warning (A_Id) := False;
+      if Warning = False then
+         No_Use_Of_Attribute_Warning (A_Id) := False;
+      end if;
    end Set_Restriction_No_Use_Of_Attribute;
 
    --------------------------------------
@@ -1734,15 +1601,95 @@ package body Restrict is
    begin
       No_Use_Of_Pragma_Set := True;
       No_Use_Of_Pragma (A_Id) := Sloc (N);
-      No_Use_Of_Pragma_Warning (A_Id) := Warning;
+
+      if Warning = False then
+         No_Use_Of_Pragma_Warning (A_Id) := False;
+      end if;
    end Set_Restriction_No_Use_Of_Pragma;
 
-   procedure Set_Restriction_No_Use_Of_Pragma (A_Id : Pragma_Id) is
+   --------------------------------
+   -- Check_SPARK_05_Restriction --
+   --------------------------------
+
+   procedure Check_SPARK_05_Restriction
+     (Msg   : String;
+      N     : Node_Id;
+      Force : Boolean := False)
+   is
+      Msg_Issued          : Boolean;
+      Save_Error_Msg_Sloc : Source_Ptr;
+      Onode               : constant Node_Id := Original_Node (N);
+
    begin
-      No_Use_Of_Pragma_Set := True;
-      No_Use_Of_Pragma (A_Id) := System_Location;
-      No_Use_Of_Pragma_Warning (A_Id) := False;
-   end Set_Restriction_No_Use_Of_Pragma;
+      --  Output message if Force set
+
+      if Force
+
+        --  Or if this node comes from source
+
+        or else Comes_From_Source (N)
+
+        --  Or if this is a range node which rewrites a range attribute and
+        --  the range attribute comes from source.
+
+        or else (Nkind (N) = N_Range
+                  and then Nkind (Onode) = N_Attribute_Reference
+                  and then Attribute_Name (Onode) = Name_Range
+                  and then Comes_From_Source (Onode))
+
+        --  Or this is an expression that does not come from source, which is
+        --  a rewriting of an expression that does come from source.
+
+        or else (Nkind (N) in N_Subexpr and then Comes_From_Source (Onode))
+      then
+         if Restriction_Check_Required (SPARK_05)
+           and then Is_In_Hidden_Part_In_SPARK (Sloc (N))
+         then
+            return;
+         end if;
+
+         --  Since the call to Restriction_Msg from Check_Restriction may set
+         --  Error_Msg_Sloc to the location of the pragma restriction, save and
+         --  restore the previous value of the global variable around the call.
+
+         Save_Error_Msg_Sloc := Error_Msg_Sloc;
+         Check_Restriction (Msg_Issued, SPARK_05, First_Node (N));
+         Error_Msg_Sloc := Save_Error_Msg_Sloc;
+
+         if Msg_Issued then
+            Error_Msg_F ("\\| " & Msg, N);
+         end if;
+      end if;
+   end Check_SPARK_05_Restriction;
+
+   procedure Check_SPARK_05_Restriction (Msg1, Msg2 : String; N : Node_Id) is
+      Msg_Issued          : Boolean;
+      Save_Error_Msg_Sloc : Source_Ptr;
+
+   begin
+      pragma Assert (Msg2'Length /= 0 and then Msg2 (Msg2'First) = '\');
+
+      if Comes_From_Source (Original_Node (N)) then
+         if Restriction_Check_Required (SPARK_05)
+           and then Is_In_Hidden_Part_In_SPARK (Sloc (N))
+         then
+            return;
+         end if;
+
+         --  Since the call to Restriction_Msg from Check_Restriction may set
+         --  Error_Msg_Sloc to the location of the pragma restriction, save and
+         --  restore the previous value of the global variable around the call.
+
+         Save_Error_Msg_Sloc := Error_Msg_Sloc;
+         Check_Restriction (Msg_Issued, SPARK_05, First_Node (N));
+         Error_Msg_Sloc := Save_Error_Msg_Sloc;
+
+         if Msg_Issued then
+            Error_Msg_F ("\\| " & Msg1, N);
+            Error_Msg_F (Msg2, N);
+         end if;
+      end if;
+   end Check_SPARK_05_Restriction;
 
    ----------------------------------
    -- Suppress_Restriction_Message --
@@ -1763,7 +1710,7 @@ package body Restrict is
       --  Otherwise suppress message if internal file
 
       else
-         return In_Internal_Unit (N);
+         return Is_Internal_File_Name (Unit_File_Name (Get_Source_Unit (N)));
       end if;
    end Suppress_Restriction_Message;
 

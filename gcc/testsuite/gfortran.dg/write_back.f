@@ -19,7 +19,7 @@
       read(11)idata
       read(11)idata
       read(11, end=250)idata
-      STOP 1
+      call abort()
  250  continue
       close(11, status="delete")
       end

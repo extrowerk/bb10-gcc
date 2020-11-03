@@ -1,5 +1,5 @@
 /* This ICEd due to an incomplete fix for PR57993.  */
-/* { dg-do compile } */
+/* { dg-compile } */
 
 extern "C"
 {

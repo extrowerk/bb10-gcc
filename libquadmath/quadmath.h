@@ -29,11 +29,7 @@ extern "C" {
 
 /* Define the complex type corresponding to __float128
    ("_Complex __float128" is not allowed) */
-#if (!defined(_ARCH_PPC)) || defined(__LONG_DOUBLE_IEEE128__)
 typedef _Complex float __attribute__((mode(TC))) __complex128;
-#else
-typedef _Complex float __attribute__((mode(KC))) __complex128;
-#endif
 
 #ifdef __cplusplus
 # define __quadmath_throw throw ()
@@ -80,7 +76,6 @@ extern __float128 ldexpq (__float128, int) __quadmath_throw;
 extern __float128 lgammaq (__float128) __quadmath_throw;
 extern long long int llrintq (__float128) __quadmath_throw;
 extern long long int llroundq (__float128) __quadmath_throw;
-extern __float128 logbq (__float128) __quadmath_throw;
 extern __float128 logq (__float128) __quadmath_throw;
 extern __float128 log10q (__float128) __quadmath_throw;
 extern __float128 log2q (__float128) __quadmath_throw;

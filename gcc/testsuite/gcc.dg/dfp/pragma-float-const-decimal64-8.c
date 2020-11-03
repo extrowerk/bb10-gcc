@@ -145,7 +145,7 @@ here:
 double
 f10 (void)
 {
-  void foo10 (void) /* { dg-warning "defined but not used" } */
+  void foo10 (void)
   {
     a = 1.0;
   }

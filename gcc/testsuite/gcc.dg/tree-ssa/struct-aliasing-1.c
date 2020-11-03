@@ -12,3 +12,4 @@ foo (float *r, struct S *p)
 }
 
 /* { dg-final { scan-tree-dump "Replaced\[^\n\]*with i_." "fre1" } } */
+/* { dg-final { cleanup-tree-dump "fre1" } } */

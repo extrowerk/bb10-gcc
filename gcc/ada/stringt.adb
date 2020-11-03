@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -30,6 +30,7 @@
 ------------------------------------------------------------------------------
 
 with Alloc;
+with Namet;  use Namet;
 with Output; use Output;
 with Table;
 
@@ -75,16 +76,21 @@ package body Stringt is
    --  Release to get a snapshot of the tables and to restore them to their
    --  previous situation.
 
-   ------------
-   -- Append --
-   ------------
+   -------------------------------
+   -- Add_String_To_Name_Buffer --
+   -------------------------------
 
-   procedure Append (Buf : in out Bounded_String; S : String_Id) is
+   procedure Add_String_To_Name_Buffer (S : String_Id) is
+      Len : constant Natural := Natural (String_Length (S));
+
    begin
-      for X in 1 .. String_Length (S) loop
-         Append (Buf, Get_Character (Get_String_Char (S, X)));
+      for J in 1 .. Len loop
+         Name_Buffer (Name_Len + J) :=
+           Get_Character (Get_String_Char (S, Int (J)));
       end loop;
-   end Append;
+
+      Name_Len := Name_Len + Len;
+   end Add_String_To_Name_Buffer;
 
    ----------------
    -- End_String --
@@ -128,10 +134,10 @@ package body Stringt is
 
    procedure Lock is
    begin
-      String_Chars.Release;
       String_Chars.Locked := True;
-      Strings.Release;
       Strings.Locked := True;
+      String_Chars.Release;
+      Strings.Release;
    end Lock;
 
    ----------
@@ -236,7 +242,7 @@ package body Stringt is
       --  String_Chars table all at once.
 
       S_First  : constant Int := Strings.Table (S).String_Index;
-      S_Len    : constant Nat := String_Length (S);
+      S_Len    : constant Int := String_Length (S);
       Old_Last : constant Int := String_Chars.Last;
       New_Last : constant Int := Old_Last + S_Len;
 
@@ -301,12 +307,14 @@ package body Stringt is
    -- String_From_Name_Buffer --
    -----------------------------
 
-   function String_From_Name_Buffer
-     (Buf : Bounded_String := Global_Name_Buffer) return String_Id
-   is
+   function String_From_Name_Buffer return String_Id is
    begin
       Start_String;
-      Store_String_Chars (+Buf);
+
+      for J in 1 .. Name_Len loop
+         Store_String_Char (Get_Char_Code (Name_Buffer (J)));
+      end loop;
+
       return End_String;
    end String_From_Name_Buffer;
 
@@ -319,25 +327,18 @@ package body Stringt is
       return Strings.Table (Id).Length;
    end String_Length;
 
-   --------------------
-   -- String_To_Name --
-   --------------------
-
-   function String_To_Name (S : String_Id) return Name_Id is
-      Buf : Bounded_String;
-   begin
-      Append (Buf, S);
-      return Name_Find (Buf);
-   end String_To_Name;
-
    ---------------------------
    -- String_To_Name_Buffer --
    ---------------------------
 
    procedure String_To_Name_Buffer (S : String_Id) is
    begin
-      Name_Len := 0;
-      Append (Global_Name_Buffer, S);
+      Name_Len := Natural (String_Length (S));
+
+      for J in 1 .. Name_Len loop
+         Name_Buffer (J) :=
+           Get_Character (Get_String_Char (S, Int (J)));
+      end loop;
    end String_To_Name_Buffer;
 
    ---------------------

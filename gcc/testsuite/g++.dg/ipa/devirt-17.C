@@ -20,7 +20,7 @@ public:
 }
 class B *b;
 void get_me_lost (void *);
-int main()
+main()
 {
   int c;
   if (c)
@@ -40,3 +40,4 @@ int main()
 /* { dg-final { scan-ipa-dump-not "builtin_unreachable" "whole-program"} } */
 /* { dg-final { scan-ipa-dump "B::foo" "whole-program"} } */
 /* { dg-final { scan-ipa-dump-not "A::foo" "whole-program"} } */
+/* { dg-final { cleanup-ipa-dump "whole-program" } } */

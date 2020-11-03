@@ -1,6 +1,6 @@
 // class template regex -*- C++ -*-
 
-// Copyright (C) 2010-2018 Free Software Foundation, Inc.
+// Copyright (C) 2010-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -32,8 +32,6 @@
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
-_GLIBCXX_BEGIN_NAMESPACE_VERSION
-
 /**
  * @defgroup regex Regular Expressions
  *
@@ -47,6 +45,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
  */
 namespace regex_constants
 {
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
+
   /**
    * @name 5.1 Regular Expression Syntax Options
    */
@@ -63,7 +63,6 @@ namespace regex_constants
     _S_awk,
     _S_grep,
     _S_egrep,
-    _S_polynomial,
     _S_syntax_last
   };
 
@@ -84,7 +83,7 @@ namespace regex_constants
    * Specifies that the matching of regular expressions against a character
    * sequence shall be performed without regard to case.
    */
-  _GLIBCXX17_INLINE constexpr syntax_option_type icase =
+  constexpr syntax_option_type icase =
     static_cast<syntax_option_type>(1 << _S_icase);
 
   /**
@@ -92,7 +91,7 @@ namespace regex_constants
    * container sequence, no sub-expression matches are to be stored in the
    * supplied match_results structure.
    */
-  _GLIBCXX17_INLINE constexpr syntax_option_type nosubs =
+  constexpr syntax_option_type nosubs =
     static_cast<syntax_option_type>(1 << _S_nosubs);
 
   /**
@@ -101,14 +100,14 @@ namespace regex_constants
    * speed with which regular expression objects are constructed. Otherwise
    * it has no detectable effect on the program output.
    */
-  _GLIBCXX17_INLINE constexpr syntax_option_type optimize =
+  constexpr syntax_option_type optimize =
     static_cast<syntax_option_type>(1 << _S_optimize);
 
   /**
    * Specifies that character ranges of the form [a-b] should be locale
    * sensitive.
    */
-  _GLIBCXX17_INLINE constexpr syntax_option_type collate =
+  constexpr syntax_option_type collate =
     static_cast<syntax_option_type>(1 << _S_collate);
 
   /**
@@ -119,7 +118,7 @@ namespace regex_constants
    * in the PERL scripting language but extended with elements found in the
    * POSIX regular expression grammar.
    */
-  _GLIBCXX17_INLINE constexpr syntax_option_type ECMAScript =
+  constexpr syntax_option_type ECMAScript =
     static_cast<syntax_option_type>(1 << _S_ECMAScript);
 
   /**
@@ -129,7 +128,7 @@ namespace regex_constants
    * Headers, Section 9, Regular Expressions [IEEE, Information Technology --
    * Portable Operating System Interface (POSIX), IEEE Standard 1003.1-2001].
    */
-  _GLIBCXX17_INLINE constexpr syntax_option_type basic =
+  constexpr syntax_option_type basic =
     static_cast<syntax_option_type>(1 << _S_basic);
 
   /**
@@ -138,7 +137,7 @@ namespace regex_constants
    * Portable Operating System Interface (POSIX), Base Definitions and
    * Headers, Section 9, Regular Expressions.
    */
-  _GLIBCXX17_INLINE constexpr syntax_option_type extended =
+  constexpr syntax_option_type extended =
     static_cast<syntax_option_type>(1 << _S_extended);
 
   /**
@@ -149,7 +148,7 @@ namespace regex_constants
    * \\\\, \\a, \\b, \\f, \\n, \\r, \\t , \\v, \\&apos,, &apos,,
    * and \\ddd (where ddd is one, two, or three octal digits).
    */
-  _GLIBCXX17_INLINE constexpr syntax_option_type awk =
+  constexpr syntax_option_type awk =
     static_cast<syntax_option_type>(1 << _S_awk);
 
   /**
@@ -158,7 +157,7 @@ namespace regex_constants
    * identical to syntax_option_type basic, except that newlines are treated
    * as whitespace.
    */
-  _GLIBCXX17_INLINE constexpr syntax_option_type grep =
+  constexpr syntax_option_type grep =
     static_cast<syntax_option_type>(1 << _S_grep);
 
   /**
@@ -167,17 +166,8 @@ namespace regex_constants
    * IEEE Std 1003.1-2001.  This option is identical to syntax_option_type
    * extended, except that newlines are treated as whitespace.
    */
-  _GLIBCXX17_INLINE constexpr syntax_option_type egrep =
+  constexpr syntax_option_type egrep =
     static_cast<syntax_option_type>(1 << _S_egrep);
-
-  /**
-   * Extension: Ensure both space complexity of compiled regex and
-   * time complexity execution are not exponential.
-   * If specified in a regex with back-references, the exception
-   * regex_constants::error_complexity will be thrown.
-   */
-  _GLIBCXX17_INLINE constexpr syntax_option_type __polynomial =
-    static_cast<syntax_option_type>(1 << _S_polynomial);
 
   constexpr inline syntax_option_type
   operator&(syntax_option_type __a, syntax_option_type __b)
@@ -257,15 +247,14 @@ namespace regex_constants
   /**
    * The default matching rules.
    */
-  _GLIBCXX17_INLINE constexpr match_flag_type match_default =
-    static_cast<match_flag_type>(0);
+  constexpr match_flag_type match_default = static_cast<match_flag_type>(0);
 
   /**
    * The first character in the sequence [first, last) is treated as though it
    * is not at the beginning of a line, so the character (^) in the regular
    * expression shall not match [first, first).
    */
-  _GLIBCXX17_INLINE constexpr match_flag_type match_not_bol =
+  constexpr match_flag_type match_not_bol =
     static_cast<match_flag_type>(1 << _S_not_bol);
 
   /**
@@ -273,40 +262,40 @@ namespace regex_constants
    * is not at the end of a line, so the character ($) in the regular
    * expression shall not match [last, last).
    */
-  _GLIBCXX17_INLINE constexpr match_flag_type match_not_eol =
+  constexpr match_flag_type match_not_eol =
     static_cast<match_flag_type>(1 << _S_not_eol);
 
   /**
    * The expression \\b is not matched against the sub-sequence
    * [first,first).
    */
-  _GLIBCXX17_INLINE constexpr match_flag_type match_not_bow =
+  constexpr match_flag_type match_not_bow =
     static_cast<match_flag_type>(1 << _S_not_bow);
 
   /**
    * The expression \\b should not be matched against the sub-sequence
    * [last,last).
    */
-  _GLIBCXX17_INLINE constexpr match_flag_type match_not_eow =
+  constexpr match_flag_type match_not_eow =
     static_cast<match_flag_type>(1 << _S_not_eow);
 
   /**
    * If more than one match is possible then any match is an acceptable
    * result.
    */
-  _GLIBCXX17_INLINE constexpr match_flag_type match_any =
+  constexpr match_flag_type match_any =
     static_cast<match_flag_type>(1 << _S_any);
 
   /**
    * The expression does not match an empty sequence.
    */
-  _GLIBCXX17_INLINE constexpr match_flag_type match_not_null =
+  constexpr match_flag_type match_not_null =
     static_cast<match_flag_type>(1 << _S_not_null);
 
   /**
    * The expression only matches a sub-sequence that begins at first .
    */
-  _GLIBCXX17_INLINE constexpr match_flag_type match_continuous =
+  constexpr match_flag_type match_continuous =
     static_cast<match_flag_type>(1 << _S_continuous);
 
   /**
@@ -314,7 +303,7 @@ namespace regex_constants
    * flags match_not_bol and match_not_bow are ignored by the regular
    * expression algorithms 28.11 and iterators 28.12.
    */
-  _GLIBCXX17_INLINE constexpr match_flag_type match_prev_avail =
+  constexpr match_flag_type match_prev_avail =
     static_cast<match_flag_type>(1 << _S_prev_avail);
 
   /**
@@ -343,8 +332,7 @@ namespace regex_constants
    *         undefined, use the empty string instead. If
    *         nn > match_results::size(), the result is implementation-defined.
    */
-  _GLIBCXX17_INLINE constexpr match_flag_type format_default =
-    static_cast<match_flag_type>(0);
+  constexpr match_flag_type format_default = static_cast<match_flag_type>(0);
 
   /**
    * When a regular expression match is to be replaced by a new string, the
@@ -352,7 +340,7 @@ namespace regex_constants
    * in IEEE Std 1003.1- 2001 [IEEE, Information Technology -- Portable
    * Operating System Interface (POSIX), IEEE Standard 1003.1-2001].
    */
-  _GLIBCXX17_INLINE constexpr match_flag_type format_sed =
+  constexpr match_flag_type format_sed =
     static_cast<match_flag_type>(1 << _S_sed);
 
   /**
@@ -360,14 +348,14 @@ namespace regex_constants
    * container sequence being searched that do not match the regular
    * expression shall not be copied to the output string.
    */
-  _GLIBCXX17_INLINE constexpr match_flag_type format_no_copy =
+  constexpr match_flag_type format_no_copy =
     static_cast<match_flag_type>(1 << _S_no_copy);
 
   /**
    * When specified during a search and replace operation, only the first
    * occurrence of the regular expression shall be replaced.
    */
-  _GLIBCXX17_INLINE constexpr match_flag_type format_first_only =
+  constexpr match_flag_type format_first_only =
     static_cast<match_flag_type>(1 << _S_first_only);
 
   constexpr inline match_flag_type
@@ -408,9 +396,10 @@ namespace regex_constants
   { return __a = __a ^ __b; }
 
   //@}
-} // namespace regex_constants
-/* @} */ // group regex
 
 _GLIBCXX_END_NAMESPACE_VERSION
+} // namespace regex_constants
+
+/* @} */ // group regex
 } // namespace std
 

@@ -37,3 +37,4 @@ subroutine four()
 end subroutine four
 
 ! { dg-final { scan-tree-dump-times "shall_not_be_there" 0 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

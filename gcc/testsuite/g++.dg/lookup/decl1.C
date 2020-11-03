@@ -19,13 +19,14 @@ C2<X>::operator C1<Y>()
   return C1<Y>();
 }
 
-struct A { // { dg-message "defined here" }
-  operator int ();			// { dg-message "operator" }
-  operator float ();			// { dg-message "operator" }
-  operator float () const;		// { dg-message "operator" }
-  template <typename T> operator T * (); // { dg-message "operator" }
+struct A
+{
+  operator int ();			// { dg-error "operator" "" }
+  operator float ();			// { dg-error "operator" "" }
+  operator float () const;		// { dg-error "operator" "" }
+  template <typename T> operator T * (); // { dg-error "candidates" "" }
 };
 
-A::operator short () { // { dg-error "no declaration matches" }
+A::operator short () { // { dg-error "prototype for" "" }
   return 0;
 }

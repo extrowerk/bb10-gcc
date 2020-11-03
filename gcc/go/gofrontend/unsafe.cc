@@ -32,6 +32,8 @@ Gogo::import_unsafe(const std::string& local_name, bool is_local_name_exported,
     }
 
   package->set_location(location);
+  package->set_is_imported();
+
   this->imports_.insert(std::make_pair("unsafe", package));
 
   Bindings* bindings = package->bindings();

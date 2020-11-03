@@ -37,30 +37,34 @@ PROGRAM hello
 !    DO i=1,cant_lineas
 !    WRITE(*,*) array_lineas(i)
 !    ENDDO
-     if (any (array_lineas .ne. array_fijo)) STOP 1
+     if (any (array_lineas .ne. array_fijo)) call abort
 
 ! The following are additional tests beyond that of the original.
+! NOTE: These tests all work in 6 branch but those involving deferred length
+! SOURCE or MOLD do not work correctly in 5 branch because the requisite
+! patches to gfc_trans_allocate have not been backported.
 !
 ! Check that allocation with source = another deferred length is OK
-     allocate (array_copia, source = array_lineas)
-     if (any (array_copia .ne. array_fijo)) STOP 2
-     deallocate (array_lineas, array_copia)
+!     allocate (array_copia(size (array_lineas, 1)), source = array_lineas)
+!     if (any (array_copia .ne. array_fijo)) call abort
+!     deallocate (array_lineas, array_copia)
+     deallocate (array_lineas)
 
 ! Check that allocation with source = a non-deferred length is OK
-     allocate (array_lineas, source = array_fijo)
-     if (any (array_lineas .ne. array_fijo)) STOP 3
+     allocate (array_lineas(size (array_fijo, 1)), source = array_fijo)
+     if (any (array_lineas .ne. array_fijo)) call abort
      deallocate (array_lineas)
 
 ! Check that allocation with MOLD = a non-deferred length is OK
-     allocate (array_copia, mold = [array_fijo(:)(1:2), array_fijo(:)(1:2)])
-     if (size (array_copia, 1) .ne. 4) STOP 4
-     if (LEN (array_copia, 1) .ne. 2) STOP 5
+     allocate (array_copia(4), mold = [array_fijo(:)(1:2), array_fijo(:)(1:2)])
+     if (size (array_copia, 1) .ne. 4) call abort
+     if (LEN (array_copia) .ne. 2) call abort
 
 ! Check that allocation with MOLD = another deferred length is OK
-     allocate (array_lineas, mold = array_copia)
-     if (size (array_copia, 1) .ne. 4) STOP 6
-     if (LEN (array_copia, 1) .ne. 2) STOP 7
-     deallocate (array_lineas, array_copia)
+!     allocate (array_lineas(4), mold = array_copia)
+!     if (size (array_lineas, 1) .ne. 4) call abort
+!     if (LEN (array_lineas) .ne. 2) call abort
+!     deallocate (array_lineas, array_copia)
 
 !    READ(*,*)
      call testdefchar
@@ -75,10 +79,10 @@ contains
           allocate(character(3) :: test(2))
           test(1) = 'abc'
           test(2) = 'def'
-          if (any (test .ne. ['abc', 'def'])) STOP 8
+          if (any (test .ne. ['abc', 'def'])) call abort
 
           test = ['aa','bb','cc']
-          if (any (test .ne. ['aa', 'bb', 'cc'])) STOP 9
+          if (any (test .ne. ['aa', 'bb', 'cc'])) call abort
 
      end subroutine testdefchar
 

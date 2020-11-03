@@ -25,7 +25,6 @@ struct Baz
  Baz(Bar &a):a(a) { }
 };
 
-#pragma GCC diagnostic ignored "-Wreturn-type"
 struct Zonk
 {
  Baz baz;

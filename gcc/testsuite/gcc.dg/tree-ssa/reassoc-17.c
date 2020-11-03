@@ -13,3 +13,4 @@ double test2 (double x, double y, double ddj, int b)
 }
 
 /* { dg-final { scan-tree-dump-times "/" 1 "reassoc1" } } */
+/* { dg-final { cleanup-tree-dump "reassoc1" } } */

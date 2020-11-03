@@ -14,8 +14,8 @@ int64 runtime_nanotime (void)
 int64
 runtime_nanotime (void)
 {
-  struct timespec ts;
+  struct timeval tv;
 
-  clock_gettime (CLOCK_MONOTONIC, &ts);
-  return (int64) ts.tv_sec * 1000000000 + (int64) ts.tv_nsec;
+  gettimeofday (&tv, NULL);
+  return (int64) tv.tv_sec * 1000000000 + (int64) tv.tv_usec * 1000;
 }

@@ -25,3 +25,5 @@ main (int argc, char **argv)
   return 0;
 }
 
+/* { dg-final { cleanup-saved-temps } } */
+/* { dg-final { cleanup-rtl-dump "ira" } } */

@@ -14,3 +14,4 @@ begin
 end;
 
 -- { dg-final { scan-tree-dump-not "gnat_rcheck" "optimized" } }
+-- { dg-final { cleanup-tree-dump "optimized" } }

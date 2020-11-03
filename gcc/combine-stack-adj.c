@@ -1,5 +1,5 @@
 /* Combine stack adjustments.
-   Copyright (C) 1987-2018 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -41,18 +41,57 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
+#include "tm.h"
 #include "rtl.h"
-#include "df.h"
+#include "tm_p.h"
 #include "insn-config.h"
-#include "memmodel.h"
-#include "emit-rtl.h"
 #include "recog.h"
+#include "regs.h"
+#include "hard-reg-set.h"
+#include "flags.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "symtab.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
+#include "expr.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "cfgrtl.h"
+#include "basic-block.h"
+#include "df.h"
+#include "except.h"
+#include "reload.h"
 #include "tree-pass.h"
 #include "rtl-iter.h"
 
 
+/* Turn STACK_GROWS_DOWNWARD into a boolean.  */
+#ifdef STACK_GROWS_DOWNWARD
+#undef STACK_GROWS_DOWNWARD
+#define STACK_GROWS_DOWNWARD 1
+#else
+#define STACK_GROWS_DOWNWARD 0
+#endif
+
 /* This structure records two kinds of stack references between stack
    adjusting instructions: stack references in memory addresses for
    regular insns and all stack references for debug insns.  */
@@ -208,7 +247,6 @@ no_unhandled_cfa (rtx_insn *insn)
       case REG_CFA_SET_VDRAP:
       case REG_CFA_WINDOW_SAVE:
       case REG_CFA_FLUSH_QUEUE:
-      case REG_CFA_TOGGLE_RA_MANGLE:
 	return false;
       }
 
@@ -508,8 +546,6 @@ combine_stack_adjustments_for_block (basic_block bb)
 	continue;
 
       set = single_set_for_csa (insn);
-      if (set && find_reg_note (insn, REG_STACK_CHECK, NULL_RTX))
-	set = NULL_RTX;
       if (set)
 	{
 	  rtx dest = SET_DEST (set);
@@ -622,11 +658,11 @@ combine_stack_adjustments_for_block (basic_block bb)
 	  if (MEM_P (dest)
 	      && ((STACK_GROWS_DOWNWARD
 		   ? (GET_CODE (XEXP (dest, 0)) == PRE_DEC
-		      && known_eq (last_sp_adjust,
-				   GET_MODE_SIZE (GET_MODE (dest))))
+		      && last_sp_adjust
+			 == (HOST_WIDE_INT) GET_MODE_SIZE (GET_MODE (dest)))
 		   : (GET_CODE (XEXP (dest, 0)) == PRE_INC
-		      && known_eq (-last_sp_adjust,
-				   GET_MODE_SIZE (GET_MODE (dest)))))
+		      && last_sp_adjust
+		         == -(HOST_WIDE_INT) GET_MODE_SIZE (GET_MODE (dest))))
 		  || ((STACK_GROWS_DOWNWARD
 		       ? last_sp_adjust >= 0 : last_sp_adjust <= 0)
 		      && GET_CODE (XEXP (dest, 0)) == PRE_MODIFY

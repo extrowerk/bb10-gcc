@@ -10,12 +10,12 @@ using fastmath::floor;
 class A {
 public:
   A(int, int);
-  virtual void m_fn1(float) const;
+  virtual int m_fn1(float) const;
 };
 class B : A {
 public:
   B(int, int p2) : A(entity, p2) {}
-  void m_fn1(float p1) const { long b(floor(p1)); }
+  int m_fn1(float p1) const { long b(floor(p1)); }
   int entity;
 };
 

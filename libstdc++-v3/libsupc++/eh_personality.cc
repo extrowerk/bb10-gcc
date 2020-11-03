@@ -1,5 +1,5 @@
 // -*- C++ -*- The GNU C++ exception personality routine.
-// Copyright (C) 2001-2018 Free Software Foundation, Inc.
+// Copyright (C) 2001-2015 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -327,16 +327,16 @@ namespace __cxxabiv1
 
 // Using a different personality function name causes link failures
 // when trying to mix code using different exception handling models.
-#ifdef __USING_SJLJ_EXCEPTIONS__
+#ifdef _GLIBCXX_SJLJ_EXCEPTIONS
 #define PERSONALITY_FUNCTION	__gxx_personality_sj0
 #define __builtin_eh_return_data_regno(x) x
-#elif defined(__SEH__)
+#elif defined(__SEH__) && !defined (_GLIBCXX_SJLJ_EXCEPTIONS)
 #define PERSONALITY_FUNCTION	__gxx_personality_imp
 #else
 #define PERSONALITY_FUNCTION	__gxx_personality_v0
 #endif
 
-#if defined (__SEH__) && !defined (__USING_SJLJ_EXCEPTIONS__)
+#if defined (__SEH__) && !defined (_GLIBCXX_SJLJ_EXCEPTIONS)
 static
 #else
 extern "C"
@@ -455,7 +455,7 @@ PERSONALITY_FUNCTION (int version,
   action_record = 0;
   handler_switch_value = 0;
 
-#ifdef __USING_SJLJ_EXCEPTIONS__
+#ifdef _GLIBCXX_SJLJ_EXCEPTIONS
   // The given "IP" is an index into the call-site table, with two
   // exceptions -- -1 means no-action, and 0 means terminate.  But
   // since we're using uleb128 values, we've not got random access
@@ -508,7 +508,7 @@ PERSONALITY_FUNCTION (int version,
 	  goto found_something;
 	}
     }
-#endif // __USING_SJLJ_EXCEPTIONS__
+#endif // _GLIBCXX_SJLJ_EXCEPTIONS
 
   // If ip is not present in the table, call terminate.  This is for
   // a destructor inside a cleanup, or a library routine the compiler
@@ -789,7 +789,7 @@ __cxa_call_unexpected (void *exc_obj_in)
 }
 #endif
 
-#if defined (__SEH__) && !defined (__USING_SJLJ_EXCEPTIONS__)
+#if defined (__SEH__) && !defined (_GLIBCXX_SJLJ_EXCEPTIONS)
 extern "C"
 EXCEPTION_DISPOSITION
 __gxx_personality_seh0 (PEXCEPTION_RECORD ms_exc, void *this_frame,

@@ -1,5 +1,5 @@
 /* IRA processing allocno lives to build allocno live ranges.
-   Copyright (C) 2006-2018 Free Software Foundation, Inc.
+   Copyright (C) 2006-2015 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -21,18 +21,30 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
-#include "target.h"
-#include "rtl.h"
-#include "predict.h"
-#include "df.h"
-#include "memmodel.h"
-#include "tm_p.h"
-#include "insn-config.h"
+#include "tm.h"
 #include "regs.h"
-#include "ira.h"
-#include "ira-int.h"
+#include "rtl.h"
+#include "tm_p.h"
+#include "target.h"
+#include "flags.h"
+#include "except.h"
+#include "hard-reg-set.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "basic-block.h"
+#include "insn-config.h"
+#include "recog.h"
+#include "diagnostic-core.h"
+#include "params.h"
+#include "df.h"
+#include "sbitmap.h"
 #include "sparseset.h"
+#include "ira-int.h"
 
 /* The code in this file is similar to one in global but the code
    works on the allocno basis and creates live ranges instead of
@@ -340,7 +352,7 @@ mark_hard_reg_live (rtx reg)
 
   if (! TEST_HARD_REG_BIT (ira_no_alloc_regs, regno))
     {
-      int last = END_REGNO (reg);
+      int last = regno + hard_regno_nregs[regno][GET_MODE (reg)];
       enum reg_class aclass, pclass;
 
       while (regno < last)
@@ -364,7 +376,7 @@ mark_hard_reg_live (rtx reg)
 static void
 mark_pseudo_reg_live (rtx orig_reg, unsigned regno)
 {
-  if (read_modify_subreg_p (orig_reg))
+  if (df_read_modify_subreg_p (orig_reg))
     {
       mark_pseudo_regno_subword_live (regno,
 				      subreg_lowpart_p (orig_reg) ? 0 : 1);
@@ -466,7 +478,7 @@ mark_hard_reg_dead (rtx reg)
 
   if (! TEST_HARD_REG_BIT (ira_no_alloc_regs, regno))
     {
-      int last = END_REGNO (reg);
+      int last = regno + hard_regno_nregs[regno][GET_MODE (reg)];
       enum reg_class aclass, pclass;
 
       while (regno < last)
@@ -489,7 +501,7 @@ mark_hard_reg_dead (rtx reg)
 static void
 mark_pseudo_reg_dead (rtx orig_reg, unsigned regno)
 {
-  if (read_modify_subreg_p (orig_reg))
+  if (df_read_modify_subreg_p (orig_reg))
     {
       mark_pseudo_regno_subword_dead (regno,
 				      subreg_lowpart_p (orig_reg) ? 0 : 1);
@@ -515,7 +527,7 @@ mark_ref_dead (df_ref def)
   if (DF_REF_FLAGS_IS_SET (def, DF_REF_PARTIAL)
       && (GET_CODE (orig_reg) != SUBREG
 	  || REGNO (reg) < FIRST_PSEUDO_REGISTER
-	  || !read_modify_subreg_p (orig_reg)))
+	  || !df_read_modify_subreg_p (orig_reg)))
     return;
 
   if (REGNO (reg) >= FIRST_PSEUDO_REGISTER)
@@ -775,7 +787,6 @@ single_reg_class (const char *constraints, rtx op, rtx equiv_const)
 	  /* ??? Is this the best way to handle memory constraints?  */
 	  cn = lookup_constraint (constraints);
 	  if (insn_extra_memory_constraint (cn)
-	      || insn_extra_special_memory_constraint (cn)
 	      || insn_extra_address_constraint (cn))
 	    return NO_REGS;
 	  if (constraint_satisfied_p (op, cn)
@@ -919,7 +930,7 @@ process_single_reg_class_operands (bool in_p, int freq)
 		    (subreg:YMODE (reg:XMODE XREGNO) OFFSET).  */
 	      machine_mode ymode, xmode;
 	      int xregno, yregno;
-	      poly_int64 offset;
+	      HOST_WIDE_INT offset;
 
 	      xmode = recog_data.operand_mode[i];
 	      xregno = ira_class_singleton[cl][xmode];
@@ -961,6 +972,22 @@ process_single_reg_class_operands (bool in_p, int freq)
 	    }
 	}
     }
+}
+
+/* Return true when one of the predecessor edges of BB is marked with
+   EDGE_ABNORMAL_CALL or EDGE_EH.  */
+static bool
+bb_has_abnormal_call_pred (basic_block bb)
+{
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    {
+      if (e->flags & (EDGE_ABNORMAL_CALL | EDGE_EH))
+	return true;
+    }
+  return false;
 }
 
 /* Look through the CALL_INSN_FUNCTION_USAGE of a call insn INSN, and see if
@@ -1015,7 +1042,7 @@ find_call_crossed_cheap_reg (rtx_insn *insn)
 		  break;
 		}
 
-	      if (reg_set_p (reg, prev))
+	      if (reg_overlap_mentioned_p (reg, PATTERN (prev)))
 		break;
 	    }
 	  prev = PREV_INSN (prev);
@@ -1292,6 +1319,7 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 	  curr_point++;
 	}
 
+#ifdef EH_RETURN_DATA_REGNO
       if (bb_has_eh_pred (bb))
 	for (j = 0; ; ++j)
 	  {
@@ -1300,6 +1328,7 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 	      break;
 	    make_hard_regno_born (regno);
 	  }
+#endif
 
       /* Allocnos can't go in stack regs at the start of a basic block
 	 that is reached by an abnormal edge. Likewise for call
@@ -1322,24 +1351,9 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 	  /* No need to record conflicts for call clobbered regs if we
 	     have nonlocal labels around, as we don't ever try to
 	     allocate such regs in this case.  */
-	  if (!cfun->has_nonlocal_label
-	      && has_abnormal_call_or_eh_pred_edge_p (bb))
+	  if (!cfun->has_nonlocal_label && bb_has_abnormal_call_pred (bb))
 	    for (px = 0; px < FIRST_PSEUDO_REGISTER; px++)
-	      if (call_used_regs[px]
-#ifdef REAL_PIC_OFFSET_TABLE_REGNUM
-		  /* We should create a conflict of PIC pseudo with
-		     PIC hard reg as PIC hard reg can have a wrong
-		     value after jump described by the abnormal edge.
-		     In this case we can not allocate PIC hard reg to
-		     PIC pseudo as PIC pseudo will also have a wrong
-		     value.  This code is not critical as LRA can fix
-		     it but it is better to have the right allocation
-		     earlier.  */
-		  || (px == REAL_PIC_OFFSET_TABLE_REGNUM
-		      && pic_offset_table_rtx != NULL_RTX
-		      && REGNO (pic_offset_table_rtx) >= FIRST_PSEUDO_REGISTER)
-#endif
-		  )
+	      if (call_used_regs[px])
 		make_hard_regno_born (px);
 	}
 
@@ -1410,11 +1424,12 @@ remove_some_program_points_and_update_live_ranges (void)
   ira_object_t obj;
   ira_object_iterator oi;
   live_range_t r, prev_r, next_r;
+  sbitmap born_or_dead, born, dead;
   sbitmap_iterator sbi;
   bool born_p, dead_p, prev_born_p, prev_dead_p;
   
-  auto_sbitmap born (ira_max_point);
-  auto_sbitmap dead (ira_max_point);
+  born = sbitmap_alloc (ira_max_point);
+  dead = sbitmap_alloc (ira_max_point);
   bitmap_clear (born);
   bitmap_clear (dead);
   FOR_EACH_OBJECT (obj, oi)
@@ -1425,7 +1440,7 @@ remove_some_program_points_and_update_live_ranges (void)
 	bitmap_set_bit (dead, r->finish);
       }
 
-  auto_sbitmap born_or_dead (ira_max_point);
+  born_or_dead = sbitmap_alloc (ira_max_point);
   bitmap_ior (born_or_dead, born, dead);
   map = (int *) ira_allocate (sizeof (int) * ira_max_point);
   n = -1;
@@ -1442,7 +1457,9 @@ remove_some_program_points_and_update_live_ranges (void)
       prev_born_p = born_p;
       prev_dead_p = dead_p;
     }
-
+  sbitmap_free (born_or_dead);
+  sbitmap_free (born);
+  sbitmap_free (dead);
   n++;
   if (internal_flag_ira_verbose > 1 && ira_dump_file != NULL)
     fprintf (ira_dump_file, "Compressing live ranges: from %d to %d - %d%%\n",

@@ -1,5 +1,4 @@
 /* { dg-require-effective-target size32plus } */
-/* { dg-require-stack-size "8*111*1111" } */
 
 /* Formerly known as ltrans-8.c */
 
@@ -47,4 +46,5 @@ main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump "tiled" "graphite" } } */
+/* { dg-final { scan-tree-dump-times "will be interchanged" 1 "graphite" } } */
+/* { dg-final { cleanup-tree-dump "graphite" } } */

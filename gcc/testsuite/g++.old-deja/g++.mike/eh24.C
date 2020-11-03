@@ -15,7 +15,6 @@ struct A {
   }
 };
 
-int
 main() {
   try {
     try {

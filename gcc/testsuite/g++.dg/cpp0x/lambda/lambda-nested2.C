@@ -13,7 +13,7 @@ void f1(int i) {
   };
   struct s1 {
     int f;
-    void work(int n) {
+    int work(int n) {
       int m = n*n;
       int j = 40;
       auto m3 = [this,m]{

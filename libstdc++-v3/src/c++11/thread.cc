@@ -1,6 +1,6 @@
 // thread -*- C++ -*-
 
-// Copyright (C) 2008-2018 Free Software Foundation, Inc.
+// Copyright (C) 2008-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -23,7 +23,6 @@
 // <http://www.gnu.org/licenses/>.
 
 
-#define _GLIBCXX_THREAD_ABI_COMPAT 1
 #include <thread>
 #include <system_error>
 #include <cerrno>
@@ -76,30 +75,28 @@ namespace std _GLIBCXX_VISIBILITY(default)
     static void*
     execute_native_thread_routine(void* __p)
     {
-      thread::_State_ptr __t{ static_cast<thread::_State*>(__p) };
-      __t->_M_run();
-      return nullptr;
-    }
-
-#if _GLIBCXX_THREAD_ABI_COMPAT
-    static void*
-    execute_native_thread_routine_compat(void* __p)
-    {
       thread::_Impl_base* __t = static_cast<thread::_Impl_base*>(__p);
       thread::__shared_base_type __local;
-      // Now that a new thread has been created we can transfer ownership of
-      // the thread state to a local object, breaking the reference cycle
-      // created in thread::_M_start_thread.
       __local.swap(__t->_M_this_ptr);
-      __t->_M_run();
+
+      __try
+	{
+	  __t->_M_run();
+	}
+      __catch(const __cxxabiv1::__forced_unwind&)
+	{
+	  __throw_exception_again;
+	}
+      __catch(...)
+	{
+	  std::terminate();
+	}
+
       return nullptr;
     }
-#endif
   } // extern "C"
 
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
-
-  thread::_State::~_State() = default;
 
   void
   thread::join()
@@ -130,18 +127,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   }
 
   void
-  thread::_M_start_thread(_State_ptr state, void (*)())
-  {
-    const int err = __gthread_create(&_M_id._M_thread,
-				     &execute_native_thread_routine,
-				     state.get());
-    if (err)
-      __throw_system_error(err);
-    state.release();
-  }
-
-#if _GLIBCXX_THREAD_ABI_COMPAT
-  void
   thread::_M_start_thread(__shared_base_type __b)
   {
     if (!__gthread_active_p())
@@ -159,17 +144,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   thread::_M_start_thread(__shared_base_type __b, void (*)())
   {
     auto ptr = __b.get();
-    // Create a reference cycle that will be broken in the new thread.
     ptr->_M_this_ptr = std::move(__b);
     int __e = __gthread_create(&_M_id._M_thread,
-			       &execute_native_thread_routine_compat, ptr);
+			       &execute_native_thread_routine, ptr);
     if (__e)
     {
-      ptr->_M_this_ptr.reset();  // break reference cycle, destroying *ptr.
+      ptr->_M_this_ptr.reset();
       __throw_system_error(__e);
     }
   }
-#endif
 
   unsigned int
   thread::hardware_concurrency() noexcept
@@ -180,8 +163,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     return __n;
   }
 
+_GLIBCXX_END_NAMESPACE_VERSION
+
 namespace this_thread
 {
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
+
   void
   __sleep_for(chrono::seconds __s, chrono::nanoseconds __ns)
   {
@@ -191,8 +178,7 @@ namespace this_thread
 	static_cast<std::time_t>(__s.count()),
 	static_cast<long>(__ns.count())
       };
-    while (::nanosleep(&__ts, &__ts) == -1 && errno == EINTR)
-      { }
+    ::nanosleep(&__ts, 0);
 #elif defined(_GLIBCXX_HAVE_SLEEP)
 # ifdef _GLIBCXX_HAVE_USLEEP
     ::sleep(__s.count());
@@ -213,9 +199,10 @@ namespace this_thread
     ::Sleep(chrono::milliseconds(__s).count() + ms);
 #endif
   }
-}
 
 _GLIBCXX_END_NAMESPACE_VERSION
+}
+
 } // namespace std
 
 #endif // _GLIBCXX_HAS_GTHREADS && _GLIBCXX_USE_C99_STDINT_TR1

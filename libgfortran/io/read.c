@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2018 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    F2003 I/O support contributed by Jerry DeLisle
 
@@ -28,7 +28,9 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "format.h"
 #include "unix.h"
 #include <string.h>
+#include <errno.h>
 #include <ctype.h>
+#include <stdlib.h>
 #include <assert.h>
 
 typedef unsigned char uchar;
@@ -272,7 +274,7 @@ void
 read_l (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
 {
   char *p;
-  size_t w;
+  int w;
 
   w = f->u.w;
 
@@ -316,11 +318,11 @@ read_l (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
 
 
 static gfc_char4_t
-read_utf8 (st_parameter_dt *dtp, size_t *nbytes)
+read_utf8 (st_parameter_dt *dtp, int *nbytes) 
 {
   static const uchar masks[6] = { 0x7F, 0x1F, 0x0F, 0x07, 0x02, 0x01 };
   static const uchar patns[6] = { 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC };
-  size_t nb, nread;
+  int i, nb, nread;
   gfc_char4_t c;
   char *s;
 
@@ -353,7 +355,7 @@ read_utf8 (st_parameter_dt *dtp, size_t *nbytes)
   if (s == NULL)
     return 0;
   /* Decode the bytes read.  */
-  for (size_t i = 1; i < nb; i++)
+  for (i = 1; i < nb; i++)
     {
       gfc_char4_t n = *s++;
 
@@ -383,11 +385,12 @@ read_utf8 (st_parameter_dt *dtp, size_t *nbytes)
 
 
 static void
-read_utf8_char1 (st_parameter_dt *dtp, char *p, size_t len, size_t width)
+read_utf8_char1 (st_parameter_dt *dtp, char *p, int len, int width)
 {
   gfc_char4_t c;
   char *dest;
-  size_t nbytes, j;
+  int nbytes;
+  int i, j;
 
   len = (width < len) ? len : width;
 
@@ -406,16 +409,16 @@ read_utf8_char1 (st_parameter_dt *dtp, char *p, size_t len, size_t width)
     }
 
   /* If there was a short read, pad the remaining characters.  */
-  for (size_t i = j; i < len; i++)
+  for (i = j; i < len; i++)
     *dest++ = ' ';
   return;
 }
 
 static void
-read_default_char1 (st_parameter_dt *dtp, char *p, size_t len, size_t width)
+read_default_char1 (st_parameter_dt *dtp, char *p, int len, int width)
 {
   char *s;
-  size_t m;
+  int m, n;
 
   s = read_block_form (dtp, &width);
   
@@ -427,16 +430,18 @@ read_default_char1 (st_parameter_dt *dtp, char *p, size_t len, size_t width)
   m = (width > len) ? len : width;
   memcpy (p, s, m);
 
-  if (len > width)
-    memset (p + m, ' ', len - width);
+  n = len - width;
+  if (n > 0)
+    memset (p + m, ' ', n);
 }
 
 
 static void
-read_utf8_char4 (st_parameter_dt *dtp, void *p, size_t len, size_t width)
+read_utf8_char4 (st_parameter_dt *dtp, void *p, int len, int width)
 {
   gfc_char4_t *dest;
-  size_t nbytes, j;
+  int nbytes;
+  int i, j;
 
   len = (width < len) ? len : width;
 
@@ -453,16 +458,16 @@ read_utf8_char4 (st_parameter_dt *dtp, void *p, size_t len, size_t width)
     }
 
   /* If there was a short read, pad the remaining characters.  */
-  for (size_t i = j; i < len; i++)
+  for (i = j; i < len; i++)
     *dest++ = (gfc_char4_t) ' ';
   return;
 }
 
 
 static void
-read_default_char4 (st_parameter_dt *dtp, char *p, size_t len, size_t width)
+read_default_char4 (st_parameter_dt *dtp, char *p, int len, int width)
 {
-  size_t m, n;
+  int m, n;
   gfc_char4_t *dest;
 
   if (is_char4_unit(dtp))
@@ -476,18 +481,15 @@ read_default_char4 (st_parameter_dt *dtp, char *p, size_t len, size_t width)
       if (width > len)
 	 s4 += (width - len);
 
-      m = (width > len) ? len : width;
+      m = ((int) width > len) ? len : (int) width;
 
       dest = (gfc_char4_t *) p;
 
       for (n = 0; n < m; n++)
 	*dest++ = *s4++;
 
-      if (len > width)
-	{
-	  for (n = 0; n < len - width; n++)
-	    *dest++ = (gfc_char4_t) ' ';
-	}
+      for (n = 0; n < len - (int) width; n++)
+	*dest++ = (gfc_char4_t) ' ';
     }
   else
     {
@@ -500,18 +502,15 @@ read_default_char4 (st_parameter_dt *dtp, char *p, size_t len, size_t width)
       if (width > len)
 	 s += (width - len);
 
-      m = (width > len) ? len : width;
+      m = ((int) width > len) ? len : (int) width;
 
       dest = (gfc_char4_t *) p;
 
       for (n = 0; n < m; n++, dest++, s++)
 	*dest = (unsigned char ) *s;
 
-      if (len > width)
-	{
-	  for (n = 0; n < len - width; n++, dest++)
-	    *dest = (unsigned char) ' ';
-	}
+      for (n = 0; n < len - (int) width; n++, dest++)
+	*dest = (unsigned char) ' ';
     }
 }
 
@@ -520,14 +519,15 @@ read_default_char4 (st_parameter_dt *dtp, char *p, size_t len, size_t width)
    processing UTF-8 encoding if necessary.  */
 
 void
-read_a (st_parameter_dt *dtp, const fnode *f, char *p, size_t length)
+read_a (st_parameter_dt *dtp, const fnode *f, char *p, int length)
 {
-  size_t w;
+  int wi;
+  int w;
 
-  if (f->u.w == -1) /* '(A)' edit descriptor  */
-    w = length;
-  else
-    w = f->u.w;
+  wi = f->u.w;
+  if (wi == -1) /* '(A)' edit descriptor  */
+    wi = length;
+  w = wi;
 
   /* Read in w characters, treating comma as not a separator.  */
   dtp->u.p.sf_read_comma = 0;
@@ -546,14 +546,13 @@ read_a (st_parameter_dt *dtp, const fnode *f, char *p, size_t length)
    processing UTF-8 encoding if necessary.  */
 
 void
-read_a_char4 (st_parameter_dt *dtp, const fnode *f, char *p, size_t length)
+read_a_char4 (st_parameter_dt *dtp, const fnode *f, char *p, int length)
 {
-  size_t w;
+  int w;
 
-  if (f->u.w == -1) /* '(A)' edit descriptor  */
+  w = f->u.w;
+  if (w == -1) /* '(A)' edit descriptor  */
     w = length;
-  else
-    w = f->u.w;
 
   /* Read in w characters, treating comma as not a separator.  */
   dtp->u.p.sf_read_comma = 0;
@@ -568,10 +567,10 @@ read_a_char4 (st_parameter_dt *dtp, const fnode *f, char *p, size_t length)
 }
 
 /* eat_leading_spaces()-- Given a character pointer and a width,
-   ignore the leading spaces.  */
+ * ignore the leading spaces.  */
 
 static char *
-eat_leading_spaces (size_t *width, char *p)
+eat_leading_spaces (int *width, char *p)
 {
   for (;;)
     {
@@ -587,7 +586,7 @@ eat_leading_spaces (size_t *width, char *p)
 
 
 static char
-next_char (st_parameter_dt *dtp, char **p, size_t *w)
+next_char (st_parameter_dt *dtp, char **p, int *w)
 {
   char c, *q;
 
@@ -620,15 +619,14 @@ next_char (st_parameter_dt *dtp, char **p, size_t *w)
 
 
 /* read_decimal()-- Read a decimal integer value.  The values here are
-   signed values. */
+ * signed values. */
 
 void
 read_decimal (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
 {
   GFC_UINTEGER_LARGEST value, maxv, maxv_10;
   GFC_INTEGER_LARGEST v;
-  size_t w;
-  int negative;
+  int w, negative; 
   char c, *p;
 
   w = f->u.w;
@@ -726,9 +724,9 @@ read_decimal (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
 
 
 /* read_radix()-- This function reads values for non-decimal radixes.
-   The difference here is that we treat the values here as unsigned
-   values for the purposes of overflow.  If minus sign is present and
-   the top bit is set, the value will be incorrect. */
+ * The difference here is that we treat the values here as unsigned
+ * values for the purposes of overflow.  If minus sign is present and
+ * the top bit is set, the value will be incorrect. */
 
 void
 read_radix (st_parameter_dt *dtp, const fnode *f, char *dest, int length,
@@ -736,8 +734,7 @@ read_radix (st_parameter_dt *dtp, const fnode *f, char *dest, int length,
 {
   GFC_UINTEGER_LARGEST value, maxv, maxv_r;
   GFC_INTEGER_LARGEST v;
-  size_t w;
-  int negative;
+  int w, negative;
   char c, *p;
 
   w = f->u.w;
@@ -887,8 +884,7 @@ read_f (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
 #define READF_TMP 50
   char tmp[READF_TMP];
   size_t buf_size = 0;
-  size_t w;
-  int seen_dp, exponent;
+  int w, seen_dp, exponent;
   int exponent_sign;
   const char *p;
   char *buffer;
@@ -1091,13 +1087,7 @@ exponent:
      the d parameter before explict conversion takes place.  */
 
   if (w == 0)
-    {
-      /* Extension: allow default exponent of 0 when omitted.  */
-      if (dtp->common.flags & IOPARM_DT_DEC_EXT)
-	goto done;
-      else
-	goto bad_float;
-    }
+    goto bad_float;
 
   if (dtp->u.p.blank_status == BLANK_UNSPECIFIED)
     {
@@ -1233,16 +1223,15 @@ bad_float:
 
 
 /* read_x()-- Deal with the X/TR descriptor.  We just read some data
-   and never look at it. */
+ * and never look at it. */
 
 void
-read_x (st_parameter_dt *dtp, size_t n)
+read_x (st_parameter_dt *dtp, int n)
 {
-  size_t length;
-  int q, q2;
+  int length, q, q2;
 
   if ((dtp->u.p.current_unit->pad_status == PAD_NO || is_internal_unit (dtp))
-      && dtp->u.p.current_unit->bytes_left < (gfc_offset) n)
+       && dtp->u.p.current_unit->bytes_left < n)
     n = dtp->u.p.current_unit->bytes_left;
     
   if (n == 0)
@@ -1267,8 +1256,7 @@ read_x (st_parameter_dt *dtp, size_t n)
       q = fbuf_getc (dtp->u.p.current_unit);
       if (q == EOF)
 	break;
-      else if (dtp->u.p.current_unit->flags.cc != CC_NONE
-	       && (q == '\n' || q == '\r'))
+      else if (q == '\n' || q == '\r')
 	{
 	  /* Unexpected end of line. Set the position.  */
 	  dtp->u.p.sf_seen_eor = 1;
@@ -1294,9 +1282,8 @@ read_x (st_parameter_dt *dtp, size_t n)
     } 
 
  done:
-  if (((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0) ||
-      dtp->u.p.current_unit->has_size)
-    dtp->u.p.current_unit->size_used += (GFC_IO_INT) n;
+  if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
+    dtp->u.p.size_used += (GFC_IO_INT) n;
   dtp->u.p.current_unit->bytes_left -= n;
   dtp->u.p.current_unit->strm_pos += (gfc_offset) n;
 }

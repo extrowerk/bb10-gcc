@@ -15,10 +15,7 @@ void f1()
   try {} catch (...) {}		// { dg-error "" }
 }
 
-void f2()
-#if __cplusplus <= 201402L
-throw(int)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#endif
+void f2() throw(int)
 {
   bar();
 }

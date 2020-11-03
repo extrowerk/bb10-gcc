@@ -12,78 +12,78 @@ allocate(var(3)[*])
 
 count = -42
 call event_query (var(1), count)
-if (count /= 0) STOP 1
+if (count /= 0) call abort()
 call event_query (var(1), count)
-if (count /= 0) STOP 2
+if (count /= 0) call abort()
 call event_query (var(2), count)
-if (count /= 0) STOP 3
+if (count /= 0) call abort()
 call event_query (var(3), count)
-if (count /= 0) STOP 4
+if (count /= 0) call abort()
 
 stat = 99
 event post (var(2), stat=stat)
-if (stat /= 0) STOP 5
+if (stat /= 0) call abort()
 call event_query (var(1), count)
-if (count /= 0) STOP 6
+if (count /= 0) call abort()
 call event_query(var(2), count, stat=stat)
-if (count /= 1 .or. stat /= 0) STOP 7
+if (count /= 1 .or. stat /= 0) call abort()
 call event_query (var(3), count)
-if (count /= 0) STOP 8
+if (count /= 0) call abort()
 
 stat = 99
 event post (var(2)[this_image()])
 call event_query(var(1), count)
-if (count /= 0) STOP 9
+if (count /= 0) call abort()
 call event_query(var(2), count)
-if (count /= 2) STOP 10
+if (count /= 2) call abort()
 call event_query(var(2), count)
-if (count /= 2) STOP 11
+if (count /= 2) call abort()
 call event_query(var(3), count)
-if (count /= 0) STOP 12
+if (count /= 0) call abort()
 
 stat = 99
 event wait (var(2))
 call event_query(var(1), count)
-if (count /= 0) STOP 13
+if (count /= 0) call abort()
 call event_query(var(2), count)
-if (count /= 1) STOP 14
+if (count /= 1) call abort()
 call event_query(var(3), count)
-if (count /= 0) STOP 15
+if (count /= 0) call abort()
 
 stat = 99
 event post (var(2))
 call event_query(var(1), count)
-if (count /= 0) STOP 16
+if (count /= 0) call abort()
 call event_query(var(2), count)
-if (count /= 2) STOP 17
+if (count /= 2) call abort()
 call event_query(var(3), count)
-if (count /= 0) STOP 18
+if (count /= 0) call abort()
 
 stat = 99
 event post (var(2))
 call event_query(var(1), count)
-if (count /= 0) STOP 19
+if (count /= 0) call abort()
 call event_query(var(2), count)
-if (count /= 3) STOP 20
+if (count /= 3) call abort()
 call event_query(var(3), count)
-if (count /= 0) STOP 21
+if (count /= 0) call abort()
 
 stat = 99
 event wait (var(2), until_count=2)
 call event_query(var(1), count)
-if (count /= 0) STOP 22
+if (count /= 0) call abort()
 call event_query(var(2), count)
-if (count /= 1) STOP 23
+if (count /= 1) call abort()
 call event_query(var(3), count)
-if (count /= 0) STOP 24
+if (count /= 0) call abort()
 
 stat = 99
 event wait (var(2), stat=stat, until_count=1)
-if (stat /= 0) STOP 25
+if (stat /= 0) call abort()
 call event_query(event=var(1), stat=stat, count=count)
-if (count /= 0 .or. stat /= 0) STOP 26
+if (count /= 0 .or. stat /= 0) call abort()
 call event_query(event=var(2), stat=stat, count=count)
-if (count /= 0 .or. stat /= 0) STOP 27
+if (count /= 0 .or. stat /= 0) call abort()
 call event_query(event=var(3), stat=stat, count=count)
-if (count /= 0 .or. stat /= 0) STOP 28
+if (count /= 0 .or. stat /= 0) call abort()
 end

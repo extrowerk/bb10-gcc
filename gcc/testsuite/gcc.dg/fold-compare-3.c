@@ -156,3 +156,4 @@ void bla4ge (int var)
 /* { dg-final { scan-tree-dump-times "this_comparison_is_not_decidable" 12 "cfg" } } */
 /* { dg-final { scan-tree-dump-times "if " 12 "cfg" } } */
 
+/* { dg-final { cleanup-tree-dump "cfg" } } */

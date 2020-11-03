@@ -17,3 +17,4 @@ int main(void)
 
 /* { dg-final { scan-tree-dump-times "\[ab\].._. \\\+ \[ab\].._." 1 "optimized" } } */
 /* { dg-final { scan-tree-dump-times " \\\+ " 2 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

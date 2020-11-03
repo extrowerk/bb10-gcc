@@ -8,19 +8,13 @@
 // This file is shared between sanitizers' run-time libraries.
 //
 //===----------------------------------------------------------------------===//
-
 #include "sanitizer_stacktrace_printer.h"
-#include "sanitizer_file.h"
-#include "sanitizer_fuchsia.h"
 
 namespace __sanitizer {
 
-// sanitizer_symbolizer_fuchsia.cc implements these differently for Fuchsia.
-#if !SANITIZER_FUCHSIA
-
 static const char *StripFunctionName(const char *function, const char *prefix) {
-  if (!function) return nullptr;
-  if (!prefix) return function;
+  if (function == 0) return 0;
+  if (prefix == 0) return function;
   uptr prefix_len = internal_strlen(prefix);
   if (0 == internal_strncmp(function, prefix, prefix_len))
     return function + prefix_len;
@@ -30,8 +24,8 @@ static const char *StripFunctionName(const char *function, const char *prefix) {
 static const char kDefaultFormat[] = "    #%n %p %F %L";
 
 void RenderFrame(InternalScopedString *buffer, const char *format, int frame_no,
-                 const AddressInfo &info, bool vs_style,
-                 const char *strip_path_prefix, const char *strip_func_prefix) {
+                 const AddressInfo &info, const char *strip_path_prefix,
+                 const char *strip_func_prefix) {
   if (0 == internal_strcmp(format, "DEFAULT"))
     format = kDefaultFormat;
   for (const char *p = format; *p != '\0'; p++) {
@@ -86,82 +80,39 @@ void RenderFrame(InternalScopedString *buffer, const char *format, int frame_no,
       break;
     case 'S':
       // File/line information.
-      RenderSourceLocation(buffer, info.file, info.line, info.column, vs_style,
+      RenderSourceLocation(buffer, info.file, info.line, info.column,
                            strip_path_prefix);
       break;
     case 'L':
       // Source location, or module location.
       if (info.file) {
         RenderSourceLocation(buffer, info.file, info.line, info.column,
-                             vs_style, strip_path_prefix);
+                             strip_path_prefix);
       } else if (info.module) {
         RenderModuleLocation(buffer, info.module, info.module_offset,
-                             info.module_arch, strip_path_prefix);
+                             strip_path_prefix);
       } else {
         buffer->append("(<unknown module>)");
       }
       break;
     case 'M':
       // Module basename and offset, or PC.
-      if (info.address & kExternalPCBit)
-        {} // There PCs are not meaningful.
-      else if (info.module)
-        // Always strip the module name for %M.
-        RenderModuleLocation(buffer, StripModuleName(info.module),
-                             info.module_offset, info.module_arch, "");
+      if (info.module)
+        buffer->append("(%s+%p)", StripModuleName(info.module),
+                       (void *)info.module_offset);
       else
         buffer->append("(%p)", (void *)info.address);
       break;
     default:
-      Report("Unsupported specifier in stack frame format: %c (0x%zx)!\n", *p,
-             *p);
+      Report("Unsupported specifier in stack frame format: %c (0x%zx)!\n",
+             *p, *p);
       Die();
     }
   }
 }
 
-void RenderData(InternalScopedString *buffer, const char *format,
-                const DataInfo *DI, const char *strip_path_prefix) {
-  for (const char *p = format; *p != '\0'; p++) {
-    if (*p != '%') {
-      buffer->append("%c", *p);
-      continue;
-    }
-    p++;
-    switch (*p) {
-      case '%':
-        buffer->append("%%");
-        break;
-      case 's':
-        buffer->append("%s", StripPathPrefix(DI->file, strip_path_prefix));
-        break;
-      case 'l':
-        buffer->append("%d", DI->line);
-        break;
-      case 'g':
-        buffer->append("%s", DI->name);
-        break;
-      default:
-        Report("Unsupported specifier in stack frame format: %c (0x%zx)!\n", *p,
-               *p);
-        Die();
-    }
-  }
-}
-
-#endif  // !SANITIZER_FUCHSIA
-
 void RenderSourceLocation(InternalScopedString *buffer, const char *file,
-                          int line, int column, bool vs_style,
-                          const char *strip_path_prefix) {
-  if (vs_style && line > 0) {
-    buffer->append("%s(%d", StripPathPrefix(file, strip_path_prefix), line);
-    if (column > 0)
-      buffer->append(",%d", column);
-    buffer->append(")");
-    return;
-  }
-
+                          int line, int column, const char *strip_path_prefix) {
   buffer->append("%s", StripPathPrefix(file, strip_path_prefix));
   if (line > 0) {
     buffer->append(":%d", line);
@@ -171,13 +122,9 @@ void RenderSourceLocation(InternalScopedString *buffer, const char *file,
 }
 
 void RenderModuleLocation(InternalScopedString *buffer, const char *module,
-                          uptr offset, ModuleArch arch,
-                          const char *strip_path_prefix) {
-  buffer->append("(%s", StripPathPrefix(module, strip_path_prefix));
-  if (arch != kModuleArchUnknown) {
-    buffer->append(":%s", ModuleArchToString(arch));
-  }
-  buffer->append("+0x%zx)", offset);
+                          uptr offset, const char *strip_path_prefix) {
+  buffer->append("(%s+0x%zx)", StripPathPrefix(module, strip_path_prefix),
+                 offset);
 }
 
-} // namespace __sanitizer
+}  // namespace __sanitizer

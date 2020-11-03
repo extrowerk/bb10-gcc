@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2018, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2014, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -39,10 +39,6 @@
 extern "C" {
 #endif
 
-/* atree: */
-
-#define Serious_Errors_Detected atree__serious_errors_detected
-
 /* comperr: */
 
 #define Compiler_Abort comperr__compiler_abort
@@ -56,9 +52,7 @@ extern char Fold_Lower[], Fold_Upper[];
 
 /* debug: */
 
-#define Debug_Flag_Dot_R	debug__debug_flag_dot_r
-#define Debug_Flag_NN		debug__debug_flag_nn
-extern Boolean Debug_Flag_Dot_R;
+#define Debug_Flag_NN debug__debug_flag_nn
 extern Boolean Debug_Flag_NN;
 
 /* einfo: */
@@ -82,6 +76,10 @@ extern Boolean Is_Entity_Name		(Node_Id);
 
 #define Get_Attribute_Definition_Clause einfo__get_attribute_definition_clause
 extern Node_Id Get_Attribute_Definition_Clause (Entity_Id, char);
+
+/* atree: */
+
+#define Serious_Errors_Detected atree__serious_errors_detected
 
 /* errout: */
 
@@ -109,12 +107,10 @@ extern Nat       Serious_Errors_Detected;
 #define Get_Local_Raise_Call_Entity exp_ch11__get_local_raise_call_entity
 #define Get_RT_Exception_Entity exp_ch11__get_rt_exception_entity
 #define Get_RT_Exception_Name exp_ch11__get_rt_exception_name
-#define Warn_If_No_Local_Raise exp_ch11__warn_if_no_local_raise
 
 extern Entity_Id Get_Local_Raise_Call_Entity (void);
 extern Entity_Id Get_RT_Exception_Entity (int);
 extern void Get_RT_Exception_Name (int);
-extern void Warn_If_No_Local_Raise (int);
 
 /* exp_code:  */
 
@@ -181,11 +177,8 @@ extern Boolean In_Same_Source_Unit              (Node_Id, Node_Id);
 #define GNAT_Mode                      opt__gnat_mode
 #define List_Representation_Info       opt__list_representation_info
 #define No_Strict_Aliasing_CP          opt__no_strict_aliasing
-#define Suppress_Checks                opt__suppress_checks
 
-typedef enum {
-  Front_End_SJLJ, Back_End_ZCX, Back_End_SJLJ
-} Exception_Mechanism_Type;
+typedef enum {Setjmp_Longjmp, Back_End_Exceptions} Exception_Mechanism_Type;
 
 extern Boolean Back_End_Inlining;
 extern Boolean Exception_Extra_Info;
@@ -196,36 +189,20 @@ extern Boolean Generate_SCO_Instance_Table;
 extern Boolean GNAT_Mode;
 extern Int List_Representation_Info;
 extern Boolean No_Strict_Aliasing_CP;
-extern Boolean Suppress_Checks;
-
-#define ZCX_Exceptions            opt__zcx_exceptions
-#define SJLJ_Exceptions           opt__sjlj_exceptions
-#define Front_End_Exceptions      opt__front_end_exceptions
-#define Back_End_Exceptions       opt__back_end_exceptions
-
-extern Boolean ZCX_Exceptions       (void);
-extern Boolean SJLJ_Exceptions      (void);
-extern Boolean Front_End_Exceptions (void);
-extern Boolean Back_End_Exceptions  (void);
 
 /* restrict: */
 
 #define No_Exception_Handlers_Set      restrict__no_exception_handlers_set
 #define Check_No_Implicit_Heap_Alloc   restrict__check_no_implicit_heap_alloc
-#define Check_No_Implicit_Task_Alloc   restrict__check_no_implicit_task_alloc
-#define Check_No_Implicit_Protected_Alloc restrict__check_no_implicit_protected_alloc
 #define Check_Elaboration_Code_Allowed restrict__check_elaboration_code_allowed
 #define Check_Implicit_Dynamic_Code_Allowed restrict__check_implicit_dynamic_code_allowed
 
 extern Boolean No_Exception_Handlers_Set   (void);
 extern void Check_No_Implicit_Heap_Alloc   (Node_Id);
-extern void Check_No_Implicit_Task_Alloc   (Node_Id);
-extern void Check_No_Implicit_Protected_Alloc (Node_Id);
 extern void Check_Elaboration_Code_Allowed (Node_Id);
 extern void Check_Implicit_Dynamic_Code_Allowed (Node_Id);
 
 /* sem_aggr:  */
-
 #define Is_Others_Aggregate    sem_aggr__is_others_aggregate
 
 extern Boolean Is_Others_Aggregate (Node_Id);
@@ -233,7 +210,6 @@ extern Boolean Is_Others_Aggregate (Node_Id);
 /* sem_aux:  */
 
 #define Ancestor_Subtype               sem_aux__ancestor_subtype
-#define Constant_Value                 sem_aux__constant_value
 #define First_Discriminant             sem_aux__first_discriminant
 #define First_Stored_Discriminant      sem_aux__first_stored_discriminant
 #define First_Subtype                  sem_aux__first_subtype
@@ -241,12 +217,17 @@ extern Boolean Is_Others_Aggregate (Node_Id);
 #define Is_Derived_Type                sem_aux__is_derived_type
 
 extern Entity_Id  Ancestor_Subtype             (Entity_Id);
-extern Node_Id    Constant_Value               (Entity_Id);
 extern Entity_Id  First_Discriminant           (Entity_Id);
 extern Entity_Id  First_Stored_Discriminant    (Entity_Id);
 extern Entity_Id  First_Subtype                (Entity_Id);
 extern Boolean    Is_By_Reference_Type         (Entity_Id);
 extern Boolean    Is_Derived_Type              (Entity_Id);
+
+/* sem_elim: */
+
+#define Eliminate_Error_Msg    sem_elim__eliminate_error_msg
+
+extern void Eliminate_Error_Msg (Node_Id, Entity_Id);
 
 /* sem_eval: */
 
@@ -297,12 +278,6 @@ extern Boolean Machine_Overflows_On_Target;
 extern Boolean Signed_Zeros_On_Target;
 extern Boolean Stack_Check_Probes_On_Target;
 extern Boolean Stack_Check_Limits_On_Target;
-
-/* warnsw: */
-
-#define Warn_On_Questionable_Layout warnsw__warn_on_questionable_layout
-
-extern Boolean Warn_On_Questionable_Layout;
 
 #ifdef __cplusplus
 }

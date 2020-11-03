@@ -1,4 +1,4 @@
-// Copyright (C) 2004-2018 Free Software Foundation, Inc.
+// Copyright (C) 2004-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -23,8 +23,9 @@
 #include <testsuite_hooks.h>
  
 // elaborated test for ints
-void test02()
+bool test02()
 {
+  bool test __attribute__((unused)) = true;
   const std::wstring str_01(L"20000AB");
   std::wstringbuf strb_01(str_01, std::ios_base::in);
   std::wistream is(&strb_01);
@@ -34,6 +35,7 @@ void test02()
   VERIFY( n == 20000 );
   wchar_t c = is.peek();
   VERIFY( c == L'A' );
+  return test;
 }
 
 int main()

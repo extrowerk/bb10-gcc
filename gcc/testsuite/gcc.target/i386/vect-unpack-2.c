@@ -6,22 +6,19 @@
 
 #define N 120
 signed int yy[10000];
-signed char zz[10000];
 
 void
-__attribute__ ((noinline,noclone)) foo (int s)
+__attribute__ ((noinline)) foo (signed char s)
 {
-   int i;
+   signed char i;
    for (i = 0; i < s; i++)
-     yy[i] = zz[i];
+     yy[i] = (signed int) i;
 }
 
 void
 avx512bw_test ()
 {
   signed char i;
-  for (i = 0; i < N; i++)
-    zz[i] = i;
   foo (N);
   for (i = 0; i < N; i++)
     if ( (signed int)i != yy [i] )

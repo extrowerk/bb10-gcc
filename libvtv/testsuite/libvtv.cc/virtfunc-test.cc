@@ -2,7 +2,8 @@
 
 /* This test script is part of GDB, the GNU debugger.
 
-   Copyright (C) 1993-2018 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1997, 1998, 1999, 2003, 2004,
+   Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by

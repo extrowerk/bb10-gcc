@@ -1,5 +1,5 @@
 /* Command line option handling.
-   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -23,21 +23,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "coretypes.h"
 #include "opts.h"
-#include "tm.h"
+#include "options.h"
+#include "tm.h" /* For STACK_CHECK_BUILTIN,
+		   STACK_CHECK_STATIC_BUILTIN, DEFAULT_GDB_EXTENSIONS,
+		   DWARF2_DEBUGGING_INFO and DBX_DEBUGGING_INFO.  */
 #include "flags.h"
 #include "params.h"
 #include "diagnostic.h"
 #include "opts-diagnostic.h"
 #include "insn-attr-common.h"
 #include "common/common-target.h"
-#include "spellcheck.h"
 
 static void set_Wstrict_aliasing (struct gcc_options *opts, int onoff);
 
 /* Indexed by enum debug_info_type.  */
 const char *const debug_type_names[] =
 {
-  "none", "stabs", "dwarf-2", "xcoff", "vms"
+  "none", "stabs", "coff", "dwarf-2", "xcoff", "vms"
 };
 
 /* Parse the -femit-struct-debug-detailed option value
@@ -139,13 +141,13 @@ set_struct_debug_option (struct gcc_options *opts, location_t loc,
 /* Strip off a legitimate source ending from the input string NAME of
    length LEN.  Rather than having to know the names used by all of
    our front ends, we strip off an ending of a period followed by
-   up to fource characters.  (C++ uses ".cpp".)  */
+   up to five characters.  (Java uses ".class".)  */
 
 void
 strip_off_ending (char *name, int len)
 {
   int i;
-  for (i = 2; i < 5 && len > i; i++)
+  for (i = 2; i < 6 && len > i; i++)
     {
       if (name[len - i] == '.')
 	{
@@ -182,8 +184,7 @@ base_of_path (const char *path, const char **base_out)
 }
 
 /* What to print when a switch has no documentation.  */
-static const char undocumented_msg[] = N_("This option lacks documentation.");
-static const char use_diagnosed_msg[] = N_("Uses of this option are diagnosed.");
+static const char undocumented_msg[] = N_("This switch lacks documentation");
 
 typedef char *char_p; /* For DEF_VEC_P.  */
 
@@ -217,7 +218,7 @@ target_handle_option (struct gcc_options *opts,
 		      unsigned int lang_mask ATTRIBUTE_UNUSED, int kind,
 		      location_t loc,
 		      const struct cl_option_handlers *handlers ATTRIBUTE_UNUSED,
-		      diagnostic_context *dc, void (*) (void))
+		      diagnostic_context *dc)
 {
   gcc_assert (dc == global_dc);
   gcc_assert (kind == DK_UNSPECIFIED);
@@ -267,14 +268,6 @@ add_comma_separated_to_vector (void **pvec, const char *arg)
   *pvec = v;
 }
 
-/* Initialize opts_obstack.  */
-
-void
-init_opts_obstack (void)
-{
-  gcc_obstack_init (&opts_obstack);
-}
-
 /* Initialize OPTS and OPTS_SET before using them in parsing options.  */
 
 void
@@ -282,9 +275,7 @@ init_options_struct (struct gcc_options *opts, struct gcc_options *opts_set)
 {
   size_t num_params = get_num_compiler_params ();
 
-  /* Ensure that opts_obstack has already been initialized by the time
-     that we initialize any gcc_options instances (PR jit/68446).  */
-  gcc_assert (opts_obstack.chunk_size > 0);
+  gcc_obstack_init (&opts_obstack);
 
   *opts = global_options_init;
 
@@ -403,13 +394,13 @@ maybe_default_option (struct gcc_options *opts,
     handle_generated_option (opts, opts_set, default_opt->opt_index,
 			     default_opt->arg, default_opt->value,
 			     lang_mask, DK_UNSPECIFIED, loc,
-			     handlers, true, dc);
+			     handlers, dc);
   else if (default_opt->arg == NULL
 	   && !option->cl_reject_negative)
     handle_generated_option (opts, opts_set, default_opt->opt_index,
 			     default_opt->arg, !default_opt->value,
 			     lang_mask, DK_UNSPECIFIED, loc,
-			     handlers, true, dc);
+			     handlers, dc);
 }
 
 /* As indicated by the optimization level LEVEL (-Os if SIZE is set,
@@ -441,7 +432,7 @@ static const struct default_options default_options_table[] =
   {
     /* -O1 optimizations.  */
     { OPT_LEVELS_1_PLUS, OPT_fdefer_pop, NULL, 1 },
-#if DELAY_SLOTS
+#ifdef DELAY_SLOTS
     { OPT_LEVELS_1_PLUS, OPT_fdelayed_branch, NULL, 1 },
 #endif
     { OPT_LEVELS_1_PLUS, OPT_fguess_branch_probability, NULL, 1 },
@@ -453,17 +444,16 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_1_PLUS, OPT_fipa_reference, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fipa_profile, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fmerge_constants, NULL, 1 },
-    { OPT_LEVELS_1_PLUS, OPT_freorder_blocks, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fshrink_wrap, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fsplit_wide_types, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_ccp, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_ftree_bit_ccp, NULL, 1 },
-    { OPT_LEVELS_1_PLUS, OPT_ftree_coalesce_vars, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_dce, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_dominator_opts, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_dse, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_ter, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_ftree_sra, NULL, 1 },
+    { OPT_LEVELS_1_PLUS, OPT_ftree_copyrename, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_fre, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_copy_prop, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_sink, NULL, 1 },
@@ -475,8 +465,6 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_fmove_loop_invariants, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_ftree_pta, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_fssa_phiopt, NULL, 1 },
-    { OPT_LEVELS_1_PLUS, OPT_ftree_builtin_call_dce, NULL, 1 },
-    { OPT_LEVELS_1_PLUS, OPT_fomit_frame_pointer, NULL, 1 },
 
     /* -O2 optimizations.  */
     { OPT_LEVELS_2_PLUS, OPT_finline_small_functions, NULL, 1 },
@@ -497,16 +485,15 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_2_PLUS, OPT_fschedule_insns2, NULL, 1 },
 #endif
     { OPT_LEVELS_2_PLUS, OPT_fstrict_aliasing, NULL, 1 },
-    { OPT_LEVELS_2_PLUS_SPEED_ONLY, OPT_freorder_blocks_algorithm_, NULL,
-      REORDER_BLOCKS_ALGORITHM_STC },
+    { OPT_LEVELS_2_PLUS, OPT_fstrict_overflow, NULL, 1 },
+    { OPT_LEVELS_2_PLUS, OPT_freorder_blocks, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_freorder_functions, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_vrp, NULL, 1 },
-    { OPT_LEVELS_2_PLUS, OPT_fcode_hoisting, NULL, 1 },
+    { OPT_LEVELS_2_PLUS, OPT_ftree_builtin_call_dce, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_pre, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_switch_conversion, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fipa_cp, NULL, 1 },
-    { OPT_LEVELS_2_PLUS, OPT_fipa_bit_cp, NULL, 1 },
-    { OPT_LEVELS_2_PLUS, OPT_fipa_vrp, NULL, 1 },
+    { OPT_LEVELS_2_PLUS, OPT_fipa_cp_alignment, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fdevirtualize, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fdevirtualize_speculatively, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fipa_sra, NULL, 1 },
@@ -522,28 +509,21 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_2_PLUS, OPT_fisolate_erroneous_paths_dereference, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fipa_ra, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_flra_remat, NULL, 1 },
-    { OPT_LEVELS_2_PLUS, OPT_fstore_merging, NULL, 1 },
 
     /* -O3 optimizations.  */
     { OPT_LEVELS_3_PLUS, OPT_ftree_loop_distribute_patterns, NULL, 1 },
-    { OPT_LEVELS_3_PLUS, OPT_ftree_loop_distribution, NULL, 1 },
-    { OPT_LEVELS_3_PLUS, OPT_floop_interchange, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fpredictive_commoning, NULL, 1 },
-    { OPT_LEVELS_3_PLUS, OPT_fsplit_paths, NULL, 1 },
     /* Inlining of functions reducing size is a good idea with -Os
        regardless of them being declared inline.  */
     { OPT_LEVELS_3_PLUS_AND_SIZE, OPT_finline_functions, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_finline_functions_called_once, NULL, 1 },
-    { OPT_LEVELS_3_PLUS, OPT_fsplit_loops, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_funswitch_loops, NULL, 1 },
-    { OPT_LEVELS_3_PLUS, OPT_floop_unroll_and_jam, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fgcse_after_reload, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_ftree_loop_vectorize, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_ftree_slp_vectorize, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fvect_cost_model_, NULL, VECT_COST_MODEL_DYNAMIC },
     { OPT_LEVELS_3_PLUS, OPT_fipa_cp_clone, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_ftree_partial_pre, NULL, 1 },
-    { OPT_LEVELS_3_PLUS, OPT_fpeel_loops, NULL, 1 },
 
     /* -Ofast adds optimizations to -O3.  */
     { OPT_LEVELS_FAST, OPT_ffast_math, NULL, 1 },
@@ -565,7 +545,6 @@ default_options_optimization (struct gcc_options *opts,
 {
   unsigned int i;
   int opt2;
-  bool openacc_mode = false;
 
   /* Scan to see what optimization level has been specified.  That will
      determine the default value of many flags.  */
@@ -625,11 +604,6 @@ default_options_optimization (struct gcc_options *opts,
 	  opts->x_optimize_debug = 1;
 	  break;
 
-	case OPT_fopenacc:
-	  if (opt->value)
-	    openacc_mode = true;
-	  break;
-
 	default:
 	  /* Ignore other options in this prescan.  */
 	  break;
@@ -644,10 +618,6 @@ default_options_optimization (struct gcc_options *opts,
   /* -O2 param settings.  */
   opt2 = (opts->x_optimize >= 2);
 
-  if (openacc_mode
-      && !opts_set->x_flag_ipa_pta)
-    opts->x_flag_ipa_pta = true;
-
   /* Track fields in field-sensitive alias analysis.  */
   maybe_set_param_value
     (PARAM_MAX_FIELDS_FOR_FIELD_SENSITIVE,
@@ -657,16 +627,7 @@ default_options_optimization (struct gcc_options *opts,
   /* For -O1 only do loop invariant motion for very small loops.  */
   maybe_set_param_value
     (PARAM_LOOP_INVARIANT_MAX_BBS_IN_LOOP,
-     opt2 ? default_param_value (PARAM_LOOP_INVARIANT_MAX_BBS_IN_LOOP)
-     : default_param_value (PARAM_LOOP_INVARIANT_MAX_BBS_IN_LOOP) / 10,
-     opts->x_param_values, opts_set->x_param_values);
-
-  /* For -O1 reduce the maximum number of active local stores for RTL DSE
-     since this can consume huge amounts of memory (PR89115).  */
-  maybe_set_param_value
-    (PARAM_MAX_DSE_ACTIVE_LOCAL_STORES,
-     opt2 ? default_param_value (PARAM_MAX_DSE_ACTIVE_LOCAL_STORES)
-     : default_param_value (PARAM_MAX_DSE_ACTIVE_LOCAL_STORES) / 10,
+     opt2 ? default_param_value (PARAM_LOOP_INVARIANT_MAX_BBS_IN_LOOP) : 1000,
      opts->x_param_values, opts_set->x_param_values);
 
   /* At -Ofast, allow store motion to introduce potential race conditions.  */
@@ -709,27 +670,19 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
   enum unwind_info_type ui_except;
 
   if (opts->x_dump_base_name
+      && ! IS_ABSOLUTE_PATH (opts->x_dump_base_name)
       && ! opts->x_dump_base_name_prefixed)
     {
-      const char *sep = opts->x_dump_base_name;
-
-      for (; *sep; sep++)
-	if (IS_DIR_SEPARATOR (*sep))
-	  break;
-
-      if (*sep)
-	/* If dump_base_path contains subdirectories, don't prepend
-	   anything.  */;
-      else if (opts->x_dump_dir_name)
-	/* We have a DUMP_DIR_NAME, prepend that.  */
+      /* First try to make OPTS->X_DUMP_BASE_NAME relative to the
+	 OPTS->X_DUMP_DIR_NAME directory.  Then try to make
+	 OPTS->X_DUMP_BASE_NAME relative to the OPTS->X_AUX_BASE_NAME
+	 directory, typically the directory to contain the object
+	 file.  */
+      if (opts->x_dump_dir_name)
 	opts->x_dump_base_name = opts_concat (opts->x_dump_dir_name,
 					      opts->x_dump_base_name, NULL);
       else if (opts->x_aux_base_name
 	       && strcmp (opts->x_aux_base_name, HOST_BIT_BUCKET) != 0)
-	/* AUX_BASE_NAME is set and is not the bit bucket.  If it
-	   contains a directory component, prepend those directories.
-	   Typically this places things in the same directory as the
-	   object file.  */
 	{
 	  const char *aux_base;
 
@@ -748,9 +701,7 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 	      opts->x_dump_base_name = new_dump_base_name;
 	    }
 	}
-
-      /* It is definitely prefixed now.  */
-      opts->x_dump_base_name_prefixed = true;
+	opts->x_dump_base_name_prefixed = true;
     }
 
   /* Handle related options for unit-at-a-time, toplevel-reorder, and
@@ -766,14 +717,6 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 		  "is disabled");
       opts->x_flag_toplevel_reorder = 0;
     }
-
-  /* -fself-test depends on the state of the compiler prior to
-     compiling anything.  Ideally it should be run on an empty source
-     file.  However, in case we get run with actual source, assume
-     -fsyntax-only which will inhibit any compiler initialization
-     which may confuse the self tests.  */
-  if (opts->x_flag_self_test)
-    opts->x_flag_syntax_only = 1;
 
   if (opts->x_flag_tm && opts->x_flag_non_call_exceptions)
     sorry ("transactional memory is not supported with non-call exceptions");
@@ -802,27 +745,17 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 	 default value.  */
       if (opts->x_flag_pie == -1)
 	{
-	  /* We initialize opts->x_flag_pic to -1 so that we can tell if
-	     -fpic, -fPIC, -fno-pic or -fno-PIC is used.  */
-	  if (opts->x_flag_pic == -1)
+	  if (opts->x_flag_pic == 0)
 	    opts->x_flag_pie = DEFAULT_FLAG_PIE;
 	  else
 	    opts->x_flag_pie = 0;
 	}
-      /* If -fPIE or -fpie is used, turn on PIC.  */
       if (opts->x_flag_pie)
 	opts->x_flag_pic = opts->x_flag_pie;
-      else if (opts->x_flag_pic == -1)
-	opts->x_flag_pic = 0;
       if (opts->x_flag_pic && !opts->x_flag_pie)
 	opts->x_flag_shlib = 1;
       opts->x_flag_opts_finished = true;
     }
-
-  /* We initialize opts->x_flag_stack_protect to -1 so that targets
-     can set a default value.  */
-  if (opts->x_flag_stack_protect == -1)
-    opts->x_flag_stack_protect = DEFAULT_FLAG_SSP;
 
   if (opts->x_optimize == 0)
     {
@@ -846,8 +779,8 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
     {
       if (opts_set->x_flag_reorder_blocks_and_partition)
         inform (loc,
-		"%<-freorder-blocks-and-partition%> does not work "
-		"with exceptions on this architecture");
+                "-freorder-blocks-and-partition does not work "
+                "with exceptions on this architecture");
       opts->x_flag_reorder_blocks_and_partition = 0;
       opts->x_flag_reorder_blocks = 1;
     }
@@ -862,8 +795,8 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
     {
       if (opts_set->x_flag_reorder_blocks_and_partition)
         inform (loc,
-		"%<-freorder-blocks-and-partition%> does not support "
-		"unwind info on this architecture");
+                "-freorder-blocks-and-partition does not support "
+                "unwind info on this architecture");
       opts->x_flag_reorder_blocks_and_partition = 0;
       opts->x_flag_reorder_blocks = 1;
     }
@@ -880,12 +813,15 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
     {
       if (opts_set->x_flag_reorder_blocks_and_partition)
         inform (loc,
-		"%<-freorder-blocks-and-partition%> does not work "
-		"on this architecture");
+                "-freorder-blocks-and-partition does not work "
+                "on this architecture");
       opts->x_flag_reorder_blocks_and_partition = 0;
       opts->x_flag_reorder_blocks = 1;
     }
 
+  if (opts->x_flag_reorder_blocks_and_partition
+      && !opts_set->x_flag_reorder_functions)
+    opts->x_flag_reorder_functions = 1;
 
   /* Pipelining of outer loops is only possible when general pipelining
      capabilities are requested.  */
@@ -918,8 +854,7 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 		  && !opts->x_flag_use_linker_plugin)))
 	{
 	  if (opts_set->x_flag_fat_lto_objects)
-	    error_at (loc, "%<-fno-fat-lto-objects%> are supported only with "
-		      "linker plugin");
+            error_at (loc, "-fno-fat-lto-objects are supported only with linker plugin");
 	  opts->x_flag_fat_lto_objects = 1;
 	}
     }
@@ -937,20 +872,6 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 	  opts->x_flag_split_stack = 0;
 	}
     }
-
-  /* If stack splitting is turned on, and the user did not explicitly
-     request function partitioning, turn off partitioning, as it
-     confuses the linker when trying to handle partitioned split-stack
-     code that calls a non-split-stack functions.  But if partitioning
-     was turned on explicitly just hope for the best.  */
-  if (opts->x_flag_split_stack
-      && opts->x_flag_reorder_blocks_and_partition
-      && !opts_set->x_flag_reorder_blocks_and_partition)
-    opts->x_flag_reorder_blocks_and_partition = 0;
-
-  if (opts->x_flag_reorder_blocks_and_partition
-      && !opts_set->x_flag_reorder_functions)
-    opts->x_flag_reorder_functions = 1;
 
   /* Tune vectorization related parametees according to cost model.  */
   if (opts->x_flag_vect_cost_model == VECT_COST_MODEL_CHEAP)
@@ -974,44 +895,32 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
   if (opts->x_dwarf_split_debug_info)
     opts->x_debug_generate_pub_sections = 2;
 
-  if ((opts->x_flag_sanitize
-       & (SANITIZE_USER_ADDRESS | SANITIZE_KERNEL_ADDRESS)) == 0)
-    {
-      if (opts->x_flag_sanitize & SANITIZE_POINTER_COMPARE)
-	error_at (loc,
-		  "%<-fsanitize=pointer-compare%> must be combined with "
-		  "%<-fsanitize=address%> or %<-fsanitize=kernel-address%>");
-      if (opts->x_flag_sanitize & SANITIZE_POINTER_SUBTRACT)
-	error_at (loc,
-		  "%<-fsanitize=pointer-subtract%> must be combined with "
-		  "%<-fsanitize=address%> or %<-fsanitize=kernel-address%>");
-    }
-
   /* Userspace and kernel ASan conflict with each other.  */
+
   if ((opts->x_flag_sanitize & SANITIZE_USER_ADDRESS)
       && (opts->x_flag_sanitize & SANITIZE_KERNEL_ADDRESS))
     error_at (loc,
-	      "%<-fsanitize=address%> is incompatible with "
-	      "%<-fsanitize=kernel-address%>");
+	      "-fsanitize=address is incompatible with "
+	      "-fsanitize=kernel-address");
 
   /* And with TSan.  */
+
   if ((opts->x_flag_sanitize & SANITIZE_ADDRESS)
       && (opts->x_flag_sanitize & SANITIZE_THREAD))
     error_at (loc,
-	      "%<-fsanitize=address%> and %<-fsanitize=kernel-address%> "
-	      "are incompatible with %<-fsanitize=thread%>");
+	      "-fsanitize=address and -fsanitize=kernel-address "
+	      "are incompatible with -fsanitize=thread");
 
-  if ((opts->x_flag_sanitize & SANITIZE_LEAK)
-      && (opts->x_flag_sanitize & SANITIZE_THREAD))
-    error_at (loc,
-	      "%<-fsanitize=leak%> is incompatible with %<-fsanitize=thread%>");
+  /* Error recovery is not allowed for ASan and TSan.  */
 
-  /* Check error recovery for -fsanitize-recover option.  */
-  for (int i = 0; sanitizer_opts[i].name != NULL; ++i)
-    if ((opts->x_flag_sanitize_recover & sanitizer_opts[i].flag)
-	&& !sanitizer_opts[i].can_recover)
-      error_at (loc, "%<-fsanitize-recover=%s%> is not supported",
-		sanitizer_opts[i].name);
+  if (opts->x_flag_sanitize_recover & SANITIZE_USER_ADDRESS)
+    error_at (loc, "-fsanitize-recover=address is not supported");
+
+  if (opts->x_flag_sanitize_recover & SANITIZE_THREAD)
+    error_at (loc, "-fsanitize-recover=thread is not supported");
+
+  if (opts->x_flag_sanitize_recover & SANITIZE_LEAK)
+    error_at (loc, "-fsanitize-recover=leak is not supported");
 
   /* When instrumenting the pointers, we don't want to remove
      the null pointer checks.  */
@@ -1020,54 +929,11 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
     opts->x_flag_delete_null_pointer_checks = 0;
 
   /* Aggressive compiler optimizations may cause false negatives.  */
-  if (opts->x_flag_sanitize & ~(SANITIZE_LEAK | SANITIZE_UNREACHABLE))
-    opts->x_flag_aggressive_loop_optimizations = 0;
-
-  /* Enable -fsanitize-address-use-after-scope if address sanitizer is
-     enabled.  */
-  if ((opts->x_flag_sanitize & SANITIZE_USER_ADDRESS)
-      && !opts_set->x_flag_sanitize_address_use_after_scope)
-    opts->x_flag_sanitize_address_use_after_scope = true;
-
-  /* Force -fstack-reuse=none in case -fsanitize-address-use-after-scope
-     is enabled.  */
-  if (opts->x_flag_sanitize_address_use_after_scope)
+  if (opts->x_flag_sanitize)
     {
-      if (opts->x_flag_stack_reuse != SR_NONE
-	  && opts_set->x_flag_stack_reuse != SR_NONE)
-	error_at (loc,
-		  "%<-fsanitize-address-use-after-scope%> requires "
-		  "%<-fstack-reuse=none%> option");
-
-      opts->x_flag_stack_reuse = SR_NONE;
+      opts->x_flag_aggressive_loop_optimizations = 0;
+      opts->x_flag_strict_overflow = 0;
     }
-
-  if ((opts->x_flag_sanitize & SANITIZE_USER_ADDRESS) && opts->x_flag_tm)
-    sorry ("transactional memory is not supported with %<-fsanitize=address%>");
-
-  if ((opts->x_flag_sanitize & SANITIZE_KERNEL_ADDRESS) && opts->x_flag_tm)
-    sorry ("transactional memory is not supported with "
-	   "%<-fsanitize=kernel-address%>");
-
-  /* Comes from final.c -- no real reason to change it.  */
-#define MAX_CODE_ALIGN 16
-#define MAX_CODE_ALIGN_VALUE (1 << MAX_CODE_ALIGN)
-
-  if (opts->x_align_loops > MAX_CODE_ALIGN_VALUE)
-    error_at (loc, "-falign-loops=%d is not between 0 and %d",
-	      opts->x_align_loops, MAX_CODE_ALIGN_VALUE);
-
-  if (opts->x_align_jumps > MAX_CODE_ALIGN_VALUE)
-    error_at (loc, "-falign-jumps=%d is not between 0 and %d",
-	      opts->x_align_jumps, MAX_CODE_ALIGN_VALUE);
-
-  if (opts->x_align_functions > MAX_CODE_ALIGN_VALUE)
-    error_at (loc, "-falign-functions=%d is not between 0 and %d",
-	      opts->x_align_functions, MAX_CODE_ALIGN_VALUE);
-
-  if (opts->x_align_labels > MAX_CODE_ALIGN_VALUE)
-    error_at (loc, "-falign-labels=%d is not between 0 and %d",
-	      opts->x_align_labels, MAX_CODE_ALIGN_VALUE);
 }
 
 #define LEFT_COLUMN	27
@@ -1132,7 +998,7 @@ print_filtered_help (unsigned int include_flags,
   const char *help;
   bool found = false;
   bool displayed = false;
-  char new_help[256];
+  char new_help[128];
 
   if (include_flags == CL_PARAMS)
     {
@@ -1208,46 +1074,7 @@ print_filtered_help (unsigned int include_flags,
 	{
 	  if (exclude_flags & CL_UNDOCUMENTED)
 	    continue;
-
 	  help = undocumented_msg;
-	}
-
-      if (option->alias_target < N_OPTS
-	  && cl_options [option->alias_target].help)
-	{
-	  if (help == undocumented_msg)
-	    {
-	      /* For undocumented options that are aliases for other options
-		 that are documented, point the reader to the other option in
-		 preference of the former.  */
-	      snprintf (new_help, sizeof new_help,
-			_("Same as %s.  Use the latter option instead."),
-			cl_options [option->alias_target].opt_text);
-	    }
-	  else
-	    {
-	      /* For documented options with aliases, mention the aliased
-		 option's name for reference.  */
-	      snprintf (new_help, sizeof new_help,
-			_("%s  Same as %s."),
-			help, cl_options [option->alias_target].opt_text);
-	    }
-
-	  help = new_help;
-	}
-
-      if (option->warn_message)
-	{
-	  /* Mention that the use of the option will trigger a warning.  */
-	  if (help == new_help)
-	    snprintf (new_help + strlen (new_help),
-		      sizeof new_help - strlen (new_help),
-		      "  %s", _(use_diagnosed_msg));
-	  else
-	    snprintf (new_help, sizeof new_help,
-		      "%s  %s", help, _(use_diagnosed_msg));
-
-	  help = new_help;
 	}
 
       /* Get the translation.  */
@@ -1307,7 +1134,7 @@ print_filtered_help (unsigned int include_flags,
 		    }
 		  else
 		    sprintf (new_help + strlen (new_help),
-			     "%d", * (int *) flag_var);
+			     "%#x", * (int *) flag_var);
 		}
 	      else
 		strcat (new_help, option_enabled (i, opts)
@@ -1315,15 +1142,6 @@ print_filtered_help (unsigned int include_flags,
 	    }
 
 	  help = new_help;
-	}
-
-      if (option->range_max != -1)
-	{
-	  char b[128];
-	  snprintf (b, sizeof (b), "<%d,%d>", option->range_min,
-		    option->range_max);
-	  opt = concat (opt, b, NULL);
-	  len += strlen (b);
 	}
 
       wrap_help (help, opt, len, columns);
@@ -1348,7 +1166,7 @@ print_filtered_help (unsigned int include_flags,
 	     options supported by a specific front end.  */
 	  for (i = 0; (1U << i) < CL_LANG_ALL; i ++)
 	    if ((1U << i) & langs)
-	      printf (_(" None found.  Use --help=%s to show *all* the options supported by the %s front-end.\n"),
+	      printf (_(" None found.  Use --help=%s to show *all* the options supported by the %s front-end\n"),
 		      lang_names[i], lang_names[i]);
 	}
 
@@ -1522,270 +1340,25 @@ enable_fdo_optimizations (struct gcc_options *opts,
   if (!opts_set->x_flag_ipa_cp_clone
       && value && opts->x_flag_ipa_cp)
     opts->x_flag_ipa_cp_clone = value;
-  if (!opts_set->x_flag_ipa_bit_cp
+  if (!opts_set->x_flag_ipa_cp_alignment
       && value && opts->x_flag_ipa_cp)
-    opts->x_flag_ipa_bit_cp = value;
+    opts->x_flag_ipa_cp_alignment = value;
   if (!opts_set->x_flag_predictive_commoning)
     opts->x_flag_predictive_commoning = value;
-  if (!opts_set->x_flag_split_loops)
-    opts->x_flag_split_loops = value;
   if (!opts_set->x_flag_unswitch_loops)
     opts->x_flag_unswitch_loops = value;
   if (!opts_set->x_flag_gcse_after_reload)
     opts->x_flag_gcse_after_reload = value;
-  if (!opts_set->x_flag_tree_loop_vectorize)
+  if (!opts_set->x_flag_tree_loop_vectorize
+      && !opts_set->x_flag_tree_vectorize)
     opts->x_flag_tree_loop_vectorize = value;
-  if (!opts_set->x_flag_tree_slp_vectorize)
+  if (!opts_set->x_flag_tree_slp_vectorize
+      && !opts_set->x_flag_tree_vectorize)
     opts->x_flag_tree_slp_vectorize = value;
   if (!opts_set->x_flag_vect_cost_model)
     opts->x_flag_vect_cost_model = VECT_COST_MODEL_DYNAMIC;
   if (!opts_set->x_flag_tree_loop_distribute_patterns)
     opts->x_flag_tree_loop_distribute_patterns = value;
-}
-
-/* -f{,no-}sanitize{,-recover}= suboptions.  */
-const struct sanitizer_opts_s sanitizer_opts[] =
-{
-#define SANITIZER_OPT(name, flags, recover) \
-    { #name, flags, sizeof #name - 1, recover }
-  SANITIZER_OPT (address, (SANITIZE_ADDRESS | SANITIZE_USER_ADDRESS), true),
-  SANITIZER_OPT (kernel-address, (SANITIZE_ADDRESS | SANITIZE_KERNEL_ADDRESS),
-		 true),
-  SANITIZER_OPT (pointer-compare, SANITIZE_POINTER_COMPARE, true),
-  SANITIZER_OPT (pointer-subtract, SANITIZE_POINTER_SUBTRACT, true),
-  SANITIZER_OPT (thread, SANITIZE_THREAD, false),
-  SANITIZER_OPT (leak, SANITIZE_LEAK, false),
-  SANITIZER_OPT (shift, SANITIZE_SHIFT, true),
-  SANITIZER_OPT (shift-base, SANITIZE_SHIFT_BASE, true),
-  SANITIZER_OPT (shift-exponent, SANITIZE_SHIFT_EXPONENT, true),
-  SANITIZER_OPT (integer-divide-by-zero, SANITIZE_DIVIDE, true),
-  SANITIZER_OPT (undefined, SANITIZE_UNDEFINED, true),
-  SANITIZER_OPT (unreachable, SANITIZE_UNREACHABLE, false),
-  SANITIZER_OPT (vla-bound, SANITIZE_VLA, true),
-  SANITIZER_OPT (return, SANITIZE_RETURN, false),
-  SANITIZER_OPT (null, SANITIZE_NULL, true),
-  SANITIZER_OPT (signed-integer-overflow, SANITIZE_SI_OVERFLOW, true),
-  SANITIZER_OPT (bool, SANITIZE_BOOL, true),
-  SANITIZER_OPT (enum, SANITIZE_ENUM, true),
-  SANITIZER_OPT (float-divide-by-zero, SANITIZE_FLOAT_DIVIDE, true),
-  SANITIZER_OPT (float-cast-overflow, SANITIZE_FLOAT_CAST, true),
-  SANITIZER_OPT (bounds, SANITIZE_BOUNDS, true),
-  SANITIZER_OPT (bounds-strict, SANITIZE_BOUNDS | SANITIZE_BOUNDS_STRICT, true),
-  SANITIZER_OPT (alignment, SANITIZE_ALIGNMENT, true),
-  SANITIZER_OPT (nonnull-attribute, SANITIZE_NONNULL_ATTRIBUTE, true),
-  SANITIZER_OPT (returns-nonnull-attribute, SANITIZE_RETURNS_NONNULL_ATTRIBUTE,
-		 true),
-  SANITIZER_OPT (object-size, SANITIZE_OBJECT_SIZE, true),
-  SANITIZER_OPT (vptr, SANITIZE_VPTR, true),
-  SANITIZER_OPT (pointer-overflow, SANITIZE_POINTER_OVERFLOW, true),
-  SANITIZER_OPT (builtin, SANITIZE_BUILTIN, true),
-  SANITIZER_OPT (all, ~0U, true),
-#undef SANITIZER_OPT
-  { NULL, 0U, 0UL, false }
-};
-
-/* -f{,no-}sanitize-coverage= suboptions.  */
-const struct sanitizer_opts_s coverage_sanitizer_opts[] =
-{
-#define COVERAGE_SANITIZER_OPT(name, flags) \
-    { #name, flags, sizeof #name - 1, true }
-  COVERAGE_SANITIZER_OPT (trace-pc, SANITIZE_COV_TRACE_PC),
-  COVERAGE_SANITIZER_OPT (trace-cmp, SANITIZE_COV_TRACE_CMP),
-#undef COVERAGE_SANITIZER_OPT
-  { NULL, 0U, 0UL, false }
-};
-
-/* A struct for describing a run of chars within a string.  */
-
-struct string_fragment
-{
-  string_fragment (const char *start, size_t len)
-  : m_start (start), m_len (len) {}
-
-  const char *m_start;
-  size_t m_len;
-};
-
-/* Specialization of edit_distance_traits for string_fragment,
-   for use by get_closest_sanitizer_option.  */
-
-template <>
-struct edit_distance_traits<const string_fragment &>
-{
-  static size_t get_length (const string_fragment &fragment)
-  {
-    return fragment.m_len;
-  }
-
-  static const char *get_string (const string_fragment &fragment)
-  {
-    return fragment.m_start;
-  }
-};
-
-/* Given ARG, an unrecognized sanitizer option, return the best
-   matching sanitizer option, or NULL if there isn't one.
-   OPTS is array of candidate sanitizer options.
-   CODE is OPT_fsanitize_, OPT_fsanitize_recover_ or
-   OPT_fsanitize_coverage_.
-   VALUE is non-zero for the regular form of the option, zero
-   for the "no-" form (e.g. "-fno-sanitize-recover=").  */
-
-static const char *
-get_closest_sanitizer_option (const string_fragment &arg,
-			      const struct sanitizer_opts_s *opts,
-			      enum opt_code code, int value)
-{
-  best_match <const string_fragment &, const char*> bm (arg);
-  for (int i = 0; opts[i].name != NULL; ++i)
-    {
-      /* -fsanitize=all is not valid, so don't offer it.  */
-      if (code == OPT_fsanitize_
-	  && opts[i].flag == ~0U
-	  && value)
-	continue;
-
-      /* For -fsanitize-recover= (and not -fno-sanitize-recover=),
-	 don't offer the non-recoverable options.  */
-      if (code == OPT_fsanitize_recover_
-	  && !opts[i].can_recover
-	  && value)
-	continue;
-
-      bm.consider (opts[i].name);
-    }
-  return bm.get_best_meaningful_candidate ();
-}
-
-/* Parse comma separated sanitizer suboptions from P for option SCODE,
-   adjust previous FLAGS and return new ones.  If COMPLAIN is false,
-   don't issue diagnostics.  */
-
-unsigned int
-parse_sanitizer_options (const char *p, location_t loc, int scode,
-			 unsigned int flags, int value, bool complain)
-{
-  enum opt_code code = (enum opt_code) scode;
-
-  const struct sanitizer_opts_s *opts;
-  if (code == OPT_fsanitize_coverage_)
-    opts = coverage_sanitizer_opts;
-  else
-    opts = sanitizer_opts;
-
-  while (*p != 0)
-    {
-      size_t len, i;
-      bool found = false;
-      const char *comma = strchr (p, ',');
-
-      if (comma == NULL)
-	len = strlen (p);
-      else
-	len = comma - p;
-      if (len == 0)
-	{
-	  p = comma + 1;
-	  continue;
-	}
-
-      /* Check to see if the string matches an option class name.  */
-      for (i = 0; opts[i].name != NULL; ++i)
-	if (len == opts[i].len && memcmp (p, opts[i].name, len) == 0)
-	  {
-	    /* Handle both -fsanitize and -fno-sanitize cases.  */
-	    if (value && opts[i].flag == ~0U)
-	      {
-		if (code == OPT_fsanitize_)
-		  {
-		    if (complain)
-		      error_at (loc, "%<-fsanitize=all%> option is not valid");
-		  }
-		else
-		  flags |= ~(SANITIZE_THREAD | SANITIZE_LEAK
-			     | SANITIZE_UNREACHABLE | SANITIZE_RETURN);
-	      }
-	    else if (value)
-	      {
-		/* Do not enable -fsanitize-recover=unreachable and
-		   -fsanitize-recover=return if -fsanitize-recover=undefined
-		   is selected.  */
-		if (code == OPT_fsanitize_recover_
-		    && opts[i].flag == SANITIZE_UNDEFINED)
-		  flags |= (SANITIZE_UNDEFINED
-			    & ~(SANITIZE_UNREACHABLE | SANITIZE_RETURN));
-		else
-		  flags |= opts[i].flag;
-	      }
-	    else
-	      flags &= ~opts[i].flag;
-	    found = true;
-	    break;
-	  }
-
-      if (! found && complain)
-	{
-	  const char *hint
-	    = get_closest_sanitizer_option (string_fragment (p, len),
-					    opts, code, value);
-
-	  const char *suffix;
-	  if (code == OPT_fsanitize_recover_)
-	    suffix = "-recover";
-	  else if (code == OPT_fsanitize_coverage_)
-	    suffix = "-coverage";
-	  else
-	    suffix = "";
-
-	  if (hint)
-	    error_at (loc,
-		      "unrecognized argument to -f%ssanitize%s= option: %q.*s;"
-		      " did you mean %qs?",
-		      value ? "" : "no-",
-		      suffix, (int) len, p, hint);
-	  else
-	    error_at (loc,
-		      "unrecognized argument to -f%ssanitize%s= option: %q.*s",
-		      value ? "" : "no-",
-		      suffix, (int) len, p);
-	}
-
-      if (comma == NULL)
-	break;
-      p = comma + 1;
-    }
-  return flags;
-}
-
-/* Parse string values of no_sanitize attribute passed in VALUE.
-   Values are separated with comma.  */
-
-unsigned int
-parse_no_sanitize_attribute (char *value)
-{
-  unsigned int flags = 0;
-  unsigned int i;
-  char *q = strtok (value, ",");
-
-  while (q != NULL)
-    {
-      for (i = 0; sanitizer_opts[i].name != NULL; ++i)
-	if (strcmp (sanitizer_opts[i].name, q) == 0)
-	  {
-	    flags |= sanitizer_opts[i].flag;
-	    if (sanitizer_opts[i].flag == SANITIZE_UNDEFINED)
-	      flags |= SANITIZE_UNDEFINED_NONDEFAULT;
-	    break;
-	  }
-
-      if (sanitizer_opts[i].name == NULL)
-	warning (OPT_Wattributes,
-		 "%<%s%> attribute directive ignored", q);
-
-      q = strtok (NULL, ",");
-    }
-
-  return flags;
 }
 
 /* Handle target- and language-independent options.  Return zero to
@@ -1800,8 +1373,7 @@ common_handle_option (struct gcc_options *opts,
 		      unsigned int lang_mask, int kind ATTRIBUTE_UNUSED,
 		      location_t loc,
 		      const struct cl_option_handlers *handlers,
-		      diagnostic_context *dc,
-		      void (*target_option_override_hook) (void))
+		      diagnostic_context *dc)
 {
   size_t scode = decoded->opt_index;
   const char *arg = decoded->arg;
@@ -1823,12 +1395,11 @@ common_handle_option (struct gcc_options *opts,
 	unsigned int i;
 
 	if (lang_mask == CL_DRIVER)
-	  break;
+	  break;;
 
 	undoc_mask = ((opts->x_verbose_flag | opts->x_extra_warnings)
 		      ? 0
 		      : CL_UNDOCUMENTED);
-	target_option_override_hook ();
 	/* First display any single language specific options.  */
 	for (i = 0; i < cl_lang_count; i++)
 	  print_specific_help
@@ -1848,14 +1419,13 @@ common_handle_option (struct gcc_options *opts,
       if (lang_mask == CL_DRIVER)
 	break;
 
-      target_option_override_hook ();
       print_specific_help (CL_TARGET, CL_UNDOCUMENTED, 0, opts, lang_mask);
       opts->x_exit_after_options = true;
       break;
 
     case OPT__help_:
       {
-	const char *a = arg;
+	const char * a = arg;
 	unsigned int include_flags = 0;
 	/* Note - by default we include undocumented options when listing
 	   specific classes.  If you only want to see documented options
@@ -1872,11 +1442,11 @@ common_handle_option (struct gcc_options *opts,
 	   arg = [^]{word}[,{arg}]
 	   word = {optimizers|target|warnings|undocumented|
 		   params|common|<language>}  */
-	while (*a != 0)
+	while (* a != 0)
 	  {
 	    static const struct
 	    {
-	      const char *string;
+	      const char * string;
 	      unsigned int flag;
 	    }
 	    specifics[] =
@@ -1891,24 +1461,19 @@ common_handle_option (struct gcc_options *opts,
 	      { "common", CL_COMMON },
 	      { NULL, 0 }
 	    };
-	    unsigned int *pflags;
-	    const char *comma;
+	    unsigned int * pflags;
+	    const char * comma;
 	    unsigned int lang_flag, specific_flag;
 	    unsigned int len;
 	    unsigned int i;
 
-	    if (*a == '^')
+	    if (* a == '^')
 	      {
-		++a;
-		if (*a == '\0')
-		  {
-		    error_at (loc, "missing argument to %qs", "--help=^");
-		    break;
-		  }
-		pflags = &exclude_flags;
+		++ a;
+		pflags = & exclude_flags;
 	      }
 	    else
-	      pflags = &include_flags;
+	      pflags = & include_flags;
 
 	    comma = strchr (a, ',');
 	    if (comma == NULL)
@@ -1945,7 +1510,7 @@ common_handle_option (struct gcc_options *opts,
 	    if (specific_flag != 0)
 	      {
 		if (lang_flag == 0)
-		  *pflags |= specific_flag;
+		  * pflags |= specific_flag;
 		else
 		  {
 		    /* The option's argument matches both the start of a
@@ -1954,7 +1519,7 @@ common_handle_option (struct gcc_options *opts,
 		       specified "--help=c", but otherwise we have to issue
 		       a warning.  */
 		    if (strncasecmp (a, "c", len) == 0)
-		      *pflags |= lang_flag;
+		      * pflags |= lang_flag;
 		    else
 		      warning_at (loc, 0,
 				  "--help argument %q.*s is ambiguous, "
@@ -1963,7 +1528,7 @@ common_handle_option (struct gcc_options *opts,
 		  }
 	      }
 	    else if (lang_flag != 0)
-	      *pflags |= lang_flag;
+	      * pflags |= lang_flag;
 	    else
 	      warning_at (loc, 0,
 			  "unrecognized argument to --help= option: %q.*s",
@@ -1975,11 +1540,8 @@ common_handle_option (struct gcc_options *opts,
 	  }
 
 	if (include_flags)
-	  {
-	    target_option_override_hook ();
-	    print_specific_help (include_flags, exclude_flags, 0, opts,
-				 lang_mask);
-	  }
+	  print_specific_help (include_flags, exclude_flags, 0, opts,
+			       lang_mask);
 	opts->x_exit_after_options = true;
 	break;
       }
@@ -1992,58 +1554,139 @@ common_handle_option (struct gcc_options *opts,
       break;
 
     case OPT_fsanitize_:
-      opts->x_flag_sanitize
-	= parse_sanitizer_options (arg, loc, code,
-				   opts->x_flag_sanitize, value, true);
-
-      /* Kernel ASan implies normal ASan but does not yet support
-	 all features.  */
-      if (opts->x_flag_sanitize & SANITIZE_KERNEL_ADDRESS)
-	{
-	  maybe_set_param_value (PARAM_ASAN_INSTRUMENTATION_WITH_CALL_THRESHOLD,
-				 0, opts->x_param_values,
-				 opts_set->x_param_values);
-	  maybe_set_param_value (PARAM_ASAN_GLOBALS, 0, opts->x_param_values,
-				 opts_set->x_param_values);
-	  maybe_set_param_value (PARAM_ASAN_STACK, 0, opts->x_param_values,
-				 opts_set->x_param_values);
-	  maybe_set_param_value (PARAM_ASAN_PROTECT_ALLOCAS, 0,
-				 opts->x_param_values,
-				 opts_set->x_param_values);
-	  maybe_set_param_value (PARAM_ASAN_USE_AFTER_RETURN, 0,
-				 opts->x_param_values,
-				 opts_set->x_param_values);
-	}
-      break;
-
     case OPT_fsanitize_recover_:
-      opts->x_flag_sanitize_recover
-	= parse_sanitizer_options (arg, loc, code,
-				   opts->x_flag_sanitize_recover, value, true);
-      break;
+      {
+	const char *p = arg;
+	unsigned int *flag
+	  = code == OPT_fsanitize_ ? &opts->x_flag_sanitize
+	  : &opts->x_flag_sanitize_recover;
+	while (*p != 0)
+	  {
+	    static const struct
+	    {
+	      const char *const name;
+	      unsigned int flag;
+	      size_t len;
+	    } spec[] =
+	    {
+	      { "address", SANITIZE_ADDRESS | SANITIZE_USER_ADDRESS,
+		sizeof "address" - 1 },
+	      { "kernel-address", SANITIZE_ADDRESS | SANITIZE_KERNEL_ADDRESS,
+		sizeof "kernel-address" - 1 },
+	      { "thread", SANITIZE_THREAD, sizeof "thread" - 1 },
+	      { "leak", SANITIZE_LEAK, sizeof "leak" - 1 },
+	      { "shift", SANITIZE_SHIFT, sizeof "shift" - 1 },
+	      { "integer-divide-by-zero", SANITIZE_DIVIDE,
+		sizeof "integer-divide-by-zero" - 1 },
+	      { "undefined", SANITIZE_UNDEFINED, sizeof "undefined" - 1 },
+	      { "unreachable", SANITIZE_UNREACHABLE,
+		sizeof "unreachable" - 1 },
+	      { "vla-bound", SANITIZE_VLA, sizeof "vla-bound" - 1 },
+	      { "return", SANITIZE_RETURN, sizeof "return" - 1 },
+	      { "null", SANITIZE_NULL, sizeof "null" - 1 },
+	      { "signed-integer-overflow", SANITIZE_SI_OVERFLOW,
+		sizeof "signed-integer-overflow" -1 },
+	      { "bool", SANITIZE_BOOL, sizeof "bool" - 1 },
+	      { "enum", SANITIZE_ENUM, sizeof "enum" - 1 },
+	      { "float-divide-by-zero", SANITIZE_FLOAT_DIVIDE,
+		sizeof "float-divide-by-zero" - 1 },
+	      { "float-cast-overflow", SANITIZE_FLOAT_CAST,
+		sizeof "float-cast-overflow" - 1 },
+	      { "bounds", SANITIZE_BOUNDS, sizeof "bounds" - 1 },
+	      { "alignment", SANITIZE_ALIGNMENT, sizeof "alignment" - 1 },
+	      { "nonnull-attribute", SANITIZE_NONNULL_ATTRIBUTE,
+		sizeof "nonnull-attribute" - 1 },
+	      { "returns-nonnull-attribute",
+		SANITIZE_RETURNS_NONNULL_ATTRIBUTE,
+		sizeof "returns-nonnull-attribute" - 1 },
+	      { "object-size", SANITIZE_OBJECT_SIZE,
+		sizeof "object-size" - 1 },
+	      { "vptr", SANITIZE_VPTR, sizeof "vptr" - 1 },
+	      { "all", ~0, sizeof "all" - 1 },
+	      { NULL, 0, 0 }
+	    };
+	    const char *comma;
+	    size_t len, i;
+	    bool found = false;
+
+	    comma = strchr (p, ',');
+	    if (comma == NULL)
+	      len = strlen (p);
+	    else
+	      len = comma - p;
+	    if (len == 0)
+	      {
+		p = comma + 1;
+		continue;
+	      }
+
+	    /* Check to see if the string matches an option class name.  */
+	    for (i = 0; spec[i].name != NULL; ++i)
+	      if (len == spec[i].len
+		  && memcmp (p, spec[i].name, len) == 0)
+		{
+		  /* Handle both -fsanitize and -fno-sanitize cases.  */
+		  if (value && spec[i].flag == ~0U)
+		    {
+		      if (code == OPT_fsanitize_)
+			error_at (loc, "-fsanitize=all option is not valid");
+		      else
+			*flag |= ~(SANITIZE_USER_ADDRESS | SANITIZE_THREAD
+				   | SANITIZE_LEAK);
+		    }
+		  else if (value)
+		    *flag |= spec[i].flag;
+		  else
+		    *flag &= ~spec[i].flag;
+		  found = true;
+		  break;
+		}
+
+	    if (! found)
+	      error_at (loc,
+			"unrecognized argument to -fsanitize%s= option: %q.*s",
+			code == OPT_fsanitize_ ? "" : "-recover", (int) len, p);
+
+	    if (comma == NULL)
+	      break;
+	    p = comma + 1;
+	  }
+
+	if (code != OPT_fsanitize_)
+	  break;
+
+	/* Kernel ASan implies normal ASan but does not yet support
+	   all features.  */
+	if (opts->x_flag_sanitize & SANITIZE_KERNEL_ADDRESS)
+	  {
+	    maybe_set_param_value (PARAM_ASAN_INSTRUMENTATION_WITH_CALL_THRESHOLD, 0,
+				   opts->x_param_values,
+				   opts_set->x_param_values);
+	    maybe_set_param_value (PARAM_ASAN_GLOBALS, 0,
+				   opts->x_param_values,
+				   opts_set->x_param_values);
+	    maybe_set_param_value (PARAM_ASAN_STACK, 0,
+				   opts->x_param_values,
+				   opts_set->x_param_values);
+	    maybe_set_param_value (PARAM_ASAN_USE_AFTER_RETURN, 0,
+				   opts->x_param_values,
+				   opts_set->x_param_values);
+	  }
+
+	break;
+      }
 
     case OPT_fasan_shadow_offset_:
       /* Deferred.  */
       break;
 
-    case OPT_fsanitize_address_use_after_scope:
-      opts->x_flag_sanitize_address_use_after_scope = value;
-      break;
-
     case OPT_fsanitize_recover:
       if (value)
 	opts->x_flag_sanitize_recover
-	  |= (SANITIZE_UNDEFINED | SANITIZE_UNDEFINED_NONDEFAULT)
-	     & ~(SANITIZE_UNREACHABLE | SANITIZE_RETURN);
+	  |= SANITIZE_UNDEFINED | SANITIZE_NONDEFAULT;
       else
 	opts->x_flag_sanitize_recover
-	  &= ~(SANITIZE_UNDEFINED | SANITIZE_UNDEFINED_NONDEFAULT);
-      break;
-
-    case OPT_fsanitize_coverage_:
-      opts->x_flag_sanitize_coverage
-	= parse_sanitizer_options (arg, loc, code,
-				   opts->x_flag_sanitize_coverage, value, true);
+	  &= ~(SANITIZE_UNDEFINED | SANITIZE_NONDEFAULT);
       break;
 
     case OPT_O:
@@ -2123,16 +1766,11 @@ common_handle_option (struct gcc_options *opts,
       break;
 
     case OPT_fdbg_cnt_:
-      /* Deferred.  */
-      break;
-
     case OPT_fdbg_cnt_list:
       /* Deferred.  */
-      opts->x_exit_after_options = true;
       break;
 
     case OPT_fdebug_prefix_map_:
-    case OPT_ffile_prefix_map_:
       /* Deferred.  */
       break;
 
@@ -2146,10 +1784,6 @@ common_handle_option (struct gcc_options *opts,
 
     case OPT_fdiagnostics_color_:
       diagnostic_color_init (dc, value);
-      break;
-
-    case OPT_fdiagnostics_parseable_fixits:
-      dc->parseable_fixits_p = value;
       break;
 
     case OPT_fdiagnostics_show_option:
@@ -2200,39 +1834,12 @@ common_handle_option (struct gcc_options *opts,
       break;
 
     case OPT_foffload_:
-      {
-	const char *p = arg;
-	opts->x_flag_disable_hsa = true;
-	while (*p != 0)
-	  {
-	    const char *comma = strchr (p, ',');
-
-	    if ((strncmp (p, "disable", 7) == 0)
-		&& (p[7] == ',' || p[7] == '\0'))
-	      {
-		opts->x_flag_disable_hsa = true;
-		break;
-	      }
-
-	    if ((strncmp (p, "hsa", 3) == 0)
-		&& (p[3] == ',' || p[3] == '\0'))
-	      {
-#ifdef ENABLE_HSA
-		opts->x_flag_disable_hsa = false;
-#else
-		sorry ("HSA has not been enabled during configuration");
-#endif
-	      }
-	    if (!comma)
-	      break;
-	    p = comma + 1;
-	  }
-	break;
-      }
+      /* Deferred.  */
+      break;
 
 #ifndef ACCEL_COMPILER
     case OPT_foffload_abi_:
-      error_at (loc, "%<-foffload-abi%> option can be specified only for "
+      error_at (loc, "-foffload-abi option can be specified only for "
 		"offload compiler");
       break;
 #endif
@@ -2256,7 +1863,6 @@ common_handle_option (struct gcc_options *opts,
       opts->x_flag_profile_use = true;
       value = true;
       /* No break here - do -fprofile-use processing. */
-      /* FALLTHRU */
     case OPT_fprofile_use:
       enable_fdo_optimizations (opts, opts_set, value);
       if (!opts_set->x_flag_profile_reorder_functions)
@@ -2273,7 +1879,6 @@ common_handle_option (struct gcc_options *opts,
       opts->x_flag_auto_profile = true;
       value = true;
       /* No break here - do -fauto-profile processing. */
-      /* FALLTHRU */
     case OPT_fauto_profile:
       enable_fdo_optimizations (opts, opts_set, value);
       if (!opts_set->x_flag_profile_correction)
@@ -2287,7 +1892,6 @@ common_handle_option (struct gcc_options *opts,
       opts->x_profile_data_prefix = xstrdup (arg);
       value = true;
       /* No break here - do -fprofile-generate processing. */
-      /* FALLTHRU */
     case OPT_fprofile_generate:
       if (!opts_set->x_profile_arc_flag)
 	opts->x_profile_arc_flag = value;
@@ -2295,8 +1899,6 @@ common_handle_option (struct gcc_options *opts,
 	opts->x_flag_profile_values = value;
       if (!opts_set->x_flag_inline_functions)
 	opts->x_flag_inline_functions = value;
-      if (!opts_set->x_flag_ipa_bit_cp)
-	opts->x_flag_ipa_bit_cp = value;
       /* FIXME: Instrumentation we insert makes ipa-reference bitmaps
 	 quadratic.  Disable the pass until better memory representation
 	 is done.  */
@@ -2304,36 +1906,11 @@ common_handle_option (struct gcc_options *opts,
         opts->x_flag_ipa_reference = false;
       break;
 
-    case OPT_fpatchable_function_entry_:
-      {
-	char *patch_area_arg = xstrdup (arg);
-	char *comma = strchr (patch_area_arg, ',');
-	if (comma)
-	  {
-	    *comma = '\0';
-	    function_entry_patch_area_size = 
-	      integral_argument (patch_area_arg);
-	    function_entry_patch_area_start =
-	      integral_argument (comma + 1);
-	  }
-	else
-	  {
-	    function_entry_patch_area_size =
-	      integral_argument (patch_area_arg);
-	    function_entry_patch_area_start = 0;
-	  }
-	if (function_entry_patch_area_size < 0
-	    || function_entry_patch_area_start < 0
-	    || function_entry_patch_area_size 
-		< function_entry_patch_area_start)
-	  error ("invalid arguments for %<-fpatchable_function_entry%>");
-	free (patch_area_arg);
-      }
-      break;
-
     case OPT_ftree_vectorize:
-      /* Automatically sets -ftree-loop-vectorize and
-	 -ftree-slp-vectorize.  Nothing more to do here.  */
+      if (!opts_set->x_flag_tree_loop_vectorize)
+        opts->x_flag_tree_loop_vectorize = value;
+      if (!opts_set->x_flag_tree_slp_vectorize)
+        opts->x_flag_tree_slp_vectorize = value;
       break;
     case OPT_fshow_column:
       dc->show_column = value;
@@ -2409,6 +1986,10 @@ common_handle_option (struct gcc_options *opts,
                        loc);
       break;
 
+    case OPT_gcoff:
+      set_debug_level (SDB_DEBUG, false, arg, opts, opts_set, loc);
+      break;
+
     case OPT_gdwarf:
       if (arg && strlen (arg) != 0)
         {
@@ -2461,7 +2042,7 @@ common_handle_option (struct gcc_options *opts,
 
     case OPT_pedantic_errors:
       dc->pedantic_errors = 1;
-      control_warning_option (OPT_Wpedantic, DK_ERROR, NULL, value,
+      control_warning_option (OPT_Wpedantic, DK_ERROR, value,
 			      loc, lang_mask,
 			      handlers, opts, opts_set,
                               dc);
@@ -2493,13 +2074,6 @@ common_handle_option (struct gcc_options *opts,
     case OPT_ftrapv:
       if (value)
 	opts->x_flag_wrapv = 0;
-      break;
-
-    case OPT_fstrict_overflow:
-      opts->x_flag_wrapv = !value;
-      opts->x_flag_wrapv_pointer = !value;
-      if (!value)
-	opts->x_flag_trapv = 0;
       break;
 
     case OPT_fipa_icf:
@@ -2534,28 +2108,14 @@ handle_param (struct gcc_options *opts, struct gcc_options *opts_set,
 	      arg);
   else
     {
-      *equal = '\0';
-
-      enum compiler_param index;
-      if (!find_param (arg, &index))
-	{
-	  const char *suggestion = find_param_fuzzy (arg);
-	  if (suggestion)
-	    error_at (loc, "invalid --param name %qs; did you mean %qs?",
-		      arg, suggestion);
-	  else
-	    error_at (loc, "invalid --param name %qs", arg);
-	}
+      value = integral_argument (equal + 1);
+      if (value == -1)
+	error_at (loc, "invalid --param value %qs", equal + 1);
       else
 	{
-	  if (!param_string_value_p (index, equal + 1, &value))
-	    value = integral_argument (equal + 1);
-
-	  if (value == -1)
-	    error_at (loc, "invalid --param value %qs", equal + 1);
-	  else
-	    set_param_value (arg, value,
-			     opts->x_param_values, opts_set->x_param_values);
+	  *equal = '\0';
+	  set_param_value (arg, value,
+			   opts->x_param_values, opts_set->x_param_values);
 	}
     }
 
@@ -2594,10 +2154,6 @@ set_fast_math_flags (struct gcc_options *opts, int set)
     opts->x_flag_errno_math = !set;
   if (set)
     {
-      if (opts->frontend_set_flag_excess_precision_cmdline
-	  == EXCESS_PRECISION_DEFAULT)
-	opts->x_flag_excess_precision_cmdline
-	  = set ? EXCESS_PRECISION_FAST : EXCESS_PRECISION_DEFAULT;
       if (!opts->frontend_set_flag_signaling_nans)
 	opts->x_flag_signaling_nans = 0;
       if (!opts->frontend_set_flag_rounding_math)
@@ -2630,9 +2186,7 @@ fast_math_flags_set_p (const struct gcc_options *opts)
 	  && opts->x_flag_unsafe_math_optimizations
 	  && opts->x_flag_finite_math_only
 	  && !opts->x_flag_signed_zeros
-	  && !opts->x_flag_errno_math
-	  && opts->x_flag_excess_precision_cmdline
-	     == EXCESS_PRECISION_FAST);
+	  && !opts->x_flag_errno_math);
 }
 
 /* Return true iff flags are set as if -ffast-math but using the flags stored
@@ -2666,7 +2220,7 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg,
 
 	  if (extended == 2)
 	    {
-#if defined DWARF2_DEBUGGING_INFO || defined DWARF2_LINENO_DEBUGGING_INFO
+#ifdef DWARF2_DEBUGGING_INFO
 	      opts->x_write_symbols = DWARF2_DEBUG;
 #elif defined DBX_DEBUGGING_INFO
 	      opts->x_write_symbols = DBX_DEBUG;
@@ -2701,7 +2255,7 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg,
     {
       int argval = integral_argument (arg);
       if (argval == -1)
-	error_at (loc, "unrecognized debug output level %qs", arg);
+	error_at (loc, "unrecognised debug output level %qs", arg);
       else if (argval > 3)
 	error_at (loc, "debug output level %qs is too high", arg);
       else
@@ -2797,18 +2351,14 @@ enable_warning_as_error (const char *arg, int value, unsigned int lang_mask,
   strcpy (new_option + 1, arg);
   option_index = find_opt (new_option, lang_mask);
   if (option_index == OPT_SPECIAL_unknown)
-    error_at (loc, "-Werror=%s: no option -%s", arg, new_option);
-  else if (!(cl_options[option_index].flags & CL_WARNING))
-    error_at (loc, "-Werror=%s: -%s is not an option that controls warnings",
-	      arg, new_option);
+    {
+      error_at (loc, "-Werror=%s: no option -%s", arg, new_option);
+    }
   else
     {
       const diagnostic_t kind = value ? DK_ERROR : DK_WARNING;
-      const char *arg = NULL;
 
-      if (cl_options[option_index].flags & CL_JOINED)
-	arg = new_option + cl_options[option_index].opt_len;
-      control_warning_option (option_index, (int) kind, arg, value,
+      control_warning_option (option_index, (int) kind, value,
 			      loc, lang_mask,
 			      handlers, opts, opts_set, dc);
     }

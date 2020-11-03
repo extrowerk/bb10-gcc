@@ -1,5 +1,4 @@
 // { dg-do compile }
-// { dg-additional-options "-Wno-return-type" }
 // Reduced from boost-1.54
 
 int pow(int, int);

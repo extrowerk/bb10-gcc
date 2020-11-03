@@ -1,6 +1,6 @@
 /* Declarations for insn-output.c and other code to write to asm_out_file.
    These functions are defined in final.c, and varasm.c.
-   Copyright (C) 1987-2018 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -108,9 +108,9 @@ extern void output_asm_label (rtx);
 /* Marks SYMBOL_REFs in x as referenced through use of assemble_external.  */
 extern void mark_symbol_refs_as_used (rtx);
 
-/* Print a memory reference operand for address X with access mode MODE
+/* Print a memory reference operand for address X
    using machine-dependent assembler syntax.  */
-extern void output_address (machine_mode, rtx);
+extern void output_address (rtx);
 
 /* Print an integer constant expression in assembler syntax.
    Addition and subtraction are the only arithmetic
@@ -278,21 +278,20 @@ extern section *get_named_text_section (tree, const char *, const char *);
 #define assemble_aligned_integer(SIZE, VALUE) \
   assemble_integer (VALUE, SIZE, (SIZE) * BITS_PER_UNIT, 1)
 
-/* Assemble the floating-point constant D into an object of size MODE.  ALIGN
-   is the alignment of the constant in bits.  If REVERSE is true, D is output
-   in reverse storage order.  */
-extern void assemble_real (REAL_VALUE_TYPE, scalar_float_mode, unsigned,
-			   bool = false);
+#ifdef REAL_VALUE_TYPE_SIZE
+/* Assemble the floating-point constant D into an object of size MODE.  */
+extern void assemble_real (REAL_VALUE_TYPE, machine_mode, unsigned);
+#endif
 
 /* Write the address of the entity given by SYMBOL to SEC.  */
 extern void assemble_addr_to_section (rtx, section *);
 
-/* Return TRUE if and only if the constant pool has no entries.  Note
-   that even entries we might end up choosing not to emit are counted
-   here, so there is the potential for missed optimizations.  */
-extern bool constant_pool_empty_p (void);
+/* Return the size of the constant pool.  */
+extern int get_pool_size (void);
 
+#ifdef HAVE_peephole
 extern rtx_insn *peephole (rtx_insn *);
+#endif
 
 extern void output_shared_constant_pool (void);
 
@@ -307,6 +306,13 @@ extern void output_quoted_string (FILE *, const char *);
 
    This variable is defined  in final.c.  */
 extern rtx_sequence *final_sequence;
+
+/* The line number of the beginning of the current function.  Various
+   md code needs this so that it can output relative linenumbers.  */
+
+#ifdef SDB_DEBUGGING_INFO /* Avoid undef sym in certain broken linkers.  */
+extern int sdb_begin_function_line;
+#endif
 
 /* File in which assembler code is being written.  */
 
@@ -350,7 +356,7 @@ extern int compute_reloc_for_constant (tree);
 extern const char *user_label_prefix;
 
 /* Default target function prologue and epilogue assembler output.  */
-extern void default_function_pro_epilogue (FILE *);
+extern void default_function_pro_epilogue (FILE *, HOST_WIDE_INT);
 
 /* Default target function switched text sections.  */
 extern void default_function_switched_text_sections (FILE *, tree, bool);
@@ -532,7 +538,6 @@ extern section *mergeable_constant_section (machine_mode,
 extern section *function_section (tree);
 extern section *unlikely_text_section (void);
 extern section *current_function_section (void);
-extern void switch_to_other_text_partition (void);
 
 /* Return the numbered .ctors.N (if CONSTRUCTOR_P) or .dtors.N (if
    not) section for PRIORITY.  */
@@ -552,7 +557,7 @@ extern void output_file_directive (FILE *, const char *);
 extern unsigned int default_section_type_flags (tree, const char *, int);
 
 extern bool have_global_bss_p (void);
-extern bool bss_initializer_p (const_tree, bool = false);
+extern bool bss_initializer_p (const_tree);
 
 extern void default_no_named_section (const char *, unsigned int, tree);
 extern void default_elf_asm_named_section (const char *, unsigned int, tree);

@@ -7,3 +7,4 @@ int f (double d)
 }
 
 /* { dg-final { scan-tree-dump " ord " "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

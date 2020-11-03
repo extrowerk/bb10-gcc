@@ -24,3 +24,4 @@ foo (int a)
 }
 
 /* { dg-final { scan-tree-dump-not "case 99:" "vrp1" } } */
+/* { dg-final { cleanup-tree-dump "vrp1" } } */

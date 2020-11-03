@@ -1,6 +1,6 @@
 /* Operating system specific defines to be used when targeting GCC for any
    Solaris 2 system.
-   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -82,41 +82,26 @@ along with GCC; see the file COPYING3.  If not see
 /* Names to predefine in the preprocessor for this target machine.  */
 #define TARGET_SUB_OS_CPP_BUILTINS()
 #define TARGET_OS_CPP_BUILTINS()			\
-  do {							\
-    builtin_define_std ("unix");			\
-    builtin_define_std ("sun");				\
-    builtin_define ("__svr4__");			\
-    builtin_define ("__SVR4");				\
-    builtin_assert ("system=unix");			\
-    builtin_assert ("system=svr4");			\
-    /* For C++ we need to add some additional macro	\
-       definitions required by the C++ standard		\
-       library.  */					\
-    if (c_dialect_cxx ())				\
-      {							\
-	switch (cxx_dialect)				\
+    do {						\
+	builtin_define_std ("unix");			\
+	builtin_define_std ("sun");			\
+	builtin_define ("__svr4__");			\
+	builtin_define ("__SVR4");			\
+	builtin_assert ("system=unix");			\
+	builtin_assert ("system=svr4");			\
+	/* For C++ we need to add some additional macro	\
+	   definitions required by the C++ standard	\
+	   library.  */					\
+	if (c_dialect_cxx ())				\
 	  {						\
-	  case cxx98:					\
-	  case cxx11:					\
-	  case cxx14:					\
-	    /* C++11 and C++14 are based on C99.	\
-	       libstdc++ makes use of C99 features	\
-	       even for C++98.  */			\
 	    builtin_define ("__STDC_VERSION__=199901L");\
-	    break;					\
-							\
-	  default:					\
-	    /* C++17 is based on C11.  */		\
-	    builtin_define ("__STDC_VERSION__=201112L");\
-	    break;					\
+	    builtin_define ("_XOPEN_SOURCE=600");	\
+	    builtin_define ("_LARGEFILE_SOURCE=1");	\
+	    builtin_define ("_LARGEFILE64_SOURCE=1");	\
+	    builtin_define ("__EXTENSIONS__");		\
 	  }						\
-	builtin_define ("_XOPEN_SOURCE=600");		\
-	builtin_define ("_LARGEFILE_SOURCE=1");		\
-	builtin_define ("_LARGEFILE64_SOURCE=1");	\
-	builtin_define ("__EXTENSIONS__");		\
-      }							\
-    TARGET_SUB_OS_CPP_BUILTINS();			\
-  } while (0)
+	TARGET_SUB_OS_CPP_BUILTINS();			\
+    } while (0)
 
 #define SUBTARGET_OVERRIDE_OPTIONS			\
   do {							\
@@ -165,96 +150,37 @@ along with GCC; see the file COPYING3.  If not see
 #define MD_EXEC_PREFIX "/usr/ccs/bin/"
 #endif
 
-/* Enable constructor priorities if the configured linker supports it.  */
-#undef SUPPORTS_INIT_PRIORITY
-#define SUPPORTS_INIT_PRIORITY HAVE_INITFINI_ARRAY_SUPPORT
-
-/* Solaris libc and libm implement multiple behaviours for various
-   interfaces that have changed over the years in different versions of the
-   C standard.  The behaviour is controlled by linking corresponding
-   values-*.o objects.  Each of these objects contain alternate definitions
-   of one or more variables that the libraries use to select which
-   conflicting behaviour they should exhibit.  There are two sets of these
-   objects, values-X*.o and values-xpg*.o.
-
-   The values-X[ac].o objects set the variable _lib_version.  The Studio C
-   compilers use values-Xc.o with either -Xc or (since Studio 12.6)
-   -pedantic to select strictly conformant ISO C behaviour, otherwise
-   values-Xa.o.  Since -pedantic is a diagnostic option only in GCC, we
-   need to specifiy the -std=c* options and -std=iso9899:199409.  We
-   traditionally include -ansi, which affects C and C++, and also -std=c++*
-   for consistency.
-
-   The values-xpg[46].o objects define either or both __xpg[46] variables,
-   selecting XPG4 mode (__xpg4) and conforming C99/SUSv3 behavior (__xpg6).
-
-   Since GCC 5, gcc defaults to -std=gnu11 or higher, so we link
-   values-xpg6.o to get C99 semantics.  Besides, most of the runtime
-   libraries always require C99 semantics.
-
-   Since only one instance of _lib_version and __xpg[46] takes effekt (the
-   first in ld.so.1's search path), we only link the values-*.o files into
-   executable programs.  */
 #undef STARTFILE_ARCH_SPEC
-#define STARTFILE_ARCH_SPEC \
-  "%{!shared:%{!symbolic: \
-     %{ansi|std=c*|std=iso9899\\:199409:values-Xc.o%s; :values-Xa.o%s} \
-     %{std=c90|std=gnu90:values-xpg4.o%s; :values-xpg6.o%s}}}"
+#define STARTFILE_ARCH_SPEC "%{ansi:values-Xc.o%s} \
+			    %{!ansi:values-Xa.o%s}"
 
 #if defined(HAVE_LD_PIE) && defined(HAVE_SOLARIS_CRTS)
-#define STARTFILE_CRTBEGIN_SPEC "%{static:crtbegin.o%s; \
-				   shared|" PIE_SPEC ":crtbeginS.o%s; \
-				   :crtbegin.o%s}"
+#define STARTFILE_CRTBEGIN_SPEC "%{shared|pie:crtbeginS.o%s;:crtbegin.o%s}"
 #else
 #define STARTFILE_CRTBEGIN_SPEC	"crtbegin.o%s"
 #endif
 
-#if ENABLE_VTABLE_VERIFY
-#if SUPPORTS_INIT_PRIORITY
-#define STARTFILE_VTV_SPEC \
-  "%{fvtable-verify=none:%s; \
-     fvtable-verify=preinit:vtv_start_preinit.o%s; \
-     fvtable-verify=std:vtv_start.o%s}"
-#define ENDFILE_VTV_SPEC \
-  "%{fvtable-verify=none:%s; \
-     fvtable-verify=preinit:vtv_end_preinit.o%s; \
-     fvtable-verify=std:vtv_end.o%s}"
-#else /* !SUPPORTS_INIT_PRIORITY */
-#define STARTFILE_VTV_SPEC \
-  "%{fvtable-verify=*: \
-     %e-fvtable-verify=%* is not supported in this configuration}"
-#define ENDFILE_VTV_SPEC ""
-#endif /* !SUPPORTS_INIT_PRIORITY */
-#else /* !ENABLE_VTABLE_VERIFY */
-#define STARTFILE_VTV_SPEC ""
-#define ENDFILE_VTV_SPEC ""
-#endif /* !ENABLE_VTABLE_VERIFY */
-
 /* We don't use the standard svr4 STARTFILE_SPEC because it's wrong for us.  */
 #undef STARTFILE_SPEC
 #ifdef HAVE_SOLARIS_CRTS
-/* Since Solaris 11.4, the OS delivers crt1.o, crti.o, and crtn.o, with a hook
-   for compiler-dependent stuff like profile handling.  */
+/* Since Solaris 11.x and Solaris 12, the OS delivers crt1.o, crti.o, and
+   crtn.o, with a hook for compiler-dependent stuff like profile handling.  */
 #define STARTFILE_SPEC "%{!shared:%{!symbolic: \
 			  crt1.o%s \
 			  %{p:%e-p is not supported; \
 			    pg:crtpg.o%s gmon.o%s; \
 			      :crtp.o%s}}} \
-			crti.o%s %(startfile_arch) %(startfile_crtbegin) \
-			%(startfile_vtv)"
+			crti.o%s %(startfile_arch) %(startfile_crtbegin)"
 #else
 #define STARTFILE_SPEC "%{!shared:%{!symbolic: \
 			  %{p:mcrt1.o%s; \
                             pg:gcrt1.o%s gmon.o%s; \
                               :crt1.o%s}}} \
-			crti.o%s %(startfile_arch) %(startfile_crtbegin) \
-			%(startfile_vtv)"
+			crti.o%s %(startfile_arch) %(startfile_crtbegin)"
 #endif
 
 #if defined(HAVE_LD_PIE) && defined(HAVE_SOLARIS_CRTS)
-#define ENDFILE_CRTEND_SPEC "%{static:crtend.o%s; \
-			       shared|" PIE_SPEC ":crtendS.o%s; \
-			       :crtend.o%s}"
+#define ENDFILE_CRTEND_SPEC "%{shared|pie:crtendS.o%s;:crtend.o%s}"
 #else
 #define ENDFILE_CRTEND_SPEC "crtend.o%s"
 #endif
@@ -262,7 +188,7 @@ along with GCC; see the file COPYING3.  If not see
 #undef  ENDFILE_SPEC
 #define ENDFILE_SPEC \
   "%{Ofast|ffast-math|funsafe-math-optimizations:crtfastmath.o%s} \
-   %(endfile_arch) %(endfile_vtv) %(endfile_crtend) crtn.o%s"
+   %(endfile_arch) %(endfile_crtend) crtn.o%s"
 
 #undef LINK_ARCH32_SPEC_BASE
 #define LINK_ARCH32_SPEC_BASE \
@@ -337,14 +263,12 @@ along with GCC; see the file COPYING3.  If not see
 #define SUBTARGET_EXTRA_SPECS \
   { "startfile_arch",	 	STARTFILE_ARCH_SPEC },		\
   { "startfile_crtbegin",	STARTFILE_CRTBEGIN_SPEC },	\
-  { "startfile_vtv",		STARTFILE_VTV_SPEC },		\
   { "link_arch32",       	LINK_ARCH32_SPEC },		\
   { "link_arch64",       	LINK_ARCH64_SPEC },		\
   { "link_arch_default", 	LINK_ARCH_DEFAULT_SPEC },	\
   { "link_arch",	 	LINK_ARCH_SPEC },		\
   { "endfile_arch",	 	ENDFILE_ARCH_SPEC },		\
-  { "endfile_crtend",		ENDFILE_CRTEND_SPEC },		\
-  { "endfile_vtv",		ENDFILE_VTV_SPEC },		\
+  { "endfile_crtend",		ENDFILE_CRTEND_SPEC },	\
   SUBTARGET_CPU_EXTRA_SPECS
 
 /* C++11 programs need -lrt for nanosleep.  */
@@ -356,11 +280,6 @@ along with GCC; see the file COPYING3.  If not see
 #else
 /* GNU ld needs --export-dynamic to implement -rdynamic.  */
 #define RDYNAMIC_SPEC "--export-dynamic"
-#endif
-
-#ifndef USE_GLD
-/* Prefer native form with Solaris ld.  */
-#define SYSROOT_SPEC "-z sysroot=%R"
 #endif
 
 #ifndef USE_GLD
@@ -400,17 +319,17 @@ along with GCC; see the file COPYING3.  If not see
 /* Solaris 11 build 135+ implements dl_iterate_phdr.  GNU ld needs
    --eh-frame-hdr to create the required .eh_frame_hdr sections.  */
 #if defined(HAVE_LD_EH_FRAME_HDR) && defined(TARGET_DL_ITERATE_PHDR)
-#define LINK_EH_SPEC "%{!static|static-pie:--eh-frame-hdr} "
+#define LINK_EH_SPEC "%{!static:--eh-frame-hdr} "
 #endif /* HAVE_LD_EH_FRAME && TARGET_DL_ITERATE_PHDR */
 #endif
 
 #if defined(HAVE_LD_PIE) && defined(HAVE_SOLARIS_CRTS)
 #ifdef USE_GLD
 /* Assert -z text by default to match Solaris ld.  */
-#define LD_PIE_SPEC "-pie %{!mimpure-text:-z text}"
+#define LINK_PIE_SPEC "%{pie:-pie %{!mimpure-text:-z text}} "
 #else
 /* Solaris ld needs -z type=pie instead of -pie.  */
-#define LD_PIE_SPEC "-z type=pie %{mimpure-text:-z textoff}"
+#define LINK_PIE_SPEC "%{pie:-z type=pie %{mimpure-text:-z textoff}} "
 #endif
 #else
 /* Error out if some part of PIE support is missing.  */
@@ -434,8 +353,8 @@ along with GCC; see the file COPYING3.  If not see
 /* #pragma init and #pragma fini are implemented on top of init and
    fini attributes.  */
 #define SOLARIS_ATTRIBUTE_TABLE						\
-  { "init",      0, 0, true,  false,  false, false, NULL, NULL },	\
-  { "fini",      0, 0, true,  false,  false, false, NULL, NULL }
+  { "init",      0, 0, true,  false,  false, NULL, false },		\
+  { "fini",      0, 0, true,  false,  false, NULL, false }
 
 /* Solaris-specific #pragmas are implemented on top of attributes.  Hook in
    the bits from config/sol2.c.  */
@@ -473,6 +392,12 @@ along with GCC; see the file COPYING3.  If not see
 /* The Solaris assembler cannot grok .stabd directives.  */
 #undef NO_DBX_BNSYM_ENSYM
 #define NO_DBX_BNSYM_ENSYM 1
+#endif
+
+#ifndef USE_GLD
+/* The Solaris linker doesn't understand constructor priorities.  */
+#undef SUPPORTS_INIT_PRIORITY
+#define SUPPORTS_INIT_PRIORITY 0
 #endif
 
 /* Solaris has an implementation of __enable_execute_stack.  */

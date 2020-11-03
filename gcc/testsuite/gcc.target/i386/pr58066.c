@@ -19,3 +19,4 @@ void* goo()
 
 /* { dg-final { scan-rtl-dump "Function foo.*set\[^\r\n\]*sp\\)\[\r\n\]\[^\r\n\]*plus\[^\r\n\]*sp\\)\[\r\n\]\[^\r\n\]*const_int -8.*UNSPEC_TLS.*Function goo" "final" } } */
 /* { dg-final { scan-rtl-dump "Function goo.*set\[^\r\n\]*sp\\)\[\r\n\]\[^\r\n\]*plus\[^\r\n\]*sp\\)\[\r\n\]\[^\r\n\]*const_int -8.*UNSPEC_TLS" "final" } } */
+/* { dg-final { cleanup-rtl-dump "final" } } */

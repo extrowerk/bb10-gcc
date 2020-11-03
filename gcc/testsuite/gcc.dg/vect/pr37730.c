@@ -15,3 +15,4 @@ add_opush (void)
   sdp_seq_alloc (dtds);
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

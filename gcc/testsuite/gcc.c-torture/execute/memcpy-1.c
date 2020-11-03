@@ -1,5 +1,3 @@
-/* { dg-add-options stack_size } */
-
 #include <string.h>
 
 #if defined (STACK_SIZE)

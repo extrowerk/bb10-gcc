@@ -5,7 +5,7 @@
 
 .. -- Example: A |withing| unit has a |with| clause, it |withs| a |withed| unit
 
-.. role:: switch(samp)
+
 
 .. _Building_Executable_Programs_With_GNAT:
 
@@ -27,20 +27,11 @@ Finally, this chapter provides examples of
 how to make use of the general GNU make mechanism
 in a GNAT context (see :ref:`Using_the_GNU_make_Utility`).
 
-.. only:: PRO or GPL
-
-   For building large systems with components possibly written
-   in different languages (such as Ada, C, C++ and Fortran)
-   and organized into subsystems and libraries, the GPRbuild
-   tool can be used. This tool, and the Project Manager
-   facility that it is based upon, is described in
-   *GPRbuild and GPR Companion Tools User's Guide*.
-
 
 .. _The_GNAT_Make_Program_gnatmake:
 
-Building with ``gnatmake``
-==========================
+Building with *gnatmake*
+========================
 
 .. index:: gnatmake
 
@@ -62,10 +53,10 @@ the following steps:
 The third step in particular can be tricky, because not only do the modified
 files have to be compiled, but any files depending on these files must also be
 recompiled. The dependency rules in Ada can be quite complex, especially
-in the presence of overloading, ``use`` clauses, generics and inlined
+in the presence of overloading, `use` clauses, generics and inlined
 subprograms.
 
-``gnatmake`` automatically takes care of the third and fourth steps
+*gnatmake* automatically takes care of the third and fourth steps
 of this process. It determines which sources need to be compiled,
 compiles them, and binds and links the resulting object files.
 
@@ -74,85 +65,84 @@ accurately recomputed from the new sources. The source based approach of
 the GNAT compilation model makes this possible. This means that if
 changes to the source program cause corresponding changes in
 dependencies, they will always be tracked exactly correctly by
-``gnatmake``.
+*gnatmake*.
 
-Note that for advanced forms of project structure, we recommend creating
-a project file as explained in the *GNAT_Project_Manager* chapter in the
-*GPRbuild User's Guide*, and using the
-``gprbuild`` tool which supports building with project files and works similarly
-to ``gnatmake``.
+Note that for advanced description of project structure, we recommend creating
+a project file as explained in :ref:`GNAT_Project_Manager` and use the
+*gprbuild* tool which supports building with project files and works similarly
+to *gnatmake*.
 
 .. _Running_gnatmake:
 
-Running ``gnatmake``
---------------------
+Running *gnatmake*
+------------------
 
-The usual form of the ``gnatmake`` command is
+The usual form of the *gnatmake* command is
 
 .. code-block:: sh
 
      $ gnatmake [<switches>] <file_name> [<file_names>] [<mode_switches>]
 
-The only required argument is one ``file_name``, which specifies
-a compilation unit that is a main program. Several ``file_names`` can be
+The only required argument is one `file_name`, which specifies
+a compilation unit that is a main program. Several `file_names` can be
 specified: this will result in several executables being built.
-If ``switches`` are present, they can be placed before the first
-``file_name``, between ``file_names`` or after the last ``file_name``.
-If ``mode_switches`` are present, they must always be placed after
-the last ``file_name`` and all ``switches``.
+If `switches` are present, they can be placed before the first
+`file_name`, between `file_names` or after the last `file_name`.
+If `mode_switches` are present, they must always be placed after
+the last `file_name` and all `switches`.
 
 If you are using standard file extensions (:file:`.adb` and
 :file:`.ads`), then the
-extension may be omitted from the ``file_name`` arguments. However, if
+extension may be omitted from the `file_name` arguments. However, if
 you are using non-standard extensions, then it is required that the
 extension be given. A relative or absolute directory path can be
-specified in a ``file_name``, in which case, the input source file will
+specified in a `file_name`, in which case, the input source file will
 be searched for in the specified directory only. Otherwise, the input
 source file will first be searched in the directory where
-``gnatmake`` was invoked and if it is not found, it will be search on
+*gnatmake* was invoked and if it is not found, it will be search on
 the source path of the compiler as described in
 :ref:`Search_Paths_and_the_Run-Time_Library_RTL`.
 
-All ``gnatmake`` output (except when you specify :switch:`-M`) is sent to
+All *gnatmake* output (except when you specify *-M*) is sent to
 :file:`stderr`. The output produced by the
-:switch:`-M` switch is sent to :file:`stdout`.
+*-M* switch is sent to :file:`stdout`.
 
 
 .. _Switches_for_gnatmake:
 
-Switches for ``gnatmake``
--------------------------
+Switches for *gnatmake*
+-----------------------
 
-You may specify any of the following switches to ``gnatmake``:
+You may specify any of the following switches to *gnatmake*:
 
 
 .. index:: --version  (gnatmake)
 
-:switch:`--version`
+:samp:`--version`
   Display Copyright and version, then exit disregarding all other options.
 
 
 .. index:: --help  (gnatmake)
 
-:switch:`--help`
+:samp:`--help`
   If ``--version`` was not used, display usage, then exit disregarding
   all other options.
 
 
 .. index:: --GCC=compiler_name  (gnatmake)
 
-:switch:`--GCC={compiler_name}`
+:samp:`--GCC={compiler_name}`
   Program used for compiling. The default is ``gcc``. You need to use
-  quotes around ``compiler_name`` if ``compiler_name`` contains
+  quotes around `compiler_name` if `compiler_name` contains
   spaces or other separator characters.
   As an example ``--GCC="foo -x  -y"``
-  will instruct ``gnatmake`` to use ``foo -x -y`` as your
+  will instruct *gnatmake* to use ``foo -x -y`` as your
   compiler. A limitation of this syntax is that the name and path name of
   the executable itself must not include any embedded spaces. Note that
-  switch :switch:`-c` is always inserted after your command name. Thus in the
-  above example the compiler command that will be used by ``gnatmake``
+  switch ``-c`` is always inserted after your command name. Thus in the
+  above example the compiler command that will be used by *gnatmake*
   will be ``foo -c -x -y``. If several ``--GCC=compiler_name`` are
-  used, only the last ``compiler_name`` is taken into account. However,
+  used, only the last `compiler_name` is taken into account. However,
   all the additional switches are also taken into account. Thus,
   ``--GCC="foo -x -y" --GCC="bar -z -t"`` is equivalent to
   ``--GCC="bar -x -y -z -t"``.
@@ -160,58 +150,58 @@ You may specify any of the following switches to ``gnatmake``:
 
 .. index:: --GNATBIND=binder_name  (gnatmake)
 
-:switch:`--GNATBIND={binder_name}`
+:samp:`--GNATBIND={binder_name}`
   Program used for binding. The default is ``gnatbind``. You need to
-  use quotes around ``binder_name`` if ``binder_name`` contains spaces
+  use quotes around `binder_name` if `binder_name` contains spaces
   or other separator characters.
   As an example ``--GNATBIND="bar -x  -y"``
-  will instruct ``gnatmake`` to use ``bar -x -y`` as your
-  binder. Binder switches that are normally appended by ``gnatmake``
-  to ``gnatbind`` are now appended to the end of ``bar -x -y``.
+  will instruct *gnatmake* to use `bar -x -y` as your
+  binder. Binder switches that are normally appended by *gnatmake*
+  to ``gnatbind`` are now appended to the end of `bar -x -y`.
   A limitation of this syntax is that the name and path name of the executable
   itself must not include any embedded spaces.
 
 .. index:: --GNATLINK=linker_name  (gnatmake)
 
-:switch:`--GNATLINK={linker_name}`
+:samp:`--GNATLINK={linker_name}`
   Program used for linking. The default is ``gnatlink``. You need to
-  use quotes around ``linker_name`` if ``linker_name`` contains spaces
+  use quotes around `linker_name` if `linker_name` contains spaces
   or other separator characters.
   As an example ``--GNATLINK="lan -x  -y"``
-  will instruct ``gnatmake`` to use ``lan -x -y`` as your
+  will instruct *gnatmake* to use ``lan -x -y`` as your
   linker. Linker switches that are normally appended by ``gnatmake`` to
   ``gnatlink`` are now appended to the end of ``lan -x -y``.
   A limitation of this syntax is that the name and path name of the executable
   itself must not include any embedded spaces.
 
-:switch:`--create-map-file`
+:samp:`--create-map-file`
   When linking an executable, create a map file. The name of the map file
   has the same name as the executable with extension ".map".
 
-:switch:`--create-map-file={mapfile}`
+:samp:`--create-map-file={mapfile}`
   When linking an executable, create a map file with the specified name.
 
 .. index:: --create-missing-dirs  (gnatmake)
 
-:switch:`--create-missing-dirs`
-  When using project files (:switch:`-P{project}`), automatically create
+:samp:`--create-missing-dirs`
+  When using project files (:samp:`-P{project}`), automatically create
   missing object directories, library directories and exec
   directories.
 
-:switch:`--single-compile-per-obj-dir`
+:samp:`--single-compile-per-obj-dir`
   Disallow simultaneous compilations in the same object directory when
   project files are used.
 
-:switch:`--subdirs={subdir}`
+:samp:`--subdirs={subdir}`
   Actual object directory of each project file is the subdirectory subdir of the
   object directory specified or defaulted in the project file.
 
-:switch:`--unchecked-shared-lib-imports`
+:samp:`--unchecked-shared-lib-imports`
   By default, shared library projects are not allowed to import static library
   projects. When this switch is used on the command line, this restriction is
   relaxed.
 
-:switch:`--source-info={source info file}`
+:samp:`--source-info={source info file}`
   Specify a source info file. This switch is active only when project files
   are used. If the source info file is specified as a relative path, then it is
   relative to the object directory of the main project. If the source info file
@@ -224,19 +214,19 @@ You may specify any of the following switches to ``gnatmake``:
   long time. If the source info file exists but cannot be parsed successfully,
   the Project Manager will attempt to recreate it. If the Project Manager fails
   to create the source info file, a message is issued, but gnatmake does not
-  fail. ``gnatmake`` "trusts" the source info file. This means that
+  fail. *gnatmake* "trusts" the source info file. This means that
   if the source files have changed (addition, deletion, moving to a different
   source directory), then the source info file need to be deleted and recreated.
 
 
 .. index:: -a  (gnatmake)
 
-:switch:`-a`
+:samp:`-a`
   Consider all files in the make process, even the GNAT internal system
   files (for example, the predefined Ada library files), as well as any
   locked files. Locked files are files whose ALI file is write-protected.
   By default,
-  ``gnatmake`` does not check these files,
+  *gnatmake* does not check these files,
   because the assumption is that the GNAT internal files are properly up
   to date, and also that any write protected ALI files have been properly
   installed. Note that if there is an installation problem, such that one
@@ -247,7 +237,7 @@ You may specify any of the following switches to ``gnatmake``:
   in conjunction with ``-f``
   if you need to recompile an entire application,
   including run-time files, using special configuration pragmas,
-  such as a ``Normalize_Scalars`` pragma.
+  such as a `Normalize_Scalars` pragma.
 
   By default
   ``gnatmake -a`` compiles all GNAT
@@ -257,52 +247,52 @@ You may specify any of the following switches to ``gnatmake``:
 
 .. index:: -b  (gnatmake)
 
-:switch:`-b`
-  Bind only. Can be combined with :switch:`-c` to do
+:samp:`-b`
+  Bind only. Can be combined with *-c* to do
   compilation and binding, but no link.
-  Can be combined with :switch:`-l`
+  Can be combined with *-l*
   to do binding and linking. When not combined with
-  :switch:`-c`
+  *-c*
   all the units in the closure of the main program must have been previously
-  compiled and must be up to date. The root unit specified by ``file_name``
+  compiled and must be up to date. The root unit specified by `file_name`
   may be given without extension, with the source extension or, if no GNAT
   Project File is specified, with the ALI file extension.
 
 
 .. index:: -c  (gnatmake)
 
-:switch:`-c`
-  Compile only. Do not perform binding, except when :switch:`-b`
+:samp:`-c`
+  Compile only. Do not perform binding, except when *-b*
   is also specified. Do not perform linking, except if both
-  :switch:`-b` and
-  :switch:`-l` are also specified.
-  If the root unit specified by ``file_name`` is not a main unit, this is the
-  default. Otherwise ``gnatmake`` will attempt binding and linking
+  *-b* and
+  *-l* are also specified.
+  If the root unit specified by `file_name` is not a main unit, this is the
+  default. Otherwise *gnatmake* will attempt binding and linking
   unless all objects are up to date and the executable is more recent than
   the objects.
 
 
 .. index:: -C  (gnatmake)
 
-:switch:`-C`
+:samp:`-C`
   Use a temporary mapping file. A mapping file is a way to communicate
   to the compiler two mappings: from unit names to file names (without
   any directory information) and from file names to path names (with
   full directory information). A mapping file can make the compiler's
   file searches faster, especially if there are many source directories,
   or the sources are read over a slow network connection. If
-  :switch:`-P` is used, a mapping file is always used, so
-  :switch:`-C` is unnecessary; in this case the mapping file
+  *-P* is used, a mapping file is always used, so
+  *-C* is unnecessary; in this case the mapping file
   is initially populated based on the project file. If
-  :switch:`-C` is used without
-  :switch:`-P`,
+  *-C* is used without
+  *-P*,
   the mapping file is initially empty. Each invocation of the compiler
   will add any newly accessed sources to the mapping file.
 
 
 .. index:: -C=  (gnatmake)
 
-:switch:`-C={file}`
+:samp:`-C={file}`
   Use a specific mapping file. The file, specified as a path name (absolute or
   relative) by this switch, should already exist, otherwise the switch is
   ineffective. The specified mapping file will be communicated to the compiler.
@@ -313,7 +303,7 @@ You may specify any of the following switches to ``gnatmake``:
 
 .. index:: -d  (gnatmake)
 
-:switch:`-d`
+:samp:`-d`
   Display progress for each source, up to date or not, as a single line:
 
   ::
@@ -326,9 +316,9 @@ You may specify any of the following switches to ``gnatmake``:
 
 .. index:: -D  (gnatmake)
 
-:switch:`-D {dir}`
-  Put all object files and ALI file in directory ``dir``.
-  If the :switch:`-D` switch is not used, all object files
+:samp:`-D {dir}`
+  Put all object files and ALI file in directory `dir`.
+  If the *-D* switch is not used, all object files
   and ALI files go in the current working directory.
 
   This switch cannot be used when using a project file.
@@ -336,17 +326,17 @@ You may specify any of the following switches to ``gnatmake``:
 
 .. index:: -eI  (gnatmake)
 
-:switch:`-eI{nnn}`
+:samp:`-eI{nnn}`
   Indicates that the main source is a multi-unit source and the rank of the unit
   in the source file is nnn. nnn needs to be a positive number and a valid
-  index in the source. This switch cannot be used when ``gnatmake`` is
+  index in the source. This switch cannot be used when *gnatmake* is
   invoked for several mains.
 
 
 .. index:: -eL  (gnatmake)
 .. index:: symbolic links
 
-:switch:`-eL`
+:samp:`-eL`
   Follow all symbolic links when processing project files.
   This should be used if your project uses symbolic links for files or
   directories, but is not needed in other cases.
@@ -365,7 +355,7 @@ You may specify any of the following switches to ``gnatmake``:
 
 .. index:: -eS  (gnatmake)
 
-:switch:`-eS`
+:samp:`-eS`
   Output the commands for the compiler, the binder and the linker
   on standard output,
   instead of standard error.
@@ -373,16 +363,16 @@ You may specify any of the following switches to ``gnatmake``:
 
 .. index:: -f  (gnatmake)
 
-:switch:`-f`
+:samp:`-f`
   Force recompilations. Recompile all sources, even though some object
   files may be up to date, but don't recompile predefined or GNAT internal
   files or locked files (files with a write-protected ALI file),
-  unless the :switch:`-a` switch is also specified.
+  unless the *-a* switch is also specified.
 
 
 .. index:: -F  (gnatmake)
 
-:switch:`-F`
+:samp:`-F`
   When using project files, if some errors or warnings are detected during
   parsing and verbose mode is not in effect (no use of switch
   -v), then error lines start with the full path name of the project
@@ -391,26 +381,26 @@ You may specify any of the following switches to ``gnatmake``:
 
 .. index:: -g  (gnatmake)
 
-:switch:`-g`
+:samp:`-g`
   Enable debugging. This switch is simply passed to the compiler and to the
   linker.
 
 
 .. index:: -i  (gnatmake)
 
-:switch:`-i`
-  In normal mode, ``gnatmake`` compiles all object files and ALI files
-  into the current directory. If the :switch:`-i` switch is used,
+:samp:`-i`
+  In normal mode, *gnatmake* compiles all object files and ALI files
+  into the current directory. If the *-i* switch is used,
   then instead object files and ALI files that already exist are overwritten
   in place. This means that once a large project is organized into separate
-  directories in the desired manner, then ``gnatmake`` will automatically
+  directories in the desired manner, then *gnatmake* will automatically
   maintain and update this organization. If no ALI files are found on the
   Ada object path (see :ref:`Search_Paths_and_the_Run-Time_Library_RTL`),
   the new object and ALI files are created in the
   directory containing the source being compiled. If another organization
   is desired, where objects and sources are kept in different directories,
   a useful technique is to create dummy ALI files in the desired directories.
-  When detecting such a dummy file, ``gnatmake`` will be forced to
+  When detecting such a dummy file, *gnatmake* will be forced to
   recompile the corresponding source file, and it will be put the resulting
   object and ALI files in the directory where it found the dummy file.
 
@@ -418,57 +408,57 @@ You may specify any of the following switches to ``gnatmake``:
 .. index:: -j  (gnatmake)
 .. index:: Parallel make
 
-:switch:`-j{n}`
-  Use ``n`` processes to carry out the (re)compilations. On a multiprocessor
-  machine compilations will occur in parallel. If ``n`` is 0, then the
+:samp:`-j{n}`
+  Use `n` processes to carry out the (re)compilations. On a multiprocessor
+  machine compilations will occur in parallel. If `n` is 0, then the
   maximum number of parallel compilations is the number of core processors
   on the platform. In the event of compilation errors, messages from various
-  compilations might get interspersed (but ``gnatmake`` will give you the
+  compilations might get interspersed (but *gnatmake* will give you the
   full ordered list of failing compiles at the end). If this is problematic,
   rerun the make process with n set to 1 to get a clean list of messages.
 
 
 .. index:: -k  (gnatmake)
 
-:switch:`-k`
+:samp:`-k`
   Keep going. Continue as much as possible after a compilation error. To
   ease the programmer's task in case of compilation errors, the list of
-  sources for which the compile fails is given when ``gnatmake``
+  sources for which the compile fails is given when *gnatmake*
   terminates.
 
-  If ``gnatmake`` is invoked with several :file:`file_names` and with this
+  If *gnatmake* is invoked with several :file:`file_names` and with this
   switch, if there are compilation errors when building an executable,
-  ``gnatmake`` will not attempt to build the following executables.
+  *gnatmake* will not attempt to build the following executables.
 
 
 .. index:: -l  (gnatmake)
 
-:switch:`-l`
-  Link only. Can be combined with :switch:`-b` to binding
+:samp:`-l`
+  Link only. Can be combined with *-b* to binding
   and linking. Linking will not be performed if combined with
-  :switch:`-c`
-  but not with :switch:`-b`.
-  When not combined with :switch:`-b`
+  *-c*
+  but not with *-b*.
+  When not combined with *-b*
   all the units in the closure of the main program must have been previously
   compiled and must be up to date, and the main program needs to have been bound.
-  The root unit specified by ``file_name``
+  The root unit specified by `file_name`
   may be given without extension, with the source extension or, if no GNAT
   Project File is specified, with the ALI file extension.
 
 
 .. index:: -m  (gnatmake)
 
-:switch:`-m`
+:samp:`-m`
   Specify that the minimum necessary amount of recompilations
-  be performed. In this mode ``gnatmake`` ignores time
+  be performed. In this mode *gnatmake* ignores time
   stamp differences when the only
   modifications to a source file consist in adding/removing comments,
   empty lines, spaces or tabs. This means that if you have changed the
   comments in a source file or have simply reformatted it, using this
-  switch will tell ``gnatmake`` not to recompile files that depend on it
+  switch will tell *gnatmake* not to recompile files that depend on it
   (provided other sources on which these files depend have undergone no
   semantic modifications). Note that the debugging information may be
-  out of date with respect to the sources if the :switch:`-m` switch causes
+  out of date with respect to the sources if the *-m* switch causes
   a compilation to be switched, so the use of this switch represents a
   trade-off between compilation time and accurate debugging information.
 
@@ -476,28 +466,28 @@ You may specify any of the following switches to ``gnatmake``:
 .. index:: Dependencies, producing list
 .. index:: -M  (gnatmake)
 
-:switch:`-M`
+:samp:`-M`
   Check if all objects are up to date. If they are, output the object
   dependences to :file:`stdout` in a form that can be directly exploited in
   a :file:`Makefile`. By default, each source file is prefixed with its
   (relative or absolute) directory name. This name is whatever you
-  specified in the various :switch:`-aI`
-  and :switch:`-I` switches. If you use
-  ``gnatmake -M``  :switch:`-q`
+  specified in the various *-aI*
+  and *-I* switches. If you use
+  `gnatmake -M`  *-q*
   (see below), only the source file names,
-  without relative paths, are output. If you just specify the  :switch:`-M`
+  without relative paths, are output. If you just specify the  *-M*
   switch, dependencies of the GNAT internal system files are omitted. This
   is typically what you want. If you also specify
-  the :switch:`-a` switch,
+  the *-a* switch,
   dependencies of the GNAT internal files are also listed. Note that
   dependencies of the objects in external Ada libraries (see
-  switch  :switch:`-aL{dir}` in the following list)
+  switch  :samp:`-aL{dir}` in the following list)
   are never reported.
 
 
 .. index:: -n  (gnatmake)
 
-:switch:`-n`
+:samp:`-n`
   Don't compile, bind, or link. Checks if all objects are up to date.
   If they are not, the full name of the first file that needs to be
   recompiled is printed.
@@ -507,65 +497,61 @@ You may specify any of the following switches to ``gnatmake``:
 
 .. index:: -o  (gnatmake)
 
-:switch:`-o {exec_name}`
+:samp:`-o {exec_name}`
   Output executable name. The name of the final executable program will be
-  ``exec_name``. If the :switch:`-o` switch is omitted the default
+  `exec_name`. If the *-o* switch is omitted the default
   name for the executable will be the name of the input file in appropriate form
   for an executable file on the host system.
 
-  This switch cannot be used when invoking ``gnatmake`` with several
+  This switch cannot be used when invoking *gnatmake* with several
   :file:`file_names`.
 
 
 .. index:: -p  (gnatmake)
 
-:switch:`-p`
-  Same as :switch:`--create-missing-dirs`
+:samp:`-p`
+  Same as :samp:`--create-missing-dirs`
 
 .. index:: -P  (gnatmake)
 
-:switch:`-P{project}`
-  Use project file ``project``. Only one such switch can be used.
-
-.. -- Comment:
+:samp:`-P{project}`
+  Use project file `project`. Only one such switch can be used.
   :ref:`gnatmake_and_Project_Files`.
 
 
 .. index:: -q  (gnatmake)
 
-:switch:`-q`
+:samp:`-q`
   Quiet. When this flag is not set, the commands carried out by
-  ``gnatmake`` are displayed.
+  *gnatmake* are displayed.
 
 
 .. index:: -s  (gnatmake)
 
-:switch:`-s`
+:samp:`-s`
   Recompile if compiler switches have changed since last compilation.
   All compiler switches but -I and -o are taken into account in the
   following way:
   orders between different 'first letter' switches are ignored, but
   orders between same switches are taken into account. For example,
-  :switch:`-O -O2` is different than :switch:`-O2 -O`, but :switch:`-g -O`
-  is equivalent to :switch:`-O -g`.
+  *-O -O2* is different than *-O2 -O*, but *-g -O*
+  is equivalent to *-O -g*.
 
   This switch is recommended when Integrated Preprocessing is used.
 
 
 .. index:: -u  (gnatmake)
 
-:switch:`-u`
+:samp:`-u`
   Unique. Recompile at most the main files. It implies -c. Combined with
   -f, it is equivalent to calling the compiler directly. Note that using
-  -u with a project file and no main has a special meaning.
-
-.. --Comment
-  (See :ref:`Project_Files_and_Main_Subprograms`.)
+  -u with a project file and no main has a special meaning
+  (:ref:`Project_Files_and_Main_Subprograms`).
 
 
 .. index:: -U  (gnatmake)
 
-:switch:`-U`
+:samp:`-U`
   When used without a project file or with one or several mains on the command
   line, is equivalent to -u. When used with a project file and no main
   on the command line, all sources of all project files are checked and compiled
@@ -574,57 +560,57 @@ You may specify any of the following switches to ``gnatmake``:
 
 .. index:: -v  (gnatmake)
 
-:switch:`-v`
-  Verbose. Display the reason for all recompilations ``gnatmake``
+:samp:`-v`
+  Verbose. Display the reason for all recompilations *gnatmake*
   decides are necessary, with the highest verbosity level.
 
 
 .. index:: -vl  (gnatmake)
 
-:switch:`-vl`
+:samp:`-vl`
   Verbosity level Low. Display fewer lines than in verbosity Medium.
 
 
 .. index:: -vm  (gnatmake)
 
-:switch:`-vm`
+:samp:`-vm`
   Verbosity level Medium. Potentially display fewer lines than in verbosity High.
 
 
 .. index:: -vm  (gnatmake)
 
-:switch:`-vh`
+:samp:`-vh`
   Verbosity level High. Equivalent to -v.
 
 
-:switch:`-vP{x}`
+:samp:`-vP{x}`
   Indicate the verbosity of the parsing of GNAT project files.
   See :ref:`Switches_Related_to_Project_Files`.
 
 
 .. index:: -x  (gnatmake)
 
-:switch:`-x`
+:samp:`-x`
   Indicate that sources that are not part of any Project File may be compiled.
   Normally, when using Project Files, only sources that are part of a Project
   File may be compile. When this switch is used, a source outside of all Project
   Files may be compiled. The ALI file and the object file will be put in the
   object directory of the main Project. The compilation switches used will only
   be those specified on the command line. Even when
-  :switch:`-x` is used, mains specified on the
+  *-x* is used, mains specified on the
   command line need to be sources of a project file.
 
 
-:switch:`-X{name}={value}`
-  Indicate that external variable ``name`` has the value ``value``.
+:samp:`-X{name}={value}`
+  Indicate that external variable `name` has the value `value`.
   The Project Manager will use this value for occurrences of
-  ``external(name)`` when parsing the project file.
+  `external(name)` when parsing the project file.
   :ref:`Switches_Related_to_Project_Files`.
 
 
 .. index:: -z  (gnatmake)
 
-:switch:`-z`
+:samp:`-z`
   No main subprogram. Bind and link the program even if the unit name
   given on the command line is a package name. The resulting executable
   will execute the elaboration routines of the package and its closure,
@@ -633,93 +619,93 @@ You may specify any of the following switches to ``gnatmake``:
 
 .. rubric:: GCC switches
 
-Any uppercase or multi-character switch that is not a ``gnatmake`` switch
-is passed to ``gcc`` (e.g., :switch:`-O`, :switch:`-gnato,` etc.)
+Any uppercase or multi-character switch that is not a *gnatmake* switch
+is passed to *gcc* (e.g., *-O*, *-gnato,* etc.)
 
 
 .. rubric:: Source and library search path switches
 
 .. index:: -aI  (gnatmake)
 
-:switch:`-aI{dir}`
-  When looking for source files also look in directory ``dir``.
+:samp:`-aI{dir}`
+  When looking for source files also look in directory `dir`.
   The order in which source files search is undertaken is
   described in :ref:`Search_Paths_and_the_Run-Time_Library_RTL`.
 
 
 .. index:: -aL  (gnatmake)
 
-:switch:`-aL{dir}`
-  Consider ``dir`` as being an externally provided Ada library.
-  Instructs ``gnatmake`` to skip compilation units whose :file:`.ALI`
-  files have been located in directory ``dir``. This allows you to have
-  missing bodies for the units in ``dir`` and to ignore out of date bodies
+:samp:`-aL{dir}`
+  Consider `dir` as being an externally provided Ada library.
+  Instructs *gnatmake* to skip compilation units whose :file:`.ALI`
+  files have been located in directory `dir`. This allows you to have
+  missing bodies for the units in `dir` and to ignore out of date bodies
   for the same units. You still need to specify
   the location of the specs for these units by using the switches
-  :switch:`-aI{dir}`  or :switch:`-I{dir}`.
+  :samp:`-aI{dir}`  or :samp:`-I{dir}`.
   Note: this switch is provided for compatibility with previous versions
-  of ``gnatmake``. The easier method of causing standard libraries
+  of *gnatmake*. The easier method of causing standard libraries
   to be excluded from consideration is to write-protect the corresponding
   ALI files.
 
 
 .. index:: -aO  (gnatmake)
 
-:switch:`-aO{dir}`
+:samp:`-aO{dir}`
   When searching for library and object files, look in directory
-  ``dir``. The order in which library files are searched is described in
+  `dir`. The order in which library files are searched is described in
   :ref:`Search_Paths_for_gnatbind`.
 
 
 .. index:: Search paths, for gnatmake
 .. index:: -A  (gnatmake)
 
-:switch:`-A{dir}`
-  Equivalent to :switch:`-aL{dir}` :switch:`-aI{dir}`.
+:samp:`-A{dir}`
+  Equivalent to :samp:`-aL{dir}` :samp:`-aI{dir}`.
 
 
   .. index:: -I  (gnatmake)
 
-:switch:`-I{dir}`
-  Equivalent to :switch:`-aO{dir} -aI{dir}`.
+:samp:`-I{dir}`
+  Equivalent to :samp:`-aO{dir} -aI{dir}`.
 
 
 .. index:: -I-  (gnatmake)
 .. index:: Source files, suppressing search
 
-:switch:`-I-`
+:samp:`-I-`
   Do not look for source files in the directory containing the source
   file named in the command line.
   Do not look for ALI or object files in the directory
-  where ``gnatmake`` was invoked.
+  where *gnatmake* was invoked.
 
 
 .. index:: -L  (gnatmake)
 .. index:: Linker libraries
 
-:switch:`-L{dir}`
-  Add directory ``dir`` to the list of directories in which the linker
+:samp:`-L{dir}`
+  Add directory `dir` to the list of directories in which the linker
   will search for libraries. This is equivalent to
-  :switch:`-largs` :switch:`-L{dir}`.
+  :samp:`-largs` :samp:`-L{dir}`.
   Furthermore, under Windows, the sources pointed to by the libraries path
   set in the registry are not searched for.
 
 
 .. index:: -nostdinc  (gnatmake)
 
-:switch:`-nostdinc`
+:samp:`-nostdinc`
   Do not look for source files in the system default directory.
 
 
 .. index:: -nostdlib  (gnatmake)
 
-:switch:`-nostdlib`
+:samp:`-nostdlib`
   Do not look for library files in the system default directory.
 
 
 .. index:: --RTS  (gnatmake)
 
-:switch:`--RTS={rts-path}`
+:samp:`--RTS={rts-path}`
   Specifies the default location of the runtime library. GNAT looks for the
   runtime
   in the following directories, and stops as soon as a valid runtime is found
@@ -737,10 +723,10 @@ is passed to ``gcc`` (e.g., :switch:`-O`, :switch:`-gnato,` etc.)
 
 .. _Mode_Switches_for_gnatmake:
 
-Mode Switches for ``gnatmake``
-------------------------------
+Mode Switches for *gnatmake*
+----------------------------
 
-The mode switches (referred to as ``mode_switches``) allow the
+The mode switches (referred to as `mode_switches`) allow the
 inclusion of switches that are to be passed to the compiler itself, the
 binder or the linker. The effect of a mode switch is to cause all
 subsequent switches up to the end of the switch list, or up to the next
@@ -749,34 +735,34 @@ designated component of GNAT.
 
 .. index:: -cargs  (gnatmake)
 
-:switch:`-cargs {switches}`
-  Compiler switches. Here ``switches`` is a list of switches
-  that are valid switches for ``gcc``. They will be passed on to
-  all compile steps performed by ``gnatmake``.
+:samp:`-cargs {switches}`
+  Compiler switches. Here `switches` is a list of switches
+  that are valid switches for *gcc*. They will be passed on to
+  all compile steps performed by *gnatmake*.
 
 
 .. index:: -bargs  (gnatmake)
 
-:switch:`-bargs {switches}`
-  Binder switches. Here ``switches`` is a list of switches
-  that are valid switches for ``gnatbind``. They will be passed on to
-  all bind steps performed by ``gnatmake``.
+:samp:`-bargs {switches}`
+  Binder switches. Here `switches` is a list of switches
+  that are valid switches for `gnatbind`. They will be passed on to
+  all bind steps performed by *gnatmake*.
 
 
 .. index:: -largs  (gnatmake)
 
-:switch:`-largs {switches}`
-  Linker switches. Here ``switches`` is a list of switches
-  that are valid switches for ``gnatlink``. They will be passed on to
-  all link steps performed by ``gnatmake``.
+:samp:`-largs {switches}`
+  Linker switches. Here `switches` is a list of switches
+  that are valid switches for *gnatlink*. They will be passed on to
+  all link steps performed by *gnatmake*.
 
 
 .. index:: -margs  (gnatmake)
 
-:switch:`-margs {switches}`
-  Make switches. The switches are directly interpreted by ``gnatmake``,
-  regardless of any previous occurrence of :switch:`-cargs`, :switch:`-bargs`
-  or :switch:`-largs`.
+:samp:`-margs {switches}`
+  Make switches. The switches are directly interpreted by *gnatmake*,
+  regardless of any previous occurrence of *-cargs*, *-bargs*
+  or *-largs*.
 
 
 .. _Notes_on_the_Command_Line:
@@ -785,48 +771,48 @@ Notes on the Command Line
 -------------------------
 
 This section contains some additional useful notes on the operation
-of the ``gnatmake`` command.
+of the *gnatmake* command.
 
 .. index:: Recompilation (by gnatmake)
 
-* If ``gnatmake`` finds no ALI files, it recompiles the main program
+* If *gnatmake* finds no ALI files, it recompiles the main program
   and all other units required by the main program.
-  This means that ``gnatmake``
+  This means that *gnatmake*
   can be used for the initial compile, as well as during subsequent steps of
   the development cycle.
 
 * If you enter ``gnatmake foo.adb``, where ``foo``
-  is a subunit or body of a generic unit, ``gnatmake`` recompiles
+  is a subunit or body of a generic unit, *gnatmake* recompiles
   :file:`foo.adb` (because it finds no ALI) and stops, issuing a
   warning.
 
-* In ``gnatmake`` the switch :switch:`-I`
+* In *gnatmake* the switch *-I*
   is used to specify both source and
-  library file paths. Use :switch:`-aI`
+  library file paths. Use *-aI*
   instead if you just want to specify
-  source paths only and :switch:`-aO`
+  source paths only and *-aO*
   if you want to specify library paths
   only.
 
-* ``gnatmake`` will ignore any files whose ALI file is write-protected.
+* *gnatmake* will ignore any files whose ALI file is write-protected.
   This may conveniently be used to exclude standard libraries from
   consideration and in particular it means that the use of the
-  :switch:`-f` switch will not recompile these files
-  unless :switch:`-a` is also specified.
+  *-f* switch will not recompile these files
+  unless *-a* is also specified.
 
-* ``gnatmake`` has been designed to make the use of Ada libraries
+* *gnatmake* has been designed to make the use of Ada libraries
   particularly convenient. Assume you have an Ada library organized
   as follows: *obj-dir* contains the objects and ALI files for
   of your Ada compilation units,
   whereas *include-dir* contains the
   specs of these units, but no bodies. Then to compile a unit
-  stored in ``main.adb``, which uses this Ada library you would just type:
+  stored in `main.adb`, which uses this Ada library you would just type:
 
   .. code-block:: sh
 
       $ gnatmake -aI`include-dir`  -aL`obj-dir`  main
 
-* Using ``gnatmake`` along with the :switch:`-m (minimal recompilation)`
+* Using *gnatmake* along with the *-m (minimal recompilation)*
   switch provides a mechanism for avoiding unnecessary recompilations. Using
   this switch,
   you can update the comments/format of your
@@ -842,12 +828,12 @@ of the ``gnatmake`` command.
 
 .. _How_gnatmake_Works:
 
-How ``gnatmake`` Works
-----------------------
+How *gnatmake* Works
+--------------------
 
-Generally ``gnatmake`` automatically performs all necessary
+Generally *gnatmake* automatically performs all necessary
 recompilations and you don't need to worry about how it works. However,
-it may be useful to have some basic understanding of the ``gnatmake``
+it may be useful to have some basic understanding of the *gnatmake*
 approach and in particular to understand how it uses the results of
 previous compilations without incorrectly depending on them.
 
@@ -858,15 +844,15 @@ the ALI file. This means that neither the source file itself nor any
 files that it depends on have been modified, and hence there is no need
 to recompile this file.
 
-``gnatmake`` works by first checking if the specified main unit is up
+*gnatmake* works by first checking if the specified main unit is up
 to date. If so, no compilations are required for the main unit. If not,
-``gnatmake`` compiles the main program to build a new ALI file that
+*gnatmake* compiles the main program to build a new ALI file that
 reflects the latest sources. Then the ALI file of the main unit is
 examined to find all the source files on which the main program depends,
-and ``gnatmake`` recursively applies the above procedure on all these
+and *gnatmake* recursively applies the above procedure on all these
 files.
 
-This process ensures that ``gnatmake`` only trusts the dependencies
+This process ensures that *gnatmake* only trusts the dependencies
 in an existing ALI file if they are known to be correct. Otherwise it
 always recompiles to determine a new, guaranteed accurate set of
 dependencies. As a result the program is compiled 'upside down' from what may
@@ -874,52 +860,52 @@ be more familiar as the required order of compilation in some other Ada
 systems. In particular, clients are compiled before the units on which
 they depend. The ability of GNAT to compile in any order is critical in
 allowing an order of compilation to be chosen that guarantees that
-``gnatmake`` will recompute a correct set of new dependencies if
+*gnatmake* will recompute a correct set of new dependencies if
 necessary.
 
-When invoking ``gnatmake`` with several ``file_names``, if a unit is
+When invoking *gnatmake* with several `file_names`, if a unit is
 imported by several of the executables, it will be recompiled at most once.
 
 Note: when using non-standard naming conventions
 (:ref:`Using_Other_File_Names`), changing through a configuration pragmas
-file the version of a source and invoking ``gnatmake`` to recompile may
+file the version of a source and invoking *gnatmake* to recompile may
 have no effect, if the previous version of the source is still accessible
-by ``gnatmake``. It may be necessary to use the switch
+by *gnatmake*. It may be necessary to use the switch
 -f.
 
 
 .. _Examples_of_gnatmake_Usage:
 
-Examples of ``gnatmake`` Usage
-------------------------------
+Examples of *gnatmake* Usage
+----------------------------
 
 *gnatmake hello.adb*
   Compile all files necessary to bind and link the main program
-  :file:`hello.adb` (containing unit ``Hello``) and bind and link the
+  :file:`hello.adb` (containing unit `Hello`) and bind and link the
   resulting object files to generate an executable file :file:`hello`.
 
 *gnatmake main1 main2 main3*
   Compile all files necessary to bind and link the main programs
-  :file:`main1.adb` (containing unit ``Main1``), :file:`main2.adb`
-  (containing unit ``Main2``) and :file:`main3.adb`
-  (containing unit ``Main3``) and bind and link the resulting object files
+  :file:`main1.adb` (containing unit `Main1`), :file:`main2.adb`
+  (containing unit `Main2`) and :file:`main3.adb`
+  (containing unit `Main3`) and bind and link the resulting object files
   to generate three executable files :file:`main1`,
   :file:`main2`  and :file:`main3`.
 
 *gnatmake -q Main_Unit -cargs -O2 -bargs -l*
   Compile all files necessary to bind and link the main program unit
-  ``Main_Unit`` (from file :file:`main_unit.adb`). All compilations will
+  `Main_Unit` (from file :file:`main_unit.adb`). All compilations will
   be done with optimization level 2 and the order of elaboration will be
-  listed by the binder. ``gnatmake`` will operate in quiet mode, not
+  listed by the binder. *gnatmake* will operate in quiet mode, not
   displaying commands it is executing.
 
 
 .. _Compiling_with_gcc:
 
-Compiling with ``gcc``
-======================
+Compiling with *gcc*
+====================
 
-This section discusses how to compile Ada programs using the ``gcc``
+This section discusses how to compile Ada programs using the *gcc*
 command. It also describes the set of switches
 that can be used to control the behavior of the compiler.
 
@@ -929,7 +915,7 @@ Compiling Programs
 ------------------
 
 The first step in creating an executable program is to compile the units
-of the program using the ``gcc`` command. You must compile the
+of the program using the *gcc* command. You must compile the
 following files:
 
 * the body file (:file:`.adb`) for a library level subprogram or generic
@@ -955,27 +941,27 @@ compiled.
 .. index:: cannot generate code
 
 If you attempt to compile any of these files, you will get one of the
-following error messages (where ``fff`` is the name of the file you
+following error messages (where `fff` is the name of the file you
 compiled):
 
   ::
 
-    cannot generate code for file ``fff`` (package spec)
+    cannot generate code for file `fff` (package spec)
     to check package spec, use -gnatc
 
-    cannot generate code for file ``fff`` (missing subunits)
+    cannot generate code for file `fff` (missing subunits)
     to check parent unit, use -gnatc
 
-    cannot generate code for file ``fff`` (subprogram spec)
+    cannot generate code for file `fff` (subprogram spec)
     to check subprogram spec, use -gnatc
 
-    cannot generate code for file ``fff`` (subunit)
+    cannot generate code for file `fff` (subunit)
     to check subunit, use -gnatc
 
 
 As indicated by the above error messages, if you want to submit
 one of these files to the compiler to check for correct semantics
-without generating code, then use the :switch:`-gnatc` switch.
+without generating code, then use the *-gnatc* switch.
 
 The basic command for compiling a file containing an Ada unit is:
 
@@ -983,10 +969,10 @@ The basic command for compiling a file containing an Ada unit is:
 
   $ gcc -c [switches] <file name>
 
-where ``file name`` is the name of the Ada file (usually
+where `file name` is the name of the Ada file (usually
 having an extension :file:`.ads` for a spec or :file:`.adb` for a body).
 You specify the
-:switch:`-c` switch to tell ``gcc`` to compile, but not link, the file.
+:option:`-c` switch to tell *gcc* to compile, but not link, the file.
 The result of a successful compilation is an object file, which has the
 same name as the source file but an extension of :file:`.o` and an Ada
 Library Information (ALI) file, which also has the same name as the
@@ -995,21 +981,19 @@ two output files in the current directory, but you may specify a source
 file in any directory using an absolute or relative path specification
 containing the directory information.
 
-TESTING: the :switch:`--foobar{NN}` switch
-
 .. index::  gnat1
 
-``gcc`` is actually a driver program that looks at the extensions of
+*gcc* is actually a driver program that looks at the extensions of
 the file arguments and loads the appropriate compiler. For example, the
 GNU C compiler is :file:`cc1`, and the Ada compiler is :file:`gnat1`.
 These programs are in directories known to the driver program (in some
 configurations via environment variables you set), but need not be in
-your path. The ``gcc`` driver also calls the assembler and any other
+your path. The *gcc* driver also calls the assembler and any other
 utilities needed to complete the generation of the required object
 files.
 
-It is possible to supply several file names on the same ``gcc``
-command. This causes ``gcc`` to call the appropriate compiler for
+It is possible to supply several file names on the same *gcc*
+command. This causes *gcc* to call the appropriate compiler for
 each file. For example, the following command lists two separate
 files to be compiled:
 
@@ -1018,13 +1002,13 @@ files to be compiled:
   $ gcc -c x.adb y.adb
 
 
-calls ``gnat1`` (the Ada compiler) twice to compile :file:`x.adb` and
+calls `gnat1` (the Ada compiler) twice to compile :file:`x.adb` and
 :file:`y.adb`.
 The compiler generates two object files :file:`x.o` and :file:`y.o`
 and the two ALI files :file:`x.ali` and :file:`y.ali`.
 
 Any switches apply to all the files listed, see :ref:`Switches_for_gcc` for a
-list of available ``gcc`` switches.
+list of available *gcc* switches.
 
 .. _Search_Paths_and_the_Run-Time_Library_RTL:
 
@@ -1044,7 +1028,7 @@ directories, in the following order:
 * The directory containing the source file of the main unit being compiled
   (the file name on the command line).
 
-* Each directory named by an :switch:`-I` switch given on the ``gcc``
+* Each directory named by an *-I* switch given on the *gcc*
   command line, in the order given.
 
   .. index:: ADA_PRJ_INCLUDE_FILE
@@ -1068,37 +1052,37 @@ directories, in the following order:
   GNAT Run Time Library (RTL) source files.
   :ref:`Installing_a_library`
 
-Specifying the switch :switch:`-I-`
+Specifying the switch *-I-*
 inhibits the use of the directory
 containing the source file named in the command line. You can still
 have this directory on your search path, but in this case it must be
-explicitly requested with a :switch:`-I` switch.
+explicitly requested with a *-I* switch.
 
-Specifying the switch :switch:`-nostdinc`
+Specifying the switch *-nostdinc*
 inhibits the search of the default location for the GNAT Run Time
 Library (RTL) source files.
 
 The compiler outputs its object files and ALI files in the current
 working directory.
-Caution: The object file can be redirected with the :switch:`-o` switch;
-however, ``gcc`` and ``gnat1`` have not been coordinated on this
+Caution: The object file can be redirected with the *-o* switch;
+however, *gcc* and `gnat1` have not been coordinated on this
 so the :file:`ALI` file will not go to the right place. Therefore, you should
-avoid using the :switch:`-o` switch.
+avoid using the *-o* switch.
 
 .. index:: System.IO
 
-The packages ``Ada``, ``System``, and ``Interfaces`` and their
-children make up the GNAT RTL, together with the simple ``System.IO``
-package used in the ``"Hello World"`` example. The sources for these units
+The packages `Ada`, `System`, and `Interfaces` and their
+children make up the GNAT RTL, together with the simple `System.IO`
+package used in the `"Hello World"` example. The sources for these units
 are needed by the compiler and are kept together in one directory. Not
 all of the bodies are needed, but all of the sources are kept together
 anyway. In a normal installation, you need not specify these directory
 names when compiling or binding. Either the environment variables or
 the built-in defaults cause these files to be found.
 
-In addition to the language-defined hierarchies (``System``, ``Ada`` and
-``Interfaces``), the GNAT distribution provides a fourth hierarchy,
-consisting of child units of ``GNAT``. This is a collection of generally
+In addition to the language-defined hierarchies (`System`, `Ada` and
+`Interfaces`), the GNAT distribution provides a fourth hierarchy,
+consisting of child units of `GNAT`. This is a collection of generally
 useful types, subprograms, etc. See the :title:`GNAT_Reference_Manual`
 for further details.
 
@@ -1111,7 +1095,7 @@ development environments much more flexible.
 Order of Compilation Issues
 ---------------------------
 
-If, in our earlier example, there was a spec for the ``hello``
+If, in our earlier example, there was a spec for the `hello`
 procedure, it would be contained in the file :file:`hello.ads`; yet this
 file would not have to be explicitly compiled. This is the result of the
 model we chose to implement library management. Some of the consequences
@@ -1157,7 +1141,7 @@ Compile body in file :file:`xyz.adb` with all default options.
     $ gcc -c -O2 -gnata xyz-def.adb
 
 Compile the child unit package in file :file:`xyz-def.adb` with extensive
-optimizations, and pragma ``Assert``/`Debug` statements
+optimizations, and pragma `Assert`/`Debug` statements
 enabled.
 
 .. code-block:: sh
@@ -1173,7 +1157,7 @@ mode.
 Compiler Switches
 =================
 
-The ``gcc`` command accepts switches that control the
+The *gcc* command accepts switches that control the
 compilation process. These switches are fully described in this section:
 first an alphabetical listing of all switches with a brief description,
 and then functionally grouped sets of switches with more detailed
@@ -1192,114 +1176,122 @@ Alphabetical List of All Switches
 
 .. index:: -b  (gcc)
 
-:switch:`-b {target}`
-  Compile your program to run on ``target``, which is the name of a
+:samp:`-b {target}`
+  Compile your program to run on `target`, which is the name of a
   system configuration. You must have a GNAT cross-compiler built if
-  ``target`` is not the same as your host system.
+  `target` is not the same as your host system.
 
 
 .. index:: -B  (gcc)
 
-:switch:`-B{dir}`
-  Load compiler executables (for example, ``gnat1``, the Ada compiler)
-  from ``dir`` instead of the default location. Only use this switch
+:samp:`-B{dir}`
+  Load compiler executables (for example, `gnat1`, the Ada compiler)
+  from `dir` instead of the default location. Only use this switch
   when multiple versions of the GNAT compiler are available.
   See the "Options for Directory Search" section in the
   :title:`Using the GNU Compiler Collection (GCC)` manual for further details.
-  You would normally use the :switch:`-b` or :switch:`-V` switch instead.
+  You would normally use the *-b* or *-V* switch instead.
 
 .. index:: -c  (gcc)
 
-:switch:`-c`
+:samp:`-c`
   Compile. Always use this switch when compiling Ada programs.
 
-  Note: for some other languages when using ``gcc``, notably in
+  Note: for some other languages when using *gcc*, notably in
   the case of C and C++, it is possible to use
-  use ``gcc`` without a :switch:`-c` switch to
+  use *gcc* without a *-c* switch to
   compile and link in one step. In the case of GNAT, you
   cannot use this approach, because the binder must be run
-  and ``gcc`` cannot be used to run the GNAT binder.
+  and *gcc* cannot be used to run the GNAT binder.
 
 
 .. index:: -fcallgraph-info  (gcc)
 
-:switch:`-fcallgraph-info[=su,da]`
+:samp:`-fcallgraph-info[=su,da]`
   Makes the compiler output callgraph information for the program, on a
   per-file basis. The information is generated in the VCG format.  It can
   be decorated with additional, per-node and/or per-edge information, if a
   list of comma-separated markers is additionally specified. When the
-  ``su`` marker is specified, the callgraph is decorated with stack usage
-  information; it is equivalent to :switch:`-fstack-usage`. When the ``da``
+  `su` marker is specified, the callgraph is decorated with stack usage
+  information; it is equivalent to *-fstack-usage*. When the `da`
   marker is specified, the callgraph is decorated with information about
   dynamically allocated objects.
 
 
 .. index:: -fdump-scos  (gcc)
 
-:switch:`-fdump-scos`
+:samp:`-fdump-scos`
   Generates SCO (Source Coverage Obligation) information in the ALI file.
   This information is used by advanced coverage tools. See unit :file:`SCOs`
   in the compiler sources for details in files :file:`scos.ads` and
   :file:`scos.adb`.
 
 
+.. index:: -fdump-xref  (gcc)
+
+:samp:`-fdump-xref`
+  Generates cross reference information in GLI files for C and C++ sources.
+  The GLI files have the same syntax as the ALI files for Ada, and can be used
+  for source navigation in IDEs and on the command line using e.g. gnatxref
+  and the *--ext=gli* switch.
+
+
 .. index:: -flto  (gcc)
 
-:switch:`-flto[={n}]`
+:samp:`-flto[={n}]`
   Enables Link Time Optimization. This switch must be used in conjunction
-  with the :switch:`-Ox` switches (but not with the :switch:`-gnatn` switch
-  since it is a full replacement for the latter) and instructs the compiler
-  to defer most optimizations until the link stage. The advantage of this
+  with the traditional *-Ox* switches and instructs the compiler to
+  defer most optimizations until the link stage. The advantage of this
   approach is that the compiler can do a whole-program analysis and choose
   the best interprocedural optimization strategy based on a complete view
   of the program, instead of a fragmentary view with the usual approach.
   This can also speed up the compilation of big programs and reduce the
   size of the executable, compared with a traditional per-unit compilation
-  with inlining across modules enabled by the :switch:`-gnatn` switch.
+  with inlining across modules enabled by the *-gnatn* switch.
   The drawback of this approach is that it may require more memory and that
   the debugging information generated by -g with it might be hardly usable.
-  The switch, as well as the accompanying :switch:`-Ox` switches, must be
+  The switch, as well as the accompanying *-Ox* switches, must be
   specified both for the compilation and the link phases.
-  If the ``n`` parameter is specified, the optimization and final code
-  generation at link time are executed using ``n`` parallel jobs by
-  means of an installed ``make`` program.
+  If the `n` parameter is specified, the optimization and final code
+  generation at link time are executed using `n` parallel jobs by
+  means of an installed *make* program.
 
 
 .. index:: -fno-inline  (gcc)
 
-:switch:`-fno-inline`
-  Suppresses all inlining, unless requested with pragma ``Inline_Always``. The
+:samp:`-fno-inline`
+  Suppresses all inlining, unless requested with pragma `Inline_Always`. The
   effect is enforced regardless of other optimization or inlining switches.
   Note that inlining can also be suppressed on a finer-grained basis with
-  pragma ``No_Inline``.
+  pragma `No_Inline`.
 
 
 .. index:: -fno-inline-functions  (gcc)
 
-:switch:`-fno-inline-functions`
+:samp:`-fno-inline-functions`
   Suppresses automatic inlining of subprograms, which is enabled
-  if :switch:`-O3` is used.
+  if *-O3* is used.
 
 
 .. index:: -fno-inline-small-functions  (gcc)
 
-:switch:`-fno-inline-small-functions`
+:samp:`-fno-inline-small-functions`
   Suppresses automatic inlining of small subprograms, which is enabled
-  if :switch:`-O2` is used.
+  if *-O2* is used.
 
 
 .. index:: -fno-inline-functions-called-once  (gcc)
 
-:switch:`-fno-inline-functions-called-once`
+:samp:`-fno-inline-functions-called-once`
   Suppresses inlining of subprograms local to the unit and called once
-  from within it, which is enabled if :switch:`-O1` is used.
+  from within it, which is enabled if *-O1* is used.
 
 
 .. index:: -fno-ivopts  (gcc)
 
-:switch:`-fno-ivopts`
+:samp:`-fno-ivopts`
   Suppresses high-level loop induction variable optimizations, which are
-  enabled if :switch:`-O1` is used. These optimizations are generally
+  enabled if *-O1* is used. These optimizations are generally
   profitable but, for some specific cases of loops with numerous uses
   of the iteration variable that follow a common pattern, they may end
   up destroying the regularity that could be exploited at a lower level
@@ -1308,97 +1300,86 @@ Alphabetical List of All Switches
 
 .. index:: -fno-strict-aliasing  (gcc)
 
-:switch:`-fno-strict-aliasing`
+:samp:`-fno-strict-aliasing`
   Causes the compiler to avoid assumptions regarding non-aliasing
   of objects of different types. See
   :ref:`Optimization_and_Strict_Aliasing` for details.
 
 
-.. index:: -fno-strict-overflow  (gcc)
-
-:switch:`-fno-strict-overflow`
-  Causes the compiler to avoid assumptions regarding the rules of signed
-  integer overflow. These rules specify that signed integer overflow will
-  result in a Constraint_Error exception at run time and are enforced in
-  default mode by the compiler, so this switch should not be necessary in
-  normal operating mode. It might be useful in conjunction with :switch:`-gnato0`
-  for very peculiar cases of low-level programming.
-
-
 .. index:: -fstack-check  (gcc)
 
-:switch:`-fstack-check`
+:samp:`-fstack-check`
   Activates stack checking.
   See :ref:`Stack_Overflow_Checking` for details.
 
 
 .. index:: -fstack-usage  (gcc)
 
-:switch:`-fstack-usage`
+:samp:`-fstack-usage`
   Makes the compiler output stack usage information for the program, on a
   per-subprogram basis. See :ref:`Static_Stack_Usage_Analysis` for details.
 
 
 .. index:: -g  (gcc)
 
-:switch:`-g`
+:samp:`-g`
   Generate debugging information. This information is stored in the object
   file and copied from there to the final executable file by the linker,
   where it can be read by the debugger. You must use the
-  :switch:`-g` switch if you plan on using the debugger.
+  *-g* switch if you plan on using the debugger.
 
 
 .. index:: -gnat05  (gcc)
 
-:switch:`-gnat05`
+:samp:`-gnat05`
   Allow full Ada 2005 features.
 
 
 .. index:: -gnat12  (gcc)
 
-:switch:`-gnat12`
+:samp:`-gnat12`
   Allow full Ada 2012 features.
 
 .. index:: -gnat83  (gcc)
 
 .. index:: -gnat2005  (gcc)
 
-:switch:`-gnat2005`
-  Allow full Ada 2005 features (same as :switch:`-gnat05`)
+:samp:`-gnat2005`
+  Allow full Ada 2005 features (same as *-gnat05*)
 
 
 .. index:: -gnat2012  (gcc)
 
-:switch:`-gnat2012`
-  Allow full Ada 2012 features (same as :switch:`-gnat12`)
+:samp:`-gnat2012`
+  Allow full Ada 2012 features (same as *-gnat12*)
 
 
-:switch:`-gnat83`
+:samp:`-gnat83`
   Enforce Ada 83 restrictions.
 
 
 .. index:: -gnat95  (gcc)
 
-:switch:`-gnat95`
+:samp:`-gnat95`
   Enforce Ada 95 restrictions.
 
   Note: for compatibility with some Ada 95 compilers which support only
-  the ``overriding`` keyword of Ada 2005, the :switch:`-gnatd.D` switch can
-  be used along with :switch:`-gnat95` to achieve a similar effect with GNAT.
+  the `overriding` keyword of Ada 2005, the *-gnatd.D* switch can
+  be used along with *-gnat95* to achieve a similar effect with GNAT.
 
-  :switch:`-gnatd.D` instructs GNAT to consider ``overriding`` as a keyword
+  *-gnatd.D* instructs GNAT to consider `overriding` as a keyword
   and handle its associated semantic checks, even in Ada 95 mode.
 
 
 .. index:: -gnata  (gcc)
 
-:switch:`-gnata`
-  Assertions enabled. ``Pragma Assert`` and ``pragma Debug`` to be
+:samp:`-gnata`
+  Assertions enabled. `Pragma Assert` and `pragma Debug` to be
   activated. Note that these pragmas can also be controlled using the
-  configuration pragmas ``Assertion_Policy`` and ``Debug_Policy``.
-  It also activates pragmas ``Check``, ``Precondition``, and
-  ``Postcondition``. Note that these pragmas can also be controlled
-  using the configuration pragma ``Check_Policy``. In Ada 2012, it
+  configuration pragmas `Assertion_Policy` and `Debug_Policy`.
+  It also activates pragmas `Check`, `Precondition`, and
+  `Postcondition`. Note that these pragmas can also be controlled
+  using the configuration pragma `Check_Policy`. In Ada 2012, it
   also activates all assertions defined in the RM as aspects: preconditions,
   postconditions, type invariants and (sub)type predicates. In all Ada modes,
   corresponding pragmas for type invariants and (sub)type predicates are
@@ -1410,41 +1391,43 @@ Alphabetical List of All Switches
 
 .. index:: -gnatA  (gcc)
 
-:switch:`-gnatA`
+:samp:`-gnatA`
   Avoid processing :file:`gnat.adc`. If a :file:`gnat.adc` file is present,
   it will be ignored.
 
 
 .. index:: -gnatb  (gcc)
 
-:switch:`-gnatb`
+:samp:`-gnatb`
   Generate brief messages to :file:`stderr` even if verbose mode set.
 
 
 .. index:: -gnatB  (gcc)
 
-:switch:`-gnatB`
+:samp:`-gnatB`
   Assume no invalid (bad) values except for 'Valid attribute use
   (:ref:`Validity_Checking`).
 
 
 .. index:: -gnatc  (gcc)
 
-:switch:`-gnatc`
+:samp:`-gnatc`
   Check syntax and semantics only (no code generation attempted). When the
-  compiler is invoked by ``gnatmake``, if the switch :switch:`-gnatc` is
-  only given to the compiler (after :switch:`-cargs` or in package Compiler of
-  the project file, ``gnatmake`` will fail because it will not find the
-  object file after compilation. If ``gnatmake`` is called with
-  :switch:`-gnatc` as a builder switch (before :switch:`-cargs` or in package
-  Builder of the project file) then ``gnatmake`` will not fail because
+  compiler is invoked by *gnatmake*, if the switch *-gnatc* is
+  only given to the compiler (after *-cargs* or in package Compiler of
+  the project file, *gnatmake* will fail because it will not find the
+  object file after compilation. If *gnatmake* is called with
+  *-gnatc* as a builder switch (before *-cargs* or in package
+  Builder of the project file) then *gnatmake* will not fail because
   it will not look for the object files after compilation, and it will not try
-  to build and link.
+  to build and link. This switch may not be given if a previous `-gnatR`
+  switch has been given, since `-gnatR` requires that the code generator
+  be called to complete determination of representation information.
 
 
 .. index:: -gnatC  (gcc)
 
-:switch:`-gnatC`
+:samp:`-gnatC`
   Generate CodePeer intermediate format (no code generation attempted).
   This switch will generate an intermediate representation suitable for
   use by CodePeer (:file:`.scil` files). This switch is not compatible with
@@ -1454,9 +1437,9 @@ Alphabetical List of All Switches
 
 .. index:: -gnatd  (gcc)
 
-:switch:`-gnatd`
+:samp:`-gnatd`
   Specify debug options for the compiler. The string of characters after
-  the :switch:`-gnatd` specify the specific debug options. The possible
+  the *-gnatd* specify the specific debug options. The possible
   characters are 0-9, a-z, A-Z, optionally preceded by a dot. See
   compiler source file :file:`debug.adb` for details of the implemented
   debug options. Certain debug options are relevant to applications
@@ -1466,16 +1449,16 @@ Alphabetical List of All Switches
 
 .. index:: -gnatD[nn]  (gcc)
 
-:switch:`-gnatD`
+:samp:`-gnatD`
   Create expanded source files for source level debugging. This switch
-  also suppresses generation of cross-reference information
-  (see :switch:`-gnatx`). Note that this switch is not allowed if a previous
+  also suppress generation of cross-reference information
+  (see *-gnatx*). Note that this switch is not allowed if a previous
   -gnatR switch has been given, since these two switches are not compatible.
 
 
 .. index:: -gnateA  (gcc)
 
-:switch:`-gnateA`
+:samp:`-gnateA`
   Check that the actual parameters of a subprogram call are not aliases of one
   another. To qualify as aliasing, the actuals must denote objects of a composite
   type, their memory locations must be identical or overlapping, and at least one
@@ -1504,16 +1487,16 @@ Alphabetical List of All Switches
       Detect_Aliasing (Obj, Self (Obj));
 
 
-  In the example above, the first call to ``Detect_Aliasing`` fails with a
-  ``Program_Error`` at runtime because the actuals for ``Val_1`` and
-  ``Val_2`` denote the same object. The second call executes without raising
-  an exception because ``Self(Obj)`` produces an anonymous object which does
-  not share the memory location of ``Obj``.
+  In the example above, the first call to `Detect_Aliasing` fails with a
+  `Program_Error` at runtime because the actuals for `Val_1` and
+  `Val_2` denote the same object. The second call executes without raising
+  an exception because `Self(Obj)` produces an anonymous object which does
+  not share the memory location of `Obj`.
 
 
 .. index:: -gnatec  (gcc)
 
-:switch:`-gnatec={path}`
+:samp:`-gnatec={path}`
   Specify a configuration pragma file
   (the equal sign is optional)
   (:ref:`The_Configuration_Pragmas_Files`).
@@ -1521,28 +1504,28 @@ Alphabetical List of All Switches
 
 .. index:: -gnateC  (gcc)
 
-:switch:`-gnateC`
+:samp:`-gnateC`
   Generate CodePeer messages in a compiler-like format. This switch is only
-  effective if :switch:`-gnatcC` is also specified and requires an installation
+  effective if *-gnatcC* is also specified and requires an installation
   of CodePeer.
 
 
 .. index:: -gnated  (gcc)
 
-:switch:`-gnated`
+:samp:`-gnated`
   Disable atomic synchronization
 
 
 .. index:: -gnateD  (gcc)
 
-:switch:`-gnateDsymbol[={value}]`
-  Defines a symbol, associated with ``value``, for preprocessing.
+:samp:`-gnateDsymbol[={value}]`
+  Defines a symbol, associated with `value`, for preprocessing.
   (:ref:`Integrated_Preprocessing`).
 
 
 .. index:: -gnateE  (gcc)
 
-:switch:`-gnateE`
+:samp:`-gnateE`
   Generate extra information in exception messages. In particular, display
   extra column information and the value and range associated with index and
   range check failures, and extra column information for access checks.
@@ -1553,57 +1536,46 @@ Alphabetical List of All Switches
 
 .. index:: -gnatef  (gcc)
 
-:switch:`-gnatef`
+:samp:`-gnatef`
   Display full source path name in brief error messages.
 
 
 .. index:: -gnateF  (gcc)
 
-:switch:`-gnateF`
+:samp:`-gnateF`
   Check for overflow on all floating-point operations, including those
   for unconstrained predefined types. See description of pragma
-  ``Check_Float_Overflow`` in GNAT RM.
-
-
-.. index:: -gnateg  (gcc)
-
-:switch:`-gnateg`
-:switch:`-gnatceg`
-
-  The :switch:`-gnatc` switch must always be specified before this switch, e.g.
-  :switch:`-gnatceg`. Generate a C header from the Ada input file. See
-  :ref:`Generating_C_Headers_for_Ada_Specifications` for more
-  information.
+  `Check_Float_Overflow` in GNAT RM.
 
 
 .. index:: -gnateG  (gcc)
 
-:switch:`-gnateG`
+:samp:`-gnateG`
   Save result of preprocessing in a text file.
 
 
 .. index:: -gnatei  (gcc)
 
-:switch:`-gnatei{nnn}`
+:samp:`-gnatei{nnn}`
   Set maximum number of instantiations during compilation of a single unit to
-  ``nnn``. This may be useful in increasing the default maximum of 8000 for
+  `nnn`. This may be useful in increasing the default maximum of 8000 for
   the rare case when a single unit legitimately exceeds this limit.
 
 
 .. index:: -gnateI  (gcc)
 
-:switch:`-gnateI{nnn}`
+:samp:`-gnateI{nnn}`
   Indicates that the source is a multi-unit source and that the index of the
-  unit to compile is ``nnn``. ``nnn`` needs to be a positive number and need
+  unit to compile is `nnn`. `nnn` needs to be a positive number and need
   to be a valid index in the multi-unit source.
 
 
 .. index:: -gnatel  (gcc)
 
-:switch:`-gnatel`
+:samp:`-gnatel`
   This switch can be used with the static elaboration model to issue info
   messages showing
-  where implicit ``pragma Elaborate`` and ``pragma Elaborate_All``
+  where implicit `pragma Elaborate` and `pragma Elaborate_All`
   are generated. This is useful in diagnosing elaboration circularities
   caused by these implicit pragmas when using the static elaboration
   model. See See the section in this guide on elaboration checking for
@@ -1613,13 +1585,13 @@ Alphabetical List of All Switches
 
 .. index:: -gnatel  (gcc)
 
-:switch:`-gnateL`
+:samp:`-gnateL`
   This switch turns off the info messages about implicit elaboration pragmas.
 
 
 .. index:: -gnatem  (gcc)
 
-:switch:`-gnatem={path}`
+:samp:`-gnatem={path}`
   Specify a mapping file
   (the equal sign is optional)
   (:ref:`Units_to_Sources_Mapping_Files`).
@@ -1627,7 +1599,7 @@ Alphabetical List of All Switches
 
 .. index:: -gnatep  (gcc)
 
-:switch:`-gnatep={file}`
+:samp:`-gnatep={file}`
   Specify a preprocessing data file
   (the equal sign is optional)
   (:ref:`Integrated_Preprocessing`).
@@ -1635,7 +1607,7 @@ Alphabetical List of All Switches
 
 .. index:: -gnateP  (gcc)
 
-:switch:`-gnateP`
+:samp:`-gnateP`
   Turn categorization dependency errors into warnings.
   Ada requires that units that WITH one another have compatible categories, for
   example a Pure unit cannot WITH a Preelaborate unit. If this switch is used,
@@ -1646,20 +1618,20 @@ Alphabetical List of All Switches
 
 .. index:: -gnateS  (gcc)
 
-:switch:`-gnateS`
-  Synonym of :switch:`-fdump-scos`, kept for backwards compatibility.
+:samp:`-gnateS`
+  Synonym of *-fdump-scos*, kept for backwards compatibility.
 
 
 .. index:: -gnatet=file  (gcc)
 
-:switch:`-gnatet={path}`
+:samp:`-gnatet={path}`
   Generate target dependent information. The format of the output file is
-  described in the section about switch :switch:`-gnateT`.
+  described in the section about switch *-gnateT*.
 
 
 .. index:: -gnateT  (gcc)
 
-:switch:`-gnateT={path}`
+:samp:`-gnateT={path}`
   Read target dependent information, such as endianness or sizes and alignments
   of base type. If this switch is passed, the default target dependent
   information of the compiler is replaced by the one read from the input file.
@@ -1668,7 +1640,7 @@ Alphabetical List of All Switches
   the machine on which the tool is run.
 
   The following target dependent values should be defined,
-  where ``Nat`` denotes a natural integer value, ``Pos`` denotes a
+  where `Nat` denotes a natural integer value, `Pos` denotes a
   positive integer value, and fields marked with a question mark are
   boolean fields, where a value of 0 is False, and a value of 1 is True:
 
@@ -1708,8 +1680,8 @@ Alphabetical List of All Switches
 
     name  value
 
-  where ``name`` is the name of the parameter, spelled out in full,
-  and cased as in the above list, and ``value`` is an unsigned decimal
+  where `name` is the name of the parameter, spelled out in full,
+  and cased as in the above list, and `value` is an unsigned decimal
   integer. Two or more blanks separates the name from the value.
 
   All the variables must be present, in alphabetical order (i.e. the
@@ -1725,11 +1697,11 @@ Alphabetical List of All Switches
     name  digs float_rep size alignment
 
 
-  where ``name`` is the string name of the type (which can have
-  single spaces embedded in the name (e.g. long double), ``digs`` is
-  the number of digits for the floating-point type, ``float_rep`` is
+  where `name` is the string name of the type (which can have
+  single spaces embedded in the name (e.g. long double), `digs` is
+  the number of digits for the floating-point type, `float_rep` is
   the float representation (I/V/A for IEEE-754-Binary, Vax_Native,
-  AAMP), ``size`` is the size in bits, ``alignment`` is the
+  AAMP), `size` is the size in bits, `alignment` is the
   alignment in bits. The name is followed by at least two blanks, fields
   are separated by at least one blank, and a LF character immediately
   follows the alignment field.
@@ -1771,7 +1743,7 @@ Alphabetical List of All Switches
 
 .. index:: -gnateu  (gcc)
 
-:switch:`-gnateu`
+:samp:`-gnateu`
   Ignore unrecognized validity, warning, and style switches that
   appear after this switch is given. This may be useful when
   compiling sources developed on a later version of the compiler
@@ -1781,14 +1753,14 @@ Alphabetical List of All Switches
 
 .. index:: -gnateV  (gcc)
 
-:switch:`-gnateV`
+:samp:`-gnateV`
   Check that all actual parameters of a subprogram call are valid according to
   the rules of validity checking (:ref:`Validity_Checking`).
 
 
 .. index:: -gnateY  (gcc)
 
-:switch:`-gnateY`
+:samp:`-gnateY`
   Ignore all STYLE_CHECKS pragmas. Full legality checks
   are still carried out, but the pragmas have no effect
   on what style checks are active. This allows all style
@@ -1797,59 +1769,59 @@ Alphabetical List of All Switches
 
 .. index:: -gnatE  (gcc)
 
-:switch:`-gnatE`
+:samp:`-gnatE`
   Full dynamic elaboration checks.
 
 
 .. index:: -gnatf  (gcc)
 
-:switch:`-gnatf`
+:samp:`-gnatf`
   Full errors. Multiple errors per line, all undefined references, do not
   attempt to suppress cascaded errors.
 
 
 .. index:: -gnatF  (gcc)
 
-:switch:`-gnatF`
+:samp:`-gnatF`
   Externals names are folded to all uppercase.
 
 
 .. index:: -gnatg  (gcc)
 
-:switch:`-gnatg`
+:samp:`-gnatg`
   Internal GNAT implementation mode. This should not be used for
   applications programs, it is intended only for use by the compiler
   and its run-time library. For documentation, see the GNAT sources.
-  Note that :switch:`-gnatg` implies
-  :switch:`-gnatw.ge` and
-  :switch:`-gnatyg`
+  Note that *-gnatg* implies
+  *-gnatw.ge* and
+  *-gnatyg*
   so that all standard warnings and all standard style options are turned on.
   All warnings and style messages are treated as errors.
 
 
 .. index:: -gnatG[nn]  (gcc)
 
-:switch:`-gnatG=nn`
+:samp:`-gnatG=nn`
   List generated expanded code in source form.
 
 
 .. index:: -gnath  (gcc)
 
-:switch:`-gnath`
+:samp:`-gnath`
   Output usage information. The output is written to :file:`stdout`.
 
 
 .. index:: -gnati  (gcc)
 
-:switch:`-gnati{c}`
-  Identifier character set (``c`` = 1/2/3/4/8/9/p/f/n/w).
-  For details of the possible selections for ``c``,
+:samp:`-gnati{c}`
+  Identifier character set (`c` = 1/2/3/4/8/9/p/f/n/w).
+  For details of the possible selections for `c`,
   see :ref:`Character_Set_Control`.
 
 
 .. index:: -gnatI  (gcc)
 
-:switch:`-gnatI`
+:samp:`-gnatI`
   Ignore representation clauses. When this switch is used,
   representation clauses are treated as comments. This is useful
   when initially porting code where you want to ignore rep clause
@@ -1858,37 +1830,36 @@ Alphabetical List of All Switches
   are: enumeration_representation_clause, record_representation_clause,
   and attribute_definition_clause for the following attributes:
   Address, Alignment, Bit_Order, Component_Size, Machine_Radix,
-  Object_Size, Scalar_Storage_Order, Size, Small, Stream_Size,
-  and Value_Size. Pragma Default_Scalar_Storage_Order is also ignored.
+  Object_Size, Size, Small, Stream_Size, and Value_Size.
   Note that this option should be used only for compiling -- the
   code is likely to malfunction at run time.
 
-  Note that when :switch:`-gnatct` is used to generate trees for input
-  into ASIS tools, these representation clauses are removed
+  Note that when `-gnatct` is used to generate trees for input
+  into `ASIS` tools, these representation clauses are removed
   from the tree and ignored. This means that the tool will not see them.
 
 
 .. index:: -gnatjnn  (gcc)
 
-:switch:`-gnatj{nn}`
-  Reformat error messages to fit on ``nn`` character lines
+:samp:`-gnatj{nn}`
+  Reformat error messages to fit on `nn` character lines
 
 
 .. index:: -gnatk  (gcc)
 
-:switch:`-gnatk={n}`
-  Limit file names to ``n`` (1-999) characters (``k`` = krunch).
+:samp:`-gnatk={n}`
+  Limit file names to `n` (1-999) characters (`k` = krunch).
 
 
 .. index:: -gnatl  (gcc)
 
-:switch:`-gnatl`
+:samp:`-gnatl`
   Output full source listing with embedded error messages.
 
 
 .. index:: -gnatL  (gcc)
 
-:switch:`-gnatL`
+:samp:`-gnatL`
   Used in conjunction with -gnatG or -gnatD to intersperse original
   source lines (as comment lines with line numbers) in the expanded
   source output.
@@ -1896,9 +1867,9 @@ Alphabetical List of All Switches
 
 .. index:: -gnatm  (gcc)
 
-:switch:`-gnatm={n}`
-  Limit number of detected error or warning messages to ``n``
-  where ``n`` is in the range 1..999999. The default setting if
+:samp:`-gnatm={n}`
+  Limit number of detected error or warning messages to `n`
+  where `n` is in the range 1..999999. The default setting if
   no switch is given is 9999. If the number of warnings reaches this
   limit, then a message is output and further warnings are suppressed,
   but the compilation is continued. If the number of error messages
@@ -1909,9 +1880,9 @@ Alphabetical List of All Switches
 
 .. index:: -gnatn  (gcc)
 
-:switch:`-gnatn[12]`
-  Activate inlining across modules for subprograms for which pragma ``Inline``
-  is specified. This inlining is performed by the GCC back-end. An optional
+:samp:`-gnatn[12]`
+  Activate inlining for subprograms for which pragma `Inline` is
+  specified. This inlining is performed by the GCC back-end. An optional
   digit sets the inlining level: 1 for moderate inlining across modules
   or 2 for full inlining across modules. If no inlining level is specified,
   the compiler will pick it based on the optimization level.
@@ -1919,220 +1890,221 @@ Alphabetical List of All Switches
 
 .. index:: -gnatN  (gcc)
 
-:switch:`-gnatN`
+:samp:`-gnatN`
   Activate front end inlining for subprograms for which
-  pragma ``Inline`` is specified. This inlining is performed
+  pragma `Inline` is specified. This inlining is performed
   by the front end and will be visible in the
-  :switch:`-gnatG` output.
+  *-gnatG* output.
 
   When using a gcc-based back end (in practice this means using any version
   of GNAT other than the JGNAT, .NET or GNAAMP versions), then the use of
-  :switch:`-gnatN` is deprecated, and the use of :switch:`-gnatn` is preferred.
+  *-gnatN* is deprecated, and the use of *-gnatn* is preferred.
   Historically front end inlining was more extensive than the gcc back end
   inlining, but that is no longer the case.
 
 
 .. index:: -gnato0  (gcc)
 
-:switch:`-gnato0`
+:samp:`-gnato0`
   Suppresses overflow checking. This causes the behavior of the compiler to
   match the default for older versions where overflow checking was suppressed
   by default. This is equivalent to having
-  ``pragma Suppress (Overflow_Check)`` in a configuration pragma file.
+  `pragma Suppress (Overflow_Mode)` in a configuration pragma file.
 
 
 .. index:: -gnato??  (gcc)
 
-:switch:`-gnato??`
+:samp:`-gnato??`
   Set default mode for handling generation of code to avoid intermediate
-  arithmetic overflow. Here ``??`` is two digits, a
-  single digit, or nothing. Each digit is one of the digits ``1``
-  through ``3``:
+  arithmetic overflow. Here `??` is two digits, a
+  single digit, or nothing. Each digit is one of the digits `1`
+  through `3`:
 
   ===== ===============================================================
   Digit Interpretation
   ----- ---------------------------------------------------------------
-  *1*   All intermediate overflows checked against base type (``STRICT``)
-  *2*   Minimize intermediate overflows (``MINIMIZED``)
-  *3*   Eliminate intermediate overflows (``ELIMINATED``)
+  *1*   All intermediate overflows checked against base type (`STRICT`)
+  *2*   Minimize intermediate overflows (`MINIMIZED`)
+  *3*   Eliminate intermediate overflows (`ELIMINATED`)
   ===== ===============================================================
 
-  If only one digit appears, then it applies to all
+  If only one digit appears then it applies to all
   cases; if two digits are given, then the first applies outside
-  assertions, pre/postconditions, and type invariants, and the second
-  applies within assertions, pre/postconditions, and type invariants.
+  assertions, and the second within assertions.
 
-  If no digits follow the :switch:`-gnato`, then it is equivalent to
-  :switch:`-gnato11`,
-  causing all intermediate overflows to be handled in strict
-  mode.
+  If no digits follow the *-gnato*, then it is equivalent to
+  *-gnato11*,
+  causing all intermediate overflows to be handled in strict mode.
 
   This switch also causes arithmetic overflow checking to be performed
-  (as though ``pragma Unsuppress (Overflow_Check)`` had been specified).
+  (as though `pragma Unsuppress (Overflow_Mode)` had been specified.
 
-  The default if no option :switch:`-gnato` is given is that overflow handling
-  is in ``STRICT`` mode (computations done using the base type), and that
+  The default if no option *-gnato* is given is that overflow handling
+  is in `STRICT` mode (computations done using the base type), and that
   overflow checking is enabled.
 
   Note that division by zero is a separate check that is not
-  controlled by this switch (divide-by-zero checking is on by default).
+  controlled by this switch (division by zero checking is on by default).
 
   See also :ref:`Specifying_the_Desired_Mode`.
 
 
 .. index:: -gnatp  (gcc)
 
-:switch:`-gnatp`
+:samp:`-gnatp`
   Suppress all checks. See :ref:`Run-Time_Checks` for details. This switch
-  has no effect if cancelled by a subsequent :switch:`-gnat-p` switch.
+  has no effect if cancelled by a subsequent *-gnat-p* switch.
 
 
 .. index:: -gnat-p  (gcc)
 
-:switch:`-gnat-p`
-  Cancel effect of previous :switch:`-gnatp` switch.
+:samp:`-gnat-p`
+  Cancel effect of previous *-gnatp* switch.
 
 
 .. index:: -gnatP  (gcc)
 
-:switch:`-gnatP`
+:samp:`-gnatP`
   Enable polling. This is required on some systems (notably Windows NT) to
   obtain asynchronous abort and asynchronous transfer of control capability.
-  See ``Pragma_Polling`` in the :title:`GNAT_Reference_Manual` for full
+  See `Pragma_Polling` in the :title:`GNAT_Reference_Manual` for full
   details.
 
 
 .. index:: -gnatq  (gcc)
 
-:switch:`-gnatq`
+:samp:`-gnatq`
   Don't quit. Try semantics, even if parse errors.
 
 
 .. index:: -gnatQ  (gcc)
 
-:switch:`-gnatQ`
+:samp:`-gnatQ`
   Don't quit. Generate :file:`ALI` and tree files even if illegalities.
   Note that code generation is still suppressed in the presence of any
-  errors, so even with :switch:`-gnatQ` no object file is generated.
+  errors, so even with *-gnatQ* no object file is generated.
 
 
 .. index:: -gnatr  (gcc)
 
-:switch:`-gnatr`
+:samp:`-gnatr`
   Treat pragma Restrictions as Restriction_Warnings.
 
 
 .. index:: -gnatR  (gcc)
 
-:switch:`-gnatR[0/1/2/3][e][m][s]`
-  Output representation information for declared types, objects and
-  subprograms. Note that this switch is not allowed if a previous
-  :switch:`-gnatD` switch has been given, since these two switches
-  are not compatible.
+:samp:`-gnatR[0/1/2/3[s]]`
+  Output representation information for declared types and objects.
+  Note that this switch is not allowed if a previous `-gnatD` switch has
+  been given, since these two switches are not compatible.
+
+
+:samp:`-gnatRm[s]`
+  Output convention and parameter passing mechanisms for all subprograms.
 
 
 .. index:: -gnats  (gcc)
 
-:switch:`-gnats`
+:samp:`-gnats`
   Syntax check only.
 
 
 .. index:: -gnatS  (gcc)
 
-:switch:`-gnatS`
+:samp:`-gnatS`
   Print package Standard.
 
 
 .. index:: -gnatt  (gcc)
 
-:switch:`-gnatt`
+:samp:`-gnatt`
   Generate tree output file.
 
 
 .. index:: -gnatT  (gcc)
 
-:switch:`-gnatT{nnn}`
-  All compiler tables start at ``nnn`` times usual starting size.
+:samp:`-gnatT{nnn}`
+  All compiler tables start at `nnn` times usual starting size.
 
 
 .. index:: -gnatu  (gcc)
 
-:switch:`-gnatu`
+:samp:`-gnatu`
   List units for this compilation.
 
 
 .. index:: -gnatU  (gcc)
 
-:switch:`-gnatU`
+:samp:`-gnatU`
   Tag all error messages with the unique string 'error:'
 
 
 .. index:: -gnatv  (gcc)
 
-:switch:`-gnatv`
+:samp:`-gnatv`
   Verbose mode. Full error output with source lines to :file:`stdout`.
 
 
 .. index:: -gnatV  (gcc)
 
-:switch:`-gnatV`
+:samp:`-gnatV`
   Control level of validity checking (:ref:`Validity_Checking`).
 
 
 .. index:: -gnatw  (gcc)
 
-:switch:`-gnatw{xxx}`
+:samp:`-gnatw{xxx}`
   Warning mode where
-  ``xxx`` is a string of option letters that denotes
+  `xxx` is a string of option letters that denotes
   the exact warnings that
   are enabled or disabled (:ref:`Warning_Message_Control`).
 
 
 .. index:: -gnatW  (gcc)
 
-:switch:`-gnatW{e}`
+:samp:`-gnatW{e}`
   Wide character encoding method
-  (``e``\ =n/h/u/s/e/8).
+  (`e`\ =n/h/u/s/e/8).
 
 
 .. index:: -gnatx  (gcc)
 
-:switch:`-gnatx`
+:samp:`-gnatx`
   Suppress generation of cross-reference information.
 
 
 .. index:: -gnatX  (gcc)
 
-:switch:`-gnatX`
+:samp:`-gnatX`
   Enable GNAT implementation extensions and latest Ada version.
 
 
 .. index:: -gnaty  (gcc)
 
-:switch:`-gnaty`
+:samp:`-gnaty`
   Enable built-in style checks (:ref:`Style_Checking`).
 
 
 .. index:: -gnatz  (gcc)
 
-:switch:`-gnatz{m}`
+:samp:`-gnatz{m}`
   Distribution stub generation and compilation
-  (``m``\ =r/c for receiver/caller stubs).
+  (`m`\ =r/c for receiver/caller stubs).
 
 
 .. index:: -I  (gcc)
 
-:switch:`-I{dir}`
+:samp:`-I{dir}`
   .. index:: RTL
 
-  Direct GNAT to search the ``dir`` directory for source files needed by
+  Direct GNAT to search the `dir` directory for source files needed by
   the current compilation
   (see :ref:`Search_Paths_and_the_Run-Time_Library_RTL`).
 
 
 .. index:: -I-  (gcc)
 
-:switch:`-I-`
+:samp:`-I-`
   .. index:: RTL
 
   Except for the source file named in the command line, do not look for source
@@ -2142,8 +2114,8 @@ Alphabetical List of All Switches
 
 .. index:: -o  (gcc)
 
-:switch:`-o {file}`
-  This switch is used in ``gcc`` to redirect the generated object file
+:samp:`-o {file}`
+  This switch is used in *gcc* to redirect the generated object file
   and its associated ALI file. Beware of this switch with GNAT, because it may
   cause the object file and ALI file to have different names which in turn
   may confuse the binder and the linker.
@@ -2151,33 +2123,33 @@ Alphabetical List of All Switches
 
 .. index:: -nostdinc  (gcc)
 
-:switch:`-nostdinc`
+:samp:`-nostdinc`
   Inhibit the search of the default location for the GNAT Run Time
   Library (RTL) source files.
 
 
 .. index:: -nostdlib  (gcc)
 
-:switch:`-nostdlib`
+:samp:`-nostdlib`
   Inhibit the search of the default location for the GNAT Run Time
   Library (RTL) ALI files.
 
 
 .. index:: -O  (gcc)
 
-:switch:`-O[{n}]`
-  ``n`` controls the optimization level:
+:samp:`-O[{n}]`
+  `n` controls the optimization level:
 
   ======= ==================================================================
    *n*     Effect
   ------- ------------------------------------------------------------------
-  *0*      No optimization, the default setting if no :switch:`-O` appears
-  *1*      Normal optimization, the default if you specify :switch:`-O` without an
+  *0*      No optimization, the default setting if no *-O* appears
+  *1*      Normal optimization, the default if you specify *-O* without an
            operand. A good compromise between code quality and compilation
            time.
   *2*      Extensive optimization, may improve execution time, possibly at
            the cost of substantially increased compilation time.
-  *3*      Same as :switch:`-O2`, and also includes inline expansion for small
+  *3*      Same as *-O2*, and also includes inline expansion for small
            subprograms in the same unit.
   *s*      Optimize space usage
   ======= ==================================================================
@@ -2187,22 +2159,22 @@ Alphabetical List of All Switches
 
 .. index:: -pass-exit-codes  (gcc)
 
-:switch:`-pass-exit-codes`
+:samp:`-pass-exit-codes`
   Catch exit codes from the compiler and use the most meaningful as
   exit status.
 
 
 .. index:: --RTS  (gcc)
 
-:switch:`--RTS={rts-path}`
+:samp:`--RTS={rts-path}`
   Specifies the default location of the runtime library. Same meaning as the
-  equivalent ``gnatmake`` flag (:ref:`Switches_for_gnatmake`).
+  equivalent *gnatmake* flag (:ref:`Switches_for_gnatmake`).
 
 
 .. index:: -S  (gcc)
 
-:switch:`-S`
-  Used in place of :switch:`-c` to
+:samp:`-S`
+  Used in place of *-c* to
   cause the assembler source file to be
   generated, using :file:`.s` as the extension,
   instead of the object file.
@@ -2211,33 +2183,33 @@ Alphabetical List of All Switches
 
 .. index:: -fverbose-asm  (gcc)
 
-:switch:`-fverbose-asm`
-  Used in conjunction with :switch:`-S`
+:samp:`-fverbose-asm`
+  Used in conjunction with *-S*
   to cause the generated assembly code file to be annotated with variable
   names, making it significantly easier to follow.
 
 
 .. index:: -v  (gcc)
 
-:switch:`-v`
-  Show commands generated by the ``gcc`` driver. Normally used only for
+:samp:`-v`
+  Show commands generated by the *gcc* driver. Normally used only for
   debugging purposes or if you need to be sure what version of the
   compiler you are executing.
 
 
 .. index:: -V  (gcc)
 
-:switch:`-V {ver}`
-  Execute ``ver`` version of the compiler. This is the ``gcc``
+:samp:`-V {ver}`
+  Execute `ver` version of the compiler. This is the *gcc*
   version, not the GNAT version.
 
 
 .. index:: -w  (gcc)
 
-:switch:`-w`
+:samp:`-w`
   Turn off warnings generated by the back end of the compiler. Use of
   this switch also causes the default for front end warnings to be set
-  to suppress (as though :switch:`-gnatws` had appeared at the start of
+  to suppress (as though *-gnatws* had appeared at the start of
   the options).
 
 
@@ -2259,31 +2231,31 @@ is equivalent to specifying the following sequence of switches:
 The following restrictions apply to the combination of switches
 in this manner:
 
-* The switch :switch:`-gnatc` if combined with other switches must come
+* The switch *-gnatc* if combined with other switches must come
   first in the string.
 
-* The switch :switch:`-gnats` if combined with other switches must come
+* The switch *-gnats* if combined with other switches must come
   first in the string.
 
 * The switches
-  :switch:`-gnatzc` and :switch:`-gnatzr` may not be combined with any other
+  *-gnatzc* and *-gnatzr* may not be combined with any other
   switches, and only one of them may appear in the command line.
 
-* The switch :switch:`-gnat-p` may not be combined with any other switch.
+* The switch *-gnat-p* may not be combined with any other switch.
 
-* Once a 'y' appears in the string (that is a use of the :switch:`-gnaty`
+* Once a 'y' appears in the string (that is a use of the *-gnaty*
   switch), then all further characters in the switch are interpreted
-  as style modifiers (see description of :switch:`-gnaty`).
+  as style modifiers (see description of *-gnaty*).
 
-* Once a 'd' appears in the string (that is a use of the :switch:`-gnatd`
+* Once a 'd' appears in the string (that is a use of the *-gnatd*
   switch), then all further characters in the switch are interpreted
-  as debug flags (see description of :switch:`-gnatd`).
+  as debug flags (see description of *-gnatd*).
 
-* Once a 'w' appears in the string (that is a use of the :switch:`-gnatw`
+* Once a 'w' appears in the string (that is a use of the *-gnatw*
   switch), then all further characters in the switch are interpreted
-  as warning mode modifiers (see description of :switch:`-gnatw`).
+  as warning mode modifiers (see description of *-gnatw*).
 
-* Once a 'V' appears in the string (that is a use of the :switch:`-gnatV`
+* Once a 'V' appears in the string (that is a use of the *-gnatV*
   switch), then all further characters in the switch are interpreted
   as validity checking options (:ref:`Validity_Checking`).
 
@@ -2308,7 +2280,7 @@ file) and have the following form:
 
 The first integer after the file name is the line number in the file,
 and the second integer is the column number within the line.
-``GPS`` can parse the error messages
+`GPS` can parse the error messages
 and point to the referenced character.
 The following switches provide control over the error message
 format:
@@ -2316,12 +2288,12 @@ format:
 
 .. index:: -gnatv  (gcc)
 
-:switch:`-gnatv`
-  The ``v`` stands for verbose.
+:samp:`-gnatv`
+  The `v` stands for verbose.
   The effect of this setting is to write long-format error
   messages to :file:`stdout` (the standard output file.
   The same program compiled with the
-  :switch:`-gnatv` switch would generate:
+  *-gnatv* switch would generate:
 
   ::
 
@@ -2333,15 +2305,15 @@ format:
     >>> ";" should be "is"
 
 
-  The vertical bar indicates the location of the error, and the ``>>>``
+  The vertical bar indicates the location of the error, and the :samp:`>>>`
   prefix can be used to search for error messages. When this switch is
   used the only source lines output are those with errors.
 
 
 .. index:: -gnatl  (gcc)
 
-:switch:`-gnatl`
-  The ``l`` stands for list.
+:samp:`-gnatl`
+  The `l` stands for list.
   This switch causes a full listing of
   the file to be generated. In the case where a body is
   compiled, the corresponding spec is also listed, along
@@ -2384,7 +2356,7 @@ format:
          5. end;
 
 
-  When you specify the :switch:`-gnatv` or :switch:`-gnatl` switches and
+  When you specify the *-gnatv* or *-gnatl* switches and
   standard output is redirected, a brief summary is written to
   :file:`stderr` (standard error) giving the number of error messages and
   warning messages generated.
@@ -2392,19 +2364,19 @@ format:
 
 .. index:: -gnatl=fname  (gcc)
 
-:switch:`-gnatl={fname}`
-  This has the same effect as :switch:`-gnatl` except that the output is
+:samp:`-gnatl={fname}`
+  This has the same effect as *-gnatl* except that the output is
   written to a file instead of to standard output. If the given name
   :file:`fname` does not start with a period, then it is the full name
   of the file to be written. If :file:`fname` is an extension, it is
   appended to the name of the file being compiled. For example, if
-  file :file:`xyz.adb` is compiled with :switch:`-gnatl=.lst`,
+  file :file:`xyz.adb` is compiled with *-gnatl=.lst*,
   then the output is written to file xyz.adb.lst.
 
 
 .. index:: -gnatU  (gcc)
 
-:switch:`-gnatU`
+:samp:`-gnatU`
   This switch forces all error messages to be preceded by the unique
   string 'error:'. This means that error messages take a few more
   characters in space, but allows easy searching for and identification
@@ -2413,8 +2385,8 @@ format:
 
 .. index:: -gnatb  (gcc)
 
-:switch:`-gnatb`
-  The ``b`` stands for brief.
+:samp:`-gnatb`
+  The `b` stands for brief.
   This switch causes GNAT to generate the
   brief format error messages to :file:`stderr` (the standard error
   file) as well as the verbose
@@ -2424,12 +2396,12 @@ format:
 
 .. index:: -gnatm  (gcc)
 
-:switch:`-gnatm={n}`
-  The ``m`` stands for maximum.
-  ``n`` is a decimal integer in the
+:samp:`-gnatm={n}`
+  The `m` stands for maximum.
+  `n` is a decimal integer in the
   range of 1 to 999999 and limits the number of error or warning
   messages to be generated. For example, using
-  :switch:`-gnatm2` might yield
+  *-gnatm2* might yield
 
   ::
 
@@ -2447,15 +2419,15 @@ format:
   is abandoned. A value of zero means that no limit applies.
 
   Note that the equal sign is optional, so the switches
-  :switch:`-gnatm2` and :switch:`-gnatm=2` are equivalent.
+  *-gnatm2* and *-gnatm=2* are equivalent.
 
 
 .. index:: -gnatf  (gcc)
 
-:switch:`-gnatf`
+:samp:`-gnatf`
   .. index:: Error messages, suppressing
 
-  The ``f`` stands for full.
+  The `f` stands for full.
   Normally, the compiler suppresses error messages that are likely to be
   redundant. This switch causes all error
   messages to be generated. In particular, in the case of
@@ -2467,8 +2439,8 @@ format:
     e.adb:7:07: "V" is undefined (more references follow)
 
   where the parenthetical comment warns that there are additional
-  references to the variable ``V``. Compiling the same program with the
-  :switch:`-gnatf` switch yields
+  references to the variable `V`. Compiling the same program with the
+  *-gnatf* switch yields
 
   ::
 
@@ -2479,7 +2451,7 @@ format:
     e.adb:9:07: "V" is undefined
     e.adb:9:12: "V" is undefined
 
-  The :switch:`-gnatf` switch also generates additional information for
+  The *-gnatf* switch also generates additional information for
   some error messages.  Some examples are:
 
   * Details on possibly non-portable unchecked conversion
@@ -2491,13 +2463,13 @@ format:
 
 .. index:: -gnatjnn  (gcc)
 
-:switch:`-gnatjnn`
-  In normal operation mode (or if :switch:`-gnatj0` is used), then error messages
+:samp:`-gnatjnn`
+  In normal operation mode (or if *-gnatj0* is used), then error messages
   with continuation lines are treated as though the continuation lines were
   separate messages (and so a warning with two continuation lines counts as
   three warnings, and is listed as three separate messages).
 
-  If the :switch:`-gnatjnn` switch is used with a positive value for nn, then
+  If the *-gnatjnn* switch is used with a positive value for nn, then
   messages are output in a different manner. A message and all its continuation
   lines are treated as a unit, and count as only one warning or message in the
   statistics totals. Furthermore, the message is reformatted so that no line
@@ -2506,8 +2478,8 @@ format:
 
 .. index:: -gnatq  (gcc)
 
-:switch:`-gnatq`
-  The ``q`` stands for quit (really 'don't quit').
+:samp:`-gnatq`
+  The `q` stands for quit (really 'don't quit').
   In normal operation mode, the compiler first parses the program and
   determines if there are any syntax errors. If there are, appropriate
   error messages are generated and compilation is immediately terminated.
@@ -2520,31 +2492,31 @@ format:
 
 .. index:: -gnatQ  (gcc)
 
-:switch:`-gnatQ`
+:samp:`-gnatQ`
   In normal operation mode, the :file:`ALI` file is not generated if any
-  illegalities are detected in the program. The use of :switch:`-gnatQ` forces
+  illegalities are detected in the program. The use of *-gnatQ* forces
   generation of the :file:`ALI` file. This file is marked as being in
   error, so it cannot be used for binding purposes, but it does contain
   reasonably complete cross-reference information, and thus may be useful
   for use by tools (e.g., semantic browsing tools or integrated development
   environments) that are driven from the :file:`ALI` file. This switch
-  implies :switch:`-gnatq`, since the semantic phase must be run to get a
+  implies *-gnatq*, since the semantic phase must be run to get a
   meaningful ALI file.
 
-  In addition, if :switch:`-gnatt` is also specified, then the tree file is
+  In addition, if *-gnatt* is also specified, then the tree file is
   generated even if there are illegalities. It may be useful in this case
-  to also specify :switch:`-gnatq` to ensure that full semantic processing
+  to also specify *-gnatq* to ensure that full semantic processing
   occurs. The resulting tree file can be processed by ASIS, for the purpose
   of providing partial information about illegal units, but if the error
   causes the tree to be badly malformed, then ASIS may crash during the
   analysis.
 
-  When :switch:`-gnatQ` is used and the generated :file:`ALI` file is marked as
-  being in error, ``gnatmake`` will attempt to recompile the source when it
-  finds such an :file:`ALI` file, including with switch :switch:`-gnatc`.
+  When *-gnatQ* is used and the generated :file:`ALI` file is marked as
+  being in error, *gnatmake* will attempt to recompile the source when it
+  finds such an :file:`ALI` file, including with switch *-gnatc*.
 
-  Note that :switch:`-gnatQ` has no effect if :switch:`-gnats` is specified,
-  since ALI files are never generated if :switch:`-gnats` is set.
+  Note that *-gnatQ* has no effect if *-gnats* is specified,
+  since ALI files are never generated if *-gnats* is set.
 
 
 .. _Warning_Message_Control:
@@ -2575,7 +2547,7 @@ GNAT considers a large number of situations as appropriate
 for the generation of warning messages. As always, warnings are not
 definite indications of errors. For example, if you do an out-of-range
 assignment with the deliberate intention of raising a
-``Constraint_Error`` exception, then the warning that may be
+`Constraint_Error` exception, then the warning that may be
 issued does not indicate an error. Some of the situations for which GNAT
 issues warnings (at least some of the time) are given in the following
 list. This list is not complete, and new warnings are often added to
@@ -2605,15 +2577,15 @@ of the kinds of warnings that are generated.
 
 * Variables that are referenced before being initialized
 
-* Task entries with no corresponding ``accept`` statement
+* Task entries with no corresponding `accept` statement
 
-* Duplicate accepts for the same task entry in a ``select``
+* Duplicate accepts for the same task entry in a `select`
 
 * Objects that take too much storage
 
 * Unchecked conversion between types of differing sizes
 
-* Missing ``return`` statement along some execution path in a function
+* Missing `return` statement along some execution path in a function
 
 * Incorrect (unrecognized) pragmas
 
@@ -2641,9 +2613,9 @@ of the kinds of warnings that are generated.
 
 * Unused |with| clauses
 
-* ``Bit_Order`` usage that does not have any effect
+* `Bit_Order` usage that does not have any effect
 
-* ``Standard.Duration`` used to resolve universal fixed expression
+* `Standard.Duration` used to resolve universal fixed expression
 
 * Dereference of possibly null value
 
@@ -2655,7 +2627,7 @@ of the kinds of warnings that are generated.
 
 * Unreferenced or unmodified variables. Note that a special
   exemption applies to variables which contain any of the substrings
-  ``DISCARD, DUMMY, IGNORE, JUNK, UNUSED``, in any casing. Such variables
+  `DISCARD, DUMMY, IGNORE, JUNK, UNUSED`, in any casing. Such variables
   are considered likely to be intentionally used in a situation where
   otherwise a warning would be given, so warnings of this kind are
   always suppressed for such variables.
@@ -2676,7 +2648,7 @@ of the kinds of warnings that are generated.
 
 * Access before elaboration detected at compile time
 
-* A range in a ``for`` loop that is known to be null or might be null
+* A range in a `for` loop that is known to be null or might be null
 
 
 The following section lists compiler switches that are available
@@ -2688,7 +2660,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwa  (gcc)
 
-:switch:`-gnatwa`
+:samp:`-gnatwa`
   *Activate most optional warnings.*
 
   This switch activates most optional warning messages.  See the remaining list
@@ -2697,63 +2669,59 @@ of the pragma in the :title:`GNAT_Reference_manual`).
   switch are:
 
 
-  * :switch:`-gnatwd` (implicit dereferencing)
+  * :samp:`-gnatwd` (implicit dereferencing)
 
-  * :switch:`-gnatw.d` (tag warnings with -gnatw switch)
+  * :samp:`-gnatw.d` (tag warnings with -gnatw switch)
 
-  * :switch:`-gnatwh` (hiding)
+  * :samp:`-gnatwh` (hiding)
 
-  * :switch:`-gnatw.h` (holes in record layouts)
+  * :samp:`-gnatw.h` (holes in record layouts)
 
-  * :switch:`-gnatw.j` (late primitives of tagged types)
+  * :samp:`-gnatw.k` (redefinition of names in standard)
 
-  * :switch:`-gnatw.k` (redefinition of names in standard)
+  * :samp:`-gnatwl` (elaboration warnings)
 
-  * :switch:`-gnatwl` (elaboration warnings)
+  * :samp:`-gnatw.l` (inherited aspects)
 
-  * :switch:`-gnatw.l` (inherited aspects)
+  * :samp:`-gnatw.n` (atomic synchronization)
 
-  * :switch:`-gnatw.n` (atomic synchronization)
+  * :samp:`-gnatwo` (address clause overlay)
 
-  * :switch:`-gnatwo` (address clause overlay)
+  * :samp:`-gnatw.o` (values set by out parameters ignored)
 
-  * :switch:`-gnatw.o` (values set by out parameters ignored)
+  * :samp:`-gnatw.s` (overridden size clause)
 
-  * :switch:`-gnatw.q` (questionable layout of record types)
+  * :samp:`-gnatwt` (tracking of deleted conditional code)
 
-  * :switch:`-gnatw.s` (overridden size clause)
+  * :samp:`-gnatw.u` (unordered enumeration)
 
-  * :switch:`-gnatwt` (tracking of deleted conditional code)
+  * :samp:`-gnatw.w` (use of Warnings Off)
 
-  * :switch:`-gnatw.u` (unordered enumeration)
-
-  * :switch:`-gnatw.w` (use of Warnings Off)
-
-  * :switch:`-gnatw.y` (reasons for package needing body)
+  * :samp:`-gnatw.y` (reasons for package needing body)
 
   All other optional warnings are turned on.
 
 
 .. index:: -gnatwA  (gcc)
 
-:switch:`-gnatwA`
+:samp:`-gnatwA`
   *Suppress all optional errors.*
 
   This switch suppresses all optional warning messages, see remaining list
   in this section for details on optional warning messages that can be
-  individually controlled. Note that unlike switch :switch:`-gnatws`, the
-  use of switch :switch:`-gnatwA` does not suppress warnings that are
+  individually controlled. Note that unlike switch *-gnatws*, the
+  use of switch *-gnatwA* does not suppress warnings that are
   normally given unconditionally and cannot be individually controlled
   (for example, the warning about a missing exit path in a function).
-  Also, again unlike switch :switch:`-gnatws`, warnings suppressed by
-  the use of switch :switch:`-gnatwA` can be individually turned back
-  on. For example the use of switch :switch:`-gnatwA` followed by
-  switch :switch:`-gnatwd` will suppress all optional warnings except
+  Also, again unlike switch *-gnatws*, warnings suppressed by
+  the use of switch *-gnatwA* can be individually turned back
+  on. For example the use of switch *-gnatwA* followed by
+  switch *-gnatwd* will suppress all optional warnings except
   the warnings for implicit dereferencing.
 
 .. index:: -gnatw.a  (gcc)
 
-:switch:`-gnatw.a`
+:samp:`-gnatw.a`
   *Activate warnings on failing assertions.*
 
   .. index:: Assert failures
@@ -2766,7 +2734,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.A  (gcc)
 
-:switch:`-gnatw.A`
+:samp:`-gnatw.A`
   *Suppress warnings on failing assertions.*
 
   .. index:: Assert failures
@@ -2777,7 +2745,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwb  (gcc)
 
-:switch:`-gnatwb`
+:samp:`-gnatwb`
   *Activate warnings on bad fixed values.*
 
   .. index:: Bad fixed values
@@ -2797,7 +2765,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwB  (gcc)
 
-:switch:`-gnatwB`
+:samp:`-gnatwB`
   *Suppress warnings on bad fixed values.*
 
   This switch suppresses warnings for static fixed-point expressions whose
@@ -2806,7 +2774,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.b  (gcc)
 
-:switch:`-gnatw.b`
+:samp:`-gnatw.b`
   *Activate warnings on biased representation.*
 
   .. index:: Biased representation
@@ -2819,7 +2787,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwB  (gcc)
 
-:switch:`-gnatw.B`
+:samp:`-gnatw.B`
   *Suppress warnings on biased representation.*
 
   This switch suppresses warnings for representation clauses that force the use
@@ -2828,7 +2796,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwc  (gcc)
 
-:switch:`-gnatwc`
+:samp:`-gnatwc`
   *Activate warnings on conditionals.*
 
   .. index:: Conditionals, constant
@@ -2847,7 +2815,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
   If the compiler can tell that only the equality condition is possible,
   then it will warn that the '>' or '<' part of the test
   is useless and that the operator could be replaced by '='.
-  An example would be comparing a ``Natural`` variable <= 0.
+  An example would be comparing a `Natural` variable <= 0.
 
   This warning option also generates warnings if
   one or both tests is optimized away in a membership test for integer
@@ -2855,12 +2823,12 @@ of the pragma in the :title:`GNAT_Reference_manual`).
   enumeration types are not included, since it is common for such tests
   to include an end point.
 
-  This warning can also be turned on using :switch:`-gnatwa`.
+  This warning can also be turned on using *-gnatwa*.
 
 
 .. index:: -gnatwC  (gcc)
 
-:switch:`-gnatwC`
+:samp:`-gnatwC`
   *Suppress warnings on conditionals.*
 
   This switch suppresses warnings for conditional expressions used in
@@ -2869,7 +2837,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.c  (gcc)
 
-:switch:`-gnatw.c`
+:samp:`-gnatw.c`
   *Activate warnings on missing component clauses.*
 
   .. index:: Component clause, missing
@@ -2882,7 +2850,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwC  (gcc)
 
-:switch:`-gnatw.C`
+:samp:`-gnatw.C`
   *Suppress warnings on missing component clauses.*
 
   This switch suppresses warnings for record components that are
@@ -2891,21 +2859,21 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwd  (gcc)
 
-:switch:`-gnatwd`
+:samp:`-gnatwd`
   *Activate warnings on implicit dereferencing.*
 
   If this switch is set, then the use of a prefix of an access type
   in an indexed component, slice, or selected component without an
-  explicit ``.all`` will generate a warning. With this warning
+  explicit `.all` will generate a warning. With this warning
   enabled, access checks occur only at points where an explicit
-  ``.all`` appears in the source code (assuming no warnings are
+  `.all` appears in the source code (assuming no warnings are
   generated as a result of this switch). The default is that such
   warnings are not generated.
 
 
 .. index:: -gnatwD  (gcc)
 
-:switch:`-gnatwD`
+:samp:`-gnatwD`
   *Suppress warnings on implicit dereferencing.*
 
   .. index:: Implicit dereferencing
@@ -2918,30 +2886,30 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.d  (gcc)
 
-:switch:`-gnatw.d`
+:samp:`-gnatw.d`
   *Activate tagging of warning and info messages.*
 
   If this switch is set, then warning messages are tagged, with one of the
   following strings:
 
     - *[-gnatw?]*
-      Used to tag warnings controlled by the switch :switch:`-gnatwx` where x
+      Used to tag warnings controlled by the switch *-gnatwx* where x
       is a letter a-z.
 
 
     - *[-gnatw.?]*
-      Used to tag warnings controlled by the switch :switch:`-gnatw.x` where x
+      Used to tag warnings controlled by the switch *-gnatw.x* where x
       is a letter a-z.
 
 
     - *[-gnatel]*
       Used to tag elaboration information (info) messages generated when the
-      static model of elaboration is used and the :switch:`-gnatel` switch is set.
+      static model of elaboration is used and the *-gnatel* switch is set.
 
 
     - *[restriction warning]*
       Used to tag warning messages for restriction violations, activated by use
-      of the pragma ``Restriction_Warnings``.
+      of the pragma *Restriction_Warnings*.
 
 
     - *[warning-as-error]*
@@ -2953,24 +2921,24 @@ of the pragma in the :title:`GNAT_Reference_manual`).
     - *[enabled by default]*
       Used to tag all other warnings that are always given by default, unless
       warnings are completely suppressed using pragma *Warnings(Off)* or
-      the switch :switch:`-gnatws`.
+      the switch *-gnatws*.
 
 
 
 .. index:: -gnatw.d  (gcc)
 
-:switch:`-gnatw.D`
+:samp:`-gnatw.D`
   *Deactivate tagging of warning and info messages messages.*
 
   If this switch is set, then warning messages return to the default
   mode in which warnings and info messages are not tagged as described above for
-  :switch:`-gnatw.d`.
+  `-gnatw.d`.
 
 
 .. index:: -gnatwe  (gcc)
 .. index:: Warnings, treat as error
 
-:switch:`-gnatwe`
+:samp:`-gnatwe`
   *Treat warnings and style checks as errors.*
 
   This switch causes warning messages and style check messages to be
@@ -2984,58 +2952,48 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.e  (gcc)
 
-:switch:`-gnatw.e`
-  *Activate every optional warning.*
+:samp:`-gnatw.e`
+  *Activate every optional warning*
 
   .. index:: Warnings, activate every optional warning
 
   This switch activates all optional warnings, including those which
-  are not activated by :switch:`-gnatwa`. The use of this switch is not
+  are not activated by `-gnatwa`. The use of this switch is not
   recommended for normal use. If you turn this switch on, it is almost
   certain that you will get large numbers of useless warnings. The
-  warnings that are excluded from :switch:`-gnatwa` are typically highly
+  warnings that are excluded from `-gnatwa` are typically highly
   specialized warnings that are suitable for use only in code that has
   been specifically designed according to specialized coding rules.
 
 
-.. index:: -gnatwE  (gcc)
-.. index:: Warnings, treat as error
-
-:switch:`-gnatwE`
-  *Treat all run-time exception warnings as errors.*
-
-  This switch causes warning messages regarding errors that will be raised
-  during run-time execution to be treated as errors.
-
-
 .. index:: -gnatwf  (gcc)
 
-:switch:`-gnatwf`
+:samp:`-gnatwf`
   *Activate warnings on unreferenced formals.*
 
   .. index:: Formals, unreferenced
 
   This switch causes a warning to be generated if a formal parameter
   is not referenced in the body of the subprogram. This warning can
-  also be turned on using :switch:`-gnatwu`. The
+  also be turned on using *-gnatwu*. The
   default is that these warnings are not generated.
 
 
 .. index:: -gnatwF  (gcc)
 
-:switch:`-gnatwF`
+:samp:`-gnatwF`
   *Suppress warnings on unreferenced formals.*
 
   This switch suppresses warnings for unreferenced formal
   parameters. Note that the
-  combination :switch:`-gnatwu` followed by :switch:`-gnatwF` has the
+  combination *-gnatwu* followed by *-gnatwF* has the
   effect of warning on unreferenced entities other than subprogram
   formals.
 
 
 .. index:: -gnatwg  (gcc)
 
-:switch:`-gnatwg`
+:samp:`-gnatwg`
   *Activate warnings on unrecognized pragmas.*
 
   .. index:: Pragmas, unrecognized
@@ -3049,7 +3007,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwG  (gcc)
 
-:switch:`-gnatwG`
+:samp:`-gnatwG`
   *Suppress warnings on unrecognized pragmas.*
 
   This switch suppresses warnings for unrecognized pragmas.
@@ -3057,31 +3015,32 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.g  (gcc)
 
-:switch:`-gnatw.g`
-  *Warnings used for GNAT sources.*
+:samp:`-gnatw.g`
+  *Warnings used for GNAT sources*
 
   This switch sets the warning categories that are used by the standard
   GNAT style. Currently this is equivalent to
-  :switch:`-gnatwAao.q.s.CI.V.X.Z`
+  *-gnatwAao.sI.C.V.X*
   but more warnings may be added in the future without advanced notice.
 
 
 .. index:: -gnatwh  (gcc)
 
-:switch:`-gnatwh`
+:samp:`-gnatwh`
   *Activate warnings on hiding.*
 
   .. index:: Hiding of Declarations
 
-  This switch activates warnings on hiding declarations that are considered
-  potentially confusing. Not all cases of hiding cause warnings; for example an
-  overriding declaration hides an implicit declaration, which is just normal
-  code. The default is that warnings on hiding are not generated.
+  This switch activates warnings on hiding declarations.
+  A declaration is considered hiding
+  if it is for a non-overloadable entity, and it declares an entity with the
+  same name as some other entity that is directly or use-visible. The default
+  is that such warnings are not generated.
 
 
 .. index:: -gnatwH  (gcc)
 
-:switch:`-gnatwH`
+:samp:`-gnatwH`
   *Suppress warnings on hiding.*
 
   This switch suppresses warnings on hiding declarations.
@@ -3089,7 +3048,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.h  (gcc)
 
-:switch:`-gnatw.h`
+:samp:`-gnatw.h`
   *Activate warnings on holes/gaps in records.*
 
   .. index:: Record Representation (gaps)
@@ -3102,7 +3061,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.H  (gcc)
 
-:switch:`-gnatw.H`
+:samp:`-gnatw.H`
   *Suppress warnings on holes/gaps in records.*
 
   This switch suppresses warnings on component clauses in record
@@ -3111,13 +3070,13 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwi  (gcc)
 
-:switch:`-gnatwi`
+:samp:`-gnatwi`
   *Activate warnings on implementation units.*
 
   This switch activates warnings for a |with| of an internal GNAT
-  implementation unit, defined as any unit from the ``Ada``,
-  ``Interfaces``, ``GNAT``,
-  or ``System``
+  implementation unit, defined as any unit from the `Ada`,
+  `Interfaces`, `GNAT`,
+  or `System`
   hierarchies that is not
   documented in either the Ada Reference Manual or the GNAT
   Programmer's Reference Manual. Such units are intended only
@@ -3127,7 +3086,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwI  (gcc)
 
-:switch:`-gnatwI`
+:samp:`-gnatwI`
   *Disable warnings on implementation units.*
 
   This switch disables warnings for a |with| of an internal GNAT
@@ -3136,7 +3095,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.i  (gcc)
 
-:switch:`-gnatw.i`
+:samp:`-gnatw.i`
   *Activate warnings on overlapping actuals.*
 
   This switch enables a warning on statically detectable overlapping actuals in
@@ -3146,7 +3105,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.I  (gcc)
 
-:switch:`-gnatw.I`
+:samp:`-gnatw.I`
   *Disable warnings on overlapping actuals.*
 
   This switch disables warnings on overlapping actuals in a call..
@@ -3154,7 +3113,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwj  (gcc)
 
-:switch:`-gnatwj`
+:samp:`-gnatwj`
   *Activate warnings on obsolescent features (Annex J).*
 
   .. index:: Features, obsolescent
@@ -3162,58 +3121,38 @@ of the pragma in the :title:`GNAT_Reference_manual`).
   .. index:: Obsolescent features
 
   If this warning option is activated, then warnings are generated for
-  calls to subprograms marked with ``pragma Obsolescent`` and
+  calls to subprograms marked with `pragma Obsolescent` and
   for use of features in Annex J of the Ada Reference Manual. In the
   case of Annex J, not all features are flagged. In particular use
-  of the renamed packages (like ``Text_IO``) and use of package
-  ``ASCII`` are not flagged, since these are very common and
+  of the renamed packages (like `Text_IO`) and use of package
+  `ASCII` are not flagged, since these are very common and
   would generate many annoying positive warnings. The default is that
   such warnings are not generated.
 
   In addition to the above cases, warnings are also generated for
   GNAT features that have been provided in past versions but which
   have been superseded (typically by features in the new Ada standard).
-  For example, ``pragma Ravenscar`` will be flagged since its
-  function is replaced by ``pragma Profile(Ravenscar)``, and
-  ``pragma Interface_Name`` will be flagged since its function
-  is replaced by ``pragma Import``.
+  For example, `pragma Ravenscar` will be flagged since its
+  function is replaced by `pragma Profile(Ravenscar)`, and
+  `pragma Interface_Name` will be flagged since its function
+  is replaced by `pragma Import`.
 
   Note that this warning option functions differently from the
-  restriction ``No_Obsolescent_Features`` in two respects.
+  restriction `No_Obsolescent_Features` in two respects.
   First, the restriction applies only to annex J features.
-  Second, the restriction does flag uses of package ``ASCII``.
+  Second, the restriction does flag uses of package `ASCII`.
 
 
-.. index:: -gnatwJ  (gcc)
-
-:switch:`-gnatwJ`
+:samp:`-gnatwJ`
   *Suppress warnings on obsolescent features (Annex J).*
+  .. index:: -gnatwJ  (gcc)
 
   This switch disables warnings on use of obsolescent features.
 
 
-.. index:: -gnatw.j  (gcc)
-
-:switch:`-gnatw.j`
-  *Activate warnings on late declarations of tagged type primitives.*
-
-  This switch activates warnings on visible primitives added to a
-  tagged type after deriving a private extension from it.
-
-
-.. index:: -gnatw.J  (gcc)
-
-:switch:`-gnatw.J`
-  *Suppress warnings on late declarations of tagged type primitives.*
-
-  This switch suppresses warnings on visible primitives added to a
-  tagged type after deriving a private extension from it.
-
-
-.. index:: -gnatwk  (gcc)
-
-:switch:`-gnatwk`
+:samp:`-gnatwk`
   *Activate warnings on variables that could be constants.*
+  .. index:: -gnatwk  (gcc)
 
   This switch activates warnings for variables that are initialized but
   never modified, and then could be declared constants. The default is that
@@ -3222,7 +3161,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwK  (gcc)
 
-:switch:`-gnatwK`
+:samp:`-gnatwK`
   *Suppress warnings on variables that could be constants.*
 
   This switch disables warnings on variables that could be declared constants.
@@ -3230,7 +3169,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.k  (gcc)
 
-:switch:`-gnatw.k`
+:samp:`-gnatw.k`
   *Activate warnings on redefinition of names in standard.*
 
   This switch activates warnings for declarations that declare a name that
@@ -3243,7 +3182,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwK  (gcc)
 
-:switch:`-gnatw.K`
+:samp:`-gnatw.K`
   *Suppress warnings on redefinition of names in standard.*
 
   This switch activates warnings for declarations that declare a name that
@@ -3252,15 +3191,15 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwl  (gcc)
 
-:switch:`-gnatwl`
+:samp:`-gnatwl`
   *Activate warnings for elaboration pragmas.*
 
   .. index:: Elaboration, warnings
 
   This switch activates warnings for possible elaboration problems,
   including suspicious use
-  of ``Elaborate`` pragmas, when using the static elaboration model, and
-  possible situations that may raise ``Program_Error`` when using the
+  of `Elaborate` pragmas, when using the static elaboration model, and
+  possible situations that may raise `Program_Error` when using the
   dynamic elaboration model.
   See the section in this guide on elaboration checking for further details.
   The default is that such warnings
@@ -3269,7 +3208,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwL  (gcc)
 
-:switch:`-gnatwL`
+:samp:`-gnatwL`
   *Suppress warnings for elaboration pragmas.*
 
   This switch suppresses warnings for possible elaboration problems.
@@ -3277,7 +3216,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.l  (gcc)
 
-:switch:`-gnatw.l`
+:samp:`-gnatw.l`
   *List inherited aspects.*
 
   This switch causes the compiler to list inherited invariants,
@@ -3287,7 +3226,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.L  (gcc)
 
-:switch:`-gnatw.L`
+:samp:`-gnatw.L`
   *Suppress listing of inherited aspects.*
 
   This switch suppresses listing of inherited aspects.
@@ -3295,7 +3234,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwm  (gcc)
 
-:switch:`-gnatwm`
+:samp:`-gnatwm`
   *Activate warnings on modified but unreferenced variables.*
 
   This switch activates warnings for variables that are assigned (using
@@ -3308,7 +3247,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwM  (gcc)
 
-:switch:`-gnatwM`
+:samp:`-gnatwM`
   *Disable warnings on modified but unreferenced variables.*
 
   This switch disables warnings for variables that are assigned or
@@ -3317,7 +3256,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.m  (gcc)
 
-:switch:`-gnatw.m`
+:samp:`-gnatw.m`
   *Activate warnings on suspicious modulus values.*
 
   This switch activates warnings for modulus values that seem suspicious.
@@ -3331,7 +3270,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.M  (gcc)
 
-:switch:`-gnatw.M`
+:samp:`-gnatw.M`
   *Disable warnings on suspicious modulus values.*
 
   This switch disables warnings for suspicious modulus values.
@@ -3339,22 +3278,22 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwn  (gcc)
 
-:switch:`-gnatwn`
+:samp:`-gnatwn`
   *Set normal warnings mode.*
 
   This switch sets normal warning mode, in which enabled warnings are
   issued and treated as warnings rather than errors. This is the default
-  mode. the switch :switch:`-gnatwn` can be used to cancel the effect of
-  an explicit :switch:`-gnatws` or
-  :switch:`-gnatwe`. It also cancels the effect of the
-  implicit :switch:`-gnatwe` that is activated by the
-  use of :switch:`-gnatg`.
+  mode. the switch *-gnatwn* can be used to cancel the effect of
+  an explicit *-gnatws* or
+  *-gnatwe*. It also cancels the effect of the
+  implicit *-gnatwe* that is activated by the
+  use of *-gnatg*.
 
 
 .. index:: -gnatw.n  (gcc)
 .. index:: Atomic Synchronization, warnings
 
-:switch:`-gnatw.n`
+:samp:`-gnatw.n`
   *Activate warnings on atomic synchronization.*
 
   This switch actives warnings when an access to an atomic variable
@@ -3363,7 +3302,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.N  (gcc)
 
-:switch:`-gnatw.N`
+:samp:`-gnatw.N`
   *Suppress warnings on atomic synchronization.*
 
   .. index:: Atomic Synchronization, warnings
@@ -3375,7 +3314,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 .. index:: -gnatwo  (gcc)
 .. index:: Address Clauses, warnings
 
-:switch:`-gnatwo`
+:samp:`-gnatwo`
   *Activate warnings on address clause overlays.*
 
   This switch activates warnings for possibly unintended initialization
@@ -3385,7 +3324,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwO  (gcc)
 
-:switch:`-gnatwO`
+:samp:`-gnatwO`
   *Suppress warnings on address clause overlays.*
 
   This switch suppresses warnings on possibly unintended initialization
@@ -3395,7 +3334,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.o  (gcc)
 
-:switch:`-gnatw.o`
+:samp:`-gnatw.o`
   *Activate warnings on modified but unreferenced out parameters.*
 
   This switch activates warnings for variables that are modified by using
@@ -3411,7 +3350,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.O  (gcc)
 
-:switch:`-gnatw.O`
+:samp:`-gnatw.O`
   *Disable warnings on modified but unreferenced out parameters.*
 
   This switch suppresses warnings for variables that are modified by using
@@ -3422,11 +3361,11 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 .. index:: -gnatwp  (gcc)
 .. index:: Inlining, warnings
 
-:switch:`-gnatwp`
+:samp:`-gnatwp`
   *Activate warnings on ineffective pragma Inlines.*
 
   This switch activates warnings for failure of front end inlining
-  (activated by :switch:`-gnatN`) to inline a particular call. There are
+  (activated by *-gnatN*) to inline a particular call. There are
   many reasons for not being able to inline a call, including most
   commonly that the call is too complex to inline. The default is
   that such warnings are not given.
@@ -3436,7 +3375,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwP  (gcc)
 
-:switch:`-gnatwP`
+:samp:`-gnatwP`
   *Suppress warnings on ineffective pragma Inlines.*
 
   This switch suppresses warnings on ineffective pragma Inlines. If the
@@ -3447,7 +3386,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 .. index:: -gnatw.p  (gcc)
 .. index:: Parameter order, warnings
 
-:switch:`-gnatw.p`
+:samp:`-gnatw.p`
   *Activate warnings on parameter ordering.*
 
   This switch activates warnings for cases of suspicious parameter
@@ -3461,7 +3400,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.P  (gcc)
 
-:switch:`-gnatw.P`
+:samp:`-gnatw.P`
   *Suppress warnings on parameter ordering.*
 
   This switch suppresses warnings on cases of suspicious parameter
@@ -3471,7 +3410,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 .. index:: -gnatwq  (gcc)
 .. index:: Parentheses, warnings
 
-:switch:`-gnatwq`
+:samp:`-gnatwq`
   *Activate warnings on questionable missing parentheses.*
 
   This switch activates warnings for cases where parentheses are not used and
@@ -3486,66 +3425,16 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwQ  (gcc)
 
-:switch:`-gnatwQ`
+:samp:`-gnatwQ`
   *Suppress warnings on questionable missing parentheses.*
 
   This switch suppresses warnings for cases where the association is not
   clear and the use of parentheses is preferred.
 
 
-.. index:: -gnatw.q  (gcc)
-.. index:: Layout, warnings
-
-:switch:`-gnatw.q`
-  *Activate warnings on questionable layout of record types.*
-
-  This switch activates warnings for cases where the default layout of
-  a record type, that is to say the layout of its components in textual
-  order of the source code, would very likely cause inefficiencies in
-  the code generated by the compiler, both in terms of space and speed
-  during execution. One warning is issued for each problematic component
-  without representation clause in the nonvariant part and then in each
-  variant recursively, if any.
-
-  The purpose of these warnings is neither to prescribe an optimal layout
-  nor to force the use of representation clauses, but rather to get rid of
-  the most blatant inefficiencies in the layout. Therefore, the default
-  layout is matched against the following synthetic ordered layout and
-  the deviations are flagged on a component-by-component basis:
-
-  * first all components or groups of components whose length is fixed
-    and a multiple of the storage unit,
-
-  * then the remaining components whose length is fixed and not a multiple
-    of the storage unit,
-
-  * then the remaining components whose length doesn't depend on discriminants
-    (that is to say, with variable but uniform length for all objects),
-
-  * then all components whose length depends on discriminants,
-
-  * finally the variant part (if any),
-
-  for the nonvariant part and for each variant recursively, if any.
-
-  The exact wording of the warning depends on whether the compiler is allowed
-  to reorder the components in the record type or precluded from doing it by
-  means of pragma ``No_Component_Reordering``.
-
-  The default is that these warnings are not given.
-
-.. index:: -gnatw.Q  (gcc)
-
-:switch:`-gnatw.Q`
-  *Suppress warnings on questionable layout of record types.*
-
-  This switch suppresses warnings for cases where the default layout of
-  a record type would very likely cause inefficiencies.
-
-
 .. index:: -gnatwr  (gcc)
 
-:switch:`-gnatwr`
+:samp:`-gnatwr`
   *Activate warnings on redundant constructs.*
 
   This switch activates warnings for redundant constructs. The following
@@ -3555,10 +3444,10 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
   * Type conversion that converts an expression to its own type.
 
-  * Use of the attribute ``Base`` where ``typ'Base`` is the same
-    as ``typ``.
+  * Use of the attribute `Base` where `typ'Base` is the same
+    as `typ`.
 
-  * Use of pragma ``Pack`` when all components are placed by a record
+  * Use of pragma `Pack` when all components are placed by a record
     representation clause.
 
   * Exception handler containing only a reraise statement (raise with no
@@ -3567,15 +3456,14 @@ of the pragma in the :title:`GNAT_Reference_manual`).
   * Use of the operator abs on an operand that is known at compile time
     to be non-negative
 
-  * Comparison of an object or (unary or binary) operation of boolean type to
-    an explicit True value.
+  * Comparison of boolean expressions to an explicit True value.
 
   The default is that warnings for redundant constructs are not given.
 
 
 .. index:: -gnatwR  (gcc)
 
-:switch:`-gnatwR`
+:samp:`-gnatwR`
   *Suppress warnings on redundant constructs.*
 
   This switch suppresses warnings for redundant constructs.
@@ -3583,7 +3471,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.r  (gcc)
 
-:switch:`-gnatw.r`
+:samp:`-gnatw.r`
   *Activate warnings for object renaming function.*
 
   This switch activates warnings for an object renaming that renames a
@@ -3594,7 +3482,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwT  (gcc)
 
-:switch:`-gnatw.R`
+:samp:`-gnatw.R`
   *Suppress warnings for object renaming function.*
 
   This switch suppresses warnings for object renaming function.
@@ -3602,7 +3490,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatws  (gcc)
 
-:switch:`-gnatws`
+:samp:`-gnatws`
   *Suppress all warnings.*
 
   This switch completely suppresses the
@@ -3610,19 +3498,19 @@ of the pragma in the :title:`GNAT_Reference_manual`).
   both warnings that can be controlled by switches described in this
   section, and those that are normally given unconditionally. The
   effect of this suppress action can only be cancelled by a subsequent
-  use of the switch :switch:`-gnatwn`.
+  use of the switch *-gnatwn*.
 
-  Note that switch :switch:`-gnatws` does not suppress
-  warnings from the ``gcc`` back end.
-  To suppress these back end warnings as well, use the switch :switch:`-w`
-  in addition to :switch:`-gnatws`. Also this switch has no effect on the
+  Note that switch *-gnatws* does not suppress
+  warnings from the *gcc* back end.
+  To suppress these back end warnings as well, use the switch *-w*
+  in addition to *-gnatws*. Also this switch has no effect on the
   handling of style check messages.
 
 
 .. index:: -gnatw.s  (gcc)
 .. index:: Record Representation (component sizes)
 
-:switch:`-gnatw.s`
+:samp:`-gnatw.s`
   *Activate warnings on overridden size clauses.*
 
   This switch activates warnings on component clauses in record
@@ -3635,7 +3523,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.S  (gcc)
 
-:switch:`-gnatw.S`
+:samp:`-gnatw.S`
   *Suppress warnings on overridden size clauses.*
 
   This switch suppresses warnings on component clauses in record
@@ -3647,7 +3535,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 .. index:: Deactivated code, warnings
 .. index:: Deleted code, warnings
 
-:switch:`-gnatwt`
+:samp:`-gnatwt`
   *Activate warnings for tracking of deleted conditional code.*
 
   This switch activates warnings for tracking of code in conditionals (IF and
@@ -3658,7 +3546,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwT  (gcc)
 
-:switch:`-gnatwT`
+:samp:`-gnatwT`
   *Suppress warnings for tracking of deleted conditional code.*
 
   This switch suppresses warnings for tracking of deleted conditional code.
@@ -3666,13 +3554,13 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.t  (gcc)
 
-:switch:`-gnatw.t`
+:samp:`-gnatw.t`
   *Activate warnings on suspicious contracts.*
 
   This switch activates warnings on suspicious contracts. This includes
-  warnings on suspicious postconditions (whether a pragma ``Postcondition`` or a
-  ``Post`` aspect in Ada 2012) and suspicious contract cases (pragma or aspect
-  ``Contract_Cases``). A function postcondition or contract case is suspicious
+  warnings on suspicious postconditions (whether a pragma `Postcondition` or a
+  `Post` aspect in Ada 2012) and suspicious contract cases (pragma or aspect
+  `Contract_Cases`). A function postcondition or contract case is suspicious
   when no postcondition or contract case for this function mentions the result
   of the function.  A procedure postcondition or contract case is suspicious
   when it only refers to the pre-state of the procedure, because in that case
@@ -3684,7 +3572,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.T  (gcc)
 
-:switch:`-gnatw.T`
+:samp:`-gnatw.T`
   *Suppress warnings on suspicious contracts.*
 
   This switch suppresses warnings on suspicious contracts.
@@ -3692,7 +3580,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwu  (gcc)
 
-:switch:`-gnatwu`
+:samp:`-gnatwu`
   *Activate warnings on unused entities.*
 
   This switch activates warnings to be generated for entities that
@@ -3700,8 +3588,8 @@ of the pragma in the :title:`GNAT_Reference_manual`).
   and not
   referenced. In the case of packages, a warning is also generated if
   no entities in the package are referenced. This means that if a with'ed
-  package is referenced but the only references are in ``use``
-  clauses or ``renames``
+  package is referenced but the only references are in `use`
+  clauses or `renames`
   declarations, a warning is still generated. A warning is also generated
   for a generic package that is |withed| but never instantiated.
   In the case where a package or subprogram body is compiled, and there
@@ -3711,38 +3599,38 @@ of the pragma in the :title:`GNAT_Reference_manual`).
   |with| can be moved to the body. The default is that
   such warnings are not generated.
   This switch also activates warnings on unreferenced formals
-  (it includes the effect of :switch:`-gnatwf`).
+  (it includes the effect of *-gnatwf*).
 
 
 .. index:: -gnatwU  (gcc)
 
-:switch:`-gnatwU`
+:samp:`-gnatwU`
   *Suppress warnings on unused entities.*
 
   This switch suppresses warnings for unused entities and packages.
   It also turns off warnings on unreferenced formals (and thus includes
-  the effect of :switch:`-gnatwF`).
+  the effect of *-gnatwF*).
 
 
 .. index:: -gnatw.u  (gcc)
 
-:switch:`-gnatw.u`
+:samp:`-gnatw.u`
   *Activate warnings on unordered enumeration types.*
 
   This switch causes enumeration types to be considered as conceptually
-  unordered, unless an explicit pragma ``Ordered`` is given for the type.
+  unordered, unless an explicit pragma `Ordered` is given for the type.
   The effect is to generate warnings in clients that use explicit comparisons
   or subranges, since these constructs both treat objects of the type as
   ordered. (A *client* is defined as a unit that is other than the unit in
   which the type is declared, or its body or subunits.) Please refer to
-  the description of pragma ``Ordered`` in the
+  the description of pragma `Ordered` in the
   :title:`GNAT Reference Manual` for further details.
   The default is that such warnings are not generated.
 
 
 .. index:: -gnatw.U  (gcc)
 
-:switch:`-gnatw.U`
+:samp:`-gnatw.U`
   *Deactivate warnings on unordered enumeration types.*
 
   This switch causes all enumeration types to be considered as ordered, so
@@ -3752,7 +3640,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 .. index:: -gnatwv  (gcc)
 .. index:: Unassigned variable warnings
 
-:switch:`-gnatwv`
+:samp:`-gnatwv`
   *Activate warnings on unassigned variables.*
 
   This switch activates warnings for access to variables which
@@ -3762,7 +3650,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwV  (gcc)
 
-:switch:`-gnatwV`
+:samp:`-gnatwV`
   *Suppress warnings on unassigned variables.*
 
   This switch suppresses warnings for access to variables which
@@ -3783,7 +3671,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 .. index:: -gnatw.v  (gcc)
 .. index:: bit order warnings
 
-:switch:`-gnatw.v`
+:samp:`-gnatw.v`
   *Activate info messages for non-default bit order.*
 
   This switch activates messages (labeled "info", they are not warnings,
@@ -3796,7 +3684,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.V  (gcc)
 
-:switch:`-gnatw.V`
+:samp:`-gnatw.V`
   *Suppress info messages for non-default bit order.*
 
   This switch suppresses information messages for the effects of specifying
@@ -3806,7 +3694,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 .. index:: -gnatww  (gcc)
 .. index:: String indexing warnings
 
-:switch:`-gnatww`
+:samp:`-gnatww`
   *Activate warnings on wrong low bound assumption.*
 
   This switch activates warnings for indexing an unconstrained string parameter
@@ -3817,7 +3705,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwW  (gcc)
 
-:switch:`-gnatwW`
+:samp:`-gnatwW`
   *Suppress warnings on wrong low bound assumption.*
 
   This switch suppresses warnings for indexing an unconstrained string parameter
@@ -3835,13 +3723,13 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 .. index:: -gnatw.w  (gcc)
 .. index:: Warnings Off control
 
-:switch:`-gnatw.w`
-  *Activate warnings on Warnings Off pragmas.*
+:samp:`-gnatw.w`
+  *Activate warnings on Warnings Off pragmas*
 
-  This switch activates warnings for use of ``pragma Warnings (Off, entity)``
+  This switch activates warnings for use of `pragma Warnings (Off, entity)`
   where either the pragma is entirely useless (because it suppresses no
-  warnings), or it could be replaced by ``pragma Unreferenced`` or
-  ``pragma Unmodified``.
+  warnings), or it could be replaced by `pragma Unreferenced` or
+  `pragma Unmodified`.
   Also activates warnings for the case of
   Warnings (Off, String), where either there is no matching
   Warnings (On, String), or the Warnings (Off) did not suppress any warning.
@@ -3850,16 +3738,16 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatw.W  (gcc)
 
-:switch:`-gnatw.W`
-  *Suppress warnings on unnecessary Warnings Off pragmas.*
+:samp:`-gnatw.W`
+  *Suppress warnings on unnecessary Warnings Off pragmas*
 
-  This switch suppresses warnings for use of ``pragma Warnings (Off, ...)``.
+  This switch suppresses warnings for use of `pragma Warnings (Off, ...)`.
 
 
 .. index:: -gnatwx  (gcc)
 .. index:: Export/Import pragma warnings
 
-:switch:`-gnatwx`
+:samp:`-gnatwx`
   *Activate warnings on Export/Import pragmas.*
 
   This switch activates warnings on Export/Import pragmas when
@@ -3873,7 +3761,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwX  (gcc)
 
-:switch:`-gnatwX`
+:samp:`-gnatwX`
   *Suppress warnings on Export/Import pragmas.*
 
   This switch suppresses warnings on Export/Import pragmas.
@@ -3884,17 +3772,17 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwm  (gcc)
 
-:switch:`-gnatw.x`
+:samp:`-gnatw.x`
   *Activate warnings for No_Exception_Propagation mode.*
 
   This switch activates warnings for exception usage when pragma Restrictions
   (No_Exception_Propagation) is in effect. Warnings are given for implicit or
   explicit exception raises which are not covered by a local handler, and for
-  exception handlers which do not cover a local raise. The default is that
-  these warnings are given for units that contain exception handlers.
+  exception handlers which do not cover a local raise. The default is that these
+  warnings are not given.
 
 
-:switch:`-gnatw.X`
+:samp:`-gnatw.X`
   *Disable warnings for No_Exception_Propagation mode.*
 
   This switch disables warnings for exception usage when pragma Restrictions
@@ -3904,14 +3792,14 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 .. index:: -gnatwy  (gcc)
 .. index:: Ada compatibility issues warnings
 
-:switch:`-gnatwy`
+:samp:`-gnatwy`
   *Activate warnings for Ada compatibility issues.*
 
   For the most part, newer versions of Ada are upwards compatible
   with older versions. For example, Ada 2005 programs will almost
   always work when compiled as Ada 2012.
   However there are some exceptions (for example the fact that
-  ``some`` is now a reserved word in Ada 2012). This
+  `some` is now a reserved word in Ada 2012). This
   switch activates several warnings to help in identifying
   and correcting such incompatibilities. The default is that
   these warnings are generated. Note that at one point Ada 2005
@@ -3921,7 +3809,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 .. index:: -gnatwY  (gcc)
 .. index:: Ada compatibility issues warnings
 
-:switch:`-gnatwY`
+:samp:`-gnatwY`
   *Disable warnings for Ada compatibility issues.*
 
   This switch suppresses the warnings intended to help in identifying
@@ -3931,8 +3819,8 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 .. index:: -gnatw.y  (gcc)
 .. index:: Package spec needing body
 
-:switch:`-gnatw.y`
-  *Activate information messages for why package spec needs body.*
+:samp:`-gnatw.y`
+  *Activate information messages for why package spec needs body*
 
   There are a number of cases in which a package spec needs a body.
   For example, the use of pragma Elaborate_Body, or the declaration
@@ -3946,8 +3834,8 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 .. index:: -gnatw.Y  (gcc)
 .. index:: No information messages for why package spec needs body
 
-:switch:`-gnatw.Y`
-  *Disable information messages for why package spec needs body.*
+:samp:`-gnatw.Y`
+  *Disable information messages for why package spec needs body*
 
   This switch suppresses the output of information messages showing why
   a package specification needs a body.
@@ -3956,7 +3844,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 .. index:: -gnatwz  (gcc)
 .. index:: Unchecked_Conversion warnings
 
-:switch:`-gnatwz`
+:samp:`-gnatwz`
   *Activate warnings on unchecked conversions.*
 
   This switch activates warnings for unchecked conversions
@@ -3967,7 +3855,7 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 
 .. index:: -gnatwZ  (gcc)
 
-:switch:`-gnatwZ`
+:samp:`-gnatwZ`
   *Suppress warnings on unchecked conversions.*
 
   This switch suppresses warnings for unchecked conversions
@@ -3978,11 +3866,11 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 .. index:: -gnatw.z  (gcc)
 .. index:: Size/Alignment warnings
 
-:switch:`-gnatw.z`
+:samp:`-gnatw.z`
   *Activate warnings for size not a multiple of alignment.*
 
   This switch activates warnings for cases of record types with
-  specified ``Size`` and ``Alignment`` attributes where the
+  specified `Size` and `Alignment` attributes where the
   size is not a multiple of the alignment, resulting in an object
   size that is greater than the specified size. The default
   is that such warnings are generated.
@@ -3991,64 +3879,64 @@ of the pragma in the :title:`GNAT_Reference_manual`).
 .. index:: -gnatw.Z  (gcc)
 .. index:: Size/Alignment warnings
 
-:switch:`-gnatw.Z`
+:samp:`-gnatw.Z`
   *Suppress warnings for size not a multiple of alignment.*
 
   This switch suppresses warnings for cases of record types with
-  specified ``Size`` and ``Alignment`` attributes where the
+  specified `Size` and `Alignment` attributes where the
   size is not a multiple of the alignment, resulting in an object
   size that is greater than the specified size.
   The warning can also be
-  suppressed by giving an explicit ``Object_Size`` value.
+  suppressed by giving an explicit `Object_Size` value.
 
 
 .. index:: -Wunused (gcc)
 
-:switch:`-Wunused`
-  The warnings controlled by the :switch:`-gnatw` switch are generated by
-  the front end of the compiler. The GCC back end can provide
-  additional warnings and they are controlled by the :switch:`-W` switch.
-  For example, :switch:`-Wunused` activates back end
+:samp:`-Wunused`
+  The warnings controlled by the *-gnatw* switch are generated by
+  the front end of the compiler. The *GCC* back end can provide
+  additional warnings and they are controlled by the *-W* switch.
+  For example, *-Wunused* activates back end
   warnings for entities that are declared but not referenced.
 
 
 .. index:: -Wuninitialized (gcc)
 
-:switch:`-Wuninitialized`
-  Similarly, :switch:`-Wuninitialized` activates
+:samp:`-Wuninitialized`
+  Similarly, *-Wuninitialized* activates
   the back end warning for uninitialized variables. This switch must be
   used in conjunction with an optimization level greater than zero.
 
 
 .. index:: -Wstack-usage (gcc)
 
-:switch:`-Wstack-usage={len}`
-  Warn if the stack usage of a subprogram might be larger than ``len`` bytes.
+:samp:`-Wstack-usage={len}`
+  Warn if the stack usage of a subprogram might be larger than `len` bytes.
   See :ref:`Static_Stack_Usage_Analysis` for details.
 
 
 .. index:: -Wall (gcc)
 
-:switch:`-Wall`
-  This switch enables most warnings from the GCC back end.
+:samp:`-Wall`
+  This switch enables most warnings from the *GCC* back end.
   The code generator detects a number of warning situations that are missed
-  by the GNAT front end, and this switch can be used to activate them.
+  by the *GNAT* front end, and this switch can be used to activate them.
   The use of this switch also sets the default front end warning mode to
-  :switch:`-gnatwa`, that is, most front end warnings activated as well.
+  *-gnatwa*, that is, most front end warnings activated as well.
 
 
 .. index:: -w (gcc)
 
-:switch:`-w`
-  Conversely, this switch suppresses warnings from the GCC back end.
+:samp:`-w`
+  Conversely, this switch suppresses warnings from the *GCC* back end.
   The use of this switch also sets the default front end warning mode to
-  :switch:`-gnatws`, that is, front end warnings suppressed as well.
+  *-gnatws*, that is, front end warnings suppressed as well.
 
 
 .. index:: -Werror (gcc)
 
-:switch:`-Werror`
-  This switch causes warnings from the GCC back end to be treated as
+:samp:`-Werror`
+  This switch causes warnings from the *GCC* back end to be treated as
   errors.  The warning string still appears, but the warning messages are
   counted as errors, and prevent the generation of an object file.
 
@@ -4061,99 +3949,79 @@ A string of warning parameters can be used in the same parameter. For example::
 will turn on all optional warnings except for unrecognized pragma warnings,
 and also specify that warnings should be treated as errors.
 
-When no switch :switch:`-gnatw` is used, this is equivalent to:
+When no switch *-gnatw* is used, this is equivalent to:
 
-  * :switch:`-gnatw.a`
+  * :samp:`-gnatw.a`
 
-  * :switch:`-gnatwB`
+  * :samp:`-gnatwB`
 
-  * :switch:`-gnatw.b`
+  * :samp:`-gnatw.b`
 
-  * :switch:`-gnatwC`
+  * :samp:`-gnatwC`
 
-  * :switch:`-gnatw.C`
+  * :samp:`-gnatw.C`
 
-  * :switch:`-gnatwD`
+  * :samp:`-gnatwD`
 
-  * :switch:`-gnatw.D`
+  * :samp:`-gnatwF`
 
-  * :switch:`-gnatwF`
+  * :samp:`-gnatwg`
 
-  * :switch:`-gnatw.F`
+  * :samp:`-gnatwH`
 
-  * :switch:`-gnatwg`
+  * :samp:`-gnatwi`
 
-  * :switch:`-gnatwH`
+  * :samp:`-gnatw.I`
 
-  * :switch:`-gnatw.H`
+  * :samp:`-gnatwJ`
 
-  * :switch:`-gnatwi`
+  * :samp:`-gnatwK`
 
-  * :switch:`-gnatwJ`
+  * :samp:`-gnatwL`
 
-  * :switch:`-gnatw.J`
+  * :samp:`-gnatw.L`
 
-  * :switch:`-gnatwK`
+  * :samp:`-gnatwM`
 
-  * :switch:`-gnatw.K`
+  * :samp:`-gnatw.m`
 
-  * :switch:`-gnatwL`
+  * :samp:`-gnatwn`
 
-  * :switch:`-gnatw.L`
+  * :samp:`-gnatwo`
 
-  * :switch:`-gnatwM`
+  * :samp:`-gnatw.O`
 
-  * :switch:`-gnatw.m`
+  * :samp:`-gnatwP`
 
-  * :switch:`-gnatwn`
+  * :samp:`-gnatw.P`
 
-  * :switch:`-gnatw.N`
+  * :samp:`-gnatwq`
 
-  * :switch:`-gnatwo`
+  * :samp:`-gnatwR`
 
-  * :switch:`-gnatw.O`
+  * :samp:`-gnatw.R`
 
-  * :switch:`-gnatwP`
+  * :samp:`-gnatw.S`
 
-  * :switch:`-gnatw.P`
+  * :samp:`-gnatwT`
 
-  * :switch:`-gnatwq`
+  * :samp:`-gnatw.T`
 
-  * :switch:`-gnatw.Q`
+  * :samp:`-gnatwU`
 
-  * :switch:`-gnatwR`
+  * :samp:`-gnatwv`
 
-  * :switch:`-gnatw.R`
+  * :samp:`-gnatww`
 
-  * :switch:`-gnatw.S`
+  * :samp:`-gnatw.W`
 
-  * :switch:`-gnatwT`
+  * :samp:`-gnatwx`
 
-  * :switch:`-gnatw.t`
+  * :samp:`-gnatw.X`
 
-  * :switch:`-gnatwU`
+  * :samp:`-gnatwy`
 
-  * :switch:`-gnatw.U`
-
-  * :switch:`-gnatwv`
-
-  * :switch:`-gnatw.v`
-
-  * :switch:`-gnatww`
-
-  * :switch:`-gnatw.W`
-
-  * :switch:`-gnatwx`
-
-  * :switch:`-gnatw.X`
-
-  * :switch:`-gnatwy`
-
-  * :switch:`-gnatw.Y`
-
-  * :switch:`-gnatwz`
-
-  * :switch:`-gnatw.z`
+  * :samp:`-gnatwz`
 
 .. _Debugging_and_Assertion_Control:
 
@@ -4164,68 +4032,35 @@ Debugging and Assertion Control
 
 .. index:: -gnata  (gcc)
 
-:switch:`-gnata`
+:samp:`-gnata`
   .. index:: Assert
   .. index:: Debug
   .. index:: Assertions
-  .. index:: Precondition
-  .. index:: Postcondition
-  .. index:: Type invariants
-  .. index:: Subtype predicates
 
-  The :switch:`-gnata` option is equivalent to the following ``Assertion_Policy`` pragma::
-
-       pragma Assertion_Policy (Check);
-
-  Which is a shorthand for::
-
-       pragma Assertion_Policy
-         (Assert               => Check,
-          Static_Predicate     => Check,
-          Dynamic_Predicate    => Check,
-          Pre                  => Check,
-          Pre'Class            => Check,
-          Post                 => Check,
-          Post'Class           => Check,
-          Type_Invariant       => Check,
-          Type_Invariant'Class => Check);
-
-  The pragmas ``Assert`` and ``Debug`` normally have no effect and
-  are ignored. This switch, where ``a`` stands for 'assert', causes
-  pragmas ``Assert`` and ``Debug`` to be activated. This switch also
-  causes preconditions, postconditions, subtype predicates, and
-  type invariants to be activated.
+  The pragmas `Assert` and `Debug` normally have no effect and
+  are ignored. This switch, where :samp:`a` stands for assert, causes
+  `Assert` and `Debug` pragmas to be activated.
 
   The pragmas have the form::
 
        pragma Assert (<Boolean-expression> [, <static-string-expression>])
        pragma Debug (<procedure call>)
-       pragma Type_Invariant (<type-local-name>, <Boolean-expression>)
-       pragma Predicate (<type-local-name>, <Boolean-expression>)
-       pragma Precondition (<Boolean-expression>, <string-expression>)
-       pragma Postcondition (<Boolean-expression>, <string-expression>)
 
-  The aspects have the form::
 
-       with [Pre|Post|Type_Invariant|Dynamic_Predicate|Static_Predicate]
-         => <Boolean-expression>;
-
-  The ``Assert`` pragma causes ``Boolean-expression`` to be tested.
-  If the result is ``True``, the pragma has no effect (other than
+  The `Assert` pragma causes `Boolean-expression` to be tested.
+  If the result is `True`, the pragma has no effect (other than
   possible side effects from evaluating the expression). If the result is
-  ``False``, the exception ``Assert_Failure`` declared in the package
-  ``System.Assertions`` is raised (passing ``static-string-expression``, if
-  present, as the message associated with the exception). If no string
-  expression is given, the default is a string containing the file name and
-  line number of the pragma.
+  `False`, the exception `Assert_Failure` declared in the package
+  `System.Assertions` is
+  raised (passing `static-string-expression`, if present, as the
+  message associated with the exception). If no string expression is
+  given the default is a string giving the file name and line number
+  of the pragma.
 
-  The ``Debug`` pragma causes ``procedure`` to be called. Note that
-  ``pragma Debug`` may appear within a declaration sequence, allowing
+  The `Debug` pragma causes `procedure` to be called. Note that
+  `pragma Debug` may appear within a declaration sequence, allowing
   debugging procedures to be called between declarations.
 
-  For the aspect specification, the ``Boolean-expression`` is evaluated.
-  If the result is ``True``, the aspect has no effect. If the result
-  is ``False``, the exception ``Assert_Failure`` is raised.
 
 .. _Validity_Checking:
 
@@ -4243,14 +4078,14 @@ composite types.
 It is an error to read an invalid value, but the RM does not require
 run-time checks to detect such errors, except for some minimal
 checking to prevent erroneous execution (i.e. unpredictable
-behavior). This corresponds to the :switch:`-gnatVd` switch below,
+behavior). This corresponds to the *-gnatVd* switch below,
 which is the default. For example, by default, if the expression of a
 case statement is invalid, it will raise Constraint_Error rather than
 causing a wild jump, and if an array index on the left-hand side of an
 assignment is invalid, it will raise Constraint_Error rather than
 overwriting an arbitrary memory location.
 
-The :switch:`-gnatVa` may be used to enable additional validity checks,
+The *-gnatVa* may be used to enable additional validity checks,
 which are not required by the RM. These checks are often very
 expensive (which is why the RM does not require them). These checks
 are useful in tracking down uninitialized variables, but they are
@@ -4260,20 +4095,20 @@ combination with optimization, since this can confuse the optimizer.
 If performance is a consideration, leading to the need to optimize,
 then the validity checking options should not be used.
 
-The other :switch:`-gnatV{x}` switches below allow finer-grained
+The other *-gnatV*\ ``x`` switches below allow finer-grained
 control; you can enable whichever validity checks you desire. However,
-for most debugging purposes, :switch:`-gnatVa` is sufficient, and the
-default :switch:`-gnatVd` (i.e. standard Ada behavior) is usually
+for most debugging purposes, *-gnatVa* is sufficient, and the
+default *-gnatVd* (i.e. standard Ada behavior) is usually
 sufficient for non-debugging use.
 
-The :switch:`-gnatB` switch tells the compiler to assume that all
+The *-gnatB* switch tells the compiler to assume that all
 values are valid (that is, within their declared subtype range)
 except in the context of a use of the Valid attribute. This means
 the compiler can generate more efficient code, since the range
 of values is better known at compile time. However, an uninitialized
 variable can cause wild jumps and memory corruption in this mode.
 
-The :switch:`-gnatV{x}` switch allows control over the validity
+The *-gnatV*\ ``x`` switch allows control over the validity
 checking mode as described below.
 The ``x`` argument is a string of letters that
 indicate validity checks that are performed or not performed in addition
@@ -4282,17 +4117,17 @@ to the default checks required by Ada as described above.
 
 .. index:: -gnatVa  (gcc)
 
-:switch:`-gnatVa`
+:samp:`-gnatVa`
   *All validity checks.*
 
   All validity checks are turned on.
-  That is, :switch:`-gnatVa` is
-  equivalent to ``gnatVcdfimorst``.
+  That is, *-gnatVa* is
+  equivalent to *gnatVcdfimorst*.
 
 
 .. index:: -gnatVc  (gcc)
 
-:switch:`-gnatVc`
+:samp:`-gnatVc`
   *Validity checks for copies.*
 
   The right hand side of assignments, and the initializing values of
@@ -4301,7 +4136,7 @@ to the default checks required by Ada as described above.
 
 .. index:: -gnatVd  (gcc)
 
-:switch:`-gnatVd`
+:samp:`-gnatVd`
   *Default (RM) validity checks.*
 
   Some validity checks are done by default following normal Ada semantics
@@ -4310,10 +4145,10 @@ to the default checks required by Ada as described above.
   of the subtype. If it is not, Constraint_Error is raised.
   For assignments to array components, a check is done that the expression used
   as index is within the range. If it is not, Constraint_Error is raised.
-  Both these validity checks may be turned off using switch :switch:`-gnatVD`.
-  They are turned on by default. If :switch:`-gnatVD` is specified, a subsequent
-  switch :switch:`-gnatVd` will leave the checks turned on.
-  Switch :switch:`-gnatVD` should be used only if you are sure that all such
+  Both these validity checks may be turned off using switch *-gnatVD*.
+  They are turned on by default. If *-gnatVD* is specified, a subsequent
+  switch *-gnatVd* will leave the checks turned on.
+  Switch *-gnatVD* should be used only if you are sure that all such
   expressions have valid values. If you use this switch and invalid values
   are present, then the program is erroneous, and wild jumps or memory
   overwriting may occur.
@@ -4321,12 +4156,12 @@ to the default checks required by Ada as described above.
 
 .. index:: -gnatVe  (gcc)
 
-:switch:`-gnatVe`
+:samp:`-gnatVe`
   *Validity checks for elementary components.*
 
   In the absence of this switch, assignments to record or array components are
   not validity checked, even if validity checks for assignments generally
-  (:switch:`-gnatVc`) are turned on. In Ada, assignment of composite values do not
+  (*-gnatVc*) are turned on. In Ada, assignment of composite values do not
   require valid data, but assignment of individual components does. So for
   example, there is a difference between copying the elements of an array with a
   slice assignment, compared to assigning element by element in a loop. This
@@ -4336,38 +4171,38 @@ to the default checks required by Ada as described above.
 
 .. index:: -gnatVf  (gcc)
 
-:switch:`-gnatVf`
+:samp:`-gnatVf`
   *Validity checks for floating-point values.*
 
   In the absence of this switch, validity checking occurs only for discrete
-  values. If :switch:`-gnatVf` is specified, then validity checking also applies
+  values. If *-gnatVf* is specified, then validity checking also applies
   for floating-point values, and NaNs and infinities are considered invalid,
   as well as out of range values for constrained types. Note that this means
   that standard IEEE infinity mode is not allowed. The exact contexts
   in which floating-point values are checked depends on the setting of other
-  options. For example, :switch:`-gnatVif` or :switch:`-gnatVfi`
+  options. For example, *-gnatVif* or *-gnatVfi*
   (the order does not matter) specifies that floating-point parameters of mode
-  ``in`` should be validity checked.
+  `in` should be validity checked.
 
 
 .. index:: -gnatVi  (gcc)
 
-:switch:`-gnatVi`
-  *Validity checks for ``in`` mode parameters.*
+:samp:`-gnatVi`
+  *Validity checks for `in* mode parameters`
 
-  Arguments for parameters of mode ``in`` are validity checked in function
+  Arguments for parameters of mode `in` are validity checked in function
   and procedure calls at the point of call.
 
 
 .. index:: -gnatVm  (gcc)
 
-:switch:`-gnatVm`
-  *Validity checks for ``in out`` mode parameters.*
+:samp:`-gnatVm`
+  *Validity checks for `in out* mode parameters.`
 
-  Arguments for parameters of mode ``in out`` are validity checked in
-  procedure calls at the point of call. The ``'m'`` here stands for
+  Arguments for parameters of mode `in out` are validity checked in
+  procedure calls at the point of call. The `'m'` here stands for
   modify, since this concerns parameters that can be modified by the call.
-  Note that there is no specific option to test ``out`` parameters,
+  Note that there is no specific option to test `out` parameters,
   but any reference within the subprogram will be tested in the usual
   manner, and if an invalid value is copied back, any reference to it
   will be subject to validity checking.
@@ -4375,25 +4210,24 @@ to the default checks required by Ada as described above.
 
 .. index:: -gnatVn  (gcc)
 
-:switch:`-gnatVn`
+:samp:`-gnatVn`
   *No validity checks.*
 
   This switch turns off all validity checking, including the default checking
   for case statements and left hand side subscripts. Note that the use of
-  the switch :switch:`-gnatp` suppresses all run-time checks, including
-  validity checks, and thus implies :switch:`-gnatVn`. When this switch
-  is used, it cancels any other :switch:`-gnatV` previously issued.
+  the switch *-gnatp* suppresses all run-time checks, including
+  validity checks, and thus implies *-gnatVn*. When this switch
+  is used, it cancels any other *-gnatV* previously issued.
 
 
-.. index:: -gnatVo  (gcc)
-
-:switch:`-gnatVo`
+:samp:`-gnatVo`
   *Validity checks for operator and attribute operands.*
+  .. index:: -gnatVo  (gcc)
 
   Arguments for predefined operators and attributes are validity checked.
-  This includes all operators in package ``Standard``,
-  the shift operators defined as intrinsic in package ``Interfaces``
-  and operands for attributes such as ``Pos``. Checks are also made
+  This includes all operators in package `Standard`,
+  the shift operators defined as intrinsic in package `Interfaces`
+  and operands for attributes such as `Pos`. Checks are also made
   on individual component values for composite comparisons, and on the
   expressions in type conversions and qualified expressions. Checks are
   also made on explicit ranges using :samp:`..` (e.g., slices, loops etc).
@@ -4401,31 +4235,31 @@ to the default checks required by Ada as described above.
 
 .. index:: -gnatVp  (gcc)
 
-:switch:`-gnatVp`
+:samp:`-gnatVp`
   *Validity checks for parameters.*
 
   This controls the treatment of parameters within a subprogram (as opposed
-  to :switch:`-gnatVi` and :switch:`-gnatVm` which control validity testing
+  to *-gnatVi* and *-gnatVm* which control validity testing
   of parameters on a call. If either of these call options is used, then
   normally an assumption is made within a subprogram that the input arguments
   have been validity checking at the point of call, and do not need checking
-  again within a subprogram). If :switch:`-gnatVp` is set, then this assumption
+  again within a subprogram). If *-gnatVp* is set, then this assumption
   is not made, and parameters are not assumed to be valid, so their validity
   will be checked (or rechecked) within the subprogram.
 
 
 .. index:: -gnatVr  (gcc)
 
-:switch:`-gnatVr`
+:samp:`-gnatVr`
   *Validity checks for function returns.*
 
-  The expression in ``return`` statements in functions is validity
+  The expression in `return` statements in functions is validity
   checked.
 
 
 .. index:: -gnatVs  (gcc)
 
-:switch:`-gnatVs`
+:samp:`-gnatVs`
   *Validity checks for subscripts.*
 
   All subscripts expressions are checked for validity, whether they appear
@@ -4435,33 +4269,33 @@ to the default checks required by Ada as described above.
 
 .. index:: -gnatVt  (gcc)
 
-:switch:`-gnatVt`
+:samp:`-gnatVt`
   *Validity checks for tests.*
 
-  Expressions used as conditions in ``if``, ``while`` or ``exit``
+  Expressions used as conditions in `if`, `while` or `exit`
   statements are checked, as well as guard expressions in entry calls.
 
 
-The :switch:`-gnatV` switch may be followed by a string of letters
+The *-gnatV* switch may be followed by a string of letters
 to turn on a series of validity checking options.
-For example, :switch:`-gnatVcr`
+For example, :samp:`-gnatVcr`
 specifies that in addition to the default validity checking, copies and
 function return expressions are to be validity checked.
 In order to make it easier to specify the desired combination of effects,
-the upper case letters ``CDFIMORST`` may
+the upper case letters `CDFIMORST` may
 be used to turn off the corresponding lower case option.
-Thus :switch:`-gnatVaM` turns on all validity checking options except for
-checking of ``in out`` parameters.
+Thus :samp:`-gnatVaM` turns on all validity checking options except for
+checking of `**in out**` procedure arguments.
 
 The specification of additional validity checking generates extra code (and
-in the case of :switch:`-gnatVa` the code expansion can be substantial).
+in the case of *-gnatVa* the code expansion can be substantial).
 However, these additional checks can be very useful in detecting
 uninitialized variables, incorrect use of unchecked conversion, and other
-errors leading to invalid values. The use of pragma ``Initialize_Scalars``
+errors leading to invalid values. The use of pragma `Initialize_Scalars`
 is useful in conjunction with the extra validity checking, since this
 ensures that wherever possible uninitialized variables have invalid values.
 
-See also the pragma ``Validity_Checks`` which allows modification of
+See also the pragma `Validity_Checks` which allows modification of
 the validity checking mode at the program source level, and also allows for
 temporary disabling of validity checks.
 
@@ -4474,13 +4308,13 @@ Style Checking
 
 .. index:: -gnaty  (gcc)
 
-The :switch:`-gnatyx` switch causes the compiler to
+The *-gnatyx* switch causes the compiler to
 enforce specified style rules. A limited set of style rules has been used
 in writing the GNAT sources themselves. This switch allows user programs
 to activate all or some of these checks. If the source program fails a
 specified style check, an appropriate message is given, preceded by
 the character sequence '(style)'. This message does not prevent
-successful compilation (unless the :switch:`-gnatwe` switch is used).
+successful compilation (unless the *-gnatwe* switch is used).
 
 Note that this is by no means intended to be a general facility for
 checking arbitrary coding standards. It is simply an embedding of the
@@ -4497,23 +4331,23 @@ some subset of them.
   of an existing set of coding rules, you should look to the gnatcheck
   tool, which is designed for that purpose.
 
-The string ``x`` is a sequence of letters or digits
+The string `x` is a sequence of letters or digits
 indicating the particular style
 checks to be performed. The following checks are defined:
 
 
 .. index:: -gnaty[0-9]   (gcc)
 
-:switch:`-gnaty0`
+:samp:`-gnaty0`
   *Specify indentation level.*
 
   If a digit from 1-9 appears
-  in the string after :switch:`-gnaty`
+  in the string after *-gnaty*
   then proper indentation is checked, with the digit indicating the
   indentation level required. A value of zero turns off this style check.
   The general style of required indentation is as specified by
   the examples in the Ada Reference Manual. Full line comments must be
-  aligned with the ``--`` starting on a column that is a multiple of
+  aligned with the `--` starting on a column that is a multiple of
   the alignment level, or they may be aligned the same way as the following
   non-blank line (this is useful when full line comments appear in the middle
   of a statement, or they may be aligned with the source line on the previous
@@ -4521,10 +4355,10 @@ checks to be performed. The following checks are defined:
 
 .. index:: -gnatya   (gcc)
 
-:switch:`-gnatya`
+:samp:`-gnatya`
   *Check attribute casing.*
 
-  Attribute names, including the case of keywords such as ``digits``
+  Attribute names, including the case of keywords such as `digits`
   used as attributes names, must be written in mixed case, that is, the
   initial letter and any letter following an underscore must be uppercase.
   All other letters must be lowercase.
@@ -4532,7 +4366,7 @@ checks to be performed. The following checks are defined:
 
 .. index:: -gnatyA (gcc)
 
-:switch:`-gnatyA`
+:samp:`-gnatyA`
   *Use of array index numbers in array attributes.*
 
   When using the array attributes First, Last, Range,
@@ -4542,7 +4376,7 @@ checks to be performed. The following checks are defined:
 
 .. index:: -gnatyb (gcc)
 
-:switch:`-gnatyb`
+:samp:`-gnatyb`
   *Blanks not allowed at statement end.*
 
   Trailing blanks are not allowed at the end of statements. The purpose of this
@@ -4552,51 +4386,51 @@ checks to be performed. The following checks are defined:
 
 .. index:: -gnatyB (gcc)
 
-:switch:`-gnatyB`
+:samp:`-gnatyB`
   *Check Boolean operators.*
 
   The use of AND/OR operators is not permitted except in the cases of modular
   operands, array operands, and simple stand-alone boolean variables or
-  boolean constants. In all other cases ``and then``/`or else` are
+  boolean constants. In all other cases `and then`/`or else` are
   required.
 
 
 .. index:: -gnatyc (gcc)
 
-:switch:`-gnatyc`
+:samp:`-gnatyc`
   *Check comments, double space.*
 
   Comments must meet the following set of rules:
 
-  * The ``--`` that starts the column must either start in column one,
+  * The '`--`' that starts the column must either start in column one,
     or else at least one blank must precede this sequence.
 
   * Comments that follow other tokens on a line must have at least one blank
-    following the ``--`` at the start of the comment.
+    following the '`--`' at the start of the comment.
 
   * Full line comments must have at least two blanks following the
-    ``--`` that starts the comment, with the following exceptions.
+    '`--`' that starts the comment, with the following exceptions.
 
-  * A line consisting only of the ``--`` characters, possibly preceded
+  * A line consisting only of the '`--`' characters, possibly preceded
     by blanks is permitted.
 
-  * A comment starting with ``--x`` where ``x`` is a special character
+  * A comment starting with '`--x`' where `x` is a special character
     is permitted.
-    This allows proper processing of the output from specialized tools
-    such as ``gnatprep`` (where ``--!`` is used) and in earlier versions of the SPARK
+    This allows proper processing of the output generated by specialized tools
+    including *gnatprep* (where '`--!`' is used) and the SPARK
     annotation
-    language (where ``--#`` is used). For the purposes of this rule, a
+    language (where '`--#`' is used). For the purposes of this rule, a
     special character is defined as being in one of the ASCII ranges
-    ``16#21#...16#2F#`` or ``16#3A#...16#3F#``.
+    `16#21#...16#2F#` or `16#3A#...16#3F#`.
     Note that this usage is not permitted
-    in GNAT implementation units (i.e., when :switch:`-gnatg` is used).
+    in GNAT implementation units (i.e., when *-gnatg* is used).
 
   * A line consisting entirely of minus signs, possibly preceded by blanks, is
     permitted. This allows the construction of box comments where lines of minus
     signs are used to form the top and bottom of the box.
 
-  * A comment that starts and ends with ``--`` is permitted as long as at
-    least one blank follows the initial ``--``. Together with the preceding
+  * A comment that starts and ends with '`--`' is permitted as long as at
+    least one blank follows the initial '`--`'. Together with the preceding
     rule, this allows the construction of box comments, as shown in the following
     example:
 
@@ -4610,16 +4444,16 @@ checks to be performed. The following checks are defined:
 
 .. index:: -gnatyC (gcc)
 
-:switch:`-gnatyC`
+:samp:`-gnatyC`
   *Check comments, single space.*
 
-  This is identical to ``c`` except that only one space
-  is required following the ``--`` of a comment instead of two.
+  This is identical to `c` except that only one space
+  is required following the `--` of a comment instead of two.
 
 
 .. index:: -gnatyd (gcc)
 
-:switch:`-gnatyd`
+:samp:`-gnatyd`
   *Check no DOS line terminators present.*
 
   All lines must be terminated by a single ASCII.LF
@@ -4629,16 +4463,16 @@ checks to be performed. The following checks are defined:
 
 .. index:: -gnatye (gcc)
 
-:switch:`-gnatye`
+:samp:`-gnatye`
   *Check end/exit labels.*
 
-  Optional labels on ``end`` statements ending subprograms and on
-  ``exit`` statements exiting named loops, are required to be present.
+  Optional labels on `end` statements ending subprograms and on
+  `exit` statements exiting named loops, are required to be present.
 
 
 .. index:: -gnatyf (gcc)
 
-:switch:`-gnatyf`
+:samp:`-gnatyf`
   *No form feeds or vertical tabs.*
 
   Neither form feeds nor vertical tab characters are permitted
@@ -4647,19 +4481,19 @@ checks to be performed. The following checks are defined:
 
 .. index:: -gnatyg (gcc)
 
-:switch:`-gnatyg`
+:samp:`-gnatyg`
   *GNAT style mode.*
 
   The set of style check switches is set to match that used by the GNAT sources.
   This may be useful when developing code that is eventually intended to be
-  incorporated into GNAT. Currently this is equivalent to :switch:`-gnatwydISux`)
+  incorporated into GNAT. Currently this is equivalent to *-gnatwydISux*)
   but additional style switches may be added to this set in the future without
   advance notice.
 
 
 .. index:: -gnatyh (gcc)
 
-:switch:`-gnatyh`
+:samp:`-gnatyh`
   *No horizontal tabs.*
 
   Horizontal tab characters are not permitted in the source text.
@@ -4670,49 +4504,49 @@ checks to be performed. The following checks are defined:
 
 .. index:: -gnatyi (gcc)
 
-:switch:`-gnatyi`
+:samp:`-gnatyi`
   *Check if-then layout.*
 
-  The keyword ``then`` must appear either on the same
-  line as corresponding ``if``, or on a line on its own, lined
-  up under the ``if``.
+  The keyword `then` must appear either on the same
+  line as corresponding `if`, or on a line on its own, lined
+  up under the `if`.
 
 
 .. index:: -gnatyI (gcc)
 
-:switch:`-gnatyI`
+:samp:`-gnatyI`
   *check mode IN keywords.*
 
-  Mode ``in`` (the default mode) is not
-  allowed to be given explicitly. ``in out`` is fine,
-  but not ``in`` on its own.
+  Mode `in` (the default mode) is not
+  allowed to be given explicitly. `in out` is fine,
+  but not `in` on its own.
 
 
 .. index:: -gnatyk (gcc)
 
-:switch:`-gnatyk`
+:samp:`-gnatyk`
   *Check keyword casing.*
 
   All keywords must be in lower case (with the exception of keywords
-  such as ``digits`` used as attribute names to which this check
+  such as `digits` used as attribute names to which this check
   does not apply).
 
 
 .. index:: -gnatyl (gcc)
 
-:switch:`-gnatyl`
+:samp:`-gnatyl`
   *Check layout.*
 
   Layout of statement and declaration constructs must follow the
   recommendations in the Ada Reference Manual, as indicated by the
-  form of the syntax rules. For example an ``else`` keyword must
-  be lined up with the corresponding ``if`` keyword.
+  form of the syntax rules. For example an `else` keyword must
+  be lined up with the corresponding `if` keyword.
 
   There are two respects in which the style rule enforced by this check
   option are more liberal than those in the Ada Reference Manual. First
   in the case of record declarations, it is permissible to put the
-  ``record`` keyword on the same line as the ``type`` keyword, and
-  then the ``end`` in ``end record`` must line up under ``type``.
+  `record` keyword on the same line as the `type` keyword, and
+  then the `end` in `end record` must line up under `type`.
   This is also permitted when the type declaration is split on two lines.
   For example, any of the following three layouts is acceptable:
 
@@ -4736,8 +4570,8 @@ checks to be performed. The following checks are defined:
     end record;
 
   Second, in the case of a block statement, a permitted alternative
-  is to put the block label on the same line as the ``declare`` or
-  ``begin`` keyword, and then line the ``end`` keyword up under
+  is to put the block label on the same line as the `declare` or
+  `begin` keyword, and then line the `end` keyword up under
   the block label. For example both the following are permitted:
 
   .. code-block:: ada
@@ -4772,7 +4606,7 @@ checks to be performed. The following checks are defined:
 
 .. index:: -gnatyLnnn (gcc)
 
-:switch:`-gnatyL`
+:samp:`-gnatyL`
   *Set maximum nesting level.*
 
   The maximum level of nesting of constructs (including subprograms, loops,
@@ -4782,7 +4616,7 @@ checks to be performed. The following checks are defined:
 
 .. index:: -gnatym (gcc)
 
-:switch:`-gnatym`
+:samp:`-gnatym`
   *Check maximum line length.*
 
   The length of source lines must not exceed 79 characters, including
@@ -4796,7 +4630,7 @@ checks to be performed. The following checks are defined:
 
 .. index:: -gnatyMnnn (gcc)
 
-:switch:`-gnatyM`
+:samp:`-gnatyM`
   *Set maximum line length.*
 
   The length of lines must not exceed the
@@ -4808,17 +4642,17 @@ checks to be performed. The following checks are defined:
 
 .. index:: -gnatyn (gcc)
 
-:switch:`-gnatyn`
+:samp:`-gnatyn`
   *Check casing of entities in Standard.*
 
   Any identifier from Standard must be cased
   to match the presentation in the Ada Reference Manual (for example,
-  ``Integer`` and ``ASCII.NUL``).
+  `Integer` and `ASCII.NUL`).
 
 
 .. index:: -gnatyN (gcc)
 
-:switch:`-gnatyN`
+:samp:`-gnatyN`
   *Turn off all style checks.*
 
   All style check options are turned off.
@@ -4826,7 +4660,7 @@ checks to be performed. The following checks are defined:
 
 .. index:: -gnatyo (gcc)
 
-:switch:`-gnatyo`
+:samp:`-gnatyo`
   *Check order of subprogram bodies.*
 
   All subprogram bodies in a given scope
@@ -4839,7 +4673,7 @@ checks to be performed. The following checks are defined:
 
 .. index:: -gnatyO (gcc)
 
-:switch:`-gnatyO`
+:samp:`-gnatyO`
   *Check that overriding subprograms are explicitly marked as such.*
 
   This applies to all subprograms of a derived type that override a primitive
@@ -4852,7 +4686,7 @@ checks to be performed. The following checks are defined:
 
 .. index:: -gnatyp (gcc)
 
-:switch:`-gnatyp`
+:samp:`-gnatyp`
   *Check pragma casing.*
 
   Pragma names must be written in mixed case, that is, the
@@ -4863,7 +4697,7 @@ checks to be performed. The following checks are defined:
 
 .. index:: -gnatyr (gcc)
 
-:switch:`-gnatyr`
+:samp:`-gnatyr`
   *Check references.*
 
   All identifier references must be cased in the same way as the
@@ -4874,7 +4708,7 @@ checks to be performed. The following checks are defined:
 
 .. index:: -gnatys (gcc)
 
-:switch:`-gnatys`
+:samp:`-gnatys`
   *Check separate specs.*
 
   Separate declarations ('specs') are required for subprograms (a
@@ -4886,30 +4720,30 @@ checks to be performed. The following checks are defined:
 
 .. index:: -gnatyS (gcc)
 
-:switch:`-gnatyS`
+:samp:`-gnatyS`
   *Check no statements after then/else.*
 
   No statements are allowed
-  on the same line as a ``then`` or ``else`` keyword following the
-  keyword in an ``if`` statement. ``or else`` and ``and then`` are not
-  affected, and a special exception allows a pragma to appear after ``else``.
+  on the same line as a `then` or `else` keyword following the
+  keyword in an `if` statement. `or else` and `and then` are not
+  affected, and a special exception allows a pragma to appear after `else`.
 
 
 .. index:: -gnatyt (gcc)
 
-:switch:`-gnatyt`
+:samp:`-gnatyt`
   *Check token spacing.*
 
   The following token spacing rules are enforced:
 
-  * The keywords ``abs`` and ``not`` must be followed by a space.
+  * The keywords `abs` and `not` must be followed by a space.
 
-  * The token ``=>`` must be surrounded by spaces.
+  * The token `=>` must be surrounded by spaces.
 
-  * The token ``<>`` must be preceded by a space or a left parenthesis.
+  * The token `<>` must be preceded by a space or a left parenthesis.
 
-  * Binary operators other than ``**`` must be surrounded by spaces.
-    There is no restriction on the layout of the ``**`` binary operator.
+  * Binary operators other than `**` must be surrounded by spaces.
+    There is no restriction on the layout of the `**` binary operator.
 
   * Colon must be surrounded by spaces.
 
@@ -4936,12 +4770,12 @@ checks to be performed. The following checks are defined:
   * A vertical bar must be surrounded by spaces.
 
   Exactly one blank (and no other white space) must appear between
-  a ``not`` token and a following ``in`` token.
+  a `not` token and a following `in` token.
 
 
 .. index:: -gnatyu (gcc)
 
-:switch:`-gnatyu`
+:samp:`-gnatyu`
   *Check unnecessary blank lines.*
 
   Unnecessary blank lines are not allowed. A blank line is considered
@@ -4951,43 +4785,43 @@ checks to be performed. The following checks are defined:
 
 .. index:: -gnatyx (gcc)
 
-:switch:`-gnatyx`
+:samp:`-gnatyx`
   *Check extra parentheses.*
 
   Unnecessary extra level of parentheses (C-style) are not allowed
-  around conditions in ``if`` statements, ``while`` statements and
-  ``exit`` statements.
+  around conditions in `if` statements, `while` statements and
+  `exit` statements.
 
 
 .. index:: -gnatyy (gcc)
 
-:switch:`-gnatyy`
-  *Set all standard style check options.*
+:samp:`-gnatyy`
+  *Set all standard style check options*
 
-  This is equivalent to ``gnaty3aAbcefhiklmnprst``, that is all checking
-  options enabled with the exception of :switch:`-gnatyB`, :switch:`-gnatyd`,
-  :switch:`-gnatyI`, :switch:`-gnatyLnnn`, :switch:`-gnatyo`, :switch:`-gnatyO`,
-  :switch:`-gnatyS`, :switch:`-gnatyu`, and :switch:`-gnatyx`.
+  This is equivalent to `gnaty3aAbcefhiklmnprst`, that is all checking
+  options enabled with the exception of *-gnatyB*, *-gnatyd*,
+  *-gnatyI*, *-gnatyLnnn*, *-gnatyo*, *-gnatyO*,
+  *-gnatyS*, *-gnatyu*, and *-gnatyx*.
 
 
 .. index:: -gnaty- (gcc)
 
-:switch:`-gnaty-`
-  *Remove style check options.*
+:samp:`-gnaty-`
+  *Remove style check options*
 
   This causes any subsequent options in the string to act as canceling the
   corresponding style check option. To cancel maximum nesting level control,
-  use the ``L`` parameter without any integer value after that, because any
-  digit following *-* in the parameter string of the :switch:`-gnaty`
-  option will be treated as canceling the indentation check. The same is true
-  for the ``M`` parameter. ``y`` and ``N`` parameters are not
+  use *L* parameter witout any integer value after that, because any
+  digit following *-* in the parameter string of the *-gnaty*
+  option will be threated as canceling indentation check. The same is true
+  for *M* parameter. *y* and *N* parameters are not
   allowed after *-*.
 
 
 .. index:: -gnaty+ (gcc)
 
-:switch:`-gnaty+`
-  *Enable style check options.*
+:samp:`-gnaty+`
+  *Enable style check options*
 
   This causes any subsequent options in the string to enable the corresponding
   style check option. That is, it cancels the effect of a previous -,
@@ -5009,15 +4843,15 @@ If any of these style rules is violated, a message is generated giving
 details on the violation. The initial characters of such messages are
 always '`(style)`'. Note that these messages are treated as warning
 messages, so they normally do not prevent the generation of an object
-file. The :switch:`-gnatwe` switch can be used to treat warning messages,
+file. The *-gnatwe* switch can be used to treat warning messages,
 including style messages, as fatal errors.
 
-The switch :switch:`-gnaty` on its own (that is not
+The switch :samp:`-gnaty` on its own (that is not
 followed by any letters or digits) is equivalent
-to the use of :switch:`-gnatyy` as described above, that is all
+to the use of *-gnatyy* as described above, that is all
 built-in standard style check options are enabled.
 
-The switch :switch:`-gnatyN` clears any previously set style checks.
+The switch :samp:`-gnatyN` clears any previously set style checks.
 
 .. _Run-Time_Checks:
 
@@ -5034,23 +4868,23 @@ Run-Time Checks
 
 .. index:: Checks, stack overflow checking
 
-By default, the following checks are suppressed: stack overflow
-checks, and checks for access before elaboration on subprogram
-calls. All other checks, including overflow checks, range checks and
-array bounds checks, are turned on by default. The following ``gcc``
-switches refine this default behavior.
+By default, the following checks are suppressed: integer overflow
+checks, stack overflow checks, and checks for access before
+elaboration on subprogram calls. All other checks, including range
+checks and array bounds checks, are turned on by default. The
+following *gcc* switches refine this default behavior.
 
 .. index:: -gnatp  (gcc)
 
-:switch:`-gnatp`
+:samp:`-gnatp`
   .. index:: Suppressing checks
 
   .. index:: Checks, suppressing
 
   This switch causes the unit to be compiled
-  as though ``pragma Suppress (All_checks)``
+  as though `pragma Suppress (All_checks)`
   had been present in the source. Validity checks are also eliminated (in
-  other words :switch:`-gnatp` also implies :switch:`-gnatVn`.
+  other words *-gnatp* also implies *-gnatVn*.
   Use this switch to improve the performance
   of the code at the expense of safety in the presence of invalid data or
   program bugs.
@@ -5077,19 +4911,21 @@ switches refine this default behavior.
   the condition being checked is true, which can result in erroneous
   execution if that assumption is wrong.
 
-  The checks subject to suppression include all the checks defined by the Ada
-  standard, the additional implementation defined checks ``Alignment_Check``,
-  ``Duplicated_Tag_Check``, ``Predicate_Check``, ``Container_Checks``, ``Tampering_Check``,
-  and ``Validity_Check``, as well as any checks introduced using ``pragma Check_Name``.
-  Note that ``Atomic_Synchronization`` is not automatically suppressed by use of this option.
+  The checks subject to suppression include all the checks defined by
+  the Ada standard, the additional implementation defined checks
+  `Alignment_Check`,
+  `Duplicated_Tag_Check`, `Predicate_Check`, and
+  `Validity_Check`, as well as any checks introduced using
+  `pragma Check_Name`. Note that `Atomic_Synchronization`
+  is not automatically suppressed by use of this option.
 
   If the code depends on certain checks being active, you can use
-  pragma ``Unsuppress`` either as a configuration pragma or as
+  pragma `Unsuppress` either as a configuration pragma or as
   a local pragma to make sure that a specified check is performed
-  even if ``gnatp`` is specified.
+  even if *gnatp* is specified.
 
-  The :switch:`-gnatp` switch has no effect if a subsequent
-  :switch:`-gnat-p` switch appears.
+  The *-gnatp* switch has no effect if a subsequent
+  *-gnat-p* switch appears.
 
 
 .. index:: -gnat-p  (gcc)
@@ -5097,8 +4933,8 @@ switches refine this default behavior.
 .. index:: Checks, suppressing
 .. index:: Suppress
 
-:switch:`-gnat-p`
-  This switch cancels the effect of a previous ``gnatp`` switch.
+:samp:`-gnat-p`
+  This switch cancels the effect of a previous *gnatp* switch.
 
 
 .. index:: -gnato??  (gcc)
@@ -5106,7 +4942,7 @@ switches refine this default behavior.
 .. index:: Overflow mode
 .. index:: Check, overflow
 
-:switch:`-gnato??`
+:samp:`-gnato??`
   This switch controls the mode used for computing intermediate
   arithmetic integer operations, and also enables overflow checking.
   For a full description of overflow mode and checking control, see
@@ -5126,7 +4962,7 @@ switches refine this default behavior.
   *2 = MINIMIZED*
     In MINIMIZED mode, overflows in intermediate operations are avoided
     where possible by using a larger integer type for the computation
-    (typically ``Long_Long_Integer``). Overflow checking ensures that
+    (typically `Long_Long_Integer`). Overflow checking ensures that
     the result fits in this larger integer type.
 
 
@@ -5135,7 +4971,7 @@ switches refine this default behavior.
     by using multi-precision arithmetic. In this case, overflow checking
     has no effect on intermediate operations (since overflow is impossible).
 
-  If two digits are present after :switch:`-gnato` then the first digit
+  If two digits are present after *-gnato* then the first digit
   sets the mode for expressions outside assertions, and the second digit
   sets the mode for expressions within assertions. Here assertions is used
   in the technical sense (which includes for example precondition and
@@ -5146,14 +4982,14 @@ switches refine this default behavior.
 
   If no digits are present, the default is to enable overflow checks
   and set STRICT mode for both kinds of expressions. This is compatible
-  with the use of :switch:`-gnato` in previous versions of GNAT.
+  with the use of *-gnato* in previous versions of GNAT.
 
   .. index:: Machine_Overflows
 
-  Note that the :switch:`-gnato??` switch does not affect the code generated
+  Note that the *-gnato??* switch does not affect the code generated
   for any floating-point operations; it applies only to integer semantics.
-  For floating-point, GNAT has the ``Machine_Overflows``
-  attribute set to ``False`` and the normal mode of operation is to
+  For floating-point, GNAT has the `Machine_Overflows`
+  attribute set to `False` and the normal mode of operation is to
   generate IEEE NaN and infinite values on overflow or invalid operations
   (such as dividing 0.0 by 0.0).
 
@@ -5165,18 +5001,23 @@ switches refine this default behavior.
   checking is also quite expensive in time and space, since in general it
   requires the use of double length arithmetic.
 
-  Note again that the default is :switch:`-gnato11` (equivalent to :switch:`-gnato1`),
-  so overflow checking is performed in STRICT mode by default.
+  Note again that the default is *-gnato00*,
+  so overflow checking is not performed in default mode. This means that out of
+  the box, with the default settings, GNAT does not do all the checks
+  expected from the language description in the Ada Reference Manual.
+  If you want all constraint checks to be performed, as described in this Manual,
+  then you must explicitly use the *-gnato??*
+  switch either on the *gnatmake* or *gcc* command.
 
 
 .. index:: -gnatE  (gcc)
 .. index:: Elaboration checks
 .. index:: Check, elaboration
 
-:switch:`-gnatE`
+:samp:`-gnatE`
   Enables dynamic checks for access-before-elaboration
   on subprogram calls and generic instantiations.
-  Note that :switch:`-gnatE` is not necessary for safety, because in the
+  Note that *-gnatE* is not necessary for safety, because in the
   default mode, GNAT ensures statically that the checks would not fail.
   For full details of the effect and use of this switch,
   :ref:`Compiling_with_gcc`.
@@ -5186,27 +5027,27 @@ switches refine this default behavior.
 .. index:: Stack Overflow Checking
 .. index:: Checks, stack overflow checking
 
-:switch:`-fstack-check`
+:samp:`-fstack-check`
   Activates stack overflow checking. For full details of the effect and use of
   this switch see :ref:`Stack_Overflow_Checking`.
 
 .. index:: Unsuppress
 
 The setting of these switches only controls the default setting of the
-checks. You may modify them using either ``Suppress`` (to remove
-checks) or ``Unsuppress`` (to add back suppressed checks) pragmas in
+checks. You may modify them using either `Suppress` (to remove
+checks) or `Unsuppress` (to add back suppressed checks) pragmas in
 the program source.
 
 
 .. _Using_gcc_for_Syntax_Checking:
 
-Using ``gcc`` for Syntax Checking
----------------------------------
+Using *gcc* for Syntax Checking
+-------------------------------
 
 .. index:: -gnats  (gcc)
 
-:switch:`-gnats`
-  The ``s`` stands for 'syntax'.
+:samp:`-gnats`
+  The `s` stands for 'syntax'.
 
   Run GNAT in syntax checking only mode. For
   example, the command
@@ -5218,11 +5059,11 @@ Using ``gcc`` for Syntax Checking
   compiles file :file:`x.adb` in syntax-check-only mode. You can check a
   series of files in a single command
   , and can use wild cards to specify such a group of files.
-  Note that you must specify the :switch:`-c` (compile
-  only) flag in addition to the :switch:`-gnats` flag.
+  Note that you must specify the *-c* (compile
+  only) flag in addition to the *-gnats* flag.
 
-  You may use other switches in conjunction with :switch:`-gnats`. In
-  particular, :switch:`-gnatl` and :switch:`-gnatv` are useful to control the
+  You may use other switches in conjunction with *-gnats*. In
+  particular, *-gnatl* and *-gnatv* are useful to control the
   format of any generated error messages.
 
   When the source file is empty or contains only empty lines and/or comments,
@@ -5238,30 +5079,30 @@ Using ``gcc`` for Syntax Checking
 
   Otherwise, the output is simply the error messages, if any. No object file or
   ALI file is generated by a syntax-only compilation. Also, no units other
-  than the one specified are accessed. For example, if a unit ``X``
-  |withs| a unit ``Y``, compiling unit ``X`` in syntax
+  than the one specified are accessed. For example, if a unit `X`
+  |withs| a unit `Y`, compiling unit `X` in syntax
   check only mode does not access the source file containing unit
-  ``Y``.
+  `Y`.
 
   .. index:: Multiple units, syntax checking
 
   Normally, GNAT allows only a single unit in a source file. However, this
   restriction does not apply in syntax-check-only mode, and it is possible
   to check a file containing multiple compilation units concatenated
-  together. This is primarily used by the ``gnatchop`` utility
+  together. This is primarily used by the `gnatchop` utility
   (:ref:`Renaming_Files_with_gnatchop`).
 
 .. _Using_gcc_for_Semantic_Checking:
 
-Using ``gcc`` for Semantic Checking
------------------------------------
+Using *gcc* for Semantic Checking
+---------------------------------
 
 
 
 .. index:: -gnatc  (gcc)
 
-:switch:`-gnatc`
-  The ``c`` stands for 'check'.
+:samp:`-gnatc`
+  The `c` stands for 'check'.
   Causes the compiler to operate in semantic check mode,
   with full checking for all illegalities specified in the
   Ada Reference Manual, but without generation of any object code
@@ -5305,10 +5146,10 @@ indicate Ada 83 compatibility mode.
 .. index:: ACVC, Ada 83 tests
 .. index:: Ada 83 mode
 
-:switch:`-gnat83` (Ada 83 Compatibility Mode)
+:samp:`-gnat83 (Ada 83 Compatibility Mode)`
   Although GNAT is primarily an Ada 95 / Ada 2005 compiler, this switch
   specifies that the program is to be compiled in Ada 83 mode. With
-  :switch:`-gnat83`, GNAT rejects most post-Ada 83 extensions and applies Ada 83
+  *-gnat83*, GNAT rejects most post-Ada 83 extensions and applies Ada 83
   semantics where this can be done easily.
   It is not possible to guarantee this switch does a perfect
   job; some subtle tests, such as are
@@ -5318,35 +5159,36 @@ indicate Ada 83 compatibility mode.
   where, due to contractual reasons, existing code needs to be maintained
   using only Ada 83 features.
 
-  With few exceptions (most notably the need to use ``<>`` on
-  unconstrained :index:`generic formal parameters <Generic formal parameters>`,
-  the use of the new Ada 95 / Ada 2005
+  With few exceptions (most notably the need to use `<>` on
+  .. index:: Generic formal parameters
+
+  unconstrained generic formal parameters, the use of the new Ada 95 / Ada 2005
   reserved words, and the use of packages
   with optional bodies), it is not necessary to specify the
-  :switch:`-gnat83` switch when compiling Ada 83 programs, because, with rare
+  *-gnat83* switch when compiling Ada 83 programs, because, with rare
   exceptions, Ada 95 and Ada 2005 are upwardly compatible with Ada 83. Thus
   a correct Ada 83 program is usually also a correct program
   in these later versions of the language standard. For further information
-  please refer to the *Compatibility and Porting Guide* chapter in the
+  please refer to the `Compatibility_and_Porting_Guide` chapter in the
   :title:`GNAT Reference Manual`.
 
 
 .. index:: -gnat95  (gcc)
 .. index:: Ada 95 mode
 
-:switch:`-gnat95` (Ada 95 mode)
+:samp:`-gnat95` (Ada 95 mode)
   This switch directs the compiler to implement the Ada 95 version of the
   language.
   Since Ada 95 is almost completely upwards
   compatible with Ada 83, Ada 83 programs may generally be compiled using
-  this switch (see the description of the :switch:`-gnat83` switch for further
+  this switch (see the description of the *-gnat83* switch for further
   information about Ada 83 mode).
   If an Ada 2005 program is compiled in Ada 95 mode,
   uses of the new Ada 2005 features will cause error
   messages or warnings.
 
   This switch also can be used to cancel the effect of a previous
-  :switch:`-gnat83`, :switch:`-gnat05/2005`, or :switch:`-gnat12/2012`
+  *-gnat83*, *-gnat05/2005*, or *-gnat12/2012*
   switch earlier in the command line.
 
 
@@ -5354,13 +5196,13 @@ indicate Ada 83 compatibility mode.
 .. index:: -gnat2005  (gcc)
 .. index:: Ada 2005 mode
 
-:switch:`-gnat05` or :switch:`-gnat2005` (Ada 2005 mode)
+:samp:`-gnat05` or :samp:`-gnat2005` (Ada 2005 mode)
   This switch directs the compiler to implement the Ada 2005 version of the
   language, as documented in the official Ada standards document.
   Since Ada 2005 is almost completely upwards
   compatible with Ada 95 (and thus also with Ada 83), Ada 83 and Ada 95 programs
   may generally be compiled using this switch (see the description of the
-  :switch:`-gnat83` and :switch:`-gnat95` switches for further
+  *-gnat83* and *-gnat95* switches for further
   information).
 
 
@@ -5368,14 +5210,14 @@ indicate Ada 83 compatibility mode.
 .. index:: -gnat2012  (gcc)
 .. index:: Ada 2012 mode
 
-:switch:`-gnat12` or :switch:`-gnat2012` (Ada 2012 mode)
+:samp:`-gnat12` or :samp:`-gnat2012` (Ada 2012 mode)
   This switch directs the compiler to implement the Ada 2012 version of the
   language (also the default).
   Since Ada 2012 is almost completely upwards
   compatible with Ada 2005 (and thus also with Ada 83, and Ada 95),
   Ada 83 and Ada 95 programs
   may generally be compiled using this switch (see the description of the
-  :switch:`-gnat83`, :switch:`-gnat95`, and :switch:`-gnat05/2005` switches
+  *-gnat83*, *-gnat95*, and *-gnat05/2005* switches
   for further information).
 
 
@@ -5383,7 +5225,7 @@ indicate Ada 83 compatibility mode.
 .. index:: Ada language extensions
 .. index:: GNAT extensions
 
-:switch:`-gnatX` (Enable GNAT Extensions)
+:samp:`-gnatX` (Enable GNAT Extensions)
   This switch directs the compiler to implement the latest version of the
   language (currently Ada 2012) and also to enable certain GNAT implementation
   extensions that are not part of any Ada standard. For a full list of these
@@ -5397,11 +5239,11 @@ Character Set Control
 
 .. index:: -gnati  (gcc)
 
-:switch:`-gnati{c}`
+:samp:`-gnati{c}`
   Normally GNAT recognizes the Latin-1 character set in source program
   identifiers, as described in the Ada Reference Manual.
   This switch causes
-  GNAT to recognize alternate character sets in identifiers. ``c`` is a
+  GNAT to recognize alternate character sets in identifiers. `c` is a
   single character  indicating the character set, as follows:
 
   ========== ======================================================
@@ -5425,9 +5267,9 @@ Character Set Control
 
 .. index:: -gnatW  (gcc)
 
-:switch:`-gnatW{e}`
+:samp:`-gnatW{e}`
   Specify the method of encoding for wide characters.
-  ``e`` is one of the following:
+  `e` is one of the following:
 
   ========== ======================================================
   *h*        Hex encoding (brackets coding also recognized)
@@ -5441,7 +5283,7 @@ Character Set Control
   For full details on these encoding
   methods see :ref:`Wide_Character_Encodings`.
   Note that brackets coding is always accepted, even if one of the other
-  options is specified, so for example :switch:`-gnatW8` specifies that both
+  options is specified, so for example *-gnatW8* specifies that both
   brackets and UTF-8 encodings will be recognized. The units that are
   with'ed directly or indirectly will be scanned using the specified
   representation scheme, and so if one of the non-brackets scheme is
@@ -5454,7 +5296,7 @@ Character Set Control
   brackets are considered to be normal graphic characters, and bracket sequences
   are never recognized as wide characters.
 
-  If no :switch:`-gnatW?` parameter is present, then the default
+  If no *-gnatW?* parameter is present, then the default
   representation is normally Brackets encoding only. However, if the
   first three characters of the file are 16#EF# 16#BB# 16#BF# (the standard
   byte order mark or BOM for UTF-8), then these three characters are
@@ -5466,7 +5308,7 @@ Character Set Control
   parameter.
 
 
-When no :switch:`-gnatW?` is specified, then characters (other than wide
+When no *-gnatW?* is specified, then characters (other than wide
 characters represented using brackets notation) are treated as 8-bit
 Latin-1 codes. The codes recognized are the Latin-1 graphic characters,
 and ASCII format effectors (CR, LF, HT, VT). Other lower half control
@@ -5493,8 +5335,8 @@ File Naming Control
 
 .. index:: -gnatk  (gcc)
 
-:switch:`-gnatk{n}`
-  Activates file name 'krunching'. ``n``, a decimal integer in the range
+:samp:`-gnatk{n}`
+  Activates file name 'krunching'. `n`, a decimal integer in the range
   1-999, indicates the maximum allowable length of a file name (not
   including the :file:`.ads` or :file:`.adb` extension). The default is not
   to enable file name krunching.
@@ -5508,24 +5350,24 @@ Subprogram Inlining Control
 
 .. index:: -gnatn  (gcc)
 
-:switch:`-gnatn[12]`
-  The ``n`` here is intended to suggest the first syllable of the word 'inline'.
-  GNAT recognizes and processes ``Inline`` pragmas. However, for inlining to
-  actually occur, optimization must be enabled and, by default, inlining of
-  subprograms across modules is not performed. If you want to additionally
-  enable inlining of subprograms specified by pragma ``Inline`` across modules,
+:samp:`-gnatn[12]`
+  The `n` here is intended to suggest the first syllable of the
+  word 'inline'.
+  GNAT recognizes and processes `Inline` pragmas. However, for the
+  inlining to actually occur, optimization must be enabled and, in order
+  to enable inlining of subprograms specified by pragma `Inline`,
   you must also specify this switch.
-
-  In the absence of this switch, GNAT does not attempt inlining across modules
-  and does not access the bodies of subprograms for which ``pragma Inline`` is
-  specified if they are not in the current unit.
+  In the absence of this switch, GNAT does not attempt
+  inlining and does not need to access the bodies of
+  subprograms for which `pragma Inline` is specified if they are not
+  in the current unit.
 
   You can optionally specify the inlining level: 1 for moderate inlining across
   modules, which is a good compromise between compilation times and performances
   at run time, or 2 for full inlining across modules, which may bring about
   longer compilation times. If no inlining level is specified, the compiler will
-  pick it based on the optimization level: 1 for :switch:`-O1`, :switch:`-O2` or
-  :switch:`-Os` and 2 for :switch:`-O3`.
+  pick it based on the optimization level: 1 for *-O1*, *-O2* or
+  *-Os* and 2 for *-O3*.
 
   If you specify this switch the compiler will access these bodies,
   creating an extra source dependency for the resulting object file, and
@@ -5536,13 +5378,13 @@ Subprogram Inlining Control
 
 .. index:: -gnatN  (gcc)
 
-:switch:`-gnatN`
+:samp:`-gnatN`
   This switch activates front-end inlining which also
   generates additional dependencies.
 
   When using a gcc-based back end (in practice this means using any version
   of GNAT other than the JGNAT, .NET or GNAAMP versions), then the use of
-  :switch:`-gnatN` is deprecated, and the use of :switch:`-gnatn` is preferred.
+  *-gnatN* is deprecated, and the use of *-gnatn* is preferred.
   Historically front end inlining was more extensive than the gcc back end
   inlining, but that is no longer the case.
 
@@ -5555,20 +5397,20 @@ Auxiliary Output Control
 .. index:: Writing internal trees
 .. index:: Internal trees, writing to file
 
-:switch:`-gnatt`
+:samp:`-gnatt`
   Causes GNAT to write the internal tree for a unit to a file (with the
   extension :file:`.adt`.
   This not normally required, but is used by separate analysis tools.
   Typically
   these tools do the necessary compilations automatically, so you should
   not have to specify this switch in normal operation.
-  Note that the combination of switches :switch:`-gnatct`
+  Note that the combination of switches *-gnatct*
   generates a tree in the form required by ASIS applications.
 
 
 .. index:: -gnatu  (gcc)
 
-:switch:`-gnatu`
+:samp:`-gnatu`
   Print a list of units required by this compilation on :file:`stdout`.
   The listing includes all units on which the unit being compiled depends
   either directly or indirectly.
@@ -5576,12 +5418,12 @@ Auxiliary Output Control
 
 .. index:: -pass-exit-codes  (gcc)
 
-:switch:`-pass-exit-codes`
-  If this switch is not used, the exit code returned by ``gcc`` when
+:samp:`-pass-exit-codes`
+  If this switch is not used, the exit code returned by *gcc* when
   compiling multiple files indicates whether all source files have
   been successfully used to generate object files or not.
 
-  When :switch:`-pass-exit-codes` is used, ``gcc`` exits with an extended
+  When *-pass-exit-codes* is used, *gcc* exits with an extended
   exit status and allows an integrated development environment to better
   react to a compilation failure. Those exit status are:
 
@@ -5602,18 +5444,18 @@ Debugging Control
 
 .. index:: -gnatd  (gcc)
 
-:switch:`-gnatd{x}`
-  Activate internal debugging switches. ``x`` is a letter or digit, or
+:samp:`-gnatd{x}`
+  Activate internal debugging switches. `x` is a letter or digit, or
   string of letters or digits, which specifies the type of debugging
   outputs desired. Normally these are used only for internal development
   or system debugging purposes. You can find full documentation for these
-  switches in the body of the ``Debug`` unit in the compiler source
+  switches in the body of the `Debug` unit in the compiler source
   file :file:`debug.adb`.
 
 
 .. index:: -gnatG  (gcc)
 
-:switch:`-gnatG[={nn}]`
+:samp:`-gnatG[={nn}]`
   This switch causes the compiler to generate auxiliary output containing
   a pseudo-source listing of the generated expanded code. Like most Ada
   compilers, GNAT works by first transforming the high level Ada code into
@@ -5623,11 +5465,11 @@ Debugging Control
   This is very useful in understanding the implications of various Ada
   usage on the efficiency of the generated code. There are many cases in
   Ada (e.g., the use of controlled types), where simple Ada statements can
-  generate a lot of run-time code. By using :switch:`-gnatG` you can identify
+  generate a lot of run-time code. By using *-gnatG* you can identify
   these cases, and consider whether it may be desirable to modify the coding
   approach to improve efficiency.
 
-  The optional parameter ``nn`` if present after -gnatG specifies an
+  The optional parameter `nn` if present after -gnatG specifies an
   alternative maximum line length that overrides the normal default of 72.
   This value is in the range 40-999999, values less than 40 being silently
   reset to 40. The equal sign is optional.
@@ -5637,12 +5479,12 @@ Debugging Control
   additions correspond to low level features used in the generated code that
   do not have any exact analogies in pure Ada source form. The following
   is a partial list of these special constructions. See the spec
-  of package ``Sprint`` in file :file:`sprint.ads` for a full list.
+  of package `Sprint` in file :file:`sprint.ads` for a full list.
 
   .. index:: -gnatL  (gcc)
 
-  If the switch :switch:`-gnatL` is used in conjunction with
-  :switch:`-gnatG`, then the original source lines are interspersed
+  If the switch *-gnatL* is used in conjunction with
+  *-gnatG*, then the original source lines are interspersed
   in the expanded source (as comment lines with the original line number).
 
   :samp:`new {xxx} [storage_pool = {yyy}]`
@@ -5654,7 +5496,7 @@ Debugging Control
 
 
   :samp:`(if {expr} then {expr} else {expr})`
-    Conditional expression equivalent to the ``x?y:z`` construction in C.
+    Conditional expression equivalent to the `x?y:z` construction in C.
 
 
   :samp:`{target}^({source})`
@@ -5682,7 +5524,7 @@ Debugging Control
 
 
   :samp:`free {expr} [storage_pool = {xxx}]`
-    Shows the storage pool associated with a ``free`` statement.
+    Shows the storage pool associated with a `free` statement.
 
 
   :samp:`[subtype or type declaration]`
@@ -5691,12 +5533,12 @@ Debugging Control
 
 
   :samp:`freeze {type-name} [{actions}]`
-    Shows the point at which ``type-name`` is frozen, with possible
+    Shows the point at which `type-name` is frozen, with possible
     associated actions to be performed at the freeze point.
 
 
   :samp:`reference {itype}`
-    Reference (and hence definition) to internal type ``itype``.
+    Reference (and hence definition) to internal type `itype`.
 
 
   :samp:`{function-name}! ({arg}, {arg}, {arg})`
@@ -5704,7 +5546,7 @@ Debugging Control
 
 
   :samp:`{label-name} : label`
-    Declaration of label ``labelname``.
+    Declaration of label `labelname`.
 
 
   :samp:`#$ {subprogram-name}`
@@ -5714,12 +5556,12 @@ Debugging Control
 
 
   :samp:`{expr} && {expr} && {expr} ... && {expr}`
-    A multiple concatenation (same effect as ``expr`` & ``expr`` &
-    ``expr``, but handled more efficiently).
+    A multiple concatenation (same effect as `expr` & `expr` &
+    `expr`, but handled more efficiently).
 
 
   :samp:`[constraint_error]`
-    Raise the ``Constraint_Error`` exception.
+    Raise the `Constraint_Error` exception.
 
 
   :samp:`{expression}'reference`
@@ -5727,7 +5569,7 @@ Debugging Control
 
 
   :samp:`{target-type}!({source-expression})`
-    An unchecked conversion of ``source-expression`` to ``target-type``.
+    An unchecked conversion of `source-expression` to `target-type`.
 
 
   :samp:`[{numerator}/{denominator}]`
@@ -5738,35 +5580,35 @@ Debugging Control
 
 .. index:: -gnatD  (gcc)
 
-:switch:`-gnatD[=nn]`
-  When used in conjunction with :switch:`-gnatG`, this switch causes
+:samp:`-gnatD[=nn]`
+  When used in conjunction with *-gnatG*, this switch causes
   the expanded source, as described above for
-  :switch:`-gnatG` to be written to files with names
+  *-gnatG* to be written to files with names
   :file:`xxx.dg`, where :file:`xxx` is the normal file name,
   instead of to the standard output file. For
   example, if the source file name is :file:`hello.adb`, then a file
   :file:`hello.adb.dg` will be written.  The debugging
-  information generated by the ``gcc`` :switch:`-g` switch
+  information generated by the *gcc* *-g* switch
   will refer to the generated :file:`xxx.dg` file. This allows
   you to do source level debugging using the generated code which is
   sometimes useful for complex code, for example to find out exactly
   which part of a complex construction raised an exception. This switch
-  also suppresses generation of cross-reference information (see
-  :switch:`-gnatx`) since otherwise the cross-reference information
+  also suppress generation of cross-reference information (see
+  *-gnatx*) since otherwise the cross-reference information
   would refer to the :file:`.dg` file, which would cause
   confusion since this is not the original source file.
 
-  Note that :switch:`-gnatD` actually implies :switch:`-gnatG`
+  Note that *-gnatD* actually implies *-gnatG*
   automatically, so it is not necessary to give both options.
-  In other words :switch:`-gnatD` is equivalent to :switch:`-gnatDG`).
+  In other words *-gnatD* is equivalent to *-gnatDG*).
 
   .. index:: -gnatL  (gcc)
 
-  If the switch :switch:`-gnatL` is used in conjunction with
-  :switch:`-gnatDG`, then the original source lines are interspersed
+  If the switch *-gnatL* is used in conjunction with
+  *-gnatDG*, then the original source lines are interspersed
   in the expanded source (as comment lines with the original line number).
 
-  The optional parameter ``nn`` if present after -gnatD specifies an
+  The optional parameter `nn` if present after -gnatD specifies an
   alternative maximum line length that overrides the normal default of 72.
   This value is in the range 40-999999, values less than 40 being silently
   reset to 40. The equal sign is optional.
@@ -5775,7 +5617,7 @@ Debugging Control
 .. index:: -gnatr  (gcc)
 .. index:: pragma Restrictions
 
-:switch:`-gnatr`
+:samp:`-gnatr`
   This switch causes pragma Restrictions to be treated as Restriction_Warnings
   so that violation of restrictions causes warnings rather than illegalities.
   This is useful during the development process when new restrictions are added
@@ -5786,46 +5628,50 @@ Debugging Control
 
 .. index:: -gnatR  (gcc)
 
-:switch:`-gnatR[0|1|2|3][e][m][s]`
+:samp:`-gnatR[0|1|2|3[s]]`
   This switch controls output from the compiler of a listing showing
-  representation information for declared types, objects and subprograms.
-  For :switch:`-gnatR0`, no information is output (equivalent to omitting
-  the :switch:`-gnatR` switch). For :switch:`-gnatR1` (which is the default,
-  so :switch:`-gnatR` with no parameter has the same effect), size and
-  alignment information is listed for declared array and record types.
-  For :switch:`-gnatR2`, size and alignment information is listed for all
-  declared types and objects. The ``Linker_Section`` is also listed for any
-  entity for which the ``Linker_Section`` is set explicitly or implicitly (the
-  latter case occurs for objects of a type for which a ``Linker_Section``
+  representation information for declared types and objects. For
+  *-gnatR0*, no information is output (equivalent to omitting
+  the *-gnatR* switch). For *-gnatR1* (which is the default,
+  so *-gnatR* with no parameter has the same effect), size and alignment
+  information is listed for declared array and record types. For
+  *-gnatR2*, size and alignment information is listed for all
+  declared types and objects. The `Linker_Section` is also listed for any
+  entity for which the `Linker_Section` is set explicitly or implicitly (the
+  latter case occurs for objects of a type for which a `Linker_Section`
   is set).
 
-  For :switch:`-gnatR3`, symbolic expressions for values that are computed
-  at run time for records are included. These symbolic expressions have
-  a mostly obvious format with #n being used to represent the value of the
-  n'th discriminant. See source files :file:`repinfo.ads/adb` in the
-  GNAT sources for full details on the format of :switch:`-gnatR3` output.
+  Finally *-gnatR3* includes symbolic
+  expressions for values that are computed at run time for
+  variant records. These symbolic expressions have a mostly obvious
+  format with #n being used to represent the value of the n'th
+  discriminant. See source files :file:`repinfo.ads/adb` in the
+  `GNAT` sources for full details on the format of *-gnatR3*
+  output. If the switch is followed by an s (e.g., *-gnatR2s*), then
+  the output is to a file with the name :file:`file.rep` where
+  file is the name of the corresponding source file.
 
-  If the switch is followed by an ``e`` (e.g. :switch:`-gnatR2e`), then
-  extended representation information for record sub-components of records
-  are included.
 
-  If the switch is followed by an ``m`` (e.g. :switch:`-gnatRm`), then
-  subprogram conventions and parameter passing mechanisms for all the
-  subprograms are included.
-
-  If the switch is followed by an ``s`` (e.g., :switch:`-gnatR3s`), then
-  the output is to a file with the name :file:`file.rep` where file is
-  the name of the corresponding source file.
+:samp:`-gnatRm[s]`
+  This form of the switch controls output of subprogram conventions
+  and parameter passing mechanisms for all subprograms. A following
+  `s` means output to a file as described above.
 
   Note that it is possible for record components to have zero size. In
   this case, the component clause uses an obvious extension of permitted
-  Ada syntax, for example ``at 0 range 0 .. -1``.
+  Ada syntax, for example `at 0 range 0 .. -1`.
+
+  Representation information requires that code be generated (since it is the
+  code generator that lays out complex data structures). If an attempt is made
+  to output representation information when no code is generated, for example
+  when a subunit is compiled on its own, then no information can be generated
+  and the compiler outputs a message to this effect.
 
 
 .. index:: -gnatS  (gcc)
 
-:switch:`-gnatS`
-  The use of the switch :switch:`-gnatS` for an
+:samp:`-gnatS`
+  The use of the switch *-gnatS* for an
   Ada compilation will cause the compiler to output a
   representation of package Standard in a form very
   close to standard Ada. It is not quite possible to
@@ -5839,10 +5685,10 @@ Debugging Control
 
 .. index:: -gnatx  (gcc)
 
-:switch:`-gnatx`
+:samp:`-gnatx`
   Normally the compiler generates full cross-referencing information in
   the :file:`ALI` file. This information is used by a number of tools,
-  including ``gnatfind`` and ``gnatxref``. The :switch:`-gnatx` switch
+  including `gnatfind` and `gnatxref`. The *-gnatx* switch
   suppresses this information. This saves some space and may slightly
   speed up compilation, but means that these tools cannot be used.
 
@@ -5852,7 +5698,7 @@ Exception Handling Control
 --------------------------
 
 GNAT uses two methods for handling exceptions at run-time. The
-``setjmp/longjmp`` method saves the context when entering
+`setjmp/longjmp` method saves the context when entering
 a frame with an exception handler. Then when an exception is
 raised, the context can be restored immediately, without the
 need for tracing stack frames. This method provides very fast
@@ -5870,7 +5716,7 @@ the propagation of exceptions, but there is no overhead for
 exception handlers if no exception is raised. Note that in this
 mode and in the context of mixed Ada and C/C++ programming,
 to propagate an exception through a C/C++ code, the C/C++ code
-must be compiled with the :switch:`-funwind-tables` GCC's
+must be compiled with the *-funwind-tables* GCC's
 option.
 
 The following switches may be used to control which of the
@@ -5880,7 +5726,7 @@ two exception handling methods is used.
 
 .. index:: --RTS=sjlj  (gnatmake)
 
-:switch:`--RTS=sjlj`
+:samp:`--RTS=sjlj`
   This switch causes the setjmp/longjmp run-time (when available) to be used
   for exception handling. If the default
   mechanism for the target is zero cost exceptions, then
@@ -5895,7 +5741,7 @@ two exception handling methods is used.
 .. index:: --RTS=zcx  (gnatmake)
 .. index:: Zero Cost Exceptions
 
-:switch:`--RTS=zcx`
+:samp:`--RTS=zcx`
   This switch causes the zero cost approach to be used
   for exception handling. If this is the default mechanism for the
   target (see below), then this switch is unneeded. If the default
@@ -5905,8 +5751,8 @@ two exception handling methods is used.
   This option can only be used if the zero cost approach
   is available for the target in use, otherwise it will generate an error.
 
-The same option :switch:`--RTS` must be used both for ``gcc``
-and ``gnatbind``. Passing this option to ``gnatmake``
+The same option *--RTS* must be used both for *gcc*
+and *gnatbind*. Passing this option to *gnatmake*
 (:ref:`Switches_for_gnatmake`) will ensure the required consistency
 through the compilation and binding steps.
 
@@ -5919,7 +5765,7 @@ Units to Sources Mapping Files
 
 .. index:: -gnatem  (gcc)
 
-:switch:`-gnatem={path}`
+:samp:`-gnatem={path}`
   A mapping file is a way to communicate to the compiler two mappings:
   from unit names to file names (without any directory information) and from
   file names to path names (with full directory information). These mappings
@@ -5929,15 +5775,15 @@ Units to Sources Mapping Files
   compiler, but mapping files can improve efficiency, particularly when
   sources are read over a slow network connection. In normal operation,
   you need not be concerned with the format or use of mapping files,
-  and the :switch:`-gnatem` switch is not a switch that you would use
+  and the *-gnatem* switch is not a switch that you would use
   explicitly. It is intended primarily for use by automatic tools such as
-  ``gnatmake`` running under the project file facility. The
+  *gnatmake* running under the project file facility. The
   description here of the format of mapping files is provided
   for completeness and for possible use by other tools.
 
   A mapping file is a sequence of sets of three lines. In each set, the
-  first line is the unit name, in lower case, with ``%s`` appended
-  for specs and ``%b`` appended for bodies; the second line is the
+  first line is the unit name, in lower case, with `%s` appended
+  for specs and `%b` appended for bodies; the second line is the
   file name; and the third line is the path name.
 
   Example::
@@ -5947,15 +5793,15 @@ Units to Sources Mapping Files
        /gnat/project1/sources/main.2.ada
 
 
-  When the switch :switch:`-gnatem` is specified, the compiler will
+  When the switch *-gnatem* is specified, the compiler will
   create in memory the two mappings from the specified file. If there is
   any problem (nonexistent file, truncated file or duplicate entries),
   no mapping will be created.
 
-  Several :switch:`-gnatem` switches may be specified; however, only the
+  Several *-gnatem* switches may be specified; however, only the
   last one on the command line will be taken into account.
 
-  When using a project file, ``gnatmake`` creates a temporary
+  When using a project file, *gnatmake* creates a temporary
   mapping file and communicates it to the compiler using this switch.
 
 
@@ -5965,56 +5811,44 @@ Code Generation Control
 -----------------------
 
 The GCC technology provides a wide range of target dependent
-:switch:`-m` switches for controlling
+:samp:`-m` switches for controlling
 details of code generation with respect to different versions of
 architectures. This includes variations in instruction sets (e.g.,
 different members of the power pc family), and different requirements
 for optimal arrangement of instructions (e.g., different members of
-the x86 family). The list of available :switch:`-m` switches may be
+the x86 family). The list of available *-m* switches may be
 found in the GCC documentation.
 
-Use of these :switch:`-m` switches may in some cases result in improved
+Use of these *-m* switches may in some cases result in improved
 code performance.
 
 The GNAT technology is tested and qualified without any
-:switch:`-m` switches,
+:samp:`-m` switches,
 so generally the most reliable approach is to avoid the use of these
 switches. However, we generally expect most of these switches to work
 successfully with GNAT, and many customers have reported successful
 use of these options.
 
-Our general advice is to avoid the use of :switch:`-m` switches unless
+Our general advice is to avoid the use of *-m* switches unless
 special needs lead to requirements in this area. In particular,
-there is no point in using :switch:`-m` switches to improve performance
+there is no point in using *-m* switches to improve performance
 unless you actually see a performance improvement.
 
 
-.. _Linker_Switches:
-
-Linker Switches
-===============
-
-Linker switches can be specified after :switch:`-largs` builder switch.
-
-.. index:: -fuse-ld=name
-
-:switch:`-fuse-ld={name}`
-  Linker to be used. The default is ``bfd`` for :file:`ld.bfd`,
-  the alternative being ``gold`` for :file:`ld.gold`. The later is
-  a more recent and faster linker, but only available on GNU/Linux
-  platforms.
-
 .. _Binding_with_gnatbind:
 
-Binding with ``gnatbind``
-=========================
+Binding with `gnatbind`
+=======================
 
 .. index:: ! gnatbind
 
-This chapter describes the GNAT binder, ``gnatbind``, which is used
+This chapter describes the GNAT binder, `gnatbind`, which is used
 to bind compiled GNAT objects.
 
-The ``gnatbind`` program performs four separate functions:
+Note: to invoke `gnatbind` with a project file, use the `gnat`
+driver (see :ref:`The_GNAT_Driver_and_Project_Files`).
+
+The `gnatbind` program performs four separate functions:
 
 * Checks that a program is consistent, in accordance with the rules in
   Chapter 10 of the Ada Reference Manual. In particular, error
@@ -6029,29 +5863,29 @@ The ``gnatbind`` program performs four separate functions:
   This program is a small Ada package (body and spec) that
   must be subsequently compiled
   using the GNAT compiler. The necessary compilation step is usually
-  performed automatically by ``gnatlink``. The two most important
+  performed automatically by *gnatlink*. The two most important
   functions of this program
   are to call the elaboration routines of units in an appropriate order
   and to call the main program.
 
 * Determines the set of object files required by the given main program.
   This information is output in the forms of comments in the generated program,
-  to be read by the ``gnatlink`` utility used to link the Ada application.
+  to be read by the *gnatlink* utility used to link the Ada application.
 
 .. _Running_gnatbind:
 
-Running ``gnatbind``
---------------------
+Running `gnatbind`
+------------------
 
-The form of the ``gnatbind`` command is
+The form of the `gnatbind` command is
 
 .. code-block:: sh
 
-  $ gnatbind [ switches ] mainprog[.ali] [ switches ]
+  $ gnatbind [`switches`] `mainprog`[.ali] [`switches`]
 
 
 where :file:`mainprog.adb` is the Ada file containing the main program
-unit body. ``gnatbind`` constructs an Ada
+unit body. `gnatbind` constructs an Ada
 package in two files whose names are
 :file:`b~mainprog.ads`, and :file:`b~mainprog.adb`.
 For example, if given the
@@ -6061,12 +5895,12 @@ and :file:`b~hello.adb`.
 
 When doing consistency checking, the binder takes into consideration
 any source files it can locate. For example, if the binder determines
-that the given main program requires the package ``Pack``, whose
+that the given main program requires the package `Pack`, whose
 :file:`.ALI`
 file is :file:`pack.ali` and whose corresponding source spec file is
 :file:`pack.ads`, it attempts to locate the source file :file:`pack.ads`
 (using the same search path conventions as previously described for the
-``gcc`` command). If it can locate this source file, it checks that
+*gcc* command). If it can locate this source file, it checks that
 the time stamps
 or source checksums of the source and its references to in :file:`ALI` files
 match. In other words, any :file:`ALI` files that mentions this spec must have
@@ -6083,16 +5917,16 @@ source file without compiling files that depend on the source file cause
 error messages to be generated by the binder.
 
 For example, suppose you have a main program :file:`hello.adb` and a
-package ``P``, from file :file:`p.ads` and you perform the following
+package `P`, from file :file:`p.ads` and you perform the following
 steps:
 
-* Enter ``gcc -c hello.adb`` to compile the main program.
+* Enter `gcc -c hello.adb` to compile the main program.
 
-* Enter ``gcc -c p.ads`` to compile package ``P``.
+* Enter `gcc -c p.ads` to compile package `P`.
 
 * Edit file :file:`p.ads`.
 
-* Enter ``gnatbind hello``.
+* Enter `gnatbind hello`.
 
 At this point, the file :file:`p.ali` contains an out-of-date time stamp
 because the file :file:`p.ads` has been edited. The attempt at binding
@@ -6110,38 +5944,38 @@ succeed, generating a main program. You need not normally be concerned
 with the contents of this file, but for reference purposes a sample
 binder output file is given in :ref:`Example_of_Binder_Output_File`.
 
-In most normal usage, the default mode of ``gnatbind`` which is to
+In most normal usage, the default mode of *gnatbind* which is to
 generate the main package in Ada, as described in the previous section.
 In particular, this means that any Ada programmer can read and understand
 the generated main program. It can also be debugged just like any other
-Ada code provided the :switch:`-g` switch is used for
-``gnatbind`` and ``gnatlink``.
+Ada code provided the *-g* switch is used for
+*gnatbind* and *gnatlink*.
 
 .. _Switches_for_gnatbind:
 
-Switches for ``gnatbind``
--------------------------
+Switches for *gnatbind*
+-----------------------
 
-The following switches are available with ``gnatbind``; details will
+The following switches are available with `gnatbind`; details will
 be presented in subsequent sections.
 
 
 .. index:: --version  (gnatbind)
 
-:switch:`--version`
+:samp:`--version`
   Display Copyright and version, then exit disregarding all other options.
 
 
 .. index:: --help  (gnatbind)
 
-:switch:`--help`
-  If :switch:`--version` was not used, display usage, then exit disregarding
+:samp:`--help`
+  If *--version* was not used, display usage, then exit disregarding
   all other options.
 
 
 .. index:: -a  (gnatbind)
 
-:switch:`-a`
+:samp:`-a`
   Indicates that, if supported by the platform, the adainit procedure should
   be treated as an initialisation routine by the linker (a constructor). This
   is intended to be used by the Project Manager to automatically initialize
@@ -6150,41 +5984,41 @@ be presented in subsequent sections.
 
 .. index:: -aO  (gnatbind)
 
-:switch:`-aO`
+:samp:`-aO`
   Specify directory to be searched for ALI files.
 
 
 .. index:: -aI  (gnatbind)
 
-:switch:`-aI`
+:samp:`-aI`
   Specify directory to be searched for source file.
 
 
 .. index:: -A  (gnatbind)
 
-:switch:`-A[={filename}]`
+:samp:`-A[={filename}]`
   Output ALI list (to standard output or to the named file).
 
 
 .. index:: -b  (gnatbind)
 
-:switch:`-b`
+:samp:`-b`
   Generate brief messages to :file:`stderr` even if verbose mode set.
 
 
 .. index:: -c  (gnatbind)
 
-:switch:`-c`
+:samp:`-c`
   Check only, no generation of binder output file.
 
 
 .. index:: -dnn[k|m] (gnatbind)
 
-:switch:`-d{nn}[k|m]`
+:samp:`-d{nn}[k|m]`
   This switch can be used to change the default task stack size value
-  to a specified size ``nn``, which is expressed in bytes by default, or
-  in kilobytes when suffixed with ``k`` or in megabytes when suffixed
-  with ``m``.
+  to a specified size `nn`, which is expressed in bytes by default, or
+  in kilobytes when suffixed with `k` or in megabytes when suffixed
+  with `m`.
   In the absence of a :samp:`[k|m]` suffix, this switch is equivalent,
   in effect, to completing all task specs with
 
@@ -6197,71 +6031,49 @@ be presented in subsequent sections.
 
 .. index:: -D  (gnatbind)
 
-:switch:`-D{nn}[k|m]`
+:samp:`-D{nn}[k|m]`
   This switch can be used to change the default secondary stack size value
-  to a specified size ``nn``, which is expressed in bytes by default, or
-  in kilobytes when suffixed with ``k`` or in megabytes when suffixed
-  with ``m``.
+  to a specified size `nn`, which is expressed in bytes by default, or
+  in kilobytes when suffixed with `k` or in megabytes when suffixed
+  with `m`.
 
   The secondary stack is used to deal with functions that return a variable
   sized result, for example a function returning an unconstrained
   String. There are two ways in which this secondary stack is allocated.
 
-  For most targets, the secondary stack grows on demand and is allocated
+  For most targets, the secondary stack is growing on demand and is allocated
   as a chain of blocks in the heap. The -D option is not very
   relevant. It only give some control over the size of the allocated
   blocks (whose size is the minimum of the default secondary stack size value,
   and the actual size needed for the current allocation request).
 
-  For certain targets, notably VxWorks 653 and bare board targets,
-  the secondary stack is allocated by carving off a chunk of the primary task
-  stack. By default this is a fixed percentage of the primary task stack as
-  defined by System.Parameter.Sec_Stack_Percentage. This can be overridden per
-  task using the Secondary_Stack_Size pragma/aspect. The -D option is used to
-  define the size of the environment task's secondary stack.
+  For certain targets, notably VxWorks 653,
+  the secondary stack is allocated by carving off a fixed ratio chunk of the
+  primary task stack. The -D option is used to define the
+  size of the environment task's secondary stack.
 
 
 .. index:: -e  (gnatbind)
 
-:switch:`-e`
+:samp:`-e`
   Output complete list of elaboration-order dependencies.
-
-
-.. index:: -Ea  (gnatbind)
-
-:switch:`-Ea`
-  Store tracebacks in exception occurrences when the target supports it.
-  The "a" is for "address"; tracebacks will contain hexadecimal addresses,
-  unless symbolic tracebacks are enabled.
-
-  See also the packages ``GNAT.Traceback`` and
-  ``GNAT.Traceback.Symbolic`` for more information.
-  Note that on x86 ports, you must not use :switch:`-fomit-frame-pointer`
-  ``gcc`` option.
-
-
-.. index:: -Es  (gnatbind)
-
-:switch:`-Es`
-  Store tracebacks in exception occurrences when the target supports it.
-  The "s" is for "symbolic"; symbolic tracebacks are enabled.
 
 
 .. index:: -E  (gnatbind)
 
-:switch:`-E`
-  Currently the same as ``-Ea``.
+:samp:`-E`
+  Store tracebacks in exception occurrences when the target supports it.
 
+  See also the packages `GNAT.Traceback` and
+  `GNAT.Traceback.Symbolic` for more information.
+  Note that on x86 ports, you must not use *-fomit-frame-pointer*
+  *gcc* option.
 
-.. index:: -f  (gnatbind)
-
-:switch:`-f{elab-order}`
-  Force elaboration order.
 
 .. index:: -F  (gnatbind)
 
-:switch:`-F`
-  Force the checks of elaboration flags. ``gnatbind`` does not normally
+:samp:`-F`
+  Force the checks of elaboration flags. *gnatbind* does not normally
   generate checks of elaboration flags for the main executable, except when
   a Stand-Alone Library is used. However, there are cases when this cannot be
   detected by gnatbind. An example is importing an interface of a Stand-Alone
@@ -6272,67 +6084,67 @@ be presented in subsequent sections.
 
 .. index:: -h  (gnatbind)
 
-:switch:`-h`
-  Output usage (help) information.
+:samp:`-h`
+  Output usage (help) information
 
 
   .. index:: -H32  (gnatbind)
 
-:switch:`-H32`
-  Use 32-bit allocations for ``__gnat_malloc`` (and thus for access types).
+:samp:`-H32`
+  Use 32-bit allocations for `__gnat_malloc` (and thus for access types).
   For further details see :ref:`Dynamic_Allocation_Control`.
 
 
   .. index:: -H64  (gnatbind)
   .. index:: __gnat_malloc
 
-:switch:`-H64`
-  Use 64-bit allocations for ``__gnat_malloc`` (and thus for access types).
+:samp:`-H64`
+  Use 64-bit allocations for `__gnat_malloc` (and thus for access types).
   For further details see :ref:`Dynamic_Allocation_Control`.
 
 
   .. index:: -I  (gnatbind)
 
-:switch:`-I`
+:samp:`-I`
   Specify directory to be searched for source and ALI files.
 
 
   .. index:: -I-  (gnatbind)
 
-:switch:`-I-`
-  Do not look for sources in the current directory where ``gnatbind`` was
+:samp:`-I-`
+  Do not look for sources in the current directory where `gnatbind` was
   invoked, and do not look for ALI files in the directory containing the
-  ALI file named in the ``gnatbind`` command line.
+  ALI file named in the `gnatbind` command line.
 
 
   .. index:: -l  (gnatbind)
 
-:switch:`-l`
+:samp:`-l`
   Output chosen elaboration order.
 
 
   .. index:: -L  (gnatbind)
 
-:switch:`-L{xxx}`
-  Bind the units for library building. In this case the ``adainit`` and
-  ``adafinal`` procedures (:ref:`Binding_with_Non-Ada_Main_Programs`)
-  are renamed to :samp:`{xxx}init` and
-  :samp:`{xxx}final`.
+:samp:`-L{xxx}`
+  Bind the units for library building. In this case the adainit and
+  adafinal procedures (:ref:`Binding_with_Non-Ada_Main_Programs`)
+  are renamed to `xxx`init and
+  `xxx`final.
   Implies -n.
   (:ref:`GNAT_and_Libraries`, for more details.)
 
 
   .. index:: -M  (gnatbind)
 
-:switch:`-M{xyz}`
+:samp:`-M{xyz}`
   Rename generated main program from main to xyz. This option is
   supported on cross environments only.
 
 
   .. index:: -m  (gnatbind)
 
-:switch:`-m{n}`
-  Limit number of detected errors or warnings to ``n``, where ``n`` is
+:samp:`-m{n}`
+  Limit number of detected errors or warnings to `n`, where `n` is
   in the range 1..999999. The default value if no switch is
   given is 9999. If the number of warnings reaches this limit, then a
   message is output and further warnings are suppressed, the bind
@@ -6344,81 +6156,81 @@ be presented in subsequent sections.
 
   .. index:: -n  (gnatbind)
 
-:switch:`-n`
+:samp:`-n`
   No main program.
 
 
   .. index:: -nostdinc  (gnatbind)
 
-:switch:`-nostdinc`
+:samp:`-nostdinc`
   Do not look for sources in the system default directory.
 
 
   .. index:: -nostdlib  (gnatbind)
 
-:switch:`-nostdlib`
+:samp:`-nostdlib`
   Do not look for library files in the system default directory.
 
 
   .. index:: --RTS  (gnatbind)
 
-:switch:`--RTS={rts-path}`
+:samp:`--RTS={rts-path}`
   Specifies the default location of the runtime library. Same meaning as the
-  equivalent ``gnatmake`` flag (:ref:`Switches_for_gnatmake`).
+  equivalent *gnatmake* flag (:ref:`Switches_for_gnatmake`).
 
   .. index:: -o   (gnatbind)
 
-:switch:`-o {file}`
-  Name the output file ``file`` (default is :file:`b~`xxx`.adb`).
+:samp:`-o {file}`
+  Name the output file `file` (default is :file:`b~`xxx`.adb`).
   Note that if this option is used, then linking must be done manually,
   gnatlink cannot be used.
 
 
   .. index:: -O  (gnatbind)
 
-:switch:`-O[={filename}]`
+:samp:`-O[={filename}]`
   Output object list (to standard output or to the named file).
 
 
   .. index:: -p  (gnatbind)
 
-:switch:`-p`
-  Pessimistic (worst-case) elaboration order.
+:samp:`-p`
+  Pessimistic (worst-case) elaboration order
 
 
   .. index:: -P  (gnatbind)
 
-:switch:`-P`
+:samp:`-P`
   Generate binder file suitable for CodePeer.
 
 
   .. index:: -R  (gnatbind)
 
-:switch:`-R`
+:samp:`-R`
   Output closure source list, which includes all non-run-time units that are
   included in the bind.
 
 
   .. index:: -Ra  (gnatbind)
 
-:switch:`-Ra`
-  Like :switch:`-R` but the list includes run-time units.
+:samp:`-Ra`
+  Like *-R* but the list includes run-time units.
 
 
   .. index:: -s  (gnatbind)
 
-:switch:`-s`
+:samp:`-s`
   Require all source files to be present.
 
 
   .. index:: -S  (gnatbind)
 
-:switch:`-S{xxx}`
+:samp:`-S{xxx}`
   Specifies the value to be used when detecting uninitialized scalar
   objects with pragma Initialize_Scalars.
-  The ``xxx`` string specified with the switch is one of:
+  The `xxx` string specified with the switch is one of:
 
-  * ``in`` for an invalid value.
+  * ``in`` for an invalid value*.
 
     If zero is invalid for the discrete type in question,
     then the scalar value is set to all zero bits.
@@ -6448,7 +6260,7 @@ be presented in subsequent sections.
     one bits. For floating-point, a large value is set
     (see body of package System.Scalar_Values for exact values).
 
-  * ``xx`` for hex value (two hex digits).
+  * `xx` for hex value (two hex digits).
 
     The underlying scalar is set to a value consisting of repeated bytes, whose
     value corresponds to the given value. For example if ``BF`` is given,
@@ -6456,35 +6268,35 @@ be presented in subsequent sections.
 
   .. index:: GNAT_INIT_SCALARS
 
-  In addition, you can specify :switch:`-Sev` to indicate that the value is
+  In addition, you can specify *-Sev* to indicate that the value is
   to be set at run time. In this case, the program will look for an environment
-  variable of the form :samp:`GNAT_INIT_SCALARS={yy}`, where ``yy`` is one
-  of :samp:`in/lo/hi/{xx}` with the same meanings as above.
+  variable of the form :samp:`GNAT_INIT_SCALARS={yy}`, where `yy` is one
+  of *in/lo/hi/`xx*` with the same meanings as above.
   If no environment variable is found, or if it does not have a valid value,
-  then the default is ``in`` (invalid values).
+  then the default is *in* (invalid values).
 
 .. index:: -static  (gnatbind)
 
-:switch:`-static`
+:samp:`-static`
   Link against a static GNAT run time.
 
 
   .. index:: -shared  (gnatbind)
 
-:switch:`-shared`
+:samp:`-shared`
   Link against a shared GNAT run time when available.
 
 
   .. index:: -t  (gnatbind)
 
-:switch:`-t`
-  Tolerate time stamp and other consistency errors.
+:samp:`-t`
+  Tolerate time stamp and other consistency errors
 
 
   .. index:: -T  (gnatbind)
 
-:switch:`-T{n}`
-  Set the time slice value to ``n`` milliseconds. If the system supports
+:samp:`-T{n}`
+  Set the time slice value to `n` milliseconds. If the system supports
   the specification of a specific time slice value, then the indicated value
   is used. If the system does not support specific time slice values, but
   does support some general notion of round-robin scheduling, then any
@@ -6494,13 +6306,13 @@ be presented in subsequent sections.
   slicing, and in addition, indicates to the tasking run time that the
   semantics should match as closely as possible the Annex D
   requirements of the Ada RM, and in particular sets the default
-  scheduling policy to ``FIFO_Within_Priorities``.
+  scheduling policy to `FIFO_Within_Priorities`.
 
 
   .. index:: -u  (gnatbind)
 
-:switch:`-u{n}`
-  Enable dynamic stack usage, with ``n`` results stored and displayed
+:samp:`-u{n}`
+  Enable dynamic stack usage, with `n` results stored and displayed
   at program termination. A result is generated when a task
   terminates. Results that can't be stored are displayed on the fly, at
   task termination. This option is currently not supported on Itanium
@@ -6509,55 +6321,47 @@ be presented in subsequent sections.
 
   .. index:: -v  (gnatbind)
 
-:switch:`-v`
+:samp:`-v`
   Verbose mode. Write error messages, header, summary output to
   :file:`stdout`.
 
 
-  .. index:: -V  (gnatbind)
-
-:switch:`-V{key}={value}`
-  Store the given association of ``key`` to ``value`` in the bind environment.
-  Values stored this way can be retrieved at run time using
-  ``GNAT.Bind_Environment``.
-
-
   .. index:: -w  (gnatbind)
 
-:switch:`-w{x}`
-  Warning mode; ``x`` = s/e for suppress/treat as error.
+:samp:`-w{x}`
+  Warning mode; `x` = s/e for suppress/treat as error
 
 
   .. index:: -Wx  (gnatbind)
 
-:switch:`-Wx{e}`
+:samp:`-Wx{e}`
   Override default wide character encoding for standard Text_IO files.
 
 
   .. index:: -x  (gnatbind)
 
-:switch:`-x`
+:samp:`-x`
   Exclude source files (check object consistency only).
 
 
   .. index:: -Xnnn  (gnatbind)
 
-:switch:`-X{nnn}`
+:samp:`-X{nnn}`
   Set default exit status value, normally 0 for POSIX compliance.
 
 
   .. index:: -y  (gnatbind)
 
-:switch:`-y`
-  Enable leap seconds support in ``Ada.Calendar`` and its children.
+:samp:`-y`
+  Enable leap seconds support in `Ada.Calendar` and its children.
 
 
   .. index:: -z  (gnatbind)
 
-:switch:`-z`
+:samp:`-z`
   No main subprogram.
 
-You may obtain this listing of switches by running ``gnatbind`` with
+You may obtain this listing of switches by running `gnatbind` with
 no arguments.
 
 
@@ -6566,7 +6370,7 @@ no arguments.
 Consistency-Checking Modes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-As described earlier, by default ``gnatbind`` checks
+As described earlier, by default `gnatbind` checks
 that object files are consistent with one another and are consistent
 with any source files it can locate. The following switches control binder
 access to sources.
@@ -6574,7 +6378,7 @@ access to sources.
 
   .. index:: -s  (gnatbind)
 
-:switch:`-s`
+:samp:`-s`
   Require source files to be present. In this mode, the binder must be
   able to locate all source files that are referenced, in order to check
   their consistency. In normal mode, if a source file cannot be located it
@@ -6584,19 +6388,19 @@ access to sources.
 
   .. index:: -Wx  (gnatbind)
 
-:switch:`-Wx{e}`
+:samp:`-Wx{e}`
   Override default wide character encoding for standard Text_IO files.
   Normally the default wide character encoding method used for standard
   [Wide\_[Wide\_]]Text_IO files is taken from the encoding specified for
   the main source input (see description of switch
-  :switch:`-gnatWx` for the compiler). The
+  *-gnatWx* for the compiler). The
   use of this switch for the binder (which has the same set of
   possible arguments) overrides this default as specified.
 
 
   .. index:: -x  (gnatbind)
 
-:switch:`-x`
+:samp:`-x`
   Exclude source files. In this mode, the binder only checks that ALI
   files are consistent with one another. Source files are not accessed.
   The binder runs faster in this mode, and there is still a guarantee that
@@ -6604,9 +6408,9 @@ access to sources.
   If a source file has been edited since it was last compiled, and you
   specify this switch, the binder will not detect that the object
   file is out of date with respect to the source file. Note that this is the
-  mode that is automatically used by ``gnatmake`` because in this
+  mode that is automatically used by *gnatmake* because in this
   case the checking against sources has already been performed by
-  ``gnatmake`` in the course of compilation (i.e., before binding).
+  *gnatmake* in the course of compilation (i.e., before binding).
 
 
 .. _Binder_Error_Message_Control:
@@ -6621,7 +6425,7 @@ messages from the binder:
 
   .. index:: -v  (gnatbind)
 
-:switch:`-v`
+:samp:`-v`
   Verbose mode. In the normal mode, brief error messages are generated to
   :file:`stderr`. If this switch is present, a header is written
   to :file:`stdout` and any error messages are directed to :file:`stdout`.
@@ -6630,38 +6434,38 @@ messages from the binder:
 
   .. index:: -b  (gnatbind)
 
-:switch:`-b`
+:samp:`-b`
   Generate brief error messages to :file:`stderr` even if verbose mode is
   specified. This is relevant only when used with the
-  :switch:`-v` switch.
+  *-v* switch.
 
 
   .. index:: -m  (gnatbind)
 
-:switch:`-m{n}`
-  Limits the number of error messages to ``n``, a decimal integer in the
+:samp:`-m{n}`
+  Limits the number of error messages to `n`, a decimal integer in the
   range 1-999. The binder terminates immediately if this limit is reached.
 
 
   .. index:: -M  (gnatbind)
 
-:switch:`-M{xxx}`
-  Renames the generated main program from ``main`` to ``xxx``.
+:samp:`-M{xxx}`
+  Renames the generated main program from `main` to `xxx`.
   This is useful in the case of some cross-building environments, where
   the actual main program is separate from the one generated
-  by ``gnatbind``.
+  by `gnatbind`.
 
 
   .. index:: -ws  (gnatbind)
   .. index:: Warnings
 
-:switch:`-ws`
+:samp:`-ws`
   Suppress all warning messages.
 
 
   .. index:: -we  (gnatbind)
 
-:switch:`-we`
+:samp:`-we`
   Treat any warning messages as fatal errors.
 
 
@@ -6670,7 +6474,7 @@ messages from the binder:
   .. index:: Binder consistency checks
   .. index:: Consistency checks, in binder
 
-:switch:`-t`
+:samp:`-t`
   The binder performs a number of consistency checks including:
 
 
@@ -6678,7 +6482,7 @@ messages from the binder:
 
   * Check that checksums of a given source unit are consistent
 
-  * Check that consistent versions of ``GNAT`` were used for compilation
+  * Check that consistent versions of `GNAT` were used for compilation
 
   * Check consistency of configuration pragmas as required
 
@@ -6687,7 +6491,7 @@ messages from the binder:
   generated which abort the binder and prevent the output of a binder
   file and subsequent link to obtain an executable.
 
-  The :switch:`-t` switch converts these error messages
+  The *-t* switch converts these error messages
   into warnings, so that
   binding and linking can continue to completion even in the presence of such
   errors. The result may be a failed link (due to missing symbols), or a
@@ -6695,7 +6499,7 @@ messages from the binder:
 
   .. note::
 
-     This means that :switch:`-t` should be used only in unusual situations,
+     This means that *-t* should be used only in unusual situations,
      with extreme care.
 
 .. _Elaboration_Control:
@@ -6707,68 +6511,27 @@ The following switches provide additional control over the elaboration
 order. For full details see :ref:`Elaboration_Order_Handling_in_GNAT`.
 
 
-.. index:: -f  (gnatbind)
-
-:switch:`-f{elab-order}`
-  Force elaboration order.
-
-  ``elab-order`` should be the name of a "forced elaboration order file", that
-  is, a text file containing library item names, one per line. A name of the
-  form "some.unit%s" or "some.unit (spec)" denotes the spec of Some.Unit. A
-  name of the form "some.unit%b" or "some.unit (body)" denotes the body of
-  Some.Unit. Each pair of lines is taken to mean that there is an elaboration
-  dependence of the second line on the first. For example, if the file
-  contains:
-
-  .. code-block:: ada
-
-      this (spec)
-      this (body)
-      that (spec)
-      that (body)
-
-  then the spec of This will be elaborated before the body of This, and the
-  body of This will be elaborated before the spec of That, and the spec of That
-  will be elaborated before the body of That. The first and last of these three
-  dependences are already required by Ada rules, so this file is really just
-  forcing the body of This to be elaborated before the spec of That.
-
-  The given order must be consistent with Ada rules, or else ``gnatbind`` will
-  give elaboration cycle errors. For example, if you say x (body) should be
-  elaborated before x (spec), there will be a cycle, because Ada rules require
-  x (spec) to be elaborated before x (body); you can't have the spec and body
-  both elaborated before each other.
-
-  If you later add "with That;" to the body of This, there will be a cycle, in
-  which case you should erase either "this (body)" or "that (spec)" from the
-  above forced elaboration order file.
-
-  Blank lines and Ada-style comments are ignored. Unit names that do not exist
-  in the program are ignored. Units in the GNAT predefined library are also
-  ignored.
-
-
   .. index:: -p  (gnatbind)
 
-:switch:`-p`
+:samp:`-p`
   Normally the binder attempts to choose an elaboration order that is
   likely to minimize the likelihood of an elaboration order error resulting
-  in raising a ``Program_Error`` exception. This switch reverses the
+  in raising a `Program_Error` exception. This switch reverses the
   action of the binder, and requests that it deliberately choose an order
   that is likely to maximize the likelihood of an elaboration error.
   This is useful in ensuring portability and avoiding dependence on
   accidental fortuitous elaboration ordering.
 
-  Normally it only makes sense to use the :switch:`-p`
+  Normally it only makes sense to use the *-p*
   switch if dynamic
-  elaboration checking is used (:switch:`-gnatE` switch used for compilation).
+  elaboration checking is used (*-gnatE* switch used for compilation).
   This is because in the default static elaboration mode, all necessary
-  ``Elaborate`` and ``Elaborate_All`` pragmas are implicitly inserted.
+  `Elaborate` and `Elaborate_All` pragmas are implicitly inserted.
   These implicit pragmas are still respected by the binder in
-  :switch:`-p` mode, so a
+  *-p* mode, so a
   safe elaboration order is assured.
 
-  Note that :switch:`-p` is not intended for
+  Note that *-p* is not intended for
   production use; it is more for debugging/experimental use.
 
 .. _Output_Control:
@@ -6782,14 +6545,14 @@ generated by the binder.
 
   .. index:: -c  (gnatbind)
 
-:switch:`-c`
+:samp:`-c`
   Check only. Do not generate the binder output file. In this mode the
   binder performs all error checks but does not generate an output file.
 
 
   .. index:: -e  (gnatbind)
 
-:switch:`-e`
+:samp:`-e`
   Output complete list of elaboration-order dependencies, showing the
   reason for each dependency. This output can be rather extensive but may
   be useful in diagnosing problems with elaboration order. The output is
@@ -6798,27 +6561,27 @@ generated by the binder.
 
   .. index:: -h  (gnatbind)
 
-:switch:`-h`
+:samp:`-h`
   Output usage information. The output is written to :file:`stdout`.
 
 
   .. index:: -K  (gnatbind)
 
-:switch:`-K`
+:samp:`-K`
   Output linker options to :file:`stdout`. Includes library search paths,
   contents of pragmas Ident and Linker_Options, and libraries added
-  by ``gnatbind``.
+  by `gnatbind`.
 
 
   .. index:: -l  (gnatbind)
 
-:switch:`-l`
+:samp:`-l`
   Output chosen elaboration order. The output is written to :file:`stdout`.
 
 
   .. index:: -O  (gnatbind)
 
-:switch:`-O`
+:samp:`-O`
   Output full names of all the object files that must be linked to provide
   the Ada component of the program. The output is written to :file:`stdout`.
   This list includes the files explicitly supplied and referenced by the user
@@ -6829,9 +6592,9 @@ generated by the binder.
 
   .. index:: -o  (gnatbind)
 
-:switch:`-o {file}`
-  Set name of output file to ``file`` instead of the normal
-  :file:`b~`mainprog`.adb` default. Note that ``file`` denote the Ada
+:samp:`-o {file}`
+  Set name of output file to `file` instead of the normal
+  :file:`b~`mainprog`.adb` default. Note that `file` denote the Ada
   binder generated body filename.
   Note that if this option is used, then linking must be done manually.
   It is not possible to use gnatlink in this case, since it cannot locate
@@ -6840,8 +6603,8 @@ generated by the binder.
 
   .. index:: -r  (gnatbind)
 
-:switch:`-r`
-  Generate list of ``pragma Restrictions`` that could be applied to
+:samp:`-r`
+  Generate list of `pragma Restrictions` that could be applied to
   the current unit. This is useful for code audit purposes, and also may
   be used to improve code generation in some cases.
 
@@ -6851,19 +6614,19 @@ generated by the binder.
 Dynamic Allocation Control
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The heap control switches -- :switch:`-H32` and :switch:`-H64` --
+The heap control switches -- *-H32* and *-H64* --
 determine whether dynamic allocation uses 32-bit or 64-bit memory.
-They only affect compiler-generated allocations via ``__gnat_malloc``;
-explicit calls to ``malloc`` and related functions from the C
+They only affect compiler-generated allocations via `__gnat_malloc`;
+explicit calls to `malloc` and related functions from the C
 run-time library are unaffected.
 
-:switch:`-H32`
+:samp:`-H32`
   Allocate memory on 32-bit heap
 
 
-:switch:`-H64`
+:samp:`-H64`
   Allocate memory on 64-bit heap.  This is the default
-  unless explicitly overridden by a ``'Size`` clause on the access type.
+  unless explicitly overridden by a `'Size` clause on the access type.
 
 These switches are only effective on VMS platforms.
 
@@ -6875,7 +6638,7 @@ Binding with Non-Ada Main Programs
 
 The description so far has assumed that the main
 program is in Ada, and that the task of the binder is to generate a
-corresponding function ``main`` that invokes this Ada main
+corresponding function `main` that invokes this Ada main
 program. GNAT also supports the building of executable programs where
 the main program is not in Ada, but some of the called routines are
 written in Ada and compiled using GNAT (:ref:`Mixed_Language_Programming`).
@@ -6884,7 +6647,7 @@ The following switch is used in this situation:
 
   .. index:: -n  (gnatbind)
 
-:switch:`-n`
+:samp:`-n`
   No main program. The main program is not in Ada.
 
 In this case, most of the functions of the binder are still required,
@@ -6893,9 +6656,9 @@ containing the following callable routines:
 
   .. index:: adainit
 
-  ``adainit``
+  *adainit*
     You must call this routine to initialize the Ada part of the program by
-    calling the necessary elaboration routines. A call to ``adainit`` is
+    calling the necessary elaboration routines. A call to `adainit` is
     required before the first call to an Ada subprogram.
 
     Note that it is assumed that the basic execution environment must be setup
@@ -6908,18 +6671,18 @@ containing the following callable routines:
 
   .. index:: adafinal
 
-  ``adafinal``
+  *adafinal*
     You must call this routine to perform any library-level finalization
-    required by the Ada subprograms. A call to ``adafinal`` is required
+    required by the Ada subprograms. A call to `adafinal` is required
     after the last call to an Ada subprogram, and before the program
     terminates.
 
 .. index:: -n  (gnatbind)
 .. index:: Binder, multiple input files
 
-If the :switch:`-n` switch
+If the *-n* switch
 is given, more than one ALI file may appear on
-the command line for ``gnatbind``. The normal ``closure``
+the command line for `gnatbind`. The normal *closure*
 calculation is performed for each of the specified units. Calculating
 the closure means finding out the set of units involved by tracing
 |with| references. The reason it is necessary to be able to
@@ -6927,12 +6690,12 @@ specify more than one ALI file is that a given program may invoke two or
 more quite separate groups of Ada units.
 
 The binder takes the name of its output file from the last specified ALI
-file, unless overridden by the use of the :switch:`-o file`.
+file, unless overridden by the use of the *-o file*.
 
 .. index:: -o  (gnatbind)
 
 The output is an Ada unit in source form that can be compiled with GNAT.
-This compilation occurs automatically as part of the ``gnatlink``
+This compilation occurs automatically as part of the *gnatlink*
 processing.
 
 Currently the GNAT run time requires a FPU using 80 bits mode
@@ -6956,7 +6719,7 @@ The following switch is used to bind programs organized in this manner:
 
   .. index:: -z  (gnatbind)
 
-:switch:`-z`
+:samp:`-z`
   Normally the binder checks that the unit name given on the command line
   corresponds to a suitable main subprogram. When this switch is used,
   a list of ALI files can be given, and the execution of the program
@@ -6964,7 +6727,7 @@ The following switch is used to bind programs organized in this manner:
   that the default wide character encoding method for standard Text_IO
   files is always set to Brackets if this switch is set (you can use
   the binder switch
-  :switch:`-Wx` to override this default).
+  *-Wx* to override this default).
 
 
 .. _Command-Line_Access:
@@ -6972,7 +6735,7 @@ The following switch is used to bind programs organized in this manner:
 Command-Line Access
 -------------------
 
-The package ``Ada.Command_Line`` provides access to the command-line
+The package `Ada.Command_Line` provides access to the command-line
 arguments and program name. In order for this interface to operate
 correctly, the two variables
 
@@ -6985,35 +6748,35 @@ correctly, the two variables
 .. index:: gnat_argc
 
 are declared in one of the GNAT library routines. These variables must
-be set from the actual ``argc`` and ``argv`` values passed to the
-main program. With no *n* present, ``gnatbind``
+be set from the actual `argc` and `argv` values passed to the
+main program. With no *n* present, `gnatbind`
 generates the C main program to automatically set these variables.
 If the *n* switch is used, there is no automatic way to
 set these variables. If they are not set, the procedures in
-``Ada.Command_Line`` will not be available, and any attempt to use
-them will raise ``Constraint_Error``. If command line access is
-required, your main program must set ``gnat_argc`` and
-``gnat_argv`` from the ``argc`` and ``argv`` values passed to
+`Ada.Command_Line` will not be available, and any attempt to use
+them will raise `Constraint_Error`. If command line access is
+required, your main program must set `gnat_argc` and
+`gnat_argv` from the `argc` and `argv` values passed to
 it.
 
 
 .. _Search_Paths_for_gnatbind:
 
-Search Paths for ``gnatbind``
------------------------------
+Search Paths for `gnatbind`
+---------------------------
 
 The binder takes the name of an ALI file as its argument and needs to
 locate source files as well as other ALI files to verify object consistency.
 
-For source files, it follows exactly the same search rules as ``gcc``
+For source files, it follows exactly the same search rules as *gcc*
 (see :ref:`Search_Paths_and_the_Run-Time_Library_RTL`). For ALI files the
 directories searched are:
 
 * The directory containing the ALI file named in the command line, unless
-  the switch :switch:`-I-` is specified.
+  the switch *-I-* is specified.
 
-* All directories specified by :switch:`-I`
-  switches on the ``gnatbind``
+* All directories specified by *-I*
+  switches on the `gnatbind`
   command line, in the order given.
 
   .. index:: ADA_PRJ_OBJECTS_FILE
@@ -7036,23 +6799,23 @@ directories searched are:
 
 * The content of the :file:`ada_object_path` file which is part of the GNAT
   installation tree and is used to store standard libraries such as the
-  GNAT Run Time Library (RTL) unless the switch :switch:`-nostdlib` is
+  GNAT Run Time Library (RTL) unless the switch *-nostdlib* is
   specified. See :ref:`Installing_a_library`
 
 .. index:: -I  (gnatbind)
 .. index:: -aI  (gnatbind)
 .. index:: -aO  (gnatbind)
 
-In the binder the switch :switch:`-I`
+In the binder the switch *-I*
 is used to specify both source and
-library file paths. Use :switch:`-aI`
+library file paths. Use *-aI*
 instead if you want to specify
-source paths only, and :switch:`-aO`
+source paths only, and *-aO*
 if you want to specify library paths
 only. This means that for the binder
-:switch:`-I{dir}` is equivalent to
-:switch:`-aI{dir}`
-:switch:`-aO`{dir}`.
+:samp:`-I{dir}` is equivalent to
+:samp:`-aI{dir}`
+:samp:`-aO`{dir}`.
 The binder generates the bind file (a C language source file) in the
 current working directory.
 
@@ -7061,7 +6824,7 @@ current working directory.
 .. index:: Interfaces
 .. index:: GNAT
 
-The packages ``Ada``, ``System``, and ``Interfaces`` and their
+The packages `Ada`, `System`, and `Interfaces` and their
 children make up the GNAT Run-Time Library, together with the package
 GNAT and its children, which contain a set of useful additional
 library functions provided by GNAT. The sources for these units are
@@ -7080,16 +6843,16 @@ development environments much more flexible.
 
 .. _Examples_of_gnatbind_Usage:
 
-Examples of ``gnatbind`` Usage
-------------------------------
+Examples of `gnatbind` Usage
+----------------------------
 
-Here are some examples of ``gnatbind`` invovations:
+Here are some examples of `gnatbind` invovations:
 
   ::
 
      gnatbind hello
 
-  The main program ``Hello`` (source program in :file:`hello.adb`) is
+  The main program `Hello` (source program in :file:`hello.adb`) is
   bound using the standard switch settings. The generated main program is
   :file:`b~hello.adb`. This is the normal, default use of the binder.
 
@@ -7097,7 +6860,7 @@ Here are some examples of ``gnatbind`` invovations:
 
      gnatbind hello -o mainprog.adb
 
-  The main program ``Hello`` (source program in :file:`hello.adb`) is
+  The main program `Hello` (source program in :file:`hello.adb`) is
   bound using the standard switch settings. The generated main program is
   :file:`mainprog.adb` with the associated spec in
   :file:`mainprog.ads`. Note that you must specify the body here not the
@@ -7107,35 +6870,38 @@ Here are some examples of ``gnatbind`` invovations:
 
 .. _Linking_with_gnatlink:
 
-Linking with ``gnatlink``
-=========================
+Linking with *gnatlink*
+=======================
 
-.. index:: ! gnatlink
+.. index: ! gnatlink
 
-This chapter discusses ``gnatlink``, a tool that links
+This chapter discusses *gnatlink*, a tool that links
 an Ada program and builds an executable file. This utility
-invokes the system linker (via the ``gcc`` command)
+invokes the system linker (via the *gcc* command)
 with a correct list of object files and library references.
-``gnatlink`` automatically determines the list of files and
+*gnatlink* automatically determines the list of files and
 references for the Ada part of a program. It uses the binder file
-generated by the ``gnatbind`` to determine this list.
+generated by the *gnatbind* to determine this list.
+
+Note: to invoke `gnatlink` with a project file, use the `gnat`
+driver (see :ref:`The_GNAT_Driver_and_Project_Files`).
 
 .. _Running_gnatlink:
 
-Running ``gnatlink``
---------------------
+Running *gnatlink*
+------------------
 
-The form of the ``gnatlink`` command is
+The form of the *gnatlink* command is
 
 
 .. code-block:: sh
 
-    $ gnatlink [ switches ] mainprog [.ali]
-               [ non-Ada objects ] [ linker options ]
+    $ gnatlink [`switches`] `mainprog`[.ali]
+               [`non-Ada objects`] [`linker options`]
 
 
 
-The arguments of ``gnatlink`` (switches, main ``ALI`` file,
+The arguments of *gnatlink* (switches, main :file:`ALI` file,
 non-Ada objects
 or linker options) may be in any order, provided that no non-Ada object may
 be mistaken for a main :file:`ALI` file.
@@ -7145,32 +6911,32 @@ whose name is the concatenation of :file:`F` and :file:`.ali`.
 
 :file:`mainprog.ali` references the ALI file of the main program.
 The :file:`.ali` extension of this file can be omitted. From this
-reference, ``gnatlink`` locates the corresponding binder file
+reference, *gnatlink* locates the corresponding binder file
 :file:`b~mainprog.adb` and, using the information in this file along
 with the list of non-Ada objects and linker options, constructs a
 linker command file to create the executable.
 
-The arguments other than the ``gnatlink`` switches and the main
+The arguments other than the *gnatlink* switches and the main
 :file:`ALI` file are passed to the linker uninterpreted.
 They typically include the names of
 object files for units written in other languages than Ada and any library
 references required to resolve references in any of these foreign language
-units, or in ``Import`` pragmas in any Ada units.
+units, or in `Import` pragmas in any Ada units.
 
-``linker options`` is an optional list of linker specific
+`linker options` is an optional list of linker specific
 switches.
-The default linker called by gnatlink is ``gcc`` which in
+The default linker called by gnatlink is *gcc* which in
 turn calls the appropriate system linker.
 
-One useful option for the linker is :switch:`-s`: it reduces the size of the
+One useful option for the linker is *-s*: it reduces the size of the
 executable by removing all symbol table and relocation information from the
 executable.
 
-Standard options for the linker such as :switch:`-lmy_lib` or
-:switch:`-Ldir` can be added as is.
+Standard options for the linker such as *-lmy_lib* or
+*-Ldir* can be added as is.
 For options that are not recognized by
-``gcc`` as linker options, use the ``gcc`` switches
-:switch:`-Xlinker` or :switch:`-Wl,`.
+*gcc* as linker options, use the *gcc* switches
+*-Xlinker* or *-Wl,*.
 
 Refer to the GCC documentation for
 details.
@@ -7182,46 +6948,46 @@ Here is an example showing how to generate a linker map:
      $ gnatlink my_prog -Wl,-Map,MAPFILE
 
 
-Using ``linker options`` it is possible to set the program stack and
+Using `linker options` it is possible to set the program stack and
 heap size.
 See :ref:`Setting_Stack_Size_from_gnatlink` and
 :ref:`Setting_Heap_Size_from_gnatlink`.
 
-``gnatlink`` determines the list of objects required by the Ada
+*gnatlink* determines the list of objects required by the Ada
 program and prepends them to the list of objects passed to the linker.
-``gnatlink`` also gathers any arguments set by the use of
-``pragma Linker_Options`` and adds them to the list of arguments
+*gnatlink* also gathers any arguments set by the use of
+`pragma Linker_Options` and adds them to the list of arguments
 presented to the linker.
 
 
 .. _Switches_for_gnatlink:
 
-Switches for ``gnatlink``
--------------------------
+Switches for *gnatlink*
+-----------------------
 
-The following switches are available with the ``gnatlink`` utility:
+The following switches are available with the *gnatlink* utility:
 
 .. index:: --version  (gnatlink)
 
-:switch:`--version`
+:samp:`--version`
   Display Copyright and version, then exit disregarding all other options.
 
 
 .. index:: --help  (gnatlink)
 
-:switch:`--help`
-  If :switch:`--version` was not used, display usage, then exit disregarding
+:samp:`--help`
+  If *--version* was not used, display usage, then exit disregarding
   all other options.
 
 
 .. index:: Command line length
 .. index:: -f  (gnatlink)
 
-:switch:`-f`
-  On some targets, the command line length is limited, and ``gnatlink``
+:samp:`-f`
+  On some targets, the command line length is limited, and *gnatlink*
   will generate a separate file for the linker if the list of object files
   is too long.
-  The :switch:`-f` switch forces this file
+  The *-f* switch forces this file
   to be generated even if
   the limit is not exceeded. This is useful in some cases to deal with
   special situations where the command line length is exceeded.
@@ -7230,16 +6996,16 @@ The following switches are available with the ``gnatlink`` utility:
 .. index:: Debugging information, including
 .. index:: -g  (gnatlink)
 
-:switch:`-g`
+:samp:`-g`
   The option to include debugging information causes the Ada bind file (in
-  other words, :file:`b~mainprog.adb`) to be compiled with :switch:`-g`.
+  other words, :file:`b~mainprog.adb`) to be compiled with *-g*.
   In addition, the binder does not delete the :file:`b~mainprog.adb`,
   :file:`b~mainprog.o` and :file:`b~mainprog.ali` files.
-  Without :switch:`-g`, the binder removes these files by default.
+  Without *-g*, the binder removes these files by default.
 
 .. index:: -n  (gnatlink)
 
-:switch:`-n`
+:samp:`-n`
   Do not compile the file generated by the binder. This may be used when
   a link is rerun with different options, but there is no need to recompile
   the binder file.
@@ -7247,7 +7013,7 @@ The following switches are available with the ``gnatlink`` utility:
 
 .. index:: -v  (gnatlink)
 
-:switch:`-v`
+:samp:`-v`
   Verbose mode. Causes additional information to be output, including a full
   list of the included object files.
   This switch option is most useful when you want
@@ -7256,62 +7022,70 @@ The following switches are available with the ``gnatlink`` utility:
 
 .. index:: -v -v  (gnatlink)
 
-:switch:`-v -v`
+:samp:`-v -v`
   Very verbose mode. Requests that the compiler operate in verbose mode when
   it compiles the binder file, and that the system linker run in verbose mode.
 
 
 .. index:: -o  (gnatlink)
 
-:switch:`-o {exec-name}`
-  ``exec-name`` specifies an alternate name for the generated
+:samp:`-o {exec-name}`
+  `exec-name` specifies an alternate name for the generated
   executable program. If this switch is omitted, the executable has the same
-  name as the main unit. For example, ``gnatlink try.ali`` creates
+  name as the main unit. For example, `gnatlink try.ali` creates
   an executable called :file:`try`.
+
+
+.. index:: -b  (gnatlink)
+
+:samp:`-b {target}`
+  Compile your program to run on `target`, which is the name of a
+  system configuration. You must have a GNAT cross-compiler built if
+  `target` is not the same as your host system.
 
 
 .. index:: -B  (gnatlink)
 
-:switch:`-B{dir}`
-  Load compiler executables (for example, ``gnat1``, the Ada compiler)
-  from ``dir`` instead of the default location. Only use this switch
+:samp:`-B{dir}`
+  Load compiler executables (for example, `gnat1`, the Ada compiler)
+  from `dir` instead of the default location. Only use this switch
   when multiple versions of the GNAT compiler are available.
-  See the ``Directory Options`` section in :title:`The_GNU_Compiler_Collection`
-  for further details. You would normally use the :switch:`-b` or
-  :switch:`-V` switch instead.
+  See the `Directory Options` section in :title:`The_GNU_Compiler_Collection`
+  for further details. You would normally use the *-b* or
+  *-V* switch instead.
 
 
 .. index:: -M  (gnatlink)
 
-:switch:`-M`
+:samp:`-M`
   When linking an executable, create a map file. The name of the map file
   has the same name as the executable with extension ".map".
 
 
 .. index:: -M=  (gnatlink)
 
-:switch:`-M={mapfile}`
+:samp:`-M={mapfile}`
   When linking an executable, create a map file. The name of the map file is
-  ``mapfile``.
+  `mapfile`.
 
 
 .. index:: --GCC=compiler_name  (gnatlink)
 
-:switch:`--GCC={compiler_name}`
+:samp:`--GCC={compiler_name}`
   Program used for compiling the binder file. The default is
-  ``gcc``. You need to use quotes around ``compiler_name`` if
-  ``compiler_name`` contains spaces or other separator characters.
-  As an example ``--GCC="foo -x -y"`` will instruct ``gnatlink`` to
+  ``gcc``. You need to use quotes around `compiler_name` if
+  `compiler_name` contains spaces or other separator characters.
+  As an example ``--GCC="foo -x -y"`` will instruct *gnatlink* to
   use ``foo -x -y`` as your compiler. Note that switch ``-c`` is always
   inserted after your command name. Thus in the above example the compiler
-  command that will be used by ``gnatlink`` will be ``foo -c -x -y``.
+  command that will be used by *gnatlink* will be ``foo -c -x -y``.
   A limitation of this syntax is that the name and path name of the executable
   itself must not include any embedded spaces. If the compiler executable is
   different from the default one (gcc or <prefix>-gcc), then the back-end
   switches in the ALI file are not used to compile the binder generated source.
   For example, this is the case with ``--GCC="foo -x -y"``. But the back end
   switches will be used for ``--GCC="gcc -gnatv"``. If several
-  ``--GCC=compiler_name`` are used, only the last ``compiler_name``
+  ``--GCC=compiler_name`` are used, only the last `compiler_name`
   is taken into account. However, all the additional switches are also taken
   into account. Thus,
   ``--GCC="foo -x -y" --GCC="bar -z -t"`` is equivalent to
@@ -7320,13 +7094,13 @@ The following switches are available with the ``gnatlink`` utility:
 
 .. index:: --LINK=  (gnatlink)
 
-:switch:`--LINK={name}`
-  ``name`` is the name of the linker to be invoked. This is especially
+:samp:`--LINK={name}`
+  `name` is the name of the linker to be invoked. This is especially
   useful in mixed language programs since languages such as C++ require
   their own linker to be used. When this switch is omitted, the default
-  name for the linker is ``gcc``. When this switch is used, the
-  specified linker is called instead of ``gcc`` with exactly the same
-  parameters that would have been passed to ``gcc`` so if the desired
+  name for the linker is *gcc*. When this switch is used, the
+  specified linker is called instead of *gcc* with exactly the same
+  parameters that would have been passed to *gcc* so if the desired
   linker requires different parameters it is necessary to use a wrapper
   script that massages the parameters before invoking the real linker. It
   may be useful to control the exact invocation by using the verbose
@@ -7335,19 +7109,19 @@ The following switches are available with the ``gnatlink`` utility:
 
 .. _Using_the_GNU_make_Utility:
 
-Using the GNU ``make`` Utility
-==============================
+Using the GNU `make` Utility
+============================
 
 .. index:: make (GNU), GNU make
 
 This chapter offers some examples of makefiles that solve specific
 problems. It does not explain how to write a makefile, nor does it try to replace the
-``gnatmake`` utility (:ref:`The_GNAT_Make_Program_gnatmake`).
+*gnatmake* utility (:ref:`The_GNAT_Make_Program_gnatmake`).
 
 All the examples in this section are specific to the GNU version of
-make. Although ``make`` is a standard utility, and the basic language
+make. Although *make* is a standard utility, and the basic language
 is the same, these examples use some advanced features found only in
-``GNU make``.
+`GNU make`.
 
 .. _Using_gnatmake_in_a_Makefile:
 
@@ -7364,7 +7138,7 @@ time of very big applications while maintaining full coherence at
 each step of the build process.
 
 The list of dependencies are handled automatically by
-``gnatmake``. The Makefile is simply used to call gnatmake in each of
+*gnatmake*. The Makefile is simply used to call gnatmake in each of
 the appropriate directories.
 
 Note that you should also read the example on how to automatically
@@ -7467,13 +7241,13 @@ automatically.
 
 The example below presents two methods. The first one, although less
 general, gives you more control over the list. It involves wildcard
-characters, that are automatically expanded by ``make``. Its
+characters, that are automatically expanded by *make*. Its
 shortcoming is that you need to explicitly specify some of the
 organization of your project, such as for instance the directory tree
 depth, whether some directories are found in a separate tree, etc.
 
 The second method is the most general one. It requires an external
-program, called ``find``, which is standard on all Unix systems. All
+program, called *find*, which is standard on all Unix systems. All
 the directories found under a given root directory will be added to the
 list.
 
@@ -7505,7 +7279,7 @@ list.
   # Note that the argument(s) to wildcard below should end with a '/'.
   # Since wildcards also return file names, we have to filter them out
   # to avoid duplicate directory names.
-  # We thus use make's ``dir`` and ``sort`` functions.
+  # We thus use make's `dir` and `sort` functions.
   # It sets DIRs to the following value (note that the directories aaa and baa
   # are not given, unless you change the arguments to wildcard).
   # DIRS= ./a/a/ ./b/ ./a/aa/ ./a/ab/ ./a/ac/ ./b/ba/ ./b/bb/ ./b/bc/
@@ -7562,7 +7336,7 @@ operating systems limit the length of the command line. It is thus hard to give
 gnatmake the list of source and object directories.
 
 This example shows how you can set up environment variables, which will
-make ``gnatmake`` behave exactly as if the directories had been
+make *gnatmake* behave exactly as if the directories had been
 specified on the command line, but have a much higher length limit (or
 even none on most systems).
 
@@ -7574,7 +7348,7 @@ path (where the ALI files are found) is different from the sources patch.
 
 Note a small trick in the Makefile below: for efficiency reasons, we
 create two temporary variables (SOURCE_LIST and OBJECT_LIST), that are
-expanded immediately by ``make``. This way we overcome the standard
+expanded immediately by `make`. This way we overcome the standard
 make behavior which is to expand the variables only when they are
 actually used.
 

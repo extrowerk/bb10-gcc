@@ -67,14 +67,14 @@ contains
 
     iflag = 0
     call bTypeInstance%callback(iflag)
-    if (iflag /= 7) STOP 1
+    if (iflag /= 7) call abort
     iflag = 1
     call solver( bTypeInstance, iflag )
-    if (iflag /= 7) STOP 2
+    if (iflag /= 7) call abort
 
     iflag = 2
     call aTypeInstance%callback(iflag)
-    if (iflag /= 3) STOP 3
+    if (iflag /= 3) call abort
   end subroutine test1
 
   subroutine test2
@@ -89,14 +89,14 @@ contains
 
     iflag = 0
     call bTypeInstance%callback(iflag)
-    if (iflag /= 7) STOP 4
+    if (iflag /= 7) call abort
     iflag = 1
     call solver( bTypeInstance, iflag )
-    if (iflag /= 7) STOP 5
+    if (iflag /= 7) call abort
 
     iflag = 2
     call aTypeInstance%callback(iflag)
-    if (iflag /= 3) STOP 6
+    if (iflag /= 3) call abort
   end subroutine test2
 end program main
 

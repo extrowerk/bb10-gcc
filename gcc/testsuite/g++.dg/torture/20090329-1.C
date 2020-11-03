@@ -1,5 +1,4 @@
 /* { dg-do compile } */
-/* { dg-additional-options "-Wno-return-type" } */
 
 struct input_iterator_tag { };
 template<typename _Category, typename _Tp, typename _Distance = long, typename _Pointer = _Tp*, typename _Reference = _Tp&>

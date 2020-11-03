@@ -14,7 +14,7 @@ static int __attribute__((noinline))
   return 0;
 }
 
-static __typeof__ (implementation) *resolver (void)
+static void *resolver (void)
 {
   return (void *)implementation;
 }

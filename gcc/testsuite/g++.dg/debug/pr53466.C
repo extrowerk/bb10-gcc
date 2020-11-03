@@ -1,5 +1,5 @@
 // { dg-do compile }
-// { dg-options "-foptimize-sibling-calls -fcompare-debug -Wno-return-type" }
+// { dg-options "-foptimize-sibling-calls -fcompare-debug" }
 
 typedef union gimple_statement_d *gimple;
 typedef gimple gimple_seq_node;

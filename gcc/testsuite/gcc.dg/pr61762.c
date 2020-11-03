@@ -16,3 +16,4 @@ unsigned int f()
    the unused local static is removed.  */
 
 /* { dg-final { scan-tree-dump-not "Private" "release_ssa" } } */
+/* { dg-final { cleanup-tree-dump "release_ssa" } } */

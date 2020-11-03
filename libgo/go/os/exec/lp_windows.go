@@ -1,4 +1,4 @@
-// Copyright 2010 The Go Authors. All rights reserved.
+// Copyright 2010 The Go Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -7,7 +7,6 @@ package exec
 import (
 	"errors"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -47,7 +46,7 @@ func findExecutable(file string, exts []string) (string, error) {
 			return f, nil
 		}
 	}
-	return "", os.ErrNotExist
+	return ``, os.ErrNotExist
 }
 
 // LookPath searches for an executable binary named file
@@ -56,38 +55,69 @@ func findExecutable(file string, exts []string) (string, error) {
 // LookPath also uses PATHEXT environment variable to match
 // a suitable candidate.
 // The result may be an absolute path or a path relative to the current directory.
-func LookPath(file string) (string, error) {
-	var exts []string
+func LookPath(file string) (f string, err error) {
 	x := os.Getenv(`PATHEXT`)
-	if x != "" {
-		for _, e := range strings.Split(strings.ToLower(x), `;`) {
-			if e == "" {
-				continue
-			}
-			if e[0] != '.' {
-				e = "." + e
-			}
-			exts = append(exts, e)
+	if x == `` {
+		x = `.COM;.EXE;.BAT;.CMD`
+	}
+	exts := []string{}
+	for _, e := range strings.Split(strings.ToLower(x), `;`) {
+		if e == "" {
+			continue
 		}
-	} else {
-		exts = []string{".com", ".exe", ".bat", ".cmd"}
+		if e[0] != '.' {
+			e = "." + e
+		}
+		exts = append(exts, e)
+	}
+	if strings.IndexAny(file, `:\/`) != -1 {
+		if f, err = findExecutable(file, exts); err == nil {
+			return
+		}
+		return ``, &Error{file, err}
+	}
+	if f, err = findExecutable(`.\`+file, exts); err == nil {
+		return
+	}
+	if pathenv := os.Getenv(`PATH`); pathenv != `` {
+		for _, dir := range splitList(pathenv) {
+			if f, err = findExecutable(dir+`\`+file, exts); err == nil {
+				return
+			}
+		}
+	}
+	return ``, &Error{file, ErrNotFound}
+}
+
+func splitList(path string) []string {
+	// The same implementation is used in SplitList in path/filepath;
+	// consider changing path/filepath when changing this.
+
+	if path == "" {
+		return []string{}
 	}
 
-	if strings.ContainsAny(file, `:\/`) {
-		if f, err := findExecutable(file, exts); err == nil {
-			return f, nil
-		} else {
-			return "", &Error{file, err}
+	// Split path, respecting but preserving quotes.
+	list := []string{}
+	start := 0
+	quo := false
+	for i := 0; i < len(path); i++ {
+		switch c := path[i]; {
+		case c == '"':
+			quo = !quo
+		case c == os.PathListSeparator && !quo:
+			list = append(list, path[start:i])
+			start = i + 1
 		}
 	}
-	if f, err := findExecutable(filepath.Join(".", file), exts); err == nil {
-		return f, nil
-	}
-	path := os.Getenv("path")
-	for _, dir := range filepath.SplitList(path) {
-		if f, err := findExecutable(filepath.Join(dir, file), exts); err == nil {
-			return f, nil
+	list = append(list, path[start:])
+
+	// Remove quotes.
+	for i, s := range list {
+		if strings.Contains(s, `"`) {
+			list[i] = strings.Replace(s, `"`, ``, -1)
 		}
 	}
-	return "", &Error{file, ErrNotFound}
+
+	return list
 }

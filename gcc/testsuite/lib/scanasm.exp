@@ -1,4 +1,4 @@
-# Copyright (C) 2000-2018 Free Software Foundation, Inc.
+# Copyright (C) 2000-2015 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -78,9 +78,7 @@ proc dg-scan { name positive testcase output_file orig_args } {
 
 proc scan-assembler { args } {
     set testcase [testname-for-summary]
-    # The name might include a list of options; extract the file name.
-    set filename [lindex $testcase 0]
-    set output_file "[file rootname [file tail $filename]].s"
+    set output_file "[file rootname [file tail $testcase]].s"
     dg-scan "scan-assembler" 1 $testcase $output_file $args
 }
 
@@ -91,9 +89,7 @@ force_conventional_output_for scan-assembler
 
 proc scan-assembler-not { args } {
     set testcase [testname-for-summary]
-    # The name might include a list of options; extract the file name.
-    set filename [lindex $testcase 0]
-    set output_file "[file rootname [file tail $filename]].s"
+    set output_file "[file rootname [file tail $testcase]].s"
 
     dg-scan "scan-assembler-not" 0 $testcase $output_file $args
 }
@@ -107,7 +103,6 @@ proc hidden-scan-for { symbol } {
     set objformat [gcc_target_object_format]
 
     switch $objformat {
-        coff     { return "$symbol\[,\d\]*hidden" }
         elf      { return "hidden\[ \t_\]*$symbol" }
         mach-o   { return "private_extern\[ \t_\]*_?$symbol" }
         default  { return "" }
@@ -121,9 +116,7 @@ proc hidden-scan-for { symbol } {
 
 proc scan-hidden { args } {
     set testcase [testname-for-summary]
-    # The name might include a list of options; extract the file name.
-    set filename [lindex $testcase 0]
-    set output_file "[file rootname [file tail $filename]].s"
+    set output_file "[file rootname [file tail $testcase]].s"
 
     set symbol [lindex $args 0]
 
@@ -139,9 +132,7 @@ proc scan-hidden { args } {
 
 proc scan-not-hidden { args } {
     set testcase [testname-for-summary]
-    # The name might include a list of options; extract the file name.
-    set filename [lindex $testcase 0]
-    set output_file "[file rootname [file tail $filename]].s"
+    set output_file "[file rootname [file tail $testcase]].s"
 
     set symbol [lindex $args 0]
     set hidden_scan [hidden-scan-for $symbol]
@@ -171,9 +162,7 @@ proc scan-file-not { output_file args } {
 
 proc scan-stack-usage { args } {
     set testcase [testname-for-summary]
-    # The name might include a list of options; extract the file name.
-    set filename [lindex $testcase 0]
-    set output_file "[file rootname [file tail $filename]].su"
+    set output_file "[file rootname [file tail $testcase]].su"
 
     dg-scan "scan-file" 1 $testcase $output_file $args
 }
@@ -183,9 +172,7 @@ proc scan-stack-usage { args } {
 
 proc scan-stack-usage-not { args } {
     set testcase [testname-for-summary]
-    # The name might include a list of options; extract the file name.
-    set filename [lindex $testcase 0]
-    set output_file "[file rootname [file tail $filename]].su"
+    set output_file "[file rootname [file tail $testcase]].su"
 
     dg-scan "scan-file-not" 0 $testcase $output_file $args
 }
@@ -242,19 +229,16 @@ proc scan-assembler-times { args } {
     }
 
     set testcase [testname-for-summary]
-    # The name might include a list of options; extract the file name.
-    set filename [lindex $testcase 0]
     set pattern [lindex $args 0]
-    set times [lindex $args 1]
     set pp_pattern [make_pattern_printable $pattern]
 
     # This must match the rule in gcc-dg.exp.
-    set output_file "[file rootname [file tail $filename]].s"
+    set output_file "[file rootname [file tail $testcase]].s"
 
     set files [glob -nocomplain $output_file]
     if { $files == "" } {
 	verbose -log "$testcase: output file does not exist"
-	unresolved "$testcase scan-assembler-times $pp_pattern $times"
+	unresolved "$testcase scan-assembler-times $pp_pattern [lindex $args 1]"
 	return
     }
 
@@ -262,12 +246,10 @@ proc scan-assembler-times { args } {
     set text [read $fd]
     close $fd
 
-    set result_count [llength [regexp -inline -all -- $pattern $text]]
-    if {$result_count == $times} {
-	pass "$testcase scan-assembler-times $pp_pattern $times"
+    if { [llength [regexp -inline -all -- $pattern $text]] == [lindex $args 1]} {
+	pass "$testcase scan-assembler-times $pp_pattern [lindex $args 1]"
     } else {
-	verbose -log "$testcase: $pp_pattern found $result_count times"
-	fail "$testcase scan-assembler-times $pp_pattern $times"
+	fail "$testcase scan-assembler-times $pp_pattern [lindex $args 1]"
     }
 }
 
@@ -307,11 +289,9 @@ proc scan-assembler-dem { args } {
     }
 
     set testcase [testname-for-summary]
-    # The name might include a list of options; extract the file name.
-    set filename [lindex $testcase 0]
     set pattern [lindex $args 0]
     set pp_pattern [make_pattern_printable $pattern]
-    set output_file "[file rootname [file tail $filename]].s"
+    set output_file "[file rootname [file tail $testcase]].s"
 
     set files [glob -nocomplain $output_file]
     if { $files == "" } {
@@ -363,11 +343,9 @@ proc scan-assembler-dem-not { args } {
     }
 
     set testcase [testname-for-summary]
-    # The name might include a list of options; extract the file name.
-    set filename [lindex $testcase 0]
     set pattern [lindex $args 0]
     set pp_pattern [make_pattern_printable $pattern]
-    set output_file "[file rootname [file tail $filename]].s"
+    set output_file "[file rootname [file tail $testcase]].s"
 
     set files [glob -nocomplain $output_file]
     if { $files == "" } {
@@ -420,8 +398,6 @@ proc object-size { args } {
     }
 
     set testcase [testname-for-summary]
-    # The name might include a list of options; extract the file name.
-    set filename [lindex $testcase 0]
     set what [lindex $args 0]
     set where [lsearch { text data bss total } $what]
     if { $where == -1 } {
@@ -439,7 +415,7 @@ proc object-size { args } {
         return
     }
 
-    set output_file "[file rootname [file tail $filename]].o"
+    set output_file "[file rootname [file tail $testcase]].o"
     if ![file_on_host exists $output_file] {
 	verbose -log "$testcase: $output_file does not exist"
 	unresolved "$testcase object-size $what $cmp $with"
@@ -505,16 +481,16 @@ proc dg-function-on-line { args } {
     }
 
     if { [istarget hppa*-*-*] } {
-	set pattern [format {\t;[^:]+:%d(:[0-9]+)?\n(\t[^\t]+\n)+%s:\n\t.PROC} \
+	set pattern [format {\t;[^:]+:%d\n(\t[^\t]+\n)+%s:\n\t.PROC} \
                      $line $symbol]
     } elseif { [istarget mips*-*-*] } {
-	set pattern [format {\t\.loc [0-9]+ %d [0-9]+( [^\n]*)?\n(\t.cfi_startproc[^\t]*\n)*\t\.set\t(no)?mips16\n\t(\.set\t(no)?micromips\n\t)?\.ent\t%s\n\t\.type\t%s, @function\n%s:\n} \
+	set pattern [format {\t\.loc [0-9]+ %d 0( [^\n]*)?\n(\t.cfi_startproc[^\t]*\n)*\t\.set\t(no)?mips16\n\t(\.set\t(no)?micromips\n\t)?\.ent\t%s\n\t\.type\t%s, @function\n%s:\n} \
 		     $line $symbol $symbol $symbol]
     } elseif { [istarget microblaze*-*-*] } {
-        set pattern [format {:%d(:[0-9]+)?\n\$.*:\n\t\.ent\t%s\n\t\.type\t%s, @function\n%s:\n} \
+        set pattern [format {:%d\n\$.*:\n\t\.ent\t%s\n\t\.type\t%s, @function\n%s:\n} \
                      $line $symbol $symbol $symbol]
     } else {
-	set pattern [format {%s:[^\t]*(\t.(fnstart|frame|mask|file)[^\t]*)*\t[^:]+:%d(:[0-9]+)?\n} \
+	set pattern [format {%s:[^\t]*(\t.(fnstart|frame|mask|file)[^\t]*)*\t[^:]+:%d\n} \
                      $symbol $line]
     }
 
@@ -533,9 +509,7 @@ proc dg-function-on-line { args } {
 
 proc scan-lto-assembler { args } {
     set testcase [testname-for-summary]
-    # The name might include a list of options; extract the file name.
-    set filename [lindex $testcase 0]
-    set output_file "[file rootname [file tail $filename]].exe.ltrans0.s"
+    set output_file "[file rootname [file tail $testcase]].exe.ltrans0.s"
     verbose "output_file: $output_file"
     dg-scan "scan-assembler" 1 $testcase $output_file $args
 }

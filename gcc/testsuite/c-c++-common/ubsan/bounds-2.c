@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-fsanitize=bounds -Wall -Wextra -Wno-unused -Wno-array-bounds -Wno-uninitialized" } */
+/* { dg-options "-fsanitize=bounds -Wall -Wextra -Wno-unused -Wno-array-bounds" } */
 
 /* Test runtime errors.  */
 

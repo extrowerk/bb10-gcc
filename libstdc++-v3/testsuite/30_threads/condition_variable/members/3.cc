@@ -1,11 +1,11 @@
-// { dg-do run }
-// { dg-options "-pthread"  }
-// { dg-require-effective-target c++11 }
-// { dg-require-effective-target pthread }
+// { dg-do run { target *-*-freebsd* *-*-dragonfly* *-*-netbsd* *-*-linux* *-*-gnu* *-*-solaris* *-*-cygwin *-*-darwin* powerpc-ibm-aix* } }
+// { dg-options " -std=gnu++11 -pthread" { target *-*-freebsd* *-*-dragonfly* *-*-netbsd* *-*-linux* *-*-gnu* powerpc-ibm-aix* } }
+// { dg-options " -std=gnu++11 -pthreads" { target *-*-solaris* } }
+// { dg-options " -std=gnu++11 " { target *-*-cygwin *-*-darwin* } }
 // { dg-require-cstdint "" }
 // { dg-require-gthreads "" }
 
-// Copyright (C) 2014-2018 Free Software Foundation, Inc.
+// Copyright (C) 2014-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -25,7 +25,6 @@
 #include <condition_variable>
 #include <thread>
 #include <mutex>
-#include <testsuite_hooks.h>
 
 std::mutex mx;
 std::condition_variable cv;
@@ -42,16 +41,18 @@ void func()
 {
   std::unique_lock<std::mutex> lock{mx};
   std::notify_all_at_thread_exit(cv, std::move(lock));
-#if CORRECT_THREAD_LOCAL_DTORS
+#if _GLIBCXX_HAVE___CXA_THREAD_ATEXIT_IMPL
   // Correct order of thread_local destruction needs __cxa_thread_atexit_impl
-  // or similar support from libc.
-  static thread_local
-#endif
+  static thread_local Inc inc;
+#else
   Inc inc;
+#endif
 }
 
 int main()
 {
+  bool test __attribute__((unused)) = true;
+
   std::unique_lock<std::mutex> lock{mx};
   std::thread t{func};
   cv.wait(lock, [&]{ return counter == 2; });

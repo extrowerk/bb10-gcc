@@ -6,10 +6,7 @@
 
 package syscall
 
-import (
-	"internal/race"
-	"unsafe"
-)
+import "unsafe"
 
 //sys	Openat(dirfd int, path string, flags int, mode uint32) (fd int, err error)
 //__go_openat(dirfd _C_int, path *byte, flags _C_int, mode Mode_t) _C_int
@@ -212,7 +209,7 @@ func Accept4(fd int, flags int) (nfd int, sa Sockaddr, err error) {
 //flock(fd _C_int, how _C_int) _C_int
 
 //sys	Fstatfs(fd int, buf *Statfs_t) (err error)
-//fstatfs64(fd _C_int, buf *Statfs_t) _C_int
+//fstatfs(fd _C_int, buf *Statfs_t) _C_int
 
 func Gettid() (tid int) {
 	r1, _, _ := Syscall(SYS_GETTID, 0, 0, 0)
@@ -249,6 +246,27 @@ func clen(n []byte) int {
 
 func ReadDirent(fd int, buf []byte) (n int, err error) {
 	return Getdents(fd, buf)
+}
+
+func ParseDirent(buf []byte, max int, names []string) (consumed int, count int, newnames []string) {
+	origlen := len(buf)
+	count = 0
+	for max != 0 && len(buf) > 0 {
+		dirent := (*Dirent)(unsafe.Pointer(&buf[0]))
+		buf = buf[dirent.Reclen:]
+		if dirent.Ino == 0 { // File absent in directory.
+			continue
+		}
+		bytes := (*[10000]byte)(unsafe.Pointer(&dirent.Name[0]))
+		var name = string(bytes[0:clen(bytes[:])])
+		if name == "." || name == ".." { // Useless names
+			continue
+		}
+		max--
+		count++
+		names = append(names, name)
+	}
+	return origlen - len(buf), count, names
 }
 
 //sys	Getxattr(path string, attr string, dest []byte) (sz int, err error)
@@ -303,8 +321,8 @@ func Pipe2(p []int, flags int) (err error) {
 //sys	sendfile(outfd int, infd int, offset *Offset_t, count int) (written int, err error)
 //sendfile64(outfd _C_int, infd _C_int, offset *Offset_t, count Size_t) Ssize_t
 func Sendfile(outfd int, infd int, offset *int64, count int) (written int, err error) {
-	if race.Enabled {
-		race.ReleaseMerge(unsafe.Pointer(&ioSync))
+	if raceenabled {
+		raceReleaseMerge(unsafe.Pointer(&ioSync))
 	}
 	var soff Offset_t
 	var psoff *Offset_t
@@ -360,7 +378,7 @@ func Splice(rfd int, roff *int64, wfd int, woff *int64, len int, flags int) (n i
 }
 
 //sys	Statfs(path string, buf *Statfs_t) (err error)
-//statfs64(path *byte, buf *Statfs_t) _C_int
+//statfs(path *byte, buf *Statfs_t) _C_int
 
 //sys	SyncFileRange(fd int, off int64, n int64, flags int) (err error)
 //sync_file_range(fd _C_int, off Offset_t, n Offset_t, flags _C_uint) _C_int
@@ -391,3 +409,6 @@ func Unlinkat(dirfd int, path string) (err error) {
 
 //sys	Unshare(flags int) (err error)
 //unshare(flags _C_int) _C_int
+
+//sys	Ustat(dev int, ubuf *Ustat_t) (err error)
+//ustat(dev _dev_t, ubuf *Ustat_t) _C_int

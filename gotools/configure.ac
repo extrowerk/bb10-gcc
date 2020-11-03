@@ -1,5 +1,5 @@
 # Configure script for gotools.
-#   Copyright (C) 2015-2016 Free Software Foundation, Inc.
+#   Copyright 2015 Free Software Foundation, Inc.
 #
 # This file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -46,12 +46,7 @@ AC_PROG_INSTALL
 AC_PROG_CC
 AC_PROG_GO
 
-# These should be defined by the top-level configure.
-# Copy them into Makefile.
-AC_SUBST(GOC_FOR_TARGET)
-AC_SUBST(GCC_FOR_TARGET)
-
-AM_CONDITIONAL(NATIVE, test "$host_alias" = "$target_alias")
+AM_CONDITIONAL(NATIVE, test "$cross_compiling" = no)
 
 dnl Test for -lsocket and -lnsl.  Copied from libjava/configure.ac.
 AC_CACHE_CHECK([for socket libraries], gotools_cv_lib_sockets,

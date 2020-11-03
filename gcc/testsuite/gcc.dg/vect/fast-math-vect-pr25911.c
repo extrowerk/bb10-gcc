@@ -12,3 +12,4 @@ float bessel_Kn_scaled_small_x(int n)
   return sum1;
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

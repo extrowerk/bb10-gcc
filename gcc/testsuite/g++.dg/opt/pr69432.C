@@ -26,7 +26,7 @@ void f4 (S, U);
 struct C
 {
   template <typename S, typename T, typename U>
-  static S f5 (S x, T y, U z) { f2 (x, y, z); return S(); }
+  static S f5 (S x, T y, U z) { f2 (x, y, z); }
 };
 
 template <typename S, typename T, typename U>

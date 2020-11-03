@@ -35,12 +35,12 @@ contains
     character(*), dimension(:) :: chr
     character(len = len(chr)) :: tmp
     if (size(chr,1) == 2) then
-      if (any (chr .ne. (/"Label 1", "Label 2"/))) STOP 1
+      if (any (chr .ne. (/"Label 1", "Label 2"/))) call abort ()
     elseif (size(chr,1) == 4) then
-      if (any (chr .ne. (/"Label 3", "Label 4","Label 1", "Label 2"/))) STOP 2
+      if (any (chr .ne. (/"Label 3", "Label 4","Label 1", "Label 2"/))) call abort ()
     elseif (size(chr,1) == 5) then
       if (any (chr .ne. (/"Label 3", "Label 4","Label 1", "Label 2", "Label 5"/))) &
-          STOP 3
+          call abort ()
     end if
   end subroutine read_library_data_
 

@@ -11,24 +11,24 @@ PROGRAM stream_io_8
   r = 12.25d0
   OPEN(UNIT=11, ACCESS="stream")
   inquire(unit=11, pos=mypos)
-  if (mypos.ne.1) STOP 1
+  if (mypos.ne.1) call abort()
   WRITE(11) "first"
   inquire(unit=11, pos=mypos)
-  if (mypos.ne.6) STOP 2
+  if (mypos.ne.6) call abort()
   WRITE(11) "second"
   inquire(unit=11, pos=mypos)
-  if (mypos.ne.12) STOP 3
+  if (mypos.ne.12) call abort()
   WRITE(11) 1234567_4
   inquire(unit=11, pos=mypos)
-  if (mypos.ne.16) STOP 4
+  if (mypos.ne.16) call abort()
   write(11) r
   r = 0.0
   inquire (11, pos=mypos)
   read(11,pos=16)r
-  if (abs(r-12.25d0)>1e-10) STOP 5
+  if (abs(r-12.25d0)>1e-10) call abort()
   inquire(unit=11, pos=mypos)
   inquire(unit=11, access=mystring)
-  if (mypos.ne.24) STOP 6
-  if (mystring.ne."STREAM") STOP 7
+  if (mypos.ne.24) call abort()
+  if (mystring.ne."STREAM") call abort()
   CLOSE(UNIT=11, status="delete")
 END PROGRAM stream_io_8

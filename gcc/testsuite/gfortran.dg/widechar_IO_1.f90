@@ -9,12 +9,12 @@ program test1
   wide=k4_"Goodbye!"
   thin="Hello!"
   write(buffer, '(a)') wide
-  if (buffer /= "Goodbye!") STOP 1
+  if (buffer /= "Goodbye!") call abort
   open(10, form="formatted", access="stream", status="scratch")
   write(10, '(a)') thin
   rewind(10)
   read(10, '(a)') wide
-  if (wide /= k4_"Hello!") STOP 2
+  if (wide /= k4_"Hello!") call abort
   write(buffer,*) thin, ">",wide,"<"
-  if (buffer /= " Hello!    >Hello!    <") STOP 3
+  if (buffer /= " Hello!    >Hello!    <") call abort
 end program test1

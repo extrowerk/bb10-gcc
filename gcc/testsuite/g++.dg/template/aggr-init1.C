@@ -4,5 +4,5 @@ struct A {};
 struct B {
 	void *(*a)();
 };
-template <typename T> void *CreateA() { return 0; }
+template <typename T> void *CreateA() {}
 B b = {CreateA<A>};

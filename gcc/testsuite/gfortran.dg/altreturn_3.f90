@@ -34,11 +34,11 @@ program test
   implicit none
   integer :: i = 0
   call gen (i, *10)
-  if (i /= -2) STOP 1
+  if (i /= -2) call abort ()
   i = 2
   call gen (i, *20)
  10 continue
-  STOP 2
+  call abort()
  20 continue
-  if (i /= -1) STOP 3
+  if (i /= -1) call abort ()
 end

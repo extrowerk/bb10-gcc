@@ -23,7 +23,6 @@
   end type
 
   class(t1), pointer :: a => NULL()
-  class(t1), allocatable, dimension(:) :: ca
   type(t1), target :: b
   type(t2), target :: c
   a => b
@@ -33,7 +32,6 @@
 
   select type (3.5)  ! { dg-error "is not a named variable" }
   select type (a%cp) ! { dg-error "is not a named variable" }
-  select type (ca(1))! { dg-error "is not a named variable" }
   select type (b)    ! { dg-error "Selector shall be polymorphic" }
   end select
 
@@ -62,9 +60,9 @@
 label: select type (a)
   type is (t1) label
     print *,"a is TYPE(t1)"
-  type is (t2)  ! { dg-error "overlaps with TYPE IS" }
+  type is (t2)  ! { dg-error "overlaps with CASE label" }
     print *,"a is TYPE(t2)"
-  type is (t2)  ! { dg-error "overlaps with TYPE IS" }
+  type is (t2)  ! { dg-error "overlaps with CASE label" }
     print *,"a is still TYPE(t2)"
   class is (t1) labe   ! { dg-error "Expected block name" }
     print *,"a is CLASS(t1)"

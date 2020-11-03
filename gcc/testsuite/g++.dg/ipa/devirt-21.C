@@ -12,7 +12,7 @@ class MultiTermDocs : public virtual B {
 protected:
   A readerTermDocs;
   A subReaders;
-  virtual B *m_fn1(int *) { return NULL; }
+  virtual B *m_fn1(int *) {}
   virtual inline  ~MultiTermDocs();
   void wrap(void)
   {
@@ -33,8 +33,9 @@ MultiTermDocs::~MultiTermDocs() {
 
 B *C::m_fn1(int *) { abort (); }
 
-int main()
+main()
 {
   class C c;
 }
 /* { dg-final { scan-ipa-dump "Discovered a virtual call to" "cp" } } */
+/* { dg-final { cleanup-ipa-dump "cp" } } */

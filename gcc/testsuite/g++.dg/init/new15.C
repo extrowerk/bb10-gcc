@@ -1,6 +1,6 @@
 // PR c++/9782
 
-extern "C" int printf(const char*, ...);
+extern "C" void printf(const char*, ...);
 
 template <int>
 struct A {

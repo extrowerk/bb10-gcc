@@ -32,7 +32,7 @@ void func1()
   /* At least one branch of ? does not fit in the destination, thus
      warn.  */
   unsigned_bit.x = bar != 0 ? 2 : 0; /* { dg-warning "conversion" } */
-  unsigned_bit.x = bar != 0 ? 0 : -1; /* { dg-warning "-Wsign-conversion" } */
+  unsigned_bit.x = bar != 0 ? 0 : -1; /* { dg-warning "negative integer implicitly converted to unsigned type" } */
 }
 
 void func2()
@@ -62,7 +62,7 @@ void func3()
   /* At least one branch of ? does not fit in the destination, thus
      warn.  */
   uchar_x = bar != 0 ? 2.1 : 10; /* { dg-warning "conversion" } */
-  uchar_x = bar != 0  /* { dg-warning "-Wsign-conversion" } */
+  uchar_x = bar != 0  /* { dg-warning "negative integer implicitly converted to unsigned type" } */
     ? (unsigned char) 1024 
     : -1;
 }

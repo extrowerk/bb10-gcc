@@ -18,4 +18,5 @@ half_fold_int (uint32x4_t mask)
 /* { dg-final { scan-assembler-not "bif\\tv" } } */
 /* { dg-final { scan-assembler "bic\\tv" } } */
 
+/* { dg-final { cleanup-saved-temps } } */
 

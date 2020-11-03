@@ -13,3 +13,4 @@ long foo () {
 
 /* { dg-final { scan-assembler-not "pdistn\t%" } } */
 /* { dg-final { scan-tree-dump "return 473" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

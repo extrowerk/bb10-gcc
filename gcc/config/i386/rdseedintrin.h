@@ -1,4 +1,4 @@
-/* Copyright (C) 2012-2018 Free Software Foundation, Inc.
+/* Copyright (C) 2012-2015 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -37,24 +37,24 @@
 
 extern __inline int
 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
-_rdseed16_step (unsigned short *__p)
+_rdseed16_step (unsigned short *p)
 {
-  return __builtin_ia32_rdseed_hi_step (__p);
+    return __builtin_ia32_rdseed_hi_step (p);
 }
 
 extern __inline int
 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
-_rdseed32_step (unsigned int *__p)
+_rdseed32_step (unsigned int *p)
 {
-  return __builtin_ia32_rdseed_si_step (__p);
+    return __builtin_ia32_rdseed_si_step (p);
 }
 
 #ifdef __x86_64__
 extern __inline int
 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
-_rdseed64_step (unsigned long long *__p)
+_rdseed64_step (unsigned long long *p)
 {
-  return __builtin_ia32_rdseed_di_step (__p);
+    return __builtin_ia32_rdseed_di_step (p);
 }
 #endif
 

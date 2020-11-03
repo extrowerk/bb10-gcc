@@ -15,3 +15,4 @@ ccp(int b)
 }
 /* We should propagate constant 4 into return.  */
 /* { dg-final { scan-tree-dump-times "return 4" 1 "optimized"} } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

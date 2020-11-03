@@ -4,16 +4,14 @@
 
 package runtime
 
-import "unsafe"
-
 // The Error interface identifies a run time error.
 type Error interface {
 	error
 
 	// RuntimeError is a no-op function but
-	// serves to distinguish types that are run time
+	// serves to distinguish types that are runtime
 	// errors from ordinary errors: a type is a
-	// run time error if it has a RuntimeError method.
+	// runtime error if it has a RuntimeError method.
 	RuntimeError()
 }
 
@@ -103,14 +101,21 @@ func (e errorString) Error() string {
 	return "runtime error: " + string(e)
 }
 
+// For calling from C.
+func NewErrorString(s string, ret *interface{}) {
+	*ret = errorString(s)
+}
+
 // An errorCString represents a runtime error described by a single C string.
 // Not "type errorCString uintptr" because of http://golang.org/issue/7084.
 type errorCString struct{ cstr uintptr }
 
 func (e errorCString) RuntimeError() {}
 
+func cstringToGo(uintptr) string
+
 func (e errorCString) Error() string {
-	return "runtime error: " + gostringnocopy((*byte)(unsafe.Pointer(e.cstr)))
+	return "runtime error: " + cstringToGo(e.cstr)
 }
 
 // For calling from C.
@@ -118,68 +123,34 @@ func NewErrorCString(s uintptr, ret *interface{}) {
 	*ret = errorCString{s}
 }
 
-// plainError represents a runtime error described a string without
-// the prefix "runtime error: " after invoking errorString.Error().
-// See Issue #14965.
-type plainError string
-
-func (e plainError) RuntimeError() {}
-
-func (e plainError) Error() string {
-	return string(e)
-}
-
 type stringer interface {
 	String() string
 }
 
-func typestring(x interface{}) string {
-	e := efaceOf(&x)
-	return *e._type.string
-}
+func typestring(interface{}) string
 
-// printany prints an argument passed to panic.
-// If panic is called with a value that has a String or Error method,
-// it has already been converted into a string by preprintpanics.
-func printany(i interface{}) {
+// For calling from C.
+// Prints an argument passed to panic.
+// There's room for arbitrary complexity here, but we keep it
+// simple and handle just a few important cases: int, string, and Stringer.
+func Printany(i interface{}) {
 	switch v := i.(type) {
 	case nil:
 		print("nil")
-	case bool:
-		print(v)
+	case stringer:
+		print(v.String())
+	case error:
+		print(v.Error())
 	case int:
-		print(v)
-	case int8:
-		print(v)
-	case int16:
-		print(v)
-	case int32:
-		print(v)
-	case int64:
-		print(v)
-	case uint:
-		print(v)
-	case uint8:
-		print(v)
-	case uint16:
-		print(v)
-	case uint32:
-		print(v)
-	case uint64:
-		print(v)
-	case uintptr:
-		print(v)
-	case float32:
-		print(v)
-	case float64:
-		print(v)
-	case complex64:
-		print(v)
-	case complex128:
 		print(v)
 	case string:
 		print(v)
 	default:
 		print("(", typestring(i), ") ", i)
 	}
+}
+
+// called from generated code
+func panicwrap(pkg, typ, meth string) {
+	panic("value method " + pkg + "." + typ + "." + meth + " called using nil *" + typ + " pointer")
 }

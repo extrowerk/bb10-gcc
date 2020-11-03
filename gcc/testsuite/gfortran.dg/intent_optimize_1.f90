@@ -21,3 +21,4 @@ if (y /= 5) call does_not_exist ()
 end
 
 ! { dg-final { scan-tree-dump-times "does_not_exist" 0 "optimized" } }
+! { dg-final { cleanup-tree-dump "optimized" } }

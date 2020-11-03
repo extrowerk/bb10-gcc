@@ -13,5 +13,7 @@ end
 
 ! { dg-final { scan-ipa-dump "Creating a specialized node of foo" "cp" } }
 ! { dg-final { scan-ipa-dump-times "Aggregate replacements\[^=\]*=\[^=\]*=\[^=\]*=\[^=\]*=\[^=\]*=\[^=\]*=\[^=\]*=\[^=\]*=" 2 "cp" } }
+! { dg-final { cleanup-ipa-dump "cp" } }
 ! { dg-final { scan-tree-dump-not "stride;" "optimized" } }
 ! { dg-final { scan-tree-dump-not "lbound;" "optimized" } }
+! { dg-final { cleanup-tree-dump "optimized" } }

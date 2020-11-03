@@ -3,6 +3,6 @@
 
 template<typename> struct A;
 
-template<typename... T> struct A<T...> { }; // { dg-error "" }
+template<typename... T> struct A<T...> { }; // { dg-bogus "cannot expand" "" }
 
-A<int> a;
+A<int> a; // { dg-bogus "incomplete type" "" }

@@ -1,5 +1,4 @@
 /* { dg-require-effective-target vect_condition } */
-/* { dg-additional-options "-fdump-tree-vect-details" } */
 
 #include "tree-vect.h"
 
@@ -28,10 +27,7 @@ int main ()
   check_vect ();
 
   for (i = 0; i < N; i++)
-    {
-      a[i] = i;
-      asm volatile ("" ::: "memory");
-    }
+    a[i] = i;
 
   foo (a, 4);
 
@@ -45,6 +41,7 @@ int main ()
   return 0;
 }
 
-/* { dg-final { scan-tree-dump {(no need for alias check [^\n]* when VF is 1|no alias between [^\n]* when [^\n]* is outside \(-16, 16\))} "vect" { target vect_element_align } } } */
-/* { dg-final { scan-tree-dump-times "loop vectorized" 1 "vect" { target vect_element_align } } } */
+/* { dg-final { scan-tree-dump-times "basic block vectorized" 1 "slp1" { target vect_element_align } } } */
+/* { dg-final { cleanup-tree-dump "slp1" } } */
+/* { dg-final { cleanup-tree-dump "slp2" } } */
 

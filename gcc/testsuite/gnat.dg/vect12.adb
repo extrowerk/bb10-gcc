@@ -24,3 +24,4 @@ package body Vect12 is
 end Vect12;
 
 -- { dg-final { scan-tree-dump-not "vectorized 1 loops" "vect"  } }
+-- { dg-final { cleanup-tree-dump "vect" } }

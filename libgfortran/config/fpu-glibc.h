@@ -1,5 +1,5 @@
 /* FPU-related code for systems with GNU libc.
-   Copyright (C) 2005-2018 Free Software Foundation, Inc.
+   Copyright (C) 2005-2015 Free Software Foundation, Inc.
    Contributed by Francois-Xavier Coudert <coudert@clipper.ens.fr>
 
 This file is part of the GNU Fortran runtime library (libgfortran).
@@ -39,56 +39,48 @@ _Static_assert (sizeof(fenv_t) <= (size_t) GFC_FPE_STATE_BUFFER_SIZE,
 
 void set_fpu_trap_exceptions (int trap, int notrap)
 {
-  int mode_set = 0, mode_clr = 0;
-
 #ifdef FE_INVALID
   if (trap & GFC_FPE_INVALID)
-    mode_set |= FE_INVALID;
+    feenableexcept (FE_INVALID);
   if (notrap & GFC_FPE_INVALID)
-    mode_clr |= FE_INVALID;
+    fedisableexcept (FE_INVALID);
 #endif
 
 /* Some glibc targets (like alpha) have FE_DENORMAL, but not many.  */
 #ifdef FE_DENORMAL
   if (trap & GFC_FPE_DENORMAL)
-    mode_set |= FE_DENORMAL;
+    feenableexcept (FE_DENORMAL);
   if (notrap & GFC_FPE_DENORMAL)
-    mode_clr |= FE_DENORMAL;
+    fedisableexcept (FE_DENORMAL);
 #endif
 
 #ifdef FE_DIVBYZERO
   if (trap & GFC_FPE_ZERO)
-    mode_set |= FE_DIVBYZERO;
+    feenableexcept (FE_DIVBYZERO);
   if (notrap & GFC_FPE_ZERO)
-    mode_clr |= FE_DIVBYZERO;
+    fedisableexcept (FE_DIVBYZERO);
 #endif
 
 #ifdef FE_OVERFLOW
   if (trap & GFC_FPE_OVERFLOW)
-    mode_set |= FE_OVERFLOW;
+    feenableexcept (FE_OVERFLOW);
   if (notrap & GFC_FPE_OVERFLOW)
-    mode_clr |= FE_OVERFLOW;
+    fedisableexcept (FE_OVERFLOW);
 #endif
 
 #ifdef FE_UNDERFLOW
   if (trap & GFC_FPE_UNDERFLOW)
-    mode_set |= FE_UNDERFLOW;
+    feenableexcept (FE_UNDERFLOW);
   if (notrap & GFC_FPE_UNDERFLOW)
-    mode_clr |= FE_UNDERFLOW;
+    fedisableexcept (FE_UNDERFLOW);
 #endif
 
 #ifdef FE_INEXACT
   if (trap & GFC_FPE_INEXACT)
-    mode_set |= FE_INEXACT;
+    feenableexcept (FE_INEXACT);
   if (notrap & GFC_FPE_INEXACT)
-    mode_clr |= FE_INEXACT;
+    fedisableexcept (FE_INEXACT);
 #endif
-
-  /* Clear stalled exception flags.  */
-  feclearexcept (FE_ALL_EXCEPT);
-
-  feenableexcept (mode_set);
-  fedisableexcept (mode_clr);
 }
 
 

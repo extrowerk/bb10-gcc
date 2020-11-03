@@ -8,8 +8,5 @@ volatile __mmask16 k1;
 void
 avx512f_test ()
 {
-  __mmask16 k = _mm512_kmov (11);
-
-  asm volatile ("" : "+k" (k));
-  k1 = k;
+  k1 = _mm512_kmov (11);
 }

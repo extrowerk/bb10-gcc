@@ -17,3 +17,4 @@ void foo(B &b)
     b[i] = 0;
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

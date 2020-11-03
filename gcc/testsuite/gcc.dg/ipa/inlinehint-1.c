@@ -18,3 +18,4 @@ m()
   test (10);
 }
 /* { dg-final { scan-ipa-dump "loop_iterations"  "inline"  } } */
+/* { dg-final { cleanup-ipa-dump "inline" } } */

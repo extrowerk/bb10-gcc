@@ -26,3 +26,4 @@ int bar (void)
 
 /* { dg-final { scan-tree-dump-times "a.b.i" 1 "ccp1" } } */
 /* { dg-final { scan-tree-dump-times "MEM\\\[\\\(struct B \\\*\\\)&a\\\].i" 1 "ccp1" } } */
+/* { dg-final { cleanup-tree-dump "ccp1" } } */

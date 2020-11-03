@@ -1,7 +1,6 @@
 // PR ipa/63587
 // { dg-do compile { target c++11 } }
 // { dg-options "-O2" }
-// { dg-additional-options "-Wno-return-type" }
 
 namespace boost {
 class basic_cstring
@@ -23,7 +22,6 @@ template <typename FunctionObj> struct function_obj_invoker0
   {
     FunctionObj f;
     f ();
-    return 0;
   }
 };
 template <typename FunctionObj> struct get_function_obj_invoker0
@@ -180,7 +178,7 @@ public:
   }
 };
 template <typename AttributeValueT>
-attribute_actor<AttributeValueT> attr (attribute_name); // { dg-warning "used but never defined" }
+attribute_actor<AttributeValueT> attr (attribute_name);
 terminal<>::type stream;
 template <typename LeftT, typename ImplT> class attribute_output_terminal
 {

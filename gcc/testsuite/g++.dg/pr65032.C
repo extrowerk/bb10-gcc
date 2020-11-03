@@ -84,6 +84,4 @@ G::DecodeVorbis (int *p1)
       mDecodedAudioFrames -= b;
       fn2 (b);
     }
-
-  return nsresult();
 }

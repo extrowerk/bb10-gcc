@@ -25,7 +25,7 @@
     REAL :: buffer_conc(1:anzKomponenten)
     buffer_conc = solveCConvert ()
     if (any(buffer_conc .ne. (/(real(i), i = 1, anzKomponenten)/))) &
-          STOP 1
+          call abort ()
   END SUBROUTINE outDiffKoeff
 
   program missing_ref

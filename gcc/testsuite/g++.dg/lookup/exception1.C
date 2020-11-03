@@ -11,16 +11,8 @@ namespace ns
 {
   class Test {
     public:
-      inline Test()
-#if __cplusplus <= 201402L
-      throw( Exception )			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#endif
-      ;
-      inline Test(int n )
-#if __cplusplus <= 201402L
-      throw( Exception )			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#endif
-      ;
+      inline Test() throw( Exception );
+      inline Test(int n ) throw( Exception );
     private:
       int i;
   };
@@ -28,19 +20,11 @@ namespace ns
 
 // This line used to fail because Exception wasn't looked up in the
 // right scope.
-ns::Test::Test()
-#if __cplusplus <= 201402L
-throw( Exception )				// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#endif
-: i( 1 )
+ns::Test::Test() throw( Exception ) : i( 1 )
 {
 }
 
-ns::Test::Test( int n )
-#if __cplusplus <= 201402L
-throw( Exception )				// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#endif
-: i( n )
+ns::Test::Test( int n ) throw( Exception ) : i( n )
 {
 }
 

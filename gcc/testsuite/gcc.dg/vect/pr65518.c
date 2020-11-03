@@ -1,19 +1,10 @@
-#include "tree-vect.h"
-
-#if VECTOR_BITS > 256
-#define NINTS (VECTOR_BITS / 32)
-#else
-#define NINTS 8
-#endif
-
-#define N (NINTS * 2)
-#define RESULT (NINTS * (NINTS - 1) / 2 * N + NINTS)
+/* { dg-do run } */
 
 extern void abort (void);
 
 typedef struct giga
 {
-  unsigned int g[N];
+  unsigned int g[16];
 } giga;
 
 unsigned long __attribute__((noinline,noclone))
@@ -28,17 +19,16 @@ addfst(giga const *gptr, int num)
 
 int main ()
 {
-  struct giga g[NINTS];
+  struct giga g[8];
   unsigned int n = 1;
   int i, j;
-  check_vect ();
-  for (i = 0; i < NINTS; ++i)
-    for (j = 0; j < N; ++j)
+  for (i = 0; i < 8; ++i)
+    for (j = 0; j < 16; ++j)
       {
 	g[i].g[j] = n++;
 	__asm__ volatile ("");
       }
-  if (addfst (g, NINTS) != RESULT)
+  if (addfst (g, 8) != 456)
     abort ();
   return 0;
 }
@@ -50,3 +40,4 @@ int main ()
    should reject that in the end).  */
 
 /* { dg-final { scan-tree-dump-times "vectorized 0 loops in function" 2 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

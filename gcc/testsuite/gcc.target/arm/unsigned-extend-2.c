@@ -2,13 +2,13 @@
 /* { dg-require-effective-target arm_thumb2_ok } */
 /* { dg-options "-O" } */
 
-unsigned short foo (unsigned short x, unsigned short c)
+unsigned short foo (unsigned short x)
 {
   unsigned char i = 0;
   for (i = 0; i < 8; i++)
     {
       x >>= 1;
-      x &= c;
+      x &= 0x7fff;
     }
   return x;
 }

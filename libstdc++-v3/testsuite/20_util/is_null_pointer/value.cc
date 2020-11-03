@@ -1,8 +1,9 @@
-// { dg-do compile { target c++11 } }
+// { dg-options "-std=gnu++11" }
+// { dg-do compile }
 
 // 2013-05-02  Paolo Carlini  <pcarlini@suse.de>
 //
-// Copyright (C) 2013-2018 Free Software Foundation, Inc.
+// Copyright (C) 2013-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the

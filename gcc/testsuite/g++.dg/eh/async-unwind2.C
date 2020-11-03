@@ -87,16 +87,8 @@ struct Y
 
 struct Z;
 
-X <V> baz1 (const S &)
-#if __cplusplus <= 201402L
-throw (E)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#endif
-;
-X <Z> baz2 (const X <Z> &)
-#if __cplusplus <= 201402L
-throw (E)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#endif
-;
+X <V> baz1 (const S &) throw (E);
+X <Z> baz2 (const X <Z> &) throw (E);
 
 template <typename T> X<T>::X ()
 {
@@ -120,10 +112,7 @@ template <typename T> T *X<T>::operator -> () const
   return &y;
 }
 
-X <V> baz1 (const S &)
-#if __cplusplus <= 201402L
-throw (E)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#endif
+X <V> baz1 (const S &) throw (E)
 {
   return X<V> ();
 }
@@ -136,10 +125,7 @@ E::~E ()
 {
 }
 
-X <Z> baz2 (const X <Z> &)
-#if __cplusplus <= 201402L
-throw (E)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#endif
+X <Z> baz2 (const X <Z> &) throw (E)
 {
   throw E ();
 }

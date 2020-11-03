@@ -16,20 +16,20 @@ end critical myCr
   sync all ( )
   n = 5
   sync all (stat=n)
-  if (n /= 0) STOP 1
+  if (n /= 0) call abort()
   n = 5
   sync all (stat=n,errmsg=str)
-  if (n /= 0) STOP 2
+  if (n /= 0) call abort()
   sync all (errmsg=str)
 
   sync memory
   sync memory ( )
   n = 5
   sync memory (stat=n)
-  if (n /= 0) STOP 3
+  if (n /= 0) call abort()
   n = 5
   sync memory (errmsg=str,stat=n)
-  if (n /= 0) STOP 4
+  if (n /= 0) call abort()
   sync memory (errmsg=str)
 
 sync images (*, stat=n)
@@ -40,7 +40,7 @@ sync images (*)
 sync images (1)
 sync images ([1])
 
-if (num_images() /= 1) STOP 5
+if (num_images() /= 1) call abort()
 error stop 'stop'
 end
 

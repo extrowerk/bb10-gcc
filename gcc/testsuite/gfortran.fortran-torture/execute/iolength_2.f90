@@ -19,6 +19,6 @@ program iolength_2
   type(foo) :: d
   inquire (iolength = iol) d
   if ( 32 /= iol) then
-     STOP 1
+     call abort
   end if
 end program iolength_2

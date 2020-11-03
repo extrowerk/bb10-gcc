@@ -25,27 +25,27 @@ contains
     character(len=:), pointer :: str4, str5
     nullify(str4)
     str3 = 'AbCdEfGhIj'
-    if(allocated(str)) STOP 1
+    if(allocated(str)) call abort()
     allocate(str, source=str3)
-    if(.not.allocated(str)) STOP 2
-    if(len(str) /= 8) STOP 3
-    if(str /= 'AbCdEfGh') STOP 4
-    if(associated(str4)) STOP 5
+    if(.not.allocated(str)) call abort()
+    if(len(str) /= 8) call abort()
+    if(str /= 'AbCdEfGh') call abort()
+    if(associated(str4)) call abort()
     str4 => str
-    if(str4 /= str .or. len(str4)/=8) STOP 6
-    if(.not.associated(str4, str)) STOP 7
+    if(str4 /= str .or. len(str4)/=8) call abort()
+    if(.not.associated(str4, str)) call abort()
     str4 => null()
     str = '12a56b78'
-    if(str4 == '12a56b78') STOP 8
+    if(str4 == '12a56b78') call abort()
     str4 = 'ABCDEFGH'
-    if(str == 'ABCDEFGH') STOP 9
+    if(str == 'ABCDEFGH') call abort()
     allocate(str5, source=str)
-    if(associated(str5, str)) STOP 10
-    if(str5 /= '12a56b78' .or. len(str5)/=8) STOP 11
+    if(associated(str5, str)) call abort()
+    if(str5 /= '12a56b78' .or. len(str5)/=8) call abort()
     str = 'abcdef'
-    if(str5 == 'abcdef') STOP 12
+    if(str5 == 'abcdef') call abort()
     str5 = 'ABCDEF'
-    if(str == 'ABCDEF') STOP 13
+    if(str == 'ABCDEF') call abort()
   end subroutine source_check
   subroutine source_check4()
     character(kind=4,len=:), allocatable :: str, str2
@@ -54,27 +54,27 @@ contains
     character(kind=4,len=:), pointer :: str4, str5
     nullify(str4)
     str3 = 4_'AbCdEfGhIj'
-    if(allocated(str)) STOP 14
+    if(allocated(str)) call abort()
     allocate(str, source=str3)
-    if(.not.allocated(str)) STOP 15
-    if(len(str) /= 8) STOP 16
-    if(str /= 4_'AbCdEfGh') STOP 17
-    if(associated(str4)) STOP 18
+    if(.not.allocated(str)) call abort()
+    if(len(str) /= 8) call abort()
+    if(str /= 4_'AbCdEfGh') call abort()
+    if(associated(str4)) call abort()
     str4 => str
-    if(str4 /= str .or. len(str4)/=8) STOP 19
-    if(.not.associated(str4, str)) STOP 20
+    if(str4 /= str .or. len(str4)/=8) call abort()
+    if(.not.associated(str4, str)) call abort()
     str4 => null()
     str = 4_'12a56b78'
-    if(str4 == 4_'12a56b78') STOP 21
+    if(str4 == 4_'12a56b78') call abort()
     str4 = 4_'ABCDEFGH'
-    if(str == 4_'ABCDEFGH') STOP 22
+    if(str == 4_'ABCDEFGH') call abort()
     allocate(str5, source=str)
-    if(associated(str5, str)) STOP 23
-    if(str5 /= 4_'12a56b78' .or. len(str5)/=8) STOP 24
+    if(associated(str5, str)) call abort()
+    if(str5 /= 4_'12a56b78' .or. len(str5)/=8) call abort()
     str = 4_'abcdef'
-    if(str5 == 4_'abcdef') STOP 25
+    if(str5 == 4_'abcdef') call abort()
     str5 = 4_'ABCDEF'
-    if(str == 4_'ABCDEF') STOP 26
+    if(str == 4_'ABCDEF') call abort()
   end subroutine source_check4
   subroutine mold_check()
     character(len=:), allocatable :: str, str2
@@ -83,26 +83,26 @@ contains
     nullify(str4)
     str2 = "ABCE"
     ALLOCATE( str, MOLD=str3)
-    if (len(str) /= 8) STOP 27
+    if (len(str) /= 8) call abort()
     DEALLOCATE(str)
     ALLOCATE( str, MOLD=str2)
-    if (len(str) /= 4) STOP 28
+    if (len(str) /= 4) call abort()
 
-    IF (associated(str4)) STOP 29
+    IF (associated(str4)) call abort()
     ALLOCATE( str4, MOLD=str3)
-    IF (.not.associated(str4)) STOP 30
+    IF (.not.associated(str4)) call abort()
     str4 = '12345678'
-    if (len(str4) /= 8) STOP 31
-    if(str4 /= '12345678') STOP 32
+    if (len(str4) /= 8) call abort()
+    if(str4 /= '12345678') call abort()
     DEALLOCATE(str4)
     ALLOCATE( str4, MOLD=str2)
     str4 = 'ABCD'
-    if (len(str4) /= 4) STOP 33
-    if (str4 /= 'ABCD') STOP 34
+    if (len(str4) /= 4) call abort()
+    if (str4 /= 'ABCD') call abort()
     str5 => str4
-    if(.not.associated(str4,str5)) STOP 35
-    if(len(str5) /= 4 .or. len(str4) /= len(str5)) STOP 36
-    if(str5 /= str4) STOP 37
+    if(.not.associated(str4,str5)) call abort()
+    if(len(str5) /= 4 .or. len(str4) /= len(str5)) call abort()
+    if(str5 /= str4) call abort()
     deallocate(str4) 
   end subroutine mold_check
   subroutine mold_check4()
@@ -112,26 +112,26 @@ contains
     nullify(str4)
     str2 = 4_"ABCE"
     ALLOCATE( str, MOLD=str3)
-    if (len(str) /= 8) STOP 38
+    if (len(str) /= 8) call abort()
     DEALLOCATE(str)
     ALLOCATE( str, MOLD=str2)
-    if (len(str) /= 4) STOP 39
+    if (len(str) /= 4) call abort()
 
-    IF (associated(str4)) STOP 40
+    IF (associated(str4)) call abort()
     ALLOCATE( str4, MOLD=str3)
-    IF (.not.associated(str4)) STOP 41
+    IF (.not.associated(str4)) call abort()
     str4 = 4_'12345678'
-    if (len(str4) /= 8) STOP 42
-    if(str4 /= 4_'12345678') STOP 43
+    if (len(str4) /= 8) call abort()
+    if(str4 /= 4_'12345678') call abort()
     DEALLOCATE(str4)
     ALLOCATE( str4, MOLD=str2)
     str4 = 4_'ABCD'
-    if (len(str4) /= 4) STOP 44
-    if (str4 /= 4_'ABCD') STOP 45
+    if (len(str4) /= 4) call abort()
+    if (str4 /= 4_'ABCD') call abort()
     str5 => str4
-    if(.not.associated(str4,str5)) STOP 46
-    if(len(str5) /= 4 .or. len(str4) /= len(str5)) STOP 47
-    if(str5 /= str4) STOP 48
+    if(.not.associated(str4,str5)) call abort()
+    if(len(str5) /= 4 .or. len(str4) /= len(str5)) call abort()
+    if(str5 /= str4) call abort()
     deallocate(str4) 
   end subroutine mold_check4
   subroutine ftn_test()
@@ -139,22 +139,22 @@ contains
     character(len=:), pointer     :: str_p
     nullify(str_p) 
     call proc_test(str_a, str_p, .false.)
-    if (str_p /= '123457890abcdef') STOP 49
-    if (len(str_p) /= 50) STOP 50
-    if (str_a(1:5) /= 'ABCDE ') STOP 51
-    if (len(str_a) /= 50) STOP 52
+    if (str_p /= '123457890abcdef') call abort()
+    if (len(str_p) /= 50) call abort()
+    if (str_a(1:5) /= 'ABCDE ') call abort()
+    if (len(str_a) /= 50) call abort()
     deallocate(str_p)
     str_a = '1245'
-    if(len(str_a) /= 4) STOP 53
-    if(str_a /= '1245') STOP 54
+    if(len(str_a) /= 4) call abort()
+    if(str_a /= '1245') call abort()
     allocate(character(len=6) :: str_p)
-    if(len(str_p) /= 6) STOP 55
+    if(len(str_p) /= 6) call abort()
     str_p = 'AbCdEf'
     call proc_test(str_a, str_p, .true.)
-    if (str_p /= '123457890abcdef') STOP 56
-    if (len(str_p) /= 50) STOP 57
-    if (str_a(1:5) /= 'ABCDE ') STOP 58
-    if (len(str_a) /= 50) STOP 59
+    if (str_p /= '123457890abcdef') call abort()
+    if (len(str_p) /= 50) call abort()
+    if (str_a(1:5) /= 'ABCDE ') call abort()
+    if (len(str_a) /= 50) call abort()
     deallocate(str_p)
   end subroutine ftn_test
   subroutine proc_test(a, p, alloc)
@@ -163,56 +163,56 @@ contains
     character(len=5), target :: loc
     logical :: alloc
     if (.not.  alloc) then
-      if(associated(p)) STOP 60
-      if(allocated(a)) STOP 61
+      if(associated(p)) call abort()
+      if(allocated(a)) call abort()
     else
-      if(len(a) /= 4) STOP 62
-      if(a /= '1245') STOP 63
-      if(len(p) /= 6) STOP 64
-      if(p /= 'AbCdEf') STOP 65
+      if(len(a) /= 4) call abort()
+      if(a /= '1245') call abort()
+      if(len(p) /= 6) call abort()
+      if(p /= 'AbCdEf') call abort()
       deallocate(a)
       nullify(p)
     end if
     allocate(character(len=50) :: a)
     a(1:5) = 'ABCDE'
-    if(len(a) /= 50) STOP 66
-    if(a(1:5) /= "ABCDE") STOP 67
+    if(len(a) /= 50) call abort()
+    if(a(1:5) /= "ABCDE") call abort()
     loc = '12345'
     p => loc
-    if (len(p) /= 5) STOP 68
-    if (p /= '12345') STOP 69
+    if (len(p) /= 5) call abort()
+    if (p /= '12345') call abort()
     p = '12345679'
-    if (len(p) /= 5) STOP 70
-    if (p /= '12345') STOP 71
+    if (len(p) /= 5) call abort()
+    if (p /= '12345') call abort()
     p = 'ABC'
-    if (loc /= 'ABC  ') STOP 72
+    if (loc /= 'ABC  ') call abort()
     allocate(p, mold=a)
-    if (.not.associated(p)) STOP 73
+    if (.not.associated(p)) call abort()
     p = '123457890abcdef'
-    if (p /= '123457890abcdef') STOP 74
-    if (len(p) /= 50) STOP 75
+    if (p /= '123457890abcdef') call abort()
+    if (len(p) /= 50) call abort()
   end subroutine proc_test
   subroutine ftn_test4()
     character(len=:,kind=4), allocatable :: str_a
     character(len=:,kind=4), pointer     :: str_p
     nullify(str_p) 
     call proc_test4(str_a, str_p, .false.)
-    if (str_p /= 4_'123457890abcdef') STOP 76
-    if (len(str_p) /= 50) STOP 77
-    if (str_a(1:5) /= 4_'ABCDE ') STOP 78
-    if (len(str_a) /= 50) STOP 79
+    if (str_p /= 4_'123457890abcdef') call abort()
+    if (len(str_p) /= 50) call abort()
+    if (str_a(1:5) /= 4_'ABCDE ') call abort()
+    if (len(str_a) /= 50) call abort()
     deallocate(str_p)
     str_a = 4_'1245'
-    if(len(str_a) /= 4) STOP 80
-    if(str_a /= 4_'1245') STOP 81
+    if(len(str_a) /= 4) call abort()
+    if(str_a /= 4_'1245') call abort()
     allocate(character(len=6, kind = 4) :: str_p)
-    if(len(str_p) /= 6) STOP 82
+    if(len(str_p) /= 6) call abort()
     str_p = 4_'AbCdEf'
     call proc_test4(str_a, str_p, .true.)
-    if (str_p /= 4_'123457890abcdef') STOP 83
-    if (len(str_p) /= 50) STOP 84
-    if (str_a(1:5) /= 4_'ABCDE ') STOP 85
-    if (len(str_a) /= 50) STOP 86
+    if (str_p /= 4_'123457890abcdef') call abort()
+    if (len(str_p) /= 50) call abort()
+    if (str_a(1:5) /= 4_'ABCDE ') call abort()
+    if (len(str_a) /= 50) call abort()
     deallocate(str_p)
   end subroutine ftn_test4
   subroutine proc_test4(a, p, alloc)
@@ -221,34 +221,34 @@ contains
     character(len=5,kind=4), target :: loc
     logical :: alloc
     if (.not.  alloc) then
-      if(associated(p)) STOP 87
-      if(allocated(a)) STOP 88
+      if(associated(p)) call abort()
+      if(allocated(a)) call abort()
     else
-      if(len(a) /= 4) STOP 89
-      if(a /= 4_'1245') STOP 90
-      if(len(p) /= 6) STOP 91
-      if(p /= 4_'AbCdEf') STOP 92
+      if(len(a) /= 4) call abort()
+      if(a /= 4_'1245') call abort()
+      if(len(p) /= 6) call abort()
+      if(p /= 4_'AbCdEf') call abort()
       deallocate(a)
       nullify(p)
     end if
     allocate(character(len=50,kind=4) :: a)
     a(1:5) = 4_'ABCDE'
-    if(len(a) /= 50) STOP 93
-    if(a(1:5) /= 4_"ABCDE") STOP 94
+    if(len(a) /= 50) call abort()
+    if(a(1:5) /= 4_"ABCDE") call abort()
     loc = '12345'
     p => loc
-    if (len(p) /= 5) STOP 95
-    if (p /= 4_'12345') STOP 96
+    if (len(p) /= 5) call abort()
+    if (p /= 4_'12345') call abort()
     p = 4_'12345679'
-    if (len(p) /= 5) STOP 97
-    if (p /= 4_'12345') STOP 98
+    if (len(p) /= 5) call abort()
+    if (p /= 4_'12345') call abort()
     p = 4_'ABC'
-    if (loc /= 4_'ABC  ') STOP 99
+    if (loc /= 4_'ABC  ') call abort()
     allocate(p, mold=a)
-    if (.not.associated(p)) STOP 100
+    if (.not.associated(p)) call abort()
     p = 4_'123457890abcdef'
-    if (p /= 4_'123457890abcdef') STOP 101
-    if (len(p) /= 50) STOP 102
+    if (p /= 4_'123457890abcdef') call abort()
+    if (len(p) /= 50) call abort()
   end subroutine proc_test4
   subroutine source3()
      character(len=:, kind=1), allocatable :: a1
@@ -256,14 +256,12 @@ contains
      character(len=:, kind=1), pointer     :: p1
      character(len=:, kind=4), pointer     :: p4
      allocate(a1, source='ABC') ! << ICE
-     if(len(a1) /= 3 .or. a1 /= 'ABC') STOP 103
+     if(len(a1) /= 3 .or. a1 /= 'ABC') call abort()
      allocate(a4, source=4_'12345') ! << ICE
-     if(len(a4) /= 5 .or. a4 /= 4_'12345') STOP 104
+     if(len(a4) /= 5 .or. a4 /= 4_'12345') call abort()
      allocate(p1, mold='AB') ! << ICE
-     if(len(p1) /= 2) STOP 105
+     if(len(p1) /= 2) call abort()
      allocate(p4, mold=4_'145') ! << ICE
-     if(len(p4) /= 3) STOP 106
+     if(len(p4) /= 3) call abort()
   end subroutine source3
 end program test
-! Spurious -Wstringop-overflow warning with -O1
-! { dg-prune-output "\\\[-Wstringop-overflow=]" } 

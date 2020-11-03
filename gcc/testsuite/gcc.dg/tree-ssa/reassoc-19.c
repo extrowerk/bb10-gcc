@@ -19,3 +19,4 @@ void foo(char* left, char* rite, int element)
 /* { dg-final { scan-tree-dump-times "= \\\(sizetype\\\) element" 1 "optimized" } } */
 /* { dg-final { scan-tree-dump-times "= -" 1 "optimized" } } */
 /* { dg-final { scan-tree-dump-times " \\\+ " 1 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

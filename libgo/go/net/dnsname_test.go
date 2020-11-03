@@ -9,13 +9,13 @@ import (
 	"testing"
 )
 
-type dnsNameTest struct {
+type testCase struct {
 	name   string
 	result bool
 }
 
-var dnsNameTests = []dnsNameTest{
-	// RFC 2181, section 11.
+var tests = []testCase{
+	// RFC2181, section 11.
 	{"_xmpp-server._tcp.google.com", true},
 	{"foo.com", true},
 	{"1foo.com", true},
@@ -30,46 +30,46 @@ var dnsNameTests = []dnsNameTest{
 	{"b.com.", true},
 }
 
-func emitDNSNameTest(ch chan<- dnsNameTest) {
+func getTestCases(ch chan<- testCase) {
 	defer close(ch)
+	var char59 = ""
 	var char63 = ""
-	for i := 0; i < 63; i++ {
-		char63 += "a"
+	var char64 = ""
+	for i := 0; i < 59; i++ {
+		char59 += "a"
 	}
-	char64 := char63 + "a"
-	longDomain := strings.Repeat(char63+".", 5) + "example"
+	char63 = char59 + "aaaa"
+	char64 = char63 + "a"
 
-	for _, tc := range dnsNameTests {
+	for _, tc := range tests {
 		ch <- tc
 	}
 
-	ch <- dnsNameTest{char63 + ".com", true}
-	ch <- dnsNameTest{char64 + ".com", false}
-
-	// Remember: wire format is two octets longer than presentation
-	// (length octets for the first and [root] last labels).
-	// 253 is fine:
-	ch <- dnsNameTest{longDomain[len(longDomain)-253:], true}
-	// A terminal dot doesn't contribute to length:
-	ch <- dnsNameTest{longDomain[len(longDomain)-253:] + ".", true}
-	// 254 is bad:
-	ch <- dnsNameTest{longDomain[len(longDomain)-254:], false}
+	ch <- testCase{char63 + ".com", true}
+	ch <- testCase{char64 + ".com", false}
+	// 255 char name is fine:
+	ch <- testCase{char59 + "." + char63 + "." + char63 + "." +
+		char63 + ".com",
+		true}
+	// 256 char name is bad:
+	ch <- testCase{char59 + "a." + char63 + "." + char63 + "." +
+		char63 + ".com",
+		false}
 }
 
-func TestDNSName(t *testing.T) {
-	ch := make(chan dnsNameTest)
-	go emitDNSNameTest(ch)
+func TestDNSNames(t *testing.T) {
+	ch := make(chan testCase)
+	go getTestCases(ch)
 	for tc := range ch {
 		if isDomainName(tc.name) != tc.result {
-			t.Errorf("isDomainName(%q) = %v; want %v", tc.name, !tc.result, tc.result)
+			t.Errorf("isDomainName(%v) failed: Should be %v",
+				tc.name, tc.result)
 		}
 	}
 }
 
-func BenchmarkDNSName(b *testing.B) {
-	testHookUninstaller.Do(uninstallTestHooks)
-
-	benchmarks := append(dnsNameTests, []dnsNameTest{
+func BenchmarkDNSNames(b *testing.B) {
+	benchmarks := append(tests, []testCase{
 		{strings.Repeat("a", 63), true},
 		{strings.Repeat("a", 64), false},
 	}...)

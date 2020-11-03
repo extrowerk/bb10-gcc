@@ -1,2 +1,2 @@
-*cpp_unique_options:
+*cppruntime:
 + %{tfoo: -DFOO}

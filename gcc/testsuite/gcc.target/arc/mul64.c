@@ -1,7 +1,5 @@
 /* { dg-do compile } */
-/* { dg-skip-if "MUL64 is ARC600 extension" { ! { arc6xx } } } */
-/* { dg-options "-O2 -mmul64" } */
-
+/* { dg-options "-O2 -mcpu=ARC600 -mmul64" } */
 #include <stdint.h>
 
 int64_t i;

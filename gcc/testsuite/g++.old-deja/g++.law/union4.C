@@ -10,4 +10,4 @@ static union {
         struct SS {
                 int ss;
         };
-};// { dg-error "no members" }
+};// { dg-warning "no members" }

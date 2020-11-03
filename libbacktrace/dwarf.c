@@ -1,5 +1,5 @@
 /* dwarf.c -- Get file/line information from DWARF for backtraces.
-   Copyright (C) 2012-2018 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Google.
 
 Redistribution and use in source and binary forms, with or without
@@ -7,13 +7,13 @@ modification, are permitted provided that the following conditions are
 met:
 
     (1) Redistributions of source code must retain the above copyright
-    notice, this list of conditions and the following disclaimer.
+    notice, this list of conditions and the following disclaimer. 
 
     (2) Redistributions in binary form must reproduce the above copyright
     notice, this list of conditions and the following disclaimer in
     the documentation and/or other materials provided with the
-    distribution.
-
+    distribution.  
+    
     (3) The name of the author may not be used to
     endorse or promote products derived from this software without
     specific prior written permission.
@@ -211,10 +211,6 @@ struct line
   const char *filename;
   /* Line number.  */
   int lineno;
-  /* Index of the object in the original array read from the DWARF
-     section, before it has been sorted.  The index makes it possible
-     to use Quicksort and maintain stability.  */
-  int idx;
 };
 
 /* A growable vector of line number information.  This is used while
@@ -944,10 +940,9 @@ unit_addrs_search (const void *vkey, const void *ventry)
     return 0;
 }
 
-/* Sort the line vector by PC.  We want a stable sort here to maintain
-   the order of lines for the same PC values.  Since the sequence is
-   being sorted in place, their addresses cannot be relied on to
-   maintain stability.  That is the purpose of the index member.  */
+/* Sort the line vector by PC.  We want a stable sort here.  We know
+   that the pointers are into the same array, so it is safe to compare
+   them directly.  */
 
 static int
 line_compare (const void *v1, const void *v2)
@@ -959,9 +954,9 @@ line_compare (const void *v1, const void *v2)
     return -1;
   else if (ln1->pc > ln2->pc)
     return 1;
-  else if (ln1->idx < ln2->idx)
+  else if (ln1 < ln2)
     return -1;
-  else if (ln1->idx > ln2->idx)
+  else if (ln1 > ln2)
     return 1;
   else
     return 0;
@@ -1246,7 +1241,7 @@ add_unit_ranges (struct backtrace_state *state, uintptr_t base_address,
 
 static int
 find_address_ranges (struct backtrace_state *state, uintptr_t base_address,
-		     struct dwarf_buf *unit_buf,
+		     struct dwarf_buf *unit_buf, 
 		     const unsigned char *dwarf_str, size_t dwarf_str_size,
 		     const unsigned char *dwarf_ranges,
 		     size_t dwarf_ranges_size,
@@ -1556,22 +1551,22 @@ add_line (struct backtrace_state *state, struct dwarf_data *ddata,
 
   ln->filename = filename;
   ln->lineno = lineno;
-  ln->idx = vec->count;
 
   ++vec->count;
 
   return 1;
 }
 
-/* Free the line header information.  */
+/* Free the line header information.  If FREE_FILENAMES is true we
+   free the file names themselves, otherwise we leave them, as there
+   may be line structures pointing to them.  */
 
 static void
 free_line_header (struct backtrace_state *state, struct line_header *hdr,
 		  backtrace_error_callback error_callback, void *data)
 {
-  if (hdr->dirs_count != 0)
-    backtrace_free (state, hdr->dirs, hdr->dirs_count * sizeof (const char *),
-		    error_callback, data);
+  backtrace_free (state, hdr->dirs, hdr->dirs_count * sizeof (const char *),
+		  error_callback, data);
   backtrace_free (state, hdr->filenames,
 		  hdr->filenames_count * sizeof (char *),
 		  error_callback, data);
@@ -1604,7 +1599,7 @@ read_line_header (struct backtrace_state *state, struct unit *u,
 
   if (!advance (line_buf, hdrlen))
     return 0;
-
+  
   hdr->min_insn_len = read_byte (&hdr_buf);
   if (hdr->version < 4)
     hdr->max_ops_per_insn = 1;
@@ -1613,7 +1608,7 @@ read_line_header (struct backtrace_state *state, struct unit *u,
 
   /* We don't care about default_is_stmt.  */
   read_byte (&hdr_buf);
-
+  
   hdr->line_base = read_sbyte (&hdr_buf);
   hdr->line_range = read_byte (&hdr_buf);
 
@@ -1632,16 +1627,12 @@ read_line_header (struct backtrace_state *state, struct unit *u,
       ++hdr->dirs_count;
     }
 
-  hdr->dirs = NULL;
-  if (hdr->dirs_count != 0)
-    {
-      hdr->dirs = ((const char **)
-		   backtrace_alloc (state,
-				    hdr->dirs_count * sizeof (const char *),
-				    line_buf->error_callback, line_buf->data));
-      if (hdr->dirs == NULL)
-	return 0;
-    }
+  hdr->dirs = ((const char **)
+	       backtrace_alloc (state,
+				hdr->dirs_count * sizeof (const char *),
+				line_buf->error_callback, line_buf->data));
+  if (hdr->dirs == NULL)
+    return 0;
 
   i = 0;
   while (*hdr_buf.buf != '\0')
@@ -2020,7 +2011,6 @@ read_line_info (struct backtrace_state *state, struct dwarf_data *ddata,
   ln->pc = (uintptr_t) -1;
   ln->filename = NULL;
   ln->lineno = 0;
-  ln->idx = 0;
 
   if (!backtrace_vector_release (state, &vec.vec, error_callback, data))
     goto fail;
@@ -2253,8 +2243,7 @@ read_function_entry (struct backtrace_state *state, struct dwarf_data *ddata,
 		     struct unit *u, uint64_t base, struct dwarf_buf *unit_buf,
 		     const struct line_header *lhdr,
 		     backtrace_error_callback error_callback, void *data,
-		     struct function_vector *vec_function,
-		     struct function_vector *vec_inlined)
+		     struct function_vector *vec)
 {
   while (unit_buf->left > 0)
     {
@@ -2262,7 +2251,6 @@ read_function_entry (struct backtrace_state *state, struct dwarf_data *ddata,
       const struct abbrev *abbrev;
       int is_function;
       struct function *function;
-      struct function_vector *vec;
       size_t i;
       uint64_t lowpc;
       int have_lowpc;
@@ -2283,11 +2271,6 @@ read_function_entry (struct backtrace_state *state, struct dwarf_data *ddata,
       is_function = (abbrev->tag == DW_TAG_subprogram
 		     || abbrev->tag == DW_TAG_entry_point
 		     || abbrev->tag == DW_TAG_inlined_subroutine);
-
-      if (abbrev->tag == DW_TAG_inlined_subroutine)
-	vec = vec_inlined;
-      else
-	vec = vec_function;
 
       function = NULL;
       if (is_function)
@@ -2468,8 +2451,7 @@ read_function_entry (struct backtrace_state *state, struct dwarf_data *ddata,
 	  if (!is_function)
 	    {
 	      if (!read_function_entry (state, ddata, u, base, unit_buf, lhdr,
-					error_callback, data, vec_function,
-					vec_inlined))
+					error_callback, data, vec))
 		return 0;
 	    }
 	  else
@@ -2482,8 +2464,7 @@ read_function_entry (struct backtrace_state *state, struct dwarf_data *ddata,
 	      memset (&fvec, 0, sizeof fvec);
 
 	      if (!read_function_entry (state, ddata, u, base, unit_buf, lhdr,
-					error_callback, data, vec_function,
-					&fvec))
+					error_callback, data, &fvec))
 		return 0;
 
 	      if (fvec.count > 0)
@@ -2547,7 +2528,7 @@ read_function_info (struct backtrace_state *state, struct dwarf_data *ddata,
   while (unit_buf.left > 0)
     {
       if (!read_function_entry (state, ddata, u, 0, &unit_buf, lhdr,
-				error_callback, data, pfvec, pfvec))
+				error_callback, data, pfvec))
 	return;
     }
 

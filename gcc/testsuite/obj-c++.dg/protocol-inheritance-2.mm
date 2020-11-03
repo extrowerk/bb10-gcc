@@ -37,9 +37,10 @@
 
 @implementation MySubClass
 @end
-/* { dg-warning "incomplete implementation of class .MySubClass." "" { target *-*-* } .-1 } */
-/* { dg-warning "method definition for .\\-method. not found" "" { target *-*-* } .-2 } */
-/* { dg-warning "class .MySubClass. does not fully implement the .MyProtocol. protocol" "" { target *-*-* } .-3 } */
+
+/* { dg-warning "incomplete implementation of class .MySubClass." "" { target *-*-* } 39 } */
+/* { dg-warning "method definition for .\\-method. not found" "" { target *-*-* } 39 } */
+/* { dg-warning "class .MySubClass. does not fully implement the .MyProtocol. protocol" "" { target *-*-* } 39 } */
 
 
 /* The subclass instead does not inherit the method method2 (and does
@@ -50,6 +51,7 @@
 
 @implementation MySubClass2
 @end /* Warnings here, below.  */
-/* { dg-warning "incomplete implementation of class .MySubClass2." "" { target *-*-* } .-1 } */
-/* { dg-warning "method definition for .\\-method2. not found" "" { target *-*-* } .-2 } */
-/* { dg-warning "class .MySubClass2. does not fully implement the .MyProtocol2. protocol" "" { target *-*-* } .-3 } */
+
+/* { dg-warning "incomplete implementation of class .MySubClass2." "" { target *-*-* } 53 } */
+/* { dg-warning "method definition for .\\-method2. not found" "" { target *-*-* } 53 } */
+/* { dg-warning "class .MySubClass2. does not fully implement the .MyProtocol2. protocol" "" { target *-*-* } 53 } */

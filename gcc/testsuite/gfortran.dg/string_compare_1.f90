@@ -20,6 +20,6 @@ PROGRAM main
   PRINT '(L1)', tmp2
 
   IF (.NOT. tmp(1) .OR. .NOT. tmp2(1)) THEN
-    STOP 1
+    CALL abort ()
   END IF
 END PROGRAM main

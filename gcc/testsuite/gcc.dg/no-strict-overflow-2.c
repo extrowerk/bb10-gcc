@@ -13,3 +13,4 @@ foo (int i)
 }
 
 /* { dg-final { scan-tree-dump "100" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

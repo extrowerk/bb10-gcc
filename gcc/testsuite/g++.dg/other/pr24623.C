@@ -34,8 +34,6 @@ RefCountPointer (T * p = 0):_p (p)
 	if (_p != 0)
 	  _p->decrementRefCount ();
       }
-    static RefCountPointer a;
-    return a;
   }
   ~RefCountPointer ()
   {

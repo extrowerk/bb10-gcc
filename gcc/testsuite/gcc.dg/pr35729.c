@@ -15,3 +15,4 @@ void func_1 (void)
 }
 
 /* { dg-final { scan-rtl-dump-times "Decided to move invariant" 0 "loop2_invariant" } } */
+/* { dg-final { cleanup-rtl-dump "loop2_invariant" } } */

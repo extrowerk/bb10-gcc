@@ -5,3 +5,4 @@
 
 #include "vect-simd-clone-10.c"
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

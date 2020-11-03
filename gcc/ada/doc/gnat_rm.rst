@@ -1,39 +1,37 @@
 GNAT Reference Manual
 =====================
 
-.. only:: not latex
+*GNAT, The GNU Ada Development Environment*
 
-    *GNAT, The GNU Ada Development Environment*
+.. only:: PRO
+   
+   *GNAT Pro Edition*
+   
+   | Version |version|
+   | Date: |today|
 
-    .. only:: PRO
+.. only:: GPL
+   
+   *GNAT GPL Edition*
+   
+   | Version |version|
+   | Date: |today|
 
-       *GNAT Pro Edition*
+.. only:: FSF
+   
+   .. raw:: texinfo
+      
+      @include gcc-common.texi
+      GCC version @value{version-GCC}@*
 
-       | Version |version|
-       | Date: |today|
+AdaCore
 
-    .. only:: GPL
-
-       *GNAT GPL Edition*
-
-       | Version |version|
-       | Date: |today|
-
-    .. only:: FSF
-
-       .. raw:: texinfo
-
-          @include gcc-common.texi
-          GCC version @value{version-GCC}@*
-
-    AdaCore
-
-    Permission is granted to copy, distribute and/or modify this document
-    under the terms of the GNU Free Documentation License, Version 1.3 or
-    any later version published by the Free Software Foundation; with no
-    Invariant Sections, with the Front-Cover Texts being "GNAT Reference
-    Manual", and with no Back-Cover Texts.  A copy of the license is
-    included in the section entitled :ref:`gnu_fdl`.
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover Texts being "GNAT Reference
+Manual", and with no Back-Cover Texts.  A copy of the license is
+included in the section entitled :ref:`gnu_fdl`.
 
 .. toctree::
    :numbered:

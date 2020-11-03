@@ -5,4 +5,5 @@
 #endif
 #include <stddef.h>
 int x;
-/* { dg-keep-saved-temps ".s" } */
+
+/* { dg-final { cleanup-saved-temps ".s" } } */

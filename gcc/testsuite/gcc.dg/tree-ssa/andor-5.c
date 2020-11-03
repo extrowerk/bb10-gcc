@@ -47,3 +47,4 @@ int f7(int y, int x)
 /* { dg-final { scan-tree-dump-times "\\\|" 0 "optimized" } } */
 /* { dg-final { scan-tree-dump-times "\&" 0 "optimized" } } */
 /* { dg-final { scan-tree-dump-times "return x_..D.;" 8 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

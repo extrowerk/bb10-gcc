@@ -71,3 +71,4 @@ g3 (unsigned int a)
 int i;
 
 /* { dg-final { scan-tree-dump-times "&" 0 "original" } } */
+/* { dg-final { cleanup-tree-dump "original" } } */

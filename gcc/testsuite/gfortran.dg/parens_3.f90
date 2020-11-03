@@ -26,13 +26,13 @@
       k => l
 
       j = tryme((i),i)
-      if (j .ne. 3) STOP 1
+      if (j .ne. 3) call abort ()
 
       j = tryme((k),k)
-      if (j .ne. 5) STOP 2
+      if (j .ne. 5) call abort ()
 
       n = tryyou((m),m)
-      if (any(n .ne. 7)) STOP 3
+      if (any(n .ne. 7)) call abort ()
       END
 
       INTEGER FUNCTION TRYME(RTNME,HITME)

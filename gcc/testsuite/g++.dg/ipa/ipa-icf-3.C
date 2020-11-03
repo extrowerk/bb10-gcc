@@ -33,3 +33,4 @@ int main()
 /* { dg-final { scan-ipa-dump "Semantic equality hit:.*bar.*->.*foo.*" "icf"  } } */
 /* { dg-final { scan-ipa-dump "Semantic equality hit:.*nula.*->.*zero.*" "icf"  } } */
 /* { dg-final { scan-ipa-dump "Equal symbols: 2" "icf"  } } */
+/* { dg-final { cleanup-ipa-dump "icf" } } */

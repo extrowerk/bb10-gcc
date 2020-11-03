@@ -1,6 +1,5 @@
 // // PR c++/65202
 // { dg-do compile { target c++14 } }
-// { dg-additional-options "-Wno-return-type" }
 
 template <typename T> struct is_move_constructible;
 template <typename T> struct is_move_assignable;
@@ -23,5 +22,5 @@ struct bar;
 int main()
 {
     foo<ns::bar> f;
-    adl::swap(f, f) // { dg-error "expected ';'" }
-} // { dg-error "expected '.'" "expected end of namespace" }
+    adl::swap(f, f)
+} // { dg-error "" }

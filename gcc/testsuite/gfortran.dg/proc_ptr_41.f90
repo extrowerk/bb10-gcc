@@ -33,3 +33,5 @@ program crash_test
     ptr => generic_name_get_proc_ptr()
 
 end program
+
+! { dg-final { cleanup-modules "test" } }

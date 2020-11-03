@@ -8,6 +8,8 @@
 char x[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
 char cb[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
 
+volatile int y = 0;
+
 __attribute__ ((noinline))
 int main1 ()
 {
@@ -19,7 +21,8 @@ int main1 ()
   for (i = 0; i < N; i++)
     {
       cb[i] = i*3;
-      asm volatile ("" ::: "memory");
+      if (y)
+	abort ();
     }
 
   /* Check that datarefs analysis can determine that the access via pointer
@@ -67,3 +70,4 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

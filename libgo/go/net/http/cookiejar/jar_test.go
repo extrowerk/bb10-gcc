@@ -19,9 +19,6 @@ var tNow = time.Date(2013, 1, 1, 12, 0, 0, 0, time.UTC)
 
 // testPSL implements PublicSuffixList with just two rules: "co.uk"
 // and the default rule "*".
-// The implementation has two intentional bugs:
-//    PublicSuffix("www.buggy.psl") == "xy"
-//    PublicSuffix("www2.buggy.psl") == "com"
 type testPSL struct{}
 
 func (testPSL) String() string {
@@ -30,12 +27,6 @@ func (testPSL) String() string {
 func (testPSL) PublicSuffix(d string) string {
 	if d == "co.uk" || strings.HasSuffix(d, ".co.uk") {
 		return "co.uk"
-	}
-	if d == "www.buggy.psl" {
-		return "xy"
-	}
-	if d == "www2.buggy.psl" {
-		return "com"
 	}
 	return d[strings.LastIndex(d, ".")+1:]
 }
@@ -134,17 +125,6 @@ var canonicalHostTests = map[string]string{
 	"[2001:4860:0:::68]:8080": "2001:4860:0:::68",
 	"www.bücher.de":           "www.xn--bcher-kva.de",
 	"www.example.com.":        "www.example.com",
-	// TODO: Fix canonicalHost so that all of the following malformed
-	// domain names trigger an error. (This list is not exhaustive, e.g.
-	// malformed internationalized domain names are missing.)
-	".":                       "",
-	"..":                      ".",
-	"...":                     "..",
-	".net":                    ".net",
-	".net.":                   ".net",
-	"a..":                     "a.",
-	"b.a..":                   "b.a.",
-	"weird.stuff...":          "weird.stuff..",
 	"[bad.unmatched.bracket:": "error",
 }
 
@@ -153,7 +133,7 @@ func TestCanonicalHost(t *testing.T) {
 		got, err := canonicalHost(h)
 		if want == "error" {
 			if err == nil {
-				t.Errorf("%q: got %q and nil error, want non-nil", h, got)
+				t.Errorf("%q: got nil error, want non-nil", h)
 			}
 			continue
 		}
@@ -196,17 +176,6 @@ var jarKeyTests = map[string]string{
 	"co.uk":               "co.uk",
 	"uk":                  "uk",
 	"192.168.0.5":         "192.168.0.5",
-	"www.buggy.psl":       "www.buggy.psl",
-	"www2.buggy.psl":      "buggy.psl",
-	// The following are actual outputs of canonicalHost for
-	// malformed inputs to canonicalHost (see above).
-	"":              "",
-	".":             ".",
-	"..":            ".",
-	".net":          ".net",
-	"a.":            "a.",
-	"b.a.":          "a.",
-	"weird.stuff..": ".",
 }
 
 func TestJarKey(t *testing.T) {
@@ -228,15 +197,6 @@ var jarKeyNilPSLTests = map[string]string{
 	"co.uk":               "co.uk",
 	"uk":                  "uk",
 	"192.168.0.5":         "192.168.0.5",
-	// The following are actual outputs of canonicalHost for
-	// malformed inputs to canonicalHost.
-	"":              "",
-	".":             ".",
-	"..":            "..",
-	".net":          ".net",
-	"a.":            "a.",
-	"b.a.":          "a.",
-	"weird.stuff..": "stuff..",
 }
 
 func TestJarKeyNilPSL(t *testing.T) {
@@ -1303,20 +1263,5 @@ func TestDomainHandling(t *testing.T) {
 	for _, test := range domainHandlingTests {
 		jar := newTestJar()
 		test.run(t, jar)
-	}
-}
-
-func TestIssue19384(t *testing.T) {
-	cookies := []*http.Cookie{{Name: "name", Value: "value"}}
-	for _, host := range []string{"", ".", "..", "..."} {
-		jar, _ := New(nil)
-		u := &url.URL{Scheme: "http", Host: host, Path: "/"}
-		if got := jar.Cookies(u); len(got) != 0 {
-			t.Errorf("host %q, got %v", host, got)
-		}
-		jar.SetCookies(u, cookies)
-		if got := jar.Cookies(u); len(got) != 1 || got[0].Value != "value" {
-			t.Errorf("host %q, got %v", host, got)
-		}
 	}
 }

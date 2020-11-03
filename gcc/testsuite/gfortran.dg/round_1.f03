@@ -11,18 +11,18 @@ do i = 1, 7
    !print fmt(i), 1.20, 1.22, 1.25, 1.27, 1.30, 1.125
 end do
 write(line, fmt(1)) 1.20, 1.22, 1.25, 1.27, 1.30, 1.125
-if (line.ne."       1.3       1.3       1.3       1.3       1.3       1.2") STOP 1
+if (line.ne."       1.3       1.3       1.3       1.3       1.3       1.2") call abort
 write(line, fmt(2)) 1.20, 1.22, 1.25, 1.27, 1.30, 1.125
-if (line.ne."       1.2       1.2       1.2       1.2       1.2       1.1") STOP 2
+if (line.ne."       1.2       1.2       1.2       1.2       1.2       1.1") call abort
 write(line, fmt(3)) 1.20, 1.22, 1.25, 1.27, 1.30, 1.125
-if (line.ne."       1.2       1.2       1.2       1.2       1.2       1.1") STOP 3
+if (line.ne."       1.2       1.2       1.2       1.2       1.2       1.1") call abort
 write(line, fmt(4)) 1.20, 1.22, 1.25, 1.27, 1.30, 1.125
-if (line.ne."      1.20      1.22      1.25      1.27      1.30      1.12") STOP 4
+if (line.ne."      1.20      1.22      1.25      1.27      1.30      1.12") call abort
 write(line, fmt(5)) 1.20, 1.22, 1.25, 1.27, 1.30, 1.125
-if (line.ne."      1.20      1.22      1.25      1.27      1.30      1.13") STOP 5
+if (line.ne."      1.20      1.22      1.25      1.27      1.30      1.13") call abort
 write(line, fmt(6)) 1.20, 1.22, 1.250001, 1.27, 1.30, 1.125
-if (line.ne."       1.2       1.2       1.3       1.3       1.3       1.1") STOP 6
+if (line.ne."       1.2       1.2       1.3       1.3       1.3       1.1") call abort
 write(line, fmt(7)) 1.20, 1.22, 1.250001, 1.27, 1.30, 1.125
-if (line.ne."      +1.2      +1.2      +1.3      +1.3      +1.3      +1.1") STOP 7
+if (line.ne."      +1.2      +1.2      +1.3      +1.3      +1.3      +1.1") call abort
 
 end

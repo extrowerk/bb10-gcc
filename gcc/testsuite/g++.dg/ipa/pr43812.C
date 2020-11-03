@@ -35,4 +35,4 @@ public:
 class LocalSurface : public Surface {
     virtual BBox bbox () const;
 };
-BBox LocalSurface::bbox () const { return BBox(); }
+BBox LocalSurface::bbox () const { }

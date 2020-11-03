@@ -1,7 +1,6 @@
 // PR c++/44613
 // { dg-do run }
 // { dg-options "" }
-// { dg-require-effective-target alloca }
 
 void *volatile p;
 

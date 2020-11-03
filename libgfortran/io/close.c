@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2018 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -25,9 +25,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "io.h"
 #include "unix.h"
 #include <limits.h>
-#if !HAVE_UNLINK_OPEN_FILE
-#include <string.h>
-#endif
 
 typedef enum
 { CLOSE_DELETE, CLOSE_KEEP, CLOSE_UNSPECIFIED }
@@ -49,7 +46,7 @@ st_close (st_parameter_close *clp)
   close_status status;
   gfc_unit *u;
 #if !HAVE_UNLINK_OPEN_FILE
-  char *path;
+  char * path;
 
   path = NULL;
 #endif
@@ -69,8 +66,6 @@ st_close (st_parameter_close *clp)
   u = find_unit (clp->common.unit);
   if (u != NULL)
     {
-      if (close_share (u) < 0)
-	generate_error (&clp->common, LIBERROR_OS, "Problem in CLOSE");
       if (u->flags.status == STATUS_SCRATCH)
 	{
 	  if (status == CLOSE_KEEP)
@@ -83,19 +78,13 @@ st_close (st_parameter_close *clp)
       else
 	{
 	  if (status == CLOSE_DELETE)
-	    {
-	      if (u->flags.readonly)
-		generate_warning (&clp->common, "STATUS set to DELETE on CLOSE"
-				  " but file protected by READONLY specifier");
-	      else
-		{
+            {
 #if HAVE_UNLINK_OPEN_FILE
-		  remove (u->filename);
+	      delete_file (u);
 #else
-		  path = strdup (u->filename);
+	      path = strdup (u->filename);
 #endif
-		}
-	    }
+            }
 	}
 
       close_unit (u);
@@ -103,7 +92,7 @@ st_close (st_parameter_close *clp)
 #if !HAVE_UNLINK_OPEN_FILE
       if (path != NULL)
 	{
-	  remove (path);
+	  unlink (path);
 	  free (path);
 	}
 #endif

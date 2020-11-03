@@ -1,10 +1,10 @@
-! See also loop-1-2.f95.
-
+! { dg-do compile } 
+! { dg-additional-options "-fmax-errors=100" } 
 module test
   implicit none
 contains
 
-subroutine test1
+subroutine test1  
   integer :: i, j, k, b(10)
   integer, dimension (30) :: a
   double precision :: d
@@ -29,18 +29,14 @@ subroutine test1
        i = i + 1
   end do
   !$acc loop
-  do 300 d = 1, 30, 6
+  do 300 d = 1, 30, 6 ! { dg-error "integer" }
       i = d
   300 a(i) = 1
-  ! { dg-warning "Deleted feature: Loop variable at .1. must be integer" "" { target *-*-* } 32 }
-  ! { dg-error "ACC LOOP iteration variable must be of type integer" "" { target *-*-* } 32 }
   !$acc loop
-  do d = 1, 30, 5
+  do d = 1, 30, 5 ! { dg-error "integer" }
        i = d
       a(i) = 2
   end do
-  ! { dg-warning "Deleted feature: Loop variable at .1. must be integer" "" { target *-*-* } 38 }
-  ! { dg-error "ACC LOOP iteration variable must be of type integer" "" { target *-*-* } 38 }
   !$acc loop
   do i = 1, 30
       if (i .eq. 16) exit ! { dg-error "EXIT statement" }
@@ -55,7 +51,7 @@ subroutine test1
    end do last
 
   ! different types of loop are allowed
-  !$acc loop
+  !$acc loop 
   do i = 1,10
   end do
   !$acc loop
@@ -67,8 +63,8 @@ subroutine test1
   a(1) = 1 ! { dg-error "Expected DO loop" }
   do i = 1,10
   enddo
-
-  ! combined directives may be used with/without end
+  
+  ! combined directives may be used with/without end 
   !$acc parallel loop
   do i = 1,10
   enddo
@@ -84,11 +80,11 @@ subroutine test1
   enddo
   !$acc end kernels loop
 
-  !$acc kernels loop reduction(max:i)
+  !$acc kernels loop reduction(max:i) 
   do i = 1,10
   enddo
-  !$acc kernels
-  !$acc loop reduction(max:i)
+  !$acc kernels 
+  !$acc loop reduction(max:i) 
   do i = 1,10
   enddo
   !$acc end kernels
@@ -120,7 +116,7 @@ subroutine test1
     end do
     !$acc parallel loop collapse(2)
     do i = 1, 3
-        do j = 4, 6
+        do j = 4, 6  
         end do
     end do
     !$acc parallel loop collapse(2)
@@ -148,10 +144,8 @@ subroutine test1
     end do
     !$acc parallel loop collapse(2)
     do i = 1, 3
-        do r = 4, 6
+        do r = 4, 6    ! { dg-error "integer" }
         end do
-        ! { dg-warning "Deleted feature: Loop variable at .1. must be integer" "" { target *-*-* } 151 }
-        ! { dg-error "ACC LOOP iteration variable must be of type integer" "" { target *-*-* } 151 }
     end do
 
     ! Both seq and independent are not allowed
@@ -160,17 +154,18 @@ subroutine test1
   enddo
 
 
-  !$acc cache (a(1:10)) ! { dg-error "ACC CACHE directive must be inside of loop" }
+  !$acc cache (a) ! { dg-error "inside of loop" }
 
   do i = 1,10
-    !$acc cache(a(i:i+1))
+    !$acc cache(a)
   enddo
 
   do i = 1,10
-    !$acc cache(a(i:i+1))
     a(i) = i
-    !$acc cache(a(i+2:i+2+1))
+    !$acc cache(a) 
   enddo
 
 end subroutine test1
 end module test
+! { dg-prune-output "Deleted" }
+! { dg-prune-output "ACC cache unimplemented" }

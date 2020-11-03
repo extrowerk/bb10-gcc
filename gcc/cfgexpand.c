@@ -1,5 +1,5 @@
 /* A pass for lowering trees to RTL.
-   Copyright (C) 2004-2018 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,58 +20,89 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
-#include "target.h"
+#include "tm.h"
 #include "rtl.h"
+#include "hard-reg-set.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
-#include "gimple.h"
-#include "cfghooks.h"
-#include "tree-pass.h"
-#include "memmodel.h"
-#include "tm_p.h"
-#include "ssa.h"
-#include "optabs.h"
-#include "regs.h" /* For reg_renumber.  */
-#include "emit-rtl.h"
-#include "recog.h"
-#include "cgraph.h"
-#include "diagnostic.h"
 #include "fold-const.h"
+#include "stringpool.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "stmt.h"
 #include "print-tree.h"
+#include "tm_p.h"
+#include "predict.h"
+#include "hashtab.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
+#include "basic-block.h"
+#include "insn-codes.h"
+#include "optabs.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
 #include "calls.h"
+#include "emit-rtl.h"
 #include "expr.h"
+#include "langhooks.h"
+#include "bitmap.h"
+#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
-#include "gimple-iterator.h"
 #include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
 #include "gimple-walk.h"
+#include "gimple-ssa.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
+#include "tree-pass.h"
 #include "except.h"
+#include "diagnostic.h"
 #include "gimple-pretty-print.h"
 #include "toplev.h"
 #include "debug.h"
 #include "params.h"
 #include "tree-inline.h"
 #include "value-prof.h"
+#include "target.h"
 #include "tree-ssa-live.h"
 #include "tree-outof-ssa.h"
+#include "sbitmap.h"
 #include "cfgloop.h"
+#include "regs.h" /* For reg_renumber.  */
 #include "insn-attr.h" /* For INSN_SCHEDULING.  */
-#include "stringpool.h"
-#include "attribs.h"
 #include "asan.h"
 #include "tree-ssa-address.h"
+#include "recog.h"
 #include "output.h"
 #include "builtins.h"
 #include "tree-chkp.h"
@@ -91,19 +122,15 @@ struct ssaexpand SA;
 
 /* This variable holds the currently expanded gimple statement for purposes
    of comminucating the profile info to the builtin expanders.  */
-gimple *currently_expanding_gimple_stmt;
+gimple currently_expanding_gimple_stmt;
 
 static rtx expand_debug_expr (tree);
-
-static bool defer_stack_allocation (tree, bool);
-
-static void record_alignment_for_reg_var (unsigned int);
 
 /* Return an expression tree corresponding to the RHS of GIMPLE
    statement STMT.  */
 
 tree
-gimple_assign_rhs_to_tree (gimple *stmt)
+gimple_assign_rhs_to_tree (gimple stmt)
 {
   tree t;
   enum gimple_rhs_class grhs_class;
@@ -152,136 +179,21 @@ gimple_assign_rhs_to_tree (gimple *stmt)
 
 #define SSAVAR(x) (TREE_CODE (x) == SSA_NAME ? SSA_NAME_VAR (x) : x)
 
-/* Choose either CUR or NEXT as the leader DECL for a partition.
-   Prefer ignored decls, to simplify debug dumps and reduce ambiguity
-   out of the same user variable being in multiple partitions (this is
-   less likely for compiler-introduced temps).  */
-
-static tree
-leader_merge (tree cur, tree next)
-{
-  if (cur == NULL || cur == next)
-    return next;
-
-  if (DECL_P (cur) && DECL_IGNORED_P (cur))
-    return cur;
-
-  if (DECL_P (next) && DECL_IGNORED_P (next))
-    return next;
-
-  return cur;
-}
-
 /* Associate declaration T with storage space X.  If T is no
    SSA name this is exactly SET_DECL_RTL, otherwise make the
    partition of T associated with X.  */
 static inline void
 set_rtl (tree t, rtx x)
 {
-  gcc_checking_assert (!x
-		       || !(TREE_CODE (t) == SSA_NAME || is_gimple_reg (t))
-		       || (use_register_for_decl (t)
-			   ? (REG_P (x)
-			      || (GET_CODE (x) == CONCAT
-				  && (REG_P (XEXP (x, 0))
-				      || SUBREG_P (XEXP (x, 0)))
-				  && (REG_P (XEXP (x, 1))
-				      || SUBREG_P (XEXP (x, 1))))
-			      /* We need to accept PARALLELs for RESUT_DECLs
-				 because of vector types with BLKmode returned
-				 in multiple registers, but they are supposed
-				 to be uncoalesced.  */
-			      || (GET_CODE (x) == PARALLEL
-				  && SSAVAR (t)
-				  && TREE_CODE (SSAVAR (t)) == RESULT_DECL
-				  && (GET_MODE (x) == BLKmode
-				      || !flag_tree_coalesce_vars)))
-			   : (MEM_P (x) || x == pc_rtx
-			      || (GET_CODE (x) == CONCAT
-				  && MEM_P (XEXP (x, 0))
-				  && MEM_P (XEXP (x, 1))))));
-  /* Check that the RTL for SSA_NAMEs and gimple-reg PARM_DECLs and
-     RESULT_DECLs has the expected mode.  For memory, we accept
-     unpromoted modes, since that's what we're likely to get.  For
-     PARM_DECLs and RESULT_DECLs, we'll have been called by
-     set_parm_rtl, which will give us the default def, so we don't
-     have to compute it ourselves.  For RESULT_DECLs, we accept mode
-     mismatches too, as long as we have BLKmode or are not coalescing
-     across variables, so that we don't reject BLKmode PARALLELs or
-     unpromoted REGs.  */
-  gcc_checking_assert (!x || x == pc_rtx || TREE_CODE (t) != SSA_NAME
-		       || (SSAVAR (t)
-			   && TREE_CODE (SSAVAR (t)) == RESULT_DECL
-			   && (promote_ssa_mode (t, NULL) == BLKmode
-			       || !flag_tree_coalesce_vars))
-		       || !use_register_for_decl (t)
-		       || GET_MODE (x) == promote_ssa_mode (t, NULL));
-
-  if (x)
-    {
-      bool skip = false;
-      tree cur = NULL_TREE;
-      rtx xm = x;
-
-    retry:
-      if (MEM_P (xm))
-	cur = MEM_EXPR (xm);
-      else if (REG_P (xm))
-	cur = REG_EXPR (xm);
-      else if (SUBREG_P (xm))
-	{
-	  gcc_assert (subreg_lowpart_p (xm));
-	  xm = SUBREG_REG (xm);
-	  goto retry;
-	}
-      else if (GET_CODE (xm) == CONCAT)
-	{
-	  xm = XEXP (xm, 0);
-	  goto retry;
-	}
-      else if (GET_CODE (xm) == PARALLEL)
-	{
-	  xm = XVECEXP (xm, 0, 0);
-	  gcc_assert (GET_CODE (xm) == EXPR_LIST);
-	  xm = XEXP (xm, 0);
-	  goto retry;
-	}
-      else if (xm == pc_rtx)
-	skip = true;
-      else
-	gcc_unreachable ();
-
-      tree next = skip ? cur : leader_merge (cur, SSAVAR (t) ? SSAVAR (t) : t);
-
-      if (cur != next)
-	{
-	  if (MEM_P (x))
-	    set_mem_attributes (x,
-				next && TREE_CODE (next) == SSA_NAME
-				? TREE_TYPE (next)
-				: next, true);
-	  else
-	    set_reg_attrs_for_decl_rtl (next, x);
-	}
-    }
-
   if (TREE_CODE (t) == SSA_NAME)
     {
-      int part = var_to_partition (SA.map, t);
-      if (part != NO_PARTITION)
-	{
-	  if (SA.partition_to_pseudo[part])
-	    gcc_assert (SA.partition_to_pseudo[part] == x);
-	  else if (x != pc_rtx)
-	    SA.partition_to_pseudo[part] = x;
-	}
-      /* For the benefit of debug information at -O0 (where
-         vartracking doesn't run) record the place also in the base
-         DECL.  For PARMs and RESULTs, do so only when setting the
-         default def.  */
-      if (x && x != pc_rtx && SSA_NAME_VAR (t)
-	  && (VAR_P (SSA_NAME_VAR (t))
-	      || SSA_NAME_IS_DEFAULT_DEF (t)))
+      SA.partition_to_pseudo[var_to_partition (SA.map, t)] = x;
+      if (x && !MEM_P (x))
+	set_reg_attrs_for_decl_rtl (SSA_NAME_VAR (t), x);
+      /* For the benefit of debug information at -O0 (where vartracking
+         doesn't run) record the place also in the base DECL if it's
+	 a normal variable (not a parameter).  */
+      if (x && x != pc_rtx && TREE_CODE (SSA_NAME_VAR (t)) == VAR_DECL)
 	{
 	  tree var = SSA_NAME_VAR (t);
 	  /* If we don't yet have something recorded, just record it now.  */
@@ -314,7 +226,7 @@ struct stack_var
 
   /* Initially, the size of the variable.  Later, the size of the partition,
      if this variable becomes it's partition's representative.  */
-  poly_uint64 size;
+  HOST_WIDE_INT size;
 
   /* The *byte* alignment required for this variable.  Or as, with the
      size, the alignment for this partition.  */
@@ -365,15 +277,8 @@ static bool has_short_buffer;
 static unsigned int
 align_local_variable (tree decl)
 {
-  unsigned int align;
-
-  if (TREE_CODE (decl) == SSA_NAME)
-    align = TYPE_ALIGN (TREE_TYPE (decl));
-  else
-    {
-      align = LOCAL_DECL_ALIGNMENT (decl);
-      SET_DECL_ALIGN (decl, align);
-    }
+  unsigned int align = LOCAL_DECL_ALIGNMENT (decl);
+  DECL_ALIGN (decl) = align;
   return align / BITS_PER_UNIT;
 }
 
@@ -389,23 +294,22 @@ align_base (HOST_WIDE_INT base, unsigned HOST_WIDE_INT align, bool align_up)
 /* Allocate SIZE bytes at byte alignment ALIGN from the stack frame.
    Return the frame offset.  */
 
-static poly_int64
-alloc_stack_frame_space (poly_int64 size, unsigned HOST_WIDE_INT align)
+static HOST_WIDE_INT
+alloc_stack_frame_space (HOST_WIDE_INT size, unsigned HOST_WIDE_INT align)
 {
-  poly_int64 offset, new_frame_offset;
+  HOST_WIDE_INT offset, new_frame_offset;
 
   if (FRAME_GROWS_DOWNWARD)
     {
       new_frame_offset
-	= aligned_lower_bound (frame_offset - frame_phase - size,
-			       align) + frame_phase;
+	= align_base (frame_offset - frame_phase - size,
+		      align, false) + frame_phase;
       offset = new_frame_offset;
     }
   else
     {
       new_frame_offset
-	= aligned_upper_bound (frame_offset - frame_phase,
-			       align) + frame_phase;
+	= align_base (frame_offset - frame_phase, align, true) + frame_phase;
       offset = new_frame_offset;
       new_frame_offset += size;
     }
@@ -440,15 +344,12 @@ add_stack_var (tree decl)
   decl_to_stack_part->put (decl, stack_vars_num);
 
   v->decl = decl;
-  tree size = TREE_CODE (decl) == SSA_NAME
-    ? TYPE_SIZE_UNIT (TREE_TYPE (decl))
-    : DECL_SIZE_UNIT (decl);
-  v->size = tree_to_poly_uint64 (size);
+  v->size = tree_to_uhwi (DECL_SIZE_UNIT (SSAVAR (decl)));
   /* Ensure that all variables have size, so that &a != &b for any two
      variables that are simultaneously live.  */
-  if (known_eq (v->size, 0U))
+  if (v->size == 0)
     v->size = 1;
-  v->alignb = align_local_variable (decl);
+  v->alignb = align_local_variable (SSAVAR (decl));
   /* An alignment of zero can mightily confuse us later.  */
   gcc_assert (v->alignb != 0);
 
@@ -504,7 +405,7 @@ stack_var_conflict_p (size_t x, size_t y)
    enter its partition number into bitmap DATA.  */
 
 static bool
-visit_op (gimple *, tree op, tree, void *data)
+visit_op (gimple, tree op, tree, void *data)
 {
   bitmap active = (bitmap)data;
   op = get_base_address (op);
@@ -524,7 +425,7 @@ visit_op (gimple *, tree op, tree, void *data)
    from bitmap DATA.  */
 
 static bool
-visit_conflict (gimple *, tree op, tree, void *data)
+visit_conflict (gimple, tree op, tree, void *data)
 {
   bitmap active = (bitmap)data;
   op = get_base_address (op);
@@ -567,12 +468,12 @@ add_scope_conflicts_1 (basic_block bb, bitmap work, bool for_conflict)
 
   for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple *stmt = gsi_stmt (gsi);
+      gimple stmt = gsi_stmt (gsi);
       walk_stmt_load_store_addr_ops (stmt, work, NULL, NULL, visit);
     }
   for (gsi = gsi_after_labels (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple *stmt = gsi_stmt (gsi);
+      gimple stmt = gsi_stmt (gsi);
 
       if (gimple_clobber_p (stmt))
 	{
@@ -580,7 +481,7 @@ add_scope_conflicts_1 (basic_block bb, bitmap work, bool for_conflict)
 	  size_t *v;
 	  /* Nested function lowering might introduce LHSs
 	     that are COMPONENT_REFs.  */
-	  if (!VAR_P (lhs))
+	  if (TREE_CODE (lhs) != VAR_DECL)
 	    continue;
 	  if (DECL_RTL_IF_SET (lhs) == pc_rtx
 	      && (v = decl_to_stack_part->get (lhs)))
@@ -676,8 +577,8 @@ stack_var_cmp (const void *a, const void *b)
   size_t ib = *(const size_t *)b;
   unsigned int aligna = stack_vars[ia].alignb;
   unsigned int alignb = stack_vars[ib].alignb;
-  poly_int64 sizea = stack_vars[ia].size;
-  poly_int64 sizeb = stack_vars[ib].size;
+  HOST_WIDE_INT sizea = stack_vars[ia].size;
+  HOST_WIDE_INT sizeb = stack_vars[ib].size;
   tree decla = stack_vars[ia].decl;
   tree declb = stack_vars[ib].decl;
   bool largea, largeb;
@@ -690,9 +591,10 @@ stack_var_cmp (const void *a, const void *b)
     return (int)largeb - (int)largea;
 
   /* Secondary compare on size, decreasing  */
-  int diff = compare_sizes_for_sort (sizeb, sizea);
-  if (diff != 0)
-    return diff;
+  if (sizea > sizeb)
+    return -1;
+  if (sizea < sizeb)
+    return 1;
 
   /* Tertiary compare on true alignment, decreasing.  */
   if (aligna < alignb)
@@ -721,7 +623,25 @@ stack_var_cmp (const void *a, const void *b)
   return 0;
 }
 
-struct part_traits : unbounded_int_hashmap_traits <size_t, bitmap> {};
+struct part_traits : default_hashmap_traits
+{
+  template<typename T>
+    static bool
+    is_deleted (T &e)
+    { return e.m_value == reinterpret_cast<void *> (1); }
+
+  template<typename T> static bool is_empty (T &e) { return e.m_value == NULL; }
+  template<typename T>
+    static void
+    mark_deleted (T &e)
+    { e.m_value = reinterpret_cast<T> (1); }
+
+  template<typename T>
+    static void
+    mark_empty (T &e)
+      { e.m_value = NULL; }
+};
+
 typedef hash_map<size_t, bitmap, part_traits> part_hashmap;
 
 /* If the points-to solution *PI points to variables that are in a partition
@@ -818,15 +738,16 @@ update_alias_info_with_stack_vars (void)
   if (decls_to_partitions)
     {
       unsigned i;
-      tree name;
       hash_set<bitmap> visited;
       bitmap temp = BITMAP_ALLOC (&stack_var_bitmap_obstack);
 
-      FOR_EACH_SSA_NAME (i, name, cfun)
+      for (i = 1; i < num_ssa_names; i++)
 	{
+	  tree name = ssa_name (i);
 	  struct ptr_info_def *pi;
 
-	  if (POINTER_TYPE_P (TREE_TYPE (name))
+	  if (name
+	      && POINTER_TYPE_P (TREE_TYPE (name))
 	      && ((pi = SSA_NAME_PTR_INFO (name)) != NULL))
 	    add_partitioned_vars_to_ptset (&pi->pt, decls_to_partitions,
 					   &visited, temp);
@@ -903,7 +824,7 @@ partition_stack_vars (void)
     {
       size_t i = stack_vars_sorted[si];
       unsigned int ialign = stack_vars[i].alignb;
-      poly_int64 isize = stack_vars[i].size;
+      HOST_WIDE_INT isize = stack_vars[i].size;
 
       /* Ignore objects that aren't partition representatives. If we
          see a var that is not a partition representative, it must
@@ -915,7 +836,7 @@ partition_stack_vars (void)
 	{
 	  size_t j = stack_vars_sorted[sj];
 	  unsigned int jalign = stack_vars[j].alignb;
-	  poly_int64 jsize = stack_vars[j].size;
+	  HOST_WIDE_INT jsize = stack_vars[j].size;
 
 	  /* Ignore objects that aren't partition representatives.  */
 	  if (stack_vars[j].representative != j)
@@ -931,8 +852,7 @@ partition_stack_vars (void)
 	     sizes, as the shorter vars wouldn't be adequately protected.
 	     Don't do that for "large" (unsupported) alignment objects,
 	     those aren't protected anyway.  */
-	  if (asan_sanitize_stack_p ()
-	      && maybe_ne (isize, jsize)
+	  if ((flag_sanitize & SANITIZE_ADDRESS) && ASAN_STACK && isize != jsize
 	      && ialign * BITS_PER_UNIT <= MAX_SUPPORTED_STACK_ALIGNMENT)
 	    break;
 
@@ -963,9 +883,9 @@ dump_stack_var_partition (void)
       if (stack_vars[i].representative != i)
 	continue;
 
-      fprintf (dump_file, "Partition %lu: size ", (unsigned long) i);
-      print_dec (stack_vars[i].size, dump_file);
-      fprintf (dump_file, " align %u\n", stack_vars[i].alignb);
+      fprintf (dump_file, "Partition %lu: size " HOST_WIDE_INT_PRINT_DEC
+	       " align %u\n", (unsigned long) i, stack_vars[i].size,
+	       stack_vars[i].alignb);
 
       for (j = i; j != EOC; j = stack_vars[j].next)
 	{
@@ -980,18 +900,16 @@ dump_stack_var_partition (void)
 
 static void
 expand_one_stack_var_at (tree decl, rtx base, unsigned base_align,
-			 poly_int64 offset)
+			 HOST_WIDE_INT offset)
 {
   unsigned align;
   rtx x;
 
   /* If this fails, we've overflowed the stack frame.  Error nicely?  */
-  gcc_assert (known_eq (offset, trunc_int_for_mode (offset, Pmode)));
+  gcc_assert (offset == trunc_int_for_mode (offset, Pmode));
 
   x = plus_constant (Pmode, base, offset);
-  x = gen_rtx_MEM (TREE_CODE (decl) == SSA_NAME
-		   ? TYPE_MODE (TREE_TYPE (decl))
-		   : DECL_MODE (SSAVAR (decl)), x);
+  x = gen_rtx_MEM (DECL_MODE (SSAVAR (decl)), x);
 
   if (TREE_CODE (decl) != SSA_NAME)
     {
@@ -1000,7 +918,7 @@ expand_one_stack_var_at (tree decl, rtx base, unsigned base_align,
 	 important, we'll simply use the alignment that is already set.  */
       if (base == virtual_stack_vars_rtx)
 	offset -= frame_phase;
-      align = known_alignment (offset);
+      align = offset & -offset;
       align *= BITS_PER_UNIT;
       if (align == 0 || align > base_align)
 	align = base_align;
@@ -1009,10 +927,11 @@ expand_one_stack_var_at (tree decl, rtx base, unsigned base_align,
 	 alignment here, but (at least) the i386 port does exactly this
 	 via the MINIMUM_ALIGNMENT hook.  */
 
-      SET_DECL_ALIGN (decl, align);
+      DECL_ALIGN (decl) = align;
       DECL_USER_ALIGN (decl) = 0;
     }
 
+  set_mem_attributes (x, SSAVAR (decl), true);
   set_rtl (decl, x);
 }
 
@@ -1021,10 +940,10 @@ struct stack_vars_data
   /* Vector of offset pairs, always end of some padding followed
      by start of the padding that needs Address Sanitizer protection.
      The vector is in reversed, highest offset pairs come first.  */
-  auto_vec<HOST_WIDE_INT> asan_vec;
+  vec<HOST_WIDE_INT> asan_vec;
 
   /* Vector of partition representative decls in between the paddings.  */
-  auto_vec<tree> asan_decl_vec;
+  vec<tree> asan_decl_vec;
 
   /* Base pseudo register for Address Sanitizer protected automatic vars.  */
   rtx asan_base;
@@ -1041,10 +960,9 @@ static void
 expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
 {
   size_t si, i, j, n = stack_vars_num;
-  poly_uint64 large_size = 0, large_alloc = 0;
+  HOST_WIDE_INT large_size = 0, large_alloc = 0;
   rtx large_base = NULL;
   unsigned large_align = 0;
-  bool large_allocation_done = false;
   tree decl;
 
   /* Determine if there are any variables requiring "large" alignment.
@@ -1079,21 +997,27 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
 	  /* Skip variables that have already had rtl assigned.  See also
 	     add_stack_var where we perpetrate this pc_rtx hack.  */
 	  decl = stack_vars[i].decl;
-	  if (TREE_CODE (decl) == SSA_NAME
-	      ? SA.partition_to_pseudo[var_to_partition (SA.map, decl)] != NULL_RTX
-	      : DECL_RTL (decl) != pc_rtx)
+	  if ((TREE_CODE (decl) == SSA_NAME
+	      ? SA.partition_to_pseudo[var_to_partition (SA.map, decl)]
+	      : DECL_RTL (decl)) != pc_rtx)
 	    continue;
 
-	  large_size = aligned_upper_bound (large_size, alignb);
+	  large_size += alignb - 1;
+	  large_size &= -(HOST_WIDE_INT)alignb;
 	  large_size += stack_vars[i].size;
 	}
+
+      /* If there were any, allocate space.  */
+      if (large_size > 0)
+	large_base = allocate_dynamic_stack_space (GEN_INT (large_size), 0,
+						   large_align, true);
     }
 
   for (si = 0; si < n; ++si)
     {
       rtx base;
       unsigned base_align, alignb;
-      poly_int64 offset;
+      HOST_WIDE_INT offset;
 
       i = stack_vars_sorted[si];
 
@@ -1104,9 +1028,9 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
       /* Skip variables that have already had rtl assigned.  See also
 	 add_stack_var where we perpetrate this pc_rtx hack.  */
       decl = stack_vars[i].decl;
-      if (TREE_CODE (decl) == SSA_NAME
-	  ? SA.partition_to_pseudo[var_to_partition (SA.map, decl)] != NULL_RTX
-	  : DECL_RTL (decl) != pc_rtx)
+      if ((TREE_CODE (decl) == SSA_NAME
+	   ? SA.partition_to_pseudo[var_to_partition (SA.map, decl)]
+	   : DECL_RTL (decl)) != pc_rtx)
 	continue;
 
       /* Check the predicate to see whether this variable should be
@@ -1118,17 +1042,12 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
       if (alignb * BITS_PER_UNIT <= MAX_SUPPORTED_STACK_ALIGNMENT)
 	{
 	  base = virtual_stack_vars_rtx;
-	  /* ASAN description strings don't yet have a syntax for expressing
-	     polynomial offsets.  */
-	  HOST_WIDE_INT prev_offset;
-	  if (asan_sanitize_stack_p ()
-	      && pred
-	      && frame_offset.is_constant (&prev_offset)
-	      && stack_vars[i].size.is_constant ())
+	  if ((flag_sanitize & SANITIZE_ADDRESS) && ASAN_STACK && pred)
 	    {
-	      prev_offset = align_base (prev_offset,
-					MAX (alignb, ASAN_RED_ZONE_SIZE),
-					!FRAME_GROWS_DOWNWARD);
+	      HOST_WIDE_INT prev_offset
+		= align_base (frame_offset,
+			      MAX (alignb, ASAN_RED_ZONE_SIZE),
+			      FRAME_GROWS_DOWNWARD);
 	      tree repr_decl = NULL_TREE;
 	      offset
 		= alloc_stack_frame_space (stack_vars[i].size
@@ -1136,10 +1055,7 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
 					   MAX (alignb, ASAN_RED_ZONE_SIZE));
 
 	      data->asan_vec.safe_push (prev_offset);
-	      /* Allocating a constant amount of space from a constant
-		 starting offset must give a constant result.  */
-	      data->asan_vec.safe_push ((offset + stack_vars[i].size)
-					.to_constant ());
+	      data->asan_vec.safe_push (offset + stack_vars[i].size);
 	      /* Find best representative of the partition.
 		 Prefer those with DECL_NAME, even better
 		 satisfying asan_protect_stack_decl predicate.  */
@@ -1157,20 +1073,6 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
 	      if (repr_decl == NULL_TREE)
 		repr_decl = stack_vars[i].decl;
 	      data->asan_decl_vec.safe_push (repr_decl);
-
-	      /* Make sure a representative is unpoison if another
-		 variable in the partition is handled by
-		 use-after-scope sanitization.  */
-	      if (asan_handled_variables != NULL
-		  && !asan_handled_variables->contains (repr_decl))
-		{
-		  for (j = i; j != EOC; j = stack_vars[j].next)
-		    if (asan_handled_variables->contains (stack_vars[j].decl))
-		      break;
-		  if (j != EOC)
-		    asan_handled_variables->add (repr_decl);
-		}
-
 	      data->asan_alignb = MAX (data->asan_alignb, alignb);
 	      if (data->asan_base == NULL)
 		data->asan_base = gen_reg_rtx (Pmode);
@@ -1194,25 +1096,10 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
 	  /* Large alignment is only processed in the last pass.  */
 	  if (pred)
 	    continue;
-
-	  /* If there were any variables requiring "large" alignment, allocate
-	     space.  */
-	  if (maybe_ne (large_size, 0U) && ! large_allocation_done)
-	    {
-	      poly_int64 loffset;
-	      rtx large_allocsize;
-
-	      large_allocsize = gen_int_mode (large_size, Pmode);
-	      get_dynamic_stack_size (&large_allocsize, 0, large_align, NULL);
-	      loffset = alloc_stack_frame_space
-		(rtx_to_poly_int64 (large_allocsize),
-		 PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT);
-	      large_base = get_dynamic_stack_base (loffset, large_align);
-	      large_allocation_done = true;
-	    }
 	  gcc_assert (large_base != NULL);
 
-	  large_alloc = aligned_upper_bound (large_alloc, alignb);
+	  large_alloc += alignb - 1;
+	  large_alloc &= -(HOST_WIDE_INT)alignb;
 	  offset = large_alloc;
 	  large_alloc += stack_vars[i].size;
 
@@ -1230,15 +1117,15 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
 	}
     }
 
-  gcc_assert (known_eq (large_alloc, large_size));
+  gcc_assert (large_alloc == large_size);
 }
 
 /* Take into account all sizes of partitions and reset DECL_RTLs.  */
-static poly_uint64
+static HOST_WIDE_INT
 account_stack_vars (void)
 {
   size_t si, j, i, n = stack_vars_num;
-  poly_uint64 size = 0;
+  HOST_WIDE_INT size = 0;
 
   for (si = 0; si < n; ++si)
     {
@@ -1255,67 +1142,17 @@ account_stack_vars (void)
   return size;
 }
 
-/* Record the RTL assignment X for the default def of PARM.  */
-
-extern void
-set_parm_rtl (tree parm, rtx x)
-{
-  gcc_assert (TREE_CODE (parm) == PARM_DECL
-	      || TREE_CODE (parm) == RESULT_DECL);
-
-  if (x && !MEM_P (x))
-    {
-      unsigned int align = MINIMUM_ALIGNMENT (TREE_TYPE (parm),
-					      TYPE_MODE (TREE_TYPE (parm)),
-					      TYPE_ALIGN (TREE_TYPE (parm)));
-
-      /* If the variable alignment is very large we'll dynamicaly
-	 allocate it, which means that in-frame portion is just a
-	 pointer.  ??? We've got a pseudo for sure here, do we
-	 actually dynamically allocate its spilling area if needed?
-	 ??? Isn't it a problem when Pmode alignment also exceeds
-	 MAX_SUPPORTED_STACK_ALIGNMENT, as can happen on cris and lm32?  */
-      if (align > MAX_SUPPORTED_STACK_ALIGNMENT)
-	align = GET_MODE_ALIGNMENT (Pmode);
-
-      record_alignment_for_reg_var (align);
-    }
-
-  tree ssa = ssa_default_def (cfun, parm);
-  if (!ssa)
-    return set_rtl (parm, x);
-
-  int part = var_to_partition (SA.map, ssa);
-  gcc_assert (part != NO_PARTITION);
-
-  bool changed = bitmap_bit_p (SA.partitions_for_parm_default_defs, part);
-  gcc_assert (changed);
-
-  set_rtl (ssa, x);
-  gcc_assert (DECL_RTL (parm) == x);
-}
-
 /* A subroutine of expand_one_var.  Called to immediately assign rtl
    to a variable to be allocated in the stack frame.  */
 
 static void
-expand_one_stack_var_1 (tree var)
+expand_one_stack_var (tree var)
 {
-  poly_uint64 size;
-  poly_int64 offset;
+  HOST_WIDE_INT size, offset;
   unsigned byte_align;
 
-  if (TREE_CODE (var) == SSA_NAME)
-    {
-      tree type = TREE_TYPE (var);
-      size = tree_to_poly_uint64 (TYPE_SIZE_UNIT (type));
-      byte_align = TYPE_ALIGN_UNIT (type);
-    }
-  else
-    {
-      size = tree_to_poly_uint64 (DECL_SIZE_UNIT (var));
-      byte_align = align_local_variable (var);
-    }
+  size = tree_to_uhwi (DECL_SIZE_UNIT (SSAVAR (var)));
+  byte_align = align_local_variable (SSAVAR (var));
 
   /* We handle highly aligned variables in expand_stack_vars.  */
   gcc_assert (byte_align * BITS_PER_UNIT <= MAX_SUPPORTED_STACK_ALIGNMENT);
@@ -1324,27 +1161,6 @@ expand_one_stack_var_1 (tree var)
 
   expand_one_stack_var_at (var, virtual_stack_vars_rtx,
 			   crtl->max_used_stack_slot_alignment, offset);
-}
-
-/* Wrapper for expand_one_stack_var_1 that checks SSA_NAMEs are
-   already assigned some MEM.  */
-
-static void
-expand_one_stack_var (tree var)
-{
-  if (TREE_CODE (var) == SSA_NAME)
-    {
-      int part = var_to_partition (SA.map, var);
-      if (part != NO_PARTITION)
-	{
-	  rtx x = SA.partition_to_pseudo[part];
-	  gcc_assert (x);
-	  gcc_assert (MEM_P (x));
-	  return;
-	}
-    }
-
-  return expand_one_stack_var_1 (var);
 }
 
 /* A subroutine of expand_one_var.  Called to assign rtl to a VAR_DECL
@@ -1356,127 +1172,13 @@ expand_one_hard_reg_var (tree var)
   rest_of_decl_compilation (var, 0, 0);
 }
 
-/* Record the alignment requirements of some variable assigned to a
-   pseudo.  */
-
-static void
-record_alignment_for_reg_var (unsigned int align)
-{
-  if (SUPPORTS_STACK_ALIGNMENT
-      && crtl->stack_alignment_estimated < align)
-    {
-      /* stack_alignment_estimated shouldn't change after stack
-         realign decision made */
-      gcc_assert (!crtl->stack_realign_processed);
-      crtl->stack_alignment_estimated = align;
-    }
-
-  /* stack_alignment_needed > PREFERRED_STACK_BOUNDARY is permitted.
-     So here we only make sure stack_alignment_needed >= align.  */
-  if (crtl->stack_alignment_needed < align)
-    crtl->stack_alignment_needed = align;
-  if (crtl->max_used_stack_slot_alignment < align)
-    crtl->max_used_stack_slot_alignment = align;
-}
-
-/* Create RTL for an SSA partition.  */
-
-static void
-expand_one_ssa_partition (tree var)
-{
-  int part = var_to_partition (SA.map, var);
-  gcc_assert (part != NO_PARTITION);
-
-  if (SA.partition_to_pseudo[part])
-    return;
-
-  unsigned int align = MINIMUM_ALIGNMENT (TREE_TYPE (var),
-					  TYPE_MODE (TREE_TYPE (var)),
-					  TYPE_ALIGN (TREE_TYPE (var)));
-
-  /* If the variable alignment is very large we'll dynamicaly allocate
-     it, which means that in-frame portion is just a pointer.  */
-  if (align > MAX_SUPPORTED_STACK_ALIGNMENT)
-    align = GET_MODE_ALIGNMENT (Pmode);
-
-  record_alignment_for_reg_var (align);
-
-  if (!use_register_for_decl (var))
-    {
-      if (defer_stack_allocation (var, true))
-	add_stack_var (var);
-      else
-	expand_one_stack_var_1 (var);
-      return;
-    }
-
-  machine_mode reg_mode = promote_ssa_mode (var, NULL);
-  rtx x = gen_reg_rtx (reg_mode);
-
-  set_rtl (var, x);
-
-  /* For a promoted variable, X will not be used directly but wrapped in a
-     SUBREG with SUBREG_PROMOTED_VAR_P set, which means that the RTL land
-     will assume that its upper bits can be inferred from its lower bits.
-     Therefore, if X isn't initialized on every path from the entry, then
-     we must do it manually in order to fulfill the above assumption.  */
-  if (reg_mode != TYPE_MODE (TREE_TYPE (var))
-      && bitmap_bit_p (SA.partitions_for_undefined_values, part))
-    emit_move_insn (x, CONST0_RTX (reg_mode));
-}
-
-/* Record the association between the RTL generated for partition PART
-   and the underlying variable of the SSA_NAME VAR.  */
-
-static void
-adjust_one_expanded_partition_var (tree var)
-{
-  if (!var)
-    return;
-
-  tree decl = SSA_NAME_VAR (var);
-
-  int part = var_to_partition (SA.map, var);
-  if (part == NO_PARTITION)
-    return;
-
-  rtx x = SA.partition_to_pseudo[part];
-
-  gcc_assert (x);
-
-  set_rtl (var, x);
-
-  if (!REG_P (x))
-    return;
-
-  /* Note if the object is a user variable.  */
-  if (decl && !DECL_ARTIFICIAL (decl))
-    mark_user_reg (x);
-
-  if (POINTER_TYPE_P (decl ? TREE_TYPE (decl) : TREE_TYPE (var)))
-    mark_reg_pointer (x, get_pointer_alignment (var));
-}
-
 /* A subroutine of expand_one_var.  Called to assign rtl to a VAR_DECL
    that will reside in a pseudo register.  */
 
 static void
 expand_one_register_var (tree var)
 {
-  if (TREE_CODE (var) == SSA_NAME)
-    {
-      int part = var_to_partition (SA.map, var);
-      if (part != NO_PARTITION)
-	{
-	  rtx x = SA.partition_to_pseudo[part];
-	  gcc_assert (x);
-	  gcc_assert (REG_P (x));
-	  return;
-	}
-      gcc_unreachable ();
-    }
-
-  tree decl = var;
+  tree decl = SSAVAR (var);
   tree type = TREE_TYPE (decl);
   machine_mode reg_mode = promote_decl_mode (decl, NULL);
   rtx x = gen_reg_rtx (reg_mode);
@@ -1522,42 +1224,28 @@ expand_one_error_var (tree var)
 static bool
 defer_stack_allocation (tree var, bool toplevel)
 {
-  tree size_unit = TREE_CODE (var) == SSA_NAME
-    ? TYPE_SIZE_UNIT (TREE_TYPE (var))
-    : DECL_SIZE_UNIT (var);
-  poly_uint64 size;
-
   /* Whether the variable is small enough for immediate allocation not to be
      a problem with regard to the frame size.  */
   bool smallish
-    = (poly_int_tree_p (size_unit, &size)
-       && (estimated_poly_value (size)
-	   < PARAM_VALUE (PARAM_MIN_SIZE_FOR_STACK_SHARING)));
+    = ((HOST_WIDE_INT) tree_to_uhwi (DECL_SIZE_UNIT (var))
+       < PARAM_VALUE (PARAM_MIN_SIZE_FOR_STACK_SHARING));
 
   /* If stack protection is enabled, *all* stack variables must be deferred,
      so that we can re-order the strings to the top of the frame.
      Similarly for Address Sanitizer.  */
-  if (flag_stack_protect || asan_sanitize_stack_p ())
+  if (flag_stack_protect || ((flag_sanitize & SANITIZE_ADDRESS) && ASAN_STACK))
     return true;
-
-  unsigned int align = TREE_CODE (var) == SSA_NAME
-    ? TYPE_ALIGN (TREE_TYPE (var))
-    : DECL_ALIGN (var);
 
   /* We handle "large" alignment via dynamic allocation.  We want to handle
      this extra complication in only one place, so defer them.  */
-  if (align > MAX_SUPPORTED_STACK_ALIGNMENT)
+  if (DECL_ALIGN (var) > MAX_SUPPORTED_STACK_ALIGNMENT)
     return true;
-
-  bool ignored = TREE_CODE (var) == SSA_NAME
-    ? !SSAVAR (var) || DECL_IGNORED_P (SSA_NAME_VAR (var))
-    : DECL_IGNORED_P (var);
 
   /* When optimization is enabled, DECL_IGNORED_P variables originally scoped
      might be detached from their block and appear at toplevel when we reach
      here.  We want to coalesce them with variables from other blocks when
      the immediate contribution to the frame size would be noticeable.  */
-  if (toplevel && optimize > 0 && ignored && !smallish)
+  if (toplevel && optimize > 0 && DECL_IGNORED_P (var) && !smallish)
     return true;
 
   /* Variables declared in the outermost scope automatically conflict
@@ -1586,7 +1274,7 @@ defer_stack_allocation (tree var, bool toplevel)
    Return stack usage this variable is supposed to take.
 */
 
-static poly_uint64
+static HOST_WIDE_INT
 expand_one_var (tree var, bool toplevel, bool really_expand)
 {
   unsigned int align = BITS_PER_UNIT;
@@ -1594,11 +1282,8 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
 
   var = SSAVAR (var);
 
-  if (TREE_TYPE (var) != error_mark_node && VAR_P (var))
+  if (TREE_TYPE (var) != error_mark_node && TREE_CODE (var) == VAR_DECL)
     {
-      if (is_global_var (var))
-	return 0;
-
       /* Because we don't know if VAR will be in register or on stack,
 	 we conservatively assume it will be on stack even if VAR is
 	 eventually put into register after RA pass.  For non-automatic
@@ -1624,15 +1309,28 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
       /* If the variable alignment is very large we'll dynamicaly allocate
 	 it, which means that in-frame portion is just a pointer.  */
       if (align > MAX_SUPPORTED_STACK_ALIGNMENT)
-	align = GET_MODE_ALIGNMENT (Pmode);
+	align = POINTER_SIZE;
     }
 
-  record_alignment_for_reg_var (align);
+  if (SUPPORTS_STACK_ALIGNMENT
+      && crtl->stack_alignment_estimated < align)
+    {
+      /* stack_alignment_estimated shouldn't change after stack
+         realign decision made */
+      gcc_assert (!crtl->stack_realign_processed);
+      crtl->stack_alignment_estimated = align;
+    }
 
-  poly_uint64 size;
+  /* stack_alignment_needed > PREFERRED_STACK_BOUNDARY is permitted.
+     So here we only make sure stack_alignment_needed >= align.  */
+  if (crtl->stack_alignment_needed < align)
+    crtl->stack_alignment_needed = align;
+  if (crtl->max_used_stack_slot_alignment < align)
+    crtl->max_used_stack_slot_alignment = align;
+
   if (TREE_CODE (origvar) == SSA_NAME)
     {
-      gcc_assert (!VAR_P (var)
+      gcc_assert (TREE_CODE (var) != VAR_DECL
 		  || (!DECL_EXTERNAL (var)
 		      && !DECL_HAS_VALUE_EXPR_P (var)
 		      && !TREE_STATIC (var)
@@ -1640,7 +1338,7 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
 		      && !DECL_HARD_REGISTER (var)
 		      && really_expand));
     }
-  if (!VAR_P (var) && TREE_CODE (origvar) != SSA_NAME)
+  if (TREE_CODE (var) != VAR_DECL && TREE_CODE (origvar) != SSA_NAME)
     ;
   else if (DECL_EXTERNAL (var))
     ;
@@ -1655,7 +1353,7 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
       if (really_expand)
         expand_one_error_var (var);
     }
-  else if (VAR_P (var) && DECL_HARD_REGISTER (var))
+  else if (TREE_CODE (var) == VAR_DECL && DECL_HARD_REGISTER (var))
     {
       if (really_expand)
 	{
@@ -1670,8 +1368,7 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
       if (really_expand)
         expand_one_register_var (origvar);
     }
-  else if (!poly_int_tree_p (DECL_SIZE_UNIT (var), &size)
-	   || !valid_constant_size_p (DECL_SIZE_UNIT (var)))
+  else if (! valid_constant_size_p (DECL_SIZE_UNIT (var)))
     {
       /* Reject variables which cover more than half of the address-space.  */
       if (really_expand)
@@ -1685,15 +1382,8 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
   else
     {
       if (really_expand)
-        {
-          if (lookup_attribute ("naked",
-                                DECL_ATTRIBUTES (current_function_decl)))
-            error ("cannot allocate stack for variable %q+D, naked function.",
-                   var);
-
-          expand_one_stack_var (origvar);
-        }
-      return size;
+        expand_one_stack_var (origvar);
+      return tree_to_uhwi (DECL_SIZE_UNIT (var));
     }
   return 0;
 }
@@ -1712,7 +1402,7 @@ expand_used_vars_for_block (tree block, bool toplevel)
   /* Expand all variables at this level.  */
   for (t = BLOCK_VARS (block); t ; t = DECL_CHAIN (t))
     if (TREE_USED (t)
-        && ((!VAR_P (t) && TREE_CODE (t) != RESULT_DECL)
+        && ((TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != RESULT_DECL)
 	    || !DECL_NONSHAREABLE (t)))
       expand_one_var (t, toplevel, true);
 
@@ -1731,7 +1421,7 @@ clear_tree_used (tree block)
 
   for (t = BLOCK_VARS (block); t ; t = DECL_CHAIN (t))
     /* if (!TREE_STATIC (t) && !DECL_EXTERNAL (t)) */
-    if ((!VAR_P (t) && TREE_CODE (t) != RESULT_DECL)
+    if ((TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != RESULT_DECL)
 	|| !DECL_NONSHAREABLE (t))
       TREE_USED (t) = 0;
 
@@ -1946,7 +1636,7 @@ fini_vars_expansion (void)
 HOST_WIDE_INT
 estimated_stack_frame_size (struct cgraph_node *node)
 {
-  poly_int64 size = 0;
+  HOST_WIDE_INT size = 0;
   size_t i;
   tree var;
   struct function *fn = DECL_STRUCT_FUNCTION (node->decl);
@@ -1970,7 +1660,7 @@ estimated_stack_frame_size (struct cgraph_node *node)
 
   fini_vars_expansion ();
   pop_cfun ();
-  return estimated_poly_value (size);
+  return size;
 }
 
 /* Helper routine to check if a record or union contains an array field. */
@@ -2007,7 +1697,7 @@ stack_protect_decl_p ()
     if (!is_global_var (var))
       {
 	tree var_type = TREE_TYPE (var);
-	if (VAR_P (var)
+	if (TREE_CODE (var) == VAR_DECL
 	    && (TREE_CODE (var_type) == ARRAY_TYPE
 		|| TREE_ADDRESSABLE (var)
 		|| (RECORD_OR_UNION_TYPE_P (var_type)
@@ -2028,7 +1718,7 @@ stack_protect_return_slot_p ()
     for (gimple_stmt_iterator gsi = gsi_start_bb (bb);
 	 !gsi_end_p (gsi); gsi_next (&gsi))
       {
-	gimple *stmt = gsi_stmt (gsi);
+	gimple stmt = gsi_stmt (gsi);
 	/* This assumes that calls to internal-only functions never
 	   use a return slot.  */
 	if (is_gimple_call (stmt)
@@ -2046,7 +1736,7 @@ static rtx_insn *
 expand_used_vars (void)
 {
   tree var, outer_block = DECL_INITIAL (current_function_decl);
-  auto_vec<tree> maybe_local_decls;
+  vec<tree> maybe_local_decls = vNULL;
   rtx_insn *var_end_seq = NULL;
   unsigned i;
   unsigned len;
@@ -2055,7 +1745,7 @@ expand_used_vars (void)
   /* Compute the phase of the stack frame for this function.  */
   {
     int align = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
-    int off = targetm.starting_frame_offset () % align;
+    int off = STARTING_FRAME_OFFSET % align;
     frame_phase = off ? align - off : 0;
   }
 
@@ -2070,16 +1760,46 @@ expand_used_vars (void)
   if (targetm.use_pseudo_pic_reg ())
     pic_offset_table_rtx = gen_reg_rtx (Pmode);
 
+  hash_map<tree, tree> ssa_name_decls;
   for (i = 0; i < SA.map->num_partitions; i++)
     {
-      if (bitmap_bit_p (SA.partitions_for_parm_default_defs, i))
-	continue;
-
       tree var = partition_to_var (SA.map, i);
 
       gcc_assert (!virtual_operand_p (var));
 
-      expand_one_ssa_partition (var);
+      /* Assign decls to each SSA name partition, share decls for partitions
+         we could have coalesced (those with the same type).  */
+      if (SSA_NAME_VAR (var) == NULL_TREE)
+	{
+	  tree *slot = &ssa_name_decls.get_or_insert (TREE_TYPE (var));
+	  if (!*slot)
+	    *slot = create_tmp_reg (TREE_TYPE (var));
+	  replace_ssa_name_symbol (var, *slot);
+	}
+
+      /* Always allocate space for partitions based on VAR_DECLs.  But for
+	 those based on PARM_DECLs or RESULT_DECLs and which matter for the
+	 debug info, there is no need to do so if optimization is disabled
+	 because all the SSA_NAMEs based on these DECLs have been coalesced
+	 into a single partition, which is thus assigned the canonical RTL
+	 location of the DECLs.  If in_lto_p, we can't rely on optimize,
+	 a function could be compiled with -O1 -flto first and only the
+	 link performed at -O0.  */
+      if (TREE_CODE (SSA_NAME_VAR (var)) == VAR_DECL)
+	expand_one_var (var, true, true);
+      else if (DECL_IGNORED_P (SSA_NAME_VAR (var)) || optimize || in_lto_p)
+	{
+	  /* This is a PARM_DECL or RESULT_DECL.  For those partitions that
+	     contain the default def (representing the parm or result itself)
+	     we don't do anything here.  But those which don't contain the
+	     default def (representing a temporary based on the parm/result)
+	     we need to allocate space just like for normal VAR_DECLs.  */
+	  if (!bitmap_bit_p (SA.partition_has_default_def, i))
+	    {
+	      expand_one_var (var, true, true);
+	      gcc_assert (SA.partition_to_pseudo[i]);
+	    }
+	}
     }
 
   if (flag_stack_protect == SPCT_FLAG_STRONG)
@@ -2213,6 +1933,8 @@ expand_used_vars (void)
     {
       struct stack_vars_data data;
 
+      data.asan_vec = vNULL;
+      data.asan_decl_vec = vNULL;
       data.asan_base = NULL_RTX;
       data.asan_alignb = 0;
 
@@ -2235,17 +1957,14 @@ expand_used_vars (void)
 	    expand_stack_vars (stack_protect_decl_phase_2, &data);
 	}
 
-      if (asan_sanitize_stack_p ())
+      if ((flag_sanitize & SANITIZE_ADDRESS) && ASAN_STACK)
 	/* Phase 3, any partitions that need asan protection
 	   in addition to phase 1 and 2.  */
 	expand_stack_vars (asan_decl_phase_3, &data);
 
-      /* ASAN description strings don't yet have a syntax for expressing
-	 polynomial offsets.  */
-      HOST_WIDE_INT prev_offset;
-      if (!data.asan_vec.is_empty ()
-	  && frame_offset.is_constant (&prev_offset))
+      if (!data.asan_vec.is_empty ())
 	{
+	  HOST_WIDE_INT prev_offset = frame_offset;
 	  HOST_WIDE_INT offset, sz, redzonesz;
 	  redzonesz = ASAN_RED_ZONE_SIZE;
 	  sz = data.asan_vec[0] - prev_offset;
@@ -2254,10 +1973,8 @@ expand_used_vars (void)
 	      && sz + ASAN_RED_ZONE_SIZE >= (int) data.asan_alignb)
 	    redzonesz = ((sz + ASAN_RED_ZONE_SIZE + data.asan_alignb - 1)
 			 & ~(data.asan_alignb - HOST_WIDE_INT_1)) - sz;
-	  /* Allocating a constant amount of space from a constant
-	     starting offset must give a constant result.  */
-	  offset = (alloc_stack_frame_space (redzonesz, ASAN_RED_ZONE_SIZE)
-		    .to_constant ());
+	  offset
+	    = alloc_stack_frame_space (redzonesz, ASAN_RED_ZONE_SIZE);
 	  data.asan_vec.safe_push (prev_offset);
 	  data.asan_vec.safe_push (offset);
 	  /* Leave space for alignment if STRICT_ALIGNMENT.  */
@@ -2276,12 +1993,10 @@ expand_used_vars (void)
 	}
 
       expand_stack_vars (NULL, &data);
-    }
 
-  if (asan_sanitize_allocas_p () && cfun->calls_alloca)
-    var_end_seq = asan_emit_allocas_unpoison (virtual_stack_dynamic_rtx,
-					      virtual_stack_vars_rtx,
-					      var_end_seq);
+      data.asan_vec.release ();
+      data.asan_decl_vec.release ();
+    }
 
   fini_vars_expansion ();
 
@@ -2297,15 +2012,15 @@ expand_used_vars (void)
       if (rtl && (MEM_P (rtl) || GET_CODE (rtl) == CONCAT))
 	add_local_decl (cfun, var);
     }
+  maybe_local_decls.release ();
 
   /* If the target requires that FRAME_OFFSET be aligned, do it.  */
   if (STACK_ALIGNMENT_NEEDED)
     {
       HOST_WIDE_INT align = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
-      if (FRAME_GROWS_DOWNWARD)
-	frame_offset = aligned_lower_bound (frame_offset, align);
-      else
-	frame_offset = aligned_upper_bound (frame_offset, align);
+      if (!FRAME_GROWS_DOWNWARD)
+	frame_offset += align - 1;
+      frame_offset &= -align;
     }
 
   return var_end_seq;
@@ -2317,7 +2032,7 @@ expand_used_vars (void)
    generated for STMT should have been appended.  */
 
 static void
-maybe_dump_rtl_for_gimple_stmt (gimple *stmt, rtx_insn *since)
+maybe_dump_rtl_for_gimple_stmt (gimple stmt, rtx_insn *since)
 {
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -2336,7 +2051,7 @@ static hash_map<basic_block, rtx_code_label *> *lab_rtx_for_bb;
 
 /* Returns the label_rtx expression for a label starting basic block BB.  */
 
-static rtx_code_label *
+static rtx
 label_rtx_for_bb (basic_block bb ATTRIBUTE_UNUSED)
 {
   gimple_stmt_iterator gsi;
@@ -2363,7 +2078,7 @@ label_rtx_for_bb (basic_block bb ATTRIBUTE_UNUSED)
       if (DECL_NONLOCAL (lab))
 	break;
 
-      return jump_target_rtx (lab);
+      return label_rtx (lab);
     }
 
   rtx_code_label *l = gen_label_rtx ();
@@ -2432,6 +2147,7 @@ static basic_block
 expand_gimple_cond (basic_block bb, gcond *stmt)
 {
   basic_block new_bb, dest;
+  edge new_edge;
   edge true_edge;
   edge false_edge;
   rtx_insn *last2, *last;
@@ -2459,7 +2175,7 @@ expand_gimple_cond (basic_block bb, gcond *stmt)
 	      && integer_onep (op1)))
       && bitmap_bit_p (SA.values, SSA_NAME_VERSION (op0)))
     {
-      gimple *second = SSA_NAME_DEF_STMT (op0);
+      gimple second = SSA_NAME_DEF_STMT (op0);
       if (gimple_code (second) == GIMPLE_ASSIGN)
 	{
 	  enum tree_code code2 = gimple_assign_rhs_code (second);
@@ -2543,13 +2259,12 @@ expand_gimple_cond (basic_block bb, gcond *stmt)
   dest = false_edge->dest;
   redirect_edge_succ (false_edge, new_bb);
   false_edge->flags |= EDGE_FALLTHRU;
-  new_bb->count = false_edge->count ();
-  loop_p loop = find_common_loop (bb->loop_father, dest->loop_father);
-  add_bb_to_loop (new_bb, loop);
-  if (loop->latch == bb
-      && loop->header == dest)
-    loop->latch = new_bb;
-  make_single_succ_edge (new_bb, dest, 0);
+  new_bb->count = false_edge->count;
+  new_bb->frequency = EDGE_FREQUENCY (false_edge);
+  add_bb_to_loop (new_bb, bb->loop_father);
+  new_edge = make_edge (new_bb, dest, 0);
+  new_edge->probability = REG_BR_PROB_BASE;
+  new_edge->count = new_bb->count;
   if (BARRIER_P (BB_END (new_bb)))
     BB_END (new_bb) = PREV_INSN (BB_END (new_bb));
   update_bb_for_insn (new_bb);
@@ -2568,7 +2283,7 @@ expand_gimple_cond (basic_block bb, gcond *stmt)
 /* Mark all calls that can have a transaction restart.  */
 
 static void
-mark_transaction_restart_calls (gimple *stmt)
+mark_transaction_restart_calls (gimple stmt)
 {
   struct tm_restart_node dummy;
   tm_restart_node **slot;
@@ -2613,25 +2328,10 @@ expand_call_stmt (gcall *stmt)
       return;
     }
 
-  /* If this is a call to a built-in function and it has no effect other
-     than setting the lhs, try to implement it using an internal function
-     instead.  */
-  decl = gimple_call_fndecl (stmt);
-  if (gimple_call_lhs (stmt)
-      && !gimple_has_side_effects (stmt)
-      && (optimize || (decl && called_as_built_in (decl))))
-    {
-      internal_fn ifn = replacement_internal_fn (stmt);
-      if (ifn != IFN_LAST)
-	{
-	  expand_internal_call (ifn, stmt);
-	  return;
-	}
-    }
-
   exp = build_vl_exp (CALL_EXPR, gimple_call_num_args (stmt) + 3);
 
   CALL_EXPR_FN (exp) = gimple_call_fn (stmt);
+  decl = gimple_call_fndecl (stmt);
   builtin_p = decl && DECL_BUILT_IN (decl);
 
   /* If this is not a builtin function, the function type through which the
@@ -2647,7 +2347,7 @@ expand_call_stmt (gcall *stmt)
   for (i = 0; i < gimple_call_num_args (stmt); i++)
     {
       tree arg = gimple_call_arg (stmt, i);
-      gimple *def;
+      gimple def;
       /* TER addresses into arguments of builtin functions so we have a
 	 chance to infer more correct alignment information.  See PR39954.  */
       if (builtin_p
@@ -2664,20 +2364,16 @@ expand_call_stmt (gcall *stmt)
   if (gimple_call_nothrow_p (stmt))
     TREE_NOTHROW (exp) = 1;
 
-  if (gimple_no_warning_p (stmt))
-    TREE_NO_WARNING (exp) = 1;
-
   CALL_EXPR_TAILCALL (exp) = gimple_call_tail_p (stmt);
-  CALL_EXPR_MUST_TAIL_CALL (exp) = gimple_call_must_tail_p (stmt);
   CALL_EXPR_RETURN_SLOT_OPT (exp) = gimple_call_return_slot_opt_p (stmt);
   if (decl
       && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
-      && ALLOCA_FUNCTION_CODE_P (DECL_FUNCTION_CODE (decl)))
+      && (DECL_FUNCTION_CODE (decl) == BUILT_IN_ALLOCA
+	  || DECL_FUNCTION_CODE (decl) == BUILT_IN_ALLOCA_WITH_ALIGN))
     CALL_ALLOCA_FOR_VAR_P (exp) = gimple_call_alloca_for_var_p (stmt);
   else
     CALL_FROM_THUNK_P (exp) = gimple_call_from_thunk_p (stmt);
   CALL_EXPR_VA_ARG_PACK (exp) = gimple_call_va_arg_pack_p (stmt);
-  CALL_EXPR_BY_DESCRIPTOR (exp) = gimple_call_by_descriptor_p (stmt);
   SET_EXPR_LOCATION (exp, gimple_location (stmt));
   CALL_WITH_BOUNDS_P (exp) = gimple_call_with_bounds_p (stmt);
 
@@ -2696,27 +2392,11 @@ expand_call_stmt (gcall *stmt)
 	  }
     }
 
-  rtx_insn *before_call = get_last_insn ();
   lhs = gimple_call_lhs (stmt);
   if (lhs)
     expand_assignment (lhs, exp, false);
   else
     expand_expr (exp, const0_rtx, VOIDmode, EXPAND_NORMAL);
-
-  /* If the gimple call is an indirect call and has 'nocf_check'
-     attribute find a generated CALL insn to mark it as no
-     control-flow verification is needed.  */
-  if (gimple_call_nocf_check_p (stmt)
-      && !gimple_call_fndecl (stmt))
-    {
-      rtx_insn *last = get_last_insn ();
-      while (!CALL_P (last)
-	     && last != before_call)
-	last = PREV_INSN (last);
-
-      if (last != before_call)
-	add_reg_note (last, REG_CALL_NOCF_CHECK, const0_rtx);
-    }
 
   mark_transaction_restart_calls (stmt);
 }
@@ -2732,39 +2412,14 @@ expand_asm_loc (tree string, int vol, location_t locus)
 {
   rtx body;
 
+  if (TREE_CODE (string) == ADDR_EXPR)
+    string = TREE_OPERAND (string, 0);
+
   body = gen_rtx_ASM_INPUT_loc (VOIDmode,
 				ggc_strdup (TREE_STRING_POINTER (string)),
 				locus);
 
   MEM_VOLATILE_P (body) = vol;
-
-  /* Non-empty basic ASM implicitly clobbers memory.  */
-  if (TREE_STRING_LENGTH (string) != 0)
-    {
-      rtx asm_op, clob;
-      unsigned i, nclobbers;
-      auto_vec<rtx> input_rvec, output_rvec;
-      auto_vec<const char *> constraints;
-      auto_vec<rtx> clobber_rvec;
-      HARD_REG_SET clobbered_regs;
-      CLEAR_HARD_REG_SET (clobbered_regs);
-
-      clob = gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (VOIDmode));
-      clobber_rvec.safe_push (clob);
-
-      if (targetm.md_asm_adjust)
-	targetm.md_asm_adjust (output_rvec, input_rvec,
-			       constraints, clobber_rvec,
-			       clobbered_regs);
-
-      asm_op = body;
-      nclobbers = clobber_rvec.length ();
-      body = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (1 + nclobbers));
-
-      XVECEXP (body, 0, 0) = asm_op;
-      for (i = 0; i < nclobbers; i++)
-	XVECEXP (body, 0, i + 1) = gen_rtx_CLOBBER (VOIDmode, clobber_rvec[i]);
-    }
 
   emit_insn (body);
 }
@@ -2783,12 +2438,14 @@ n_occurrences (int c, const char *s)
    the same number of alternatives.  Return true if so.  */
 
 static bool
-check_operand_nalternatives (const vec<const char *> &constraints)
+check_operand_nalternatives (tree outputs, tree inputs)
 {
-  unsigned len = constraints.length();
-  if (len > 0)
+  if (outputs || inputs)
     {
-      int nalternatives = n_occurrences (',', constraints[0]);
+      tree tmp = TREE_PURPOSE (outputs ? outputs : inputs);
+      int nalternatives
+	= n_occurrences (',', TREE_STRING_POINTER (TREE_VALUE (tmp)));
+      tree next = inputs;
 
       if (nalternatives + 1 > MAX_RECOG_ALTERNATIVES)
 	{
@@ -2796,14 +2453,26 @@ check_operand_nalternatives (const vec<const char *> &constraints)
 	  return false;
 	}
 
-      for (unsigned i = 1; i < len; ++i)
-	if (n_occurrences (',', constraints[i]) != nalternatives)
-	  {
-	    error ("operand constraints for %<asm%> differ "
-		   "in number of alternatives");
-	    return false;
-	  }
+      tmp = outputs;
+      while (tmp)
+	{
+	  const char *constraint
+	    = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (tmp)));
+
+	  if (n_occurrences (',', constraint) != nalternatives)
+	    {
+	      error ("operand constraints for %<asm%> differ "
+		     "in number of alternatives");
+	      return false;
+	    }
+
+	  if (TREE_CHAIN (tmp))
+	    tmp = TREE_CHAIN (tmp);
+	  else
+	    tmp = next, next = 0;
+	}
     }
+
   return true;
 }
 
@@ -2853,146 +2522,109 @@ tree_conflicts_with_clobbers_p (tree t, HARD_REG_SET *clobbered_regs)
    VOL nonzero means the insn is volatile; don't optimize it.  */
 
 static void
-expand_asm_stmt (gasm *stmt)
+expand_asm_operands (tree string, tree outputs, tree inputs,
+		     tree clobbers, tree labels, basic_block fallthru_bb,
+		     int vol, location_t locus)
 {
-  class save_input_location
-  {
-    location_t old;
+  rtvec argvec, constraintvec, labelvec;
+  rtx body;
+  int ninputs = list_length (inputs);
+  int noutputs = list_length (outputs);
+  int nlabels = list_length (labels);
+  int ninout;
+  int nclobbers;
+  HARD_REG_SET clobbered_regs;
+  int clobber_conflict_found = 0;
+  tree tail;
+  tree t;
+  int i;
+  /* Vector of RTX's of evaluated output operands.  */
+  rtx *output_rtx = XALLOCAVEC (rtx, noutputs);
+  int *inout_opnum = XALLOCAVEC (int, noutputs);
+  rtx *real_output_rtx = XALLOCAVEC (rtx, noutputs);
+  machine_mode *inout_mode = XALLOCAVEC (machine_mode, noutputs);
+  const char **constraints = XALLOCAVEC (const char *, noutputs + ninputs);
+  int old_generating_concat_p = generating_concat_p;
+  rtx_code_label *fallthru_label = NULL;
 
-  public:
-    explicit save_input_location(location_t where)
-    {
-      old = input_location;
-      input_location = where;
-    }
+  /* An ASM with no outputs needs to be treated as volatile, for now.  */
+  if (noutputs == 0)
+    vol = 1;
 
-    ~save_input_location()
-    {
-      input_location = old;
-    }
-  };
-
-  location_t locus = gimple_location (stmt);
-
-  if (gimple_asm_input_p (stmt))
-    {
-      const char *s = gimple_asm_string (stmt);
-      tree string = build_string (strlen (s), s);
-      expand_asm_loc (string, gimple_asm_volatile_p (stmt), locus);
-      return;
-    }
-
-  /* There are some legacy diagnostics in here, and also avoids a
-     sixth parameger to targetm.md_asm_adjust.  */
-  save_input_location s_i_l(locus);
-
-  unsigned noutputs = gimple_asm_noutputs (stmt);
-  unsigned ninputs = gimple_asm_ninputs (stmt);
-  unsigned nlabels = gimple_asm_nlabels (stmt);
-  unsigned i;
-
-  /* ??? Diagnose during gimplification?  */
-  if (ninputs + noutputs + nlabels > MAX_RECOG_OPERANDS)
-    {
-      error ("more than %d operands in %<asm%>", MAX_RECOG_OPERANDS);
-      return;
-    }
-
-  auto_vec<tree, MAX_RECOG_OPERANDS> output_tvec;
-  auto_vec<tree, MAX_RECOG_OPERANDS> input_tvec;
-  auto_vec<const char *, MAX_RECOG_OPERANDS> constraints;
-
-  /* Copy the gimple vectors into new vectors that we can manipulate.  */
-
-  output_tvec.safe_grow (noutputs);
-  input_tvec.safe_grow (ninputs);
-  constraints.safe_grow (noutputs + ninputs);
-
-  for (i = 0; i < noutputs; ++i)
-    {
-      tree t = gimple_asm_output_op (stmt, i);
-      output_tvec[i] = TREE_VALUE (t);
-      constraints[i] = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
-    }
-  for (i = 0; i < ninputs; i++)
-    {
-      tree t = gimple_asm_input_op (stmt, i);
-      input_tvec[i] = TREE_VALUE (t);
-      constraints[i + noutputs]
-	= TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
-    }
-
-  /* ??? Diagnose during gimplification?  */
-  if (! check_operand_nalternatives (constraints))
+  if (! check_operand_nalternatives (outputs, inputs))
     return;
+
+  string = resolve_asm_operand_names (string, outputs, inputs, labels);
+
+  /* Collect constraints.  */
+  i = 0;
+  for (t = outputs; t ; t = TREE_CHAIN (t), i++)
+    constraints[i] = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
+  for (t = inputs; t ; t = TREE_CHAIN (t), i++)
+    constraints[i] = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
+
+  /* Sometimes we wish to automatically clobber registers across an asm.
+     Case in point is when the i386 backend moved from cc0 to a hard reg --
+     maintaining source-level compatibility means automatically clobbering
+     the flags register.  */
+  clobbers = targetm.md_asm_clobbers (outputs, inputs, clobbers);
 
   /* Count the number of meaningful clobbered registers, ignoring what
      we would ignore later.  */
-  auto_vec<rtx> clobber_rvec;
-  HARD_REG_SET clobbered_regs;
+  nclobbers = 0;
   CLEAR_HARD_REG_SET (clobbered_regs);
-
-  if (unsigned n = gimple_asm_nclobbers (stmt))
+  for (tail = clobbers; tail; tail = TREE_CHAIN (tail))
     {
-      clobber_rvec.reserve (n);
-      for (i = 0; i < n; i++)
-	{
-	  tree t = gimple_asm_clobber_op (stmt, i);
-          const char *regname = TREE_STRING_POINTER (TREE_VALUE (t));
-	  int nregs, j;
+      const char *regname;
+      int nregs;
 
-	  j = decode_reg_name_and_count (regname, &nregs);
-	  if (j < 0)
+      if (TREE_VALUE (tail) == error_mark_node)
+	return;
+      regname = TREE_STRING_POINTER (TREE_VALUE (tail));
+
+      i = decode_reg_name_and_count (regname, &nregs);
+      if (i == -4)
+	++nclobbers;
+      else if (i == -2)
+	error ("unknown register name %qs in %<asm%>", regname);
+
+      /* Mark clobbered registers.  */
+      if (i >= 0)
+        {
+	  int reg;
+
+	  for (reg = i; reg < i + nregs; reg++)
 	    {
-	      if (j == -2)
-		{
-		  /* ??? Diagnose during gimplification?  */
-		  error ("unknown register name %qs in %<asm%>", regname);
-		}
-	      else if (j == -4)
-		{
-		  rtx x = gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (VOIDmode));
-		  clobber_rvec.safe_push (x);
-		}
-	      else
-		{
-		  /* Otherwise we should have -1 == empty string
-		     or -3 == cc, which is not a register.  */
-		  gcc_assert (j == -1 || j == -3);
-		}
-	    }
-	  else
-	    for (int reg = j; reg < j + nregs; reg++)
-	      {
-		/* Clobbering the PIC register is an error.  */
-		if (reg == (int) PIC_OFFSET_TABLE_REGNUM)
-		  {
-		    /* ??? Diagnose during gimplification?  */
-		    error ("PIC register clobbered by %qs in %<asm%>",
-			   regname);
-		    return;
-		  }
+	      ++nclobbers;
 
-	        SET_HARD_REG_BIT (clobbered_regs, reg);
-	        rtx x = gen_rtx_REG (reg_raw_mode[reg], reg);
-		clobber_rvec.safe_push (x);
-	      }
+	      /* Clobbering the PIC register is an error.  */
+	      if (reg == (int) PIC_OFFSET_TABLE_REGNUM)
+		{
+		  error ("PIC register clobbered by %qs in %<asm%>", regname);
+		  return;
+		}
+
+	      SET_HARD_REG_BIT (clobbered_regs, reg);
+	    }
 	}
     }
-  unsigned nclobbers = clobber_rvec.length();
 
   /* First pass over inputs and outputs checks validity and sets
      mark_addressable if needed.  */
-  /* ??? Diagnose during gimplification?  */
 
-  for (i = 0; i < noutputs; ++i)
+  ninout = 0;
+  for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
     {
-      tree val = output_tvec[i];
+      tree val = TREE_VALUE (tail);
       tree type = TREE_TYPE (val);
       const char *constraint;
       bool is_inout;
       bool allows_reg;
       bool allows_mem;
+
+      /* If there's an erroneous arg, emit no insn.  */
+      if (type == error_mark_node)
+	return;
 
       /* Try to parse the output constraint.  If that fails, there's
 	 no point in going further.  */
@@ -3008,21 +2640,35 @@ expand_asm_stmt (gasm *stmt)
 		  && REG_P (DECL_RTL (val))
 		  && GET_MODE (DECL_RTL (val)) != TYPE_MODE (type))))
 	mark_addressable (val);
+
+      if (is_inout)
+	ninout++;
     }
 
-  for (i = 0; i < ninputs; ++i)
+  ninputs += ninout;
+  if (ninputs + noutputs + nlabels > MAX_RECOG_OPERANDS)
+    {
+      error ("more than %d operands in %<asm%>", MAX_RECOG_OPERANDS);
+      return;
+    }
+
+  for (i = 0, tail = inputs; tail; i++, tail = TREE_CHAIN (tail))
     {
       bool allows_reg, allows_mem;
       const char *constraint;
 
+      /* If there's an erroneous arg, emit no insn, because the ASM_INPUT
+	 would get VOIDmode and that could cause a crash in reload.  */
+      if (TREE_TYPE (TREE_VALUE (tail)) == error_mark_node)
+	return;
+
       constraint = constraints[i + noutputs];
-      if (! parse_input_constraint (&constraint, i, ninputs, noutputs, 0,
-				    constraints.address (),
-				    &allows_mem, &allows_reg))
+      if (! parse_input_constraint (&constraint, i, ninputs, noutputs, ninout,
+				    constraints, &allows_mem, &allows_reg))
 	return;
 
       if (! allows_reg && allows_mem)
-	mark_addressable (input_tvec[i]);
+	mark_addressable (TREE_VALUE (tail));
     }
 
   /* Second pass evaluates arguments.  */
@@ -3030,21 +2676,17 @@ expand_asm_stmt (gasm *stmt)
   /* Make sure stack is consistent for asm goto.  */
   if (nlabels > 0)
     do_pending_stack_adjust ();
-  int old_generating_concat_p = generating_concat_p;
 
-  /* Vector of RTX's of evaluated output operands.  */
-  auto_vec<rtx, MAX_RECOG_OPERANDS> output_rvec;
-  auto_vec<int, MAX_RECOG_OPERANDS> inout_opnum;
-  rtx_insn *after_rtl_seq = NULL, *after_rtl_end = NULL;
-
-  output_rvec.safe_grow (noutputs);
-
-  for (i = 0; i < noutputs; ++i)
+  ninout = 0;
+  for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
     {
-      tree val = output_tvec[i];
+      tree val = TREE_VALUE (tail);
       tree type = TREE_TYPE (val);
-      bool is_inout, allows_reg, allows_mem, ok;
+      bool is_inout;
+      bool allows_reg;
+      bool allows_mem;
       rtx op;
+      bool ok;
 
       ok = parse_output_constraint (&constraints[i], i, ninputs,
 				    noutputs, &allows_mem, &allows_reg,
@@ -3053,19 +2695,20 @@ expand_asm_stmt (gasm *stmt)
 
       /* If an output operand is not a decl or indirect ref and our constraint
 	 allows a register, make a temporary to act as an intermediate.
-	 Make the asm insn write into that, then we will copy it to
+	 Make the asm insn write into that, then our caller will copy it to
 	 the real output operand.  Likewise for promoted variables.  */
 
       generating_concat_p = 0;
 
-      if ((TREE_CODE (val) == INDIRECT_REF && allows_mem)
+      real_output_rtx[i] = NULL_RTX;
+      if ((TREE_CODE (val) == INDIRECT_REF
+	   && allows_mem)
 	  || (DECL_P (val)
 	      && (allows_mem || REG_P (DECL_RTL (val)))
 	      && ! (REG_P (DECL_RTL (val))
 		    && GET_MODE (DECL_RTL (val)) != TYPE_MODE (type)))
 	  || ! allows_reg
-	  || is_inout
-	  || TREE_ADDRESSABLE (type))
+	  || is_inout)
 	{
 	  op = expand_expr (val, NULL_RTX, VOIDmode,
 			    !allows_reg ? EXPAND_MEMORY : EXPAND_WRITE);
@@ -3074,67 +2717,72 @@ expand_asm_stmt (gasm *stmt)
 
 	  if (! allows_reg && !MEM_P (op))
 	    error ("output number %d not directly addressable", i);
-	  if ((! allows_mem && MEM_P (op) && GET_MODE (op) != BLKmode)
+	  if ((! allows_mem && MEM_P (op))
 	      || GET_CODE (op) == CONCAT)
 	    {
-	      rtx old_op = op;
+	      real_output_rtx[i] = op;
 	      op = gen_reg_rtx (GET_MODE (op));
-
-	      generating_concat_p = old_generating_concat_p;
-
 	      if (is_inout)
-		emit_move_insn (op, old_op);
-
-	      push_to_sequence2 (after_rtl_seq, after_rtl_end);
-	      emit_move_insn (old_op, op);
-	      after_rtl_seq = get_insns ();
-	      after_rtl_end = get_last_insn ();
-	      end_sequence ();
+		emit_move_insn (op, real_output_rtx[i]);
 	    }
 	}
       else
 	{
 	  op = assign_temp (type, 0, 1);
 	  op = validize_mem (op);
-	  if (!MEM_P (op) && TREE_CODE (val) == SSA_NAME)
-	    set_reg_attrs_for_decl_rtl (SSA_NAME_VAR (val), op);
-
-	  generating_concat_p = old_generating_concat_p;
-
-	  push_to_sequence2 (after_rtl_seq, after_rtl_end);
-	  expand_assignment (val, make_tree (type, op), false);
-	  after_rtl_seq = get_insns ();
-	  after_rtl_end = get_last_insn ();
-	  end_sequence ();
+	  if (!MEM_P (op) && TREE_CODE (TREE_VALUE (tail)) == SSA_NAME)
+	    set_reg_attrs_for_decl_rtl (SSA_NAME_VAR (TREE_VALUE (tail)), op);
+	  TREE_VALUE (tail) = make_tree (type, op);
 	}
-      output_rvec[i] = op;
+      output_rtx[i] = op;
+
+      generating_concat_p = old_generating_concat_p;
 
       if (is_inout)
-	inout_opnum.safe_push (i);
+	{
+	  inout_mode[ninout] = TYPE_MODE (type);
+	  inout_opnum[ninout++] = i;
+	}
+
+      if (tree_conflicts_with_clobbers_p (val, &clobbered_regs))
+	clobber_conflict_found = 1;
     }
 
-  auto_vec<rtx, MAX_RECOG_OPERANDS> input_rvec;
-  auto_vec<machine_mode, MAX_RECOG_OPERANDS> input_mode;
+  /* Make vectors for the expression-rtx, constraint strings,
+     and named operands.  */
 
-  input_rvec.safe_grow (ninputs);
-  input_mode.safe_grow (ninputs);
+  argvec = rtvec_alloc (ninputs);
+  constraintvec = rtvec_alloc (ninputs);
+  labelvec = rtvec_alloc (nlabels);
 
-  generating_concat_p = 0;
+  body = gen_rtx_ASM_OPERANDS ((noutputs == 0 ? VOIDmode
+				: GET_MODE (output_rtx[0])),
+			       ggc_strdup (TREE_STRING_POINTER (string)),
+			       empty_string, 0, argvec, constraintvec,
+			       labelvec, locus);
 
-  for (i = 0; i < ninputs; ++i)
+  MEM_VOLATILE_P (body) = vol;
+
+  /* Eval the inputs and put them into ARGVEC.
+     Put their constraints into ASM_INPUTs and store in CONSTRAINTS.  */
+
+  for (i = 0, tail = inputs; tail; tail = TREE_CHAIN (tail), ++i)
     {
-      tree val = input_tvec[i];
-      tree type = TREE_TYPE (val);
-      bool allows_reg, allows_mem, ok;
+      bool allows_reg, allows_mem;
       const char *constraint;
+      tree val, type;
       rtx op;
+      bool ok;
 
       constraint = constraints[i + noutputs];
-      ok = parse_input_constraint (&constraint, i, ninputs, noutputs, 0,
-				   constraints.address (),
-				   &allows_mem, &allows_reg);
+      ok = parse_input_constraint (&constraint, i, ninputs, noutputs, ninout,
+				   constraints, &allows_mem, &allows_reg);
       gcc_assert (ok);
 
+      generating_concat_p = 0;
+
+      val = TREE_VALUE (tail);
+      type = TREE_TYPE (val);
       /* EXPAND_INITIALIZER will not generate code for valid initializer
 	 constants, but will still generate code for other types of operand.
 	 This is the behavior we want for constant constraints.  */
@@ -3165,108 +2813,60 @@ expand_asm_stmt (gasm *stmt)
 	  else
 	    gcc_unreachable ();
 	}
-      input_rvec[i] = op;
-      input_mode[i] = TYPE_MODE (type);
+
+      generating_concat_p = old_generating_concat_p;
+      ASM_OPERANDS_INPUT (body, i) = op;
+
+      ASM_OPERANDS_INPUT_CONSTRAINT_EXP (body, i)
+	= gen_rtx_ASM_INPUT_loc (TYPE_MODE (type),
+				 ggc_strdup (constraints[i + noutputs]),
+				 locus);
+
+      if (tree_conflicts_with_clobbers_p (val, &clobbered_regs))
+	clobber_conflict_found = 1;
     }
 
+  /* Protect all the operands from the queue now that they have all been
+     evaluated.  */
+
+  generating_concat_p = 0;
+
   /* For in-out operands, copy output rtx to input rtx.  */
-  unsigned ninout = inout_opnum.length();
   for (i = 0; i < ninout; i++)
     {
       int j = inout_opnum[i];
-      rtx o = output_rvec[j];
-
-      input_rvec.safe_push (o);
-      input_mode.safe_push (GET_MODE (o));
-
       char buffer[16];
+
+      ASM_OPERANDS_INPUT (body, ninputs - ninout + i)
+	= output_rtx[j];
+
       sprintf (buffer, "%d", j);
-      constraints.safe_push (ggc_strdup (buffer));
-    }
-  ninputs += ninout;
-
-  /* Sometimes we wish to automatically clobber registers across an asm.
-     Case in point is when the i386 backend moved from cc0 to a hard reg --
-     maintaining source-level compatibility means automatically clobbering
-     the flags register.  */
-  rtx_insn *after_md_seq = NULL;
-  if (targetm.md_asm_adjust)
-    after_md_seq = targetm.md_asm_adjust (output_rvec, input_rvec,
-					  constraints, clobber_rvec,
-					  clobbered_regs);
-
-  /* Do not allow the hook to change the output and input count,
-     lest it mess up the operand numbering.  */
-  gcc_assert (output_rvec.length() == noutputs);
-  gcc_assert (input_rvec.length() == ninputs);
-  gcc_assert (constraints.length() == noutputs + ninputs);
-
-  /* But it certainly can adjust the clobbers.  */
-  nclobbers = clobber_rvec.length();
-
-  /* Third pass checks for easy conflicts.  */
-  /* ??? Why are we doing this on trees instead of rtx.  */
-
-  bool clobber_conflict_found = 0;
-  for (i = 0; i < noutputs; ++i)
-    if (tree_conflicts_with_clobbers_p (output_tvec[i], &clobbered_regs))
-	clobber_conflict_found = 1;
-  for (i = 0; i < ninputs - ninout; ++i)
-    if (tree_conflicts_with_clobbers_p (input_tvec[i], &clobbered_regs))
-	clobber_conflict_found = 1;
-
-  /* Make vectors for the expression-rtx, constraint strings,
-     and named operands.  */
-
-  rtvec argvec = rtvec_alloc (ninputs);
-  rtvec constraintvec = rtvec_alloc (ninputs);
-  rtvec labelvec = rtvec_alloc (nlabels);
-
-  rtx body = gen_rtx_ASM_OPERANDS ((noutputs == 0 ? VOIDmode
-				    : GET_MODE (output_rvec[0])),
-				   ggc_strdup (gimple_asm_string (stmt)),
-				   "", 0, argvec, constraintvec,
-				   labelvec, locus);
-  MEM_VOLATILE_P (body) = gimple_asm_volatile_p (stmt);
-
-  for (i = 0; i < ninputs; ++i)
-    {
-      ASM_OPERANDS_INPUT (body, i) = input_rvec[i];
-      ASM_OPERANDS_INPUT_CONSTRAINT_EXP (body, i)
-	= gen_rtx_ASM_INPUT_loc (input_mode[i],
-				 constraints[i + noutputs],
-				 locus);
+      ASM_OPERANDS_INPUT_CONSTRAINT_EXP (body, ninputs - ninout + i)
+	= gen_rtx_ASM_INPUT_loc (inout_mode[i], ggc_strdup (buffer), locus);
     }
 
   /* Copy labels to the vector.  */
-  rtx_code_label *fallthru_label = NULL;
-  if (nlabels > 0)
+  for (i = 0, tail = labels; i < nlabels; ++i, tail = TREE_CHAIN (tail))
     {
-      basic_block fallthru_bb = NULL;
-      edge fallthru = find_fallthru_edge (gimple_bb (stmt)->succs);
-      if (fallthru)
-	fallthru_bb = fallthru->dest;
-
-      for (i = 0; i < nlabels; ++i)
+      rtx r;
+      /* If asm goto has any labels in the fallthru basic block, use
+	 a label that we emit immediately after the asm goto.  Expansion
+	 may insert further instructions into the same basic block after
+	 asm goto and if we don't do this, insertion of instructions on
+	 the fallthru edge might misbehave.  See PR58670.  */
+      if (fallthru_bb
+	  && label_to_block_fn (cfun, TREE_VALUE (tail)) == fallthru_bb)
 	{
-	  tree label = TREE_VALUE (gimple_asm_label_op (stmt, i));
-	  rtx_insn *r;
-	  /* If asm goto has any labels in the fallthru basic block, use
-	     a label that we emit immediately after the asm goto.  Expansion
-	     may insert further instructions into the same basic block after
-	     asm goto and if we don't do this, insertion of instructions on
-	     the fallthru edge might misbehave.  See PR58670.  */
-	  if (fallthru_bb && label_to_block_fn (cfun, label) == fallthru_bb)
-	    {
-	      if (fallthru_label == NULL_RTX)
-	        fallthru_label = gen_label_rtx ();
-	      r = fallthru_label;
-	    }
-	  else
-	    r = label_rtx (label);
-	  ASM_OPERANDS_LABEL (body, i) = gen_rtx_LABEL_REF (Pmode, r);
+	  if (fallthru_label == NULL_RTX)
+	    fallthru_label = gen_label_rtx ();
+	  r = fallthru_label;
 	}
+      else
+	r = label_rtx (TREE_VALUE (tail));
+      ASM_OPERANDS_LABEL (body, i) = gen_rtx_LABEL_REF (Pmode, r);
     }
+
+  generating_concat_p = old_generating_concat_p;
 
   /* Now, for each output, construct an rtx
      (set OUTPUT (asm_operands INSN OUTPUTCONSTRAINT OUTPUTNUMBER
@@ -3285,8 +2885,8 @@ expand_asm_stmt (gasm *stmt)
     }
   else if (noutputs == 1 && nclobbers == 0)
     {
-      ASM_OPERANDS_OUTPUT_CONSTRAINT (body) = constraints[0];
-      emit_insn (gen_rtx_SET (output_rvec[0], body));
+      ASM_OPERANDS_OUTPUT_CONSTRAINT (body) = ggc_strdup (constraints[0]);
+      emit_insn (gen_rtx_SET (VOIDmode, output_rtx[0], body));
     }
   else
     {
@@ -3299,52 +2899,87 @@ expand_asm_stmt (gasm *stmt)
       body = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (num + nclobbers));
 
       /* For each output operand, store a SET.  */
-      for (i = 0; i < noutputs; ++i)
+      for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
 	{
-	  rtx src, o = output_rvec[i];
-	  if (i == 0)
-	    {
-	      ASM_OPERANDS_OUTPUT_CONSTRAINT (obody) = constraints[0];
-	      src = obody;
-	    }
-	  else
-	    {
-	      src = gen_rtx_ASM_OPERANDS (GET_MODE (o),
-					  ASM_OPERANDS_TEMPLATE (obody),
-					  constraints[i], i, argvec,
-					  constraintvec, labelvec, locus);
-	      MEM_VOLATILE_P (src) = gimple_asm_volatile_p (stmt);
-	    }
-	  XVECEXP (body, 0, i) = gen_rtx_SET (o, src);
+	  XVECEXP (body, 0, i)
+	    = gen_rtx_SET (VOIDmode,
+			   output_rtx[i],
+			   gen_rtx_ASM_OPERANDS
+			   (GET_MODE (output_rtx[i]),
+			    ggc_strdup (TREE_STRING_POINTER (string)),
+			    ggc_strdup (constraints[i]),
+			    i, argvec, constraintvec, labelvec, locus));
+
+	  MEM_VOLATILE_P (SET_SRC (XVECEXP (body, 0, i))) = vol;
 	}
 
       /* If there are no outputs (but there are some clobbers)
 	 store the bare ASM_OPERANDS into the PARALLEL.  */
+
       if (i == 0)
 	XVECEXP (body, 0, i++) = obody;
 
       /* Store (clobber REG) for each clobbered register specified.  */
-      for (unsigned j = 0; j < nclobbers; ++j)
+
+      for (tail = clobbers; tail; tail = TREE_CHAIN (tail))
 	{
-	  rtx clobbered_reg = clobber_rvec[j];
+	  const char *regname = TREE_STRING_POINTER (TREE_VALUE (tail));
+	  int reg, nregs;
+	  int j = decode_reg_name_and_count (regname, &nregs);
+	  rtx clobbered_reg;
 
-	  /* Do sanity check for overlap between clobbers and respectively
-	     input and outputs that hasn't been handled.  Such overlap
-	     should have been detected and reported above.  */
-	  if (!clobber_conflict_found && REG_P (clobbered_reg))
+	  if (j < 0)
 	    {
-	      /* We test the old body (obody) contents to avoid
-		 tripping over the under-construction body.  */
-	      for (unsigned k = 0; k < noutputs; ++k)
-		if (reg_overlap_mentioned_p (clobbered_reg, output_rvec[k]))
-		  internal_error ("asm clobber conflict with output operand");
+	      if (j == -3)	/* `cc', which is not a register */
+		continue;
 
-	      for (unsigned k = 0; k < ninputs - ninout; ++k)
-		if (reg_overlap_mentioned_p (clobbered_reg, input_rvec[k]))
-		  internal_error ("asm clobber conflict with input operand");
+	      if (j == -4)	/* `memory', don't cache memory across asm */
+		{
+		  XVECEXP (body, 0, i++)
+		    = gen_rtx_CLOBBER (VOIDmode,
+				       gen_rtx_MEM
+				       (BLKmode,
+					gen_rtx_SCRATCH (VOIDmode)));
+		  continue;
+		}
+
+	      /* Ignore unknown register, error already signaled.  */
+	      continue;
 	    }
 
-	  XVECEXP (body, 0, i++) = gen_rtx_CLOBBER (VOIDmode, clobbered_reg);
+	  for (reg = j; reg < j + nregs; reg++)
+	    {
+	      /* Use QImode since that's guaranteed to clobber just
+	       * one reg.  */
+	      clobbered_reg = gen_rtx_REG (QImode, reg);
+
+	      /* Do sanity check for overlap between clobbers and
+		 respectively input and outputs that hasn't been
+		 handled.  Such overlap should have been detected and
+		 reported above.  */
+	      if (!clobber_conflict_found)
+		{
+		  int opno;
+
+		  /* We test the old body (obody) contents to avoid
+		     tripping over the under-construction body.  */
+		  for (opno = 0; opno < noutputs; opno++)
+		    if (reg_overlap_mentioned_p (clobbered_reg,
+						 output_rtx[opno]))
+		      internal_error
+			("asm clobber conflict with output operand");
+
+		  for (opno = 0; opno < ninputs - ninout; opno++)
+		    if (reg_overlap_mentioned_p (clobbered_reg,
+						 ASM_OPERANDS_INPUT (obody,
+								     opno)))
+		      internal_error
+			("asm clobber conflict with input operand");
+		}
+
+	      XVECEXP (body, 0, i++)
+		= gen_rtx_CLOBBER (VOIDmode, clobbered_reg);
+	    }
 	}
 
       if (nlabels > 0)
@@ -3353,18 +2988,110 @@ expand_asm_stmt (gasm *stmt)
 	emit_insn (body);
     }
 
-  generating_concat_p = old_generating_concat_p;
-
   if (fallthru_label)
     emit_label (fallthru_label);
 
-  if (after_md_seq)
-    emit_insn (after_md_seq);
-  if (after_rtl_seq)
-    emit_insn (after_rtl_seq);
+  /* For any outputs that needed reloading into registers, spill them
+     back to where they belong.  */
+  for (i = 0; i < noutputs; ++i)
+    if (real_output_rtx[i])
+      emit_move_insn (real_output_rtx[i], output_rtx[i]);
 
-  free_temp_slots ();
   crtl->has_asm_statement = 1;
+  free_temp_slots ();
+}
+
+
+static void
+expand_asm_stmt (gasm *stmt)
+{
+  int noutputs;
+  tree outputs, tail, t;
+  tree *o;
+  size_t i, n;
+  const char *s;
+  tree str, out, in, cl, labels;
+  location_t locus = gimple_location (stmt);
+  basic_block fallthru_bb = NULL;
+
+  /* Meh... convert the gimple asm operands into real tree lists.
+     Eventually we should make all routines work on the vectors instead
+     of relying on TREE_CHAIN.  */
+  out = NULL_TREE;
+  n = gimple_asm_noutputs (stmt);
+  if (n > 0)
+    {
+      t = out = gimple_asm_output_op (stmt, 0);
+      for (i = 1; i < n; i++)
+	t = TREE_CHAIN (t) = gimple_asm_output_op (stmt, i);
+    }
+
+  in = NULL_TREE;
+  n = gimple_asm_ninputs (stmt);
+  if (n > 0)
+    {
+      t = in = gimple_asm_input_op (stmt, 0);
+      for (i = 1; i < n; i++)
+	t = TREE_CHAIN (t) = gimple_asm_input_op (stmt, i);
+    }
+
+  cl = NULL_TREE;
+  n = gimple_asm_nclobbers (stmt);
+  if (n > 0)
+    {
+      t = cl = gimple_asm_clobber_op (stmt, 0);
+      for (i = 1; i < n; i++)
+	t = TREE_CHAIN (t) = gimple_asm_clobber_op (stmt, i);
+    }
+
+  labels = NULL_TREE;
+  n = gimple_asm_nlabels (stmt);
+  if (n > 0)
+    {
+      edge fallthru = find_fallthru_edge (gimple_bb (stmt)->succs);
+      if (fallthru)
+	fallthru_bb = fallthru->dest;
+      t = labels = gimple_asm_label_op (stmt, 0);
+      for (i = 1; i < n; i++)
+	t = TREE_CHAIN (t) = gimple_asm_label_op (stmt, i);
+    }
+
+  s = gimple_asm_string (stmt);
+  str = build_string (strlen (s), s);
+
+  if (gimple_asm_input_p (stmt))
+    {
+      expand_asm_loc (str, gimple_asm_volatile_p (stmt), locus);
+      return;
+    }
+
+  outputs = out;
+  noutputs = gimple_asm_noutputs (stmt);
+  /* o[I] is the place that output number I should be written.  */
+  o = (tree *) alloca (noutputs * sizeof (tree));
+
+  /* Record the contents of OUTPUTS before it is modified.  */
+  for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
+    o[i] = TREE_VALUE (tail);
+
+  /* Generate the ASM_OPERANDS insn; store into the TREE_VALUEs of
+     OUTPUTS some trees for where the values were actually stored.  */
+  expand_asm_operands (str, outputs, in, cl, labels, fallthru_bb,
+		       gimple_asm_volatile_p (stmt), locus);
+
+  /* Copy all the intermediate outputs into the specified outputs.  */
+  for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
+    {
+      if (o[i] != TREE_VALUE (tail))
+	{
+	  expand_assignment (o[i], TREE_VALUE (tail), false);
+	  free_temp_slots ();
+
+	  /* Restore the original value so that it's correct the next
+	     time we expand this function.  */
+	  TREE_VALUE (tail) = o[i];
+	}
+    }
 }
 
 /* Emit code to jump to the address
@@ -3386,15 +3113,14 @@ expand_computed_goto (tree exp)
 static void
 expand_goto (tree label)
 {
-  if (flag_checking)
-    {
-      /* Check for a nonlocal goto to a containing function.  Should have
-	 gotten translated to __builtin_nonlocal_goto.  */
-      tree context = decl_function_context (label);
-      gcc_assert (!context || context == current_function_decl);
-    }
+#ifdef ENABLE_CHECKING
+  /* Check for a nonlocal goto to a containing function.  Should have
+     gotten translated to __builtin_nonlocal_goto.  */
+  tree context = decl_function_context (label);
+  gcc_assert (!context || context == current_function_decl);
+#endif
 
-  emit_jump (jump_target_rtx (label));
+  emit_jump (label_rtx (label));
 }
 
 /* Output a return with no value.  */
@@ -3601,7 +3327,7 @@ expand_return (tree retval, tree bounds)
    is no tailcalls and no GIMPLE_COND.  */
 
 static void
-expand_gimple_stmt_1 (gimple *stmt)
+expand_gimple_stmt_1 (gimple stmt)
 {
   tree op0;
 
@@ -3623,13 +3349,7 @@ expand_gimple_stmt_1 (gimple *stmt)
     case GIMPLE_PREDICT:
       break;
     case GIMPLE_SWITCH:
-      {
-	gswitch *swtch = as_a <gswitch *> (stmt);
-	if (gimple_switch_num_labels (swtch) == 1)
-	  expand_goto (CASE_LABEL (gimple_switch_default_label (swtch)));
-	else
-	  expand_case (swtch);
-      }
+      expand_case (as_a <gswitch *> (stmt));
       break;
     case GIMPLE_ASM:
       expand_asm_stmt (as_a <gasm *> (stmt));
@@ -3694,9 +3414,7 @@ expand_gimple_stmt_1 (gimple *stmt)
 	    tree rhs = gimple_assign_rhs1 (assign_stmt);
 	    gcc_assert (get_gimple_rhs_class (gimple_expr_code (stmt))
 			== GIMPLE_SINGLE_RHS);
-	    if (gimple_has_location (stmt) && CAN_HAVE_LOCATION_P (rhs)
-		/* Do not put locations on possibly shared trees.  */
-		&& !is_gimple_min_invariant (rhs))
+	    if (gimple_has_location (stmt) && CAN_HAVE_LOCATION_P (rhs))
 	      SET_EXPR_LOCATION (rhs, gimple_location (stmt));
 	    if (TREE_CLOBBER_P (rhs))
 	      /* This is a clobber to mark the going out of scope for
@@ -3720,7 +3438,7 @@ expand_gimple_stmt_1 (gimple *stmt)
 
 	    ops.code = gimple_assign_rhs_code (assign_stmt);
 	    ops.type = TREE_TYPE (lhs);
-	    switch (get_gimple_rhs_class (ops.code))
+	    switch (get_gimple_rhs_class (gimple_expr_code (stmt)))
 	      {
 		case GIMPLE_TERNARY_RHS:
 		  ops.op2 = gimple_assign_rhs3 (assign_stmt);
@@ -3786,7 +3504,7 @@ expand_gimple_stmt_1 (gimple *stmt)
    location for diagnostics.  */
 
 static rtx_insn *
-expand_gimple_stmt (gimple *stmt)
+expand_gimple_stmt (gimple stmt)
 {
   location_t saved_location = input_location;
   rtx_insn *last = get_last_insn ();
@@ -3845,7 +3563,8 @@ expand_gimple_tailcall (basic_block bb, gcall *stmt, bool *can_fallthru)
   rtx_insn *last2, *last;
   edge e;
   edge_iterator ei;
-  profile_probability probability;
+  int probability;
+  gcov_type count;
 
   last2 = last = expand_gimple_stmt (stmt);
 
@@ -3870,14 +3589,23 @@ expand_gimple_tailcall (basic_block bb, gcall *stmt, bool *can_fallthru)
      all edges here, or redirecting the existing fallthru edge to
      the exit block.  */
 
-  probability = profile_probability::never ();
+  probability = 0;
+  count = 0;
 
   for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
     {
       if (!(e->flags & (EDGE_ABNORMAL | EDGE_EH)))
 	{
 	  if (e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun))
-	    e->dest->count -= e->count ();
+	    {
+	      e->dest->count -= e->count;
+	      e->dest->frequency -= EDGE_FREQUENCY (e);
+	      if (e->dest->count < 0)
+		e->dest->count = 0;
+	      if (e->dest->frequency < 0)
+		e->dest->frequency = 0;
+	    }
+	  count += e->count;
 	  probability += e->probability;
 	  remove_edge (e);
 	}
@@ -3906,7 +3634,8 @@ expand_gimple_tailcall (basic_block bb, gcall *stmt, bool *can_fallthru)
 
   e = make_edge (bb, EXIT_BLOCK_PTR_FOR_FN (cfun), EDGE_ABNORMAL
 		 | EDGE_SIBCALL);
-  e->probability = probability;
+  e->probability += probability;
+  e->count += count;
   BB_END (bb) = last;
   update_bb_for_insn (bb);
 
@@ -4007,13 +3736,15 @@ round_udiv_adjust (machine_mode mode, rtx mod, rtx op1)
    any rtl.  */
 
 static rtx
-convert_debug_memory_address (scalar_int_mode mode, rtx x,
+convert_debug_memory_address (machine_mode mode, rtx x,
 			      addr_space_t as)
 {
+  machine_mode xmode = GET_MODE (x);
+
 #ifndef POINTERS_EXTEND_UNSIGNED
   gcc_assert (mode == Pmode
 	      || mode == targetm.addr_space.address_mode (as));
-  gcc_assert (GET_MODE (x) == mode || GET_MODE (x) == VOIDmode);
+  gcc_assert (xmode == mode || xmode == VOIDmode);
 #else
   rtx temp;
 
@@ -4022,10 +3753,10 @@ convert_debug_memory_address (scalar_int_mode mode, rtx x,
   if (GET_MODE (x) == mode || GET_MODE (x) == VOIDmode)
     return x;
 
-  /* X must have some form of address mode already.  */
-  scalar_int_mode xmode = as_a <scalar_int_mode> (GET_MODE (x));
   if (GET_MODE_PRECISION (mode) < GET_MODE_PRECISION (xmode))
-    x = lowpart_subreg (mode, x, xmode);
+    x = simplify_gen_subreg (mode, x, xmode,
+			     subreg_lowpart_offset
+			     (mode, xmode));
   else if (POINTERS_EXTEND_UNSIGNED > 0)
     x = gen_rtx_ZERO_EXTEND (mode, x);
   else if (!POINTERS_EXTEND_UNSIGNED)
@@ -4045,7 +3776,7 @@ convert_debug_memory_address (scalar_int_mode mode, rtx x,
 	    return SUBREG_REG (x);
 	  break;
 	case LABEL_REF:
-	  temp = gen_rtx_LABEL_REF (mode, label_ref_label (x));
+	  temp = gen_rtx_LABEL_REF (mode, LABEL_REF_LABEL (x));
 	  LABEL_REF_NONLOCAL_P (temp) = LABEL_REF_NONLOCAL_P (x);
 	  return temp;
 	case SYMBOL_REF:
@@ -4085,7 +3816,7 @@ static hash_map<tree, tree> *deep_ter_debug_map;
 /* Split too deep TER chains for debug stmts using debug temporaries.  */
 
 static void
-avoid_deep_ter_for_debug (gimple *stmt, int depth)
+avoid_deep_ter_for_debug (gimple stmt, int depth)
 {
   use_operand_p use_p;
   ssa_op_iter iter;
@@ -4094,7 +3825,7 @@ avoid_deep_ter_for_debug (gimple *stmt, int depth)
       tree use = USE_FROM_PTR (use_p);
       if (TREE_CODE (use) != SSA_NAME || SSA_NAME_IS_DEFAULT_DEF (use))
 	continue;
-      gimple *g = get_gimple_for_ssa_name (use);
+      gimple g = get_gimple_for_ssa_name (use);
       if (g == NULL)
 	continue;
       if (depth > 6 && !stmt_ends_bb_p (g))
@@ -4106,10 +3837,10 @@ avoid_deep_ter_for_debug (gimple *stmt, int depth)
 	  if (vexpr != NULL)
 	    continue;
 	  vexpr = make_node (DEBUG_EXPR_DECL);
-	  gimple *def_temp = gimple_build_debug_bind (vexpr, use, g);
+	  gimple def_temp = gimple_build_debug_bind (vexpr, use, g);
 	  DECL_ARTIFICIAL (vexpr) = 1;
 	  TREE_TYPE (vexpr) = TREE_TYPE (use);
-	  SET_DECL_MODE (vexpr, TYPE_MODE (TREE_TYPE (use)));
+	  DECL_MODE (vexpr) = TYPE_MODE (TREE_TYPE (use));
 	  gimple_stmt_iterator gsi = gsi_for_stmt (g);
 	  gsi_insert_after (&gsi, def_temp, GSI_NEW_STMT);
 	  avoid_deep_ter_for_debug (def_temp, 0);
@@ -4184,7 +3915,6 @@ expand_debug_expr (tree exp)
   machine_mode inner_mode = VOIDmode;
   int unsignedp = TYPE_UNSIGNED (TREE_TYPE (exp));
   addr_space_t as;
-  scalar_int_mode op0_mode, op1_mode, addr_mode;
 
   switch (TREE_CODE_CLASS (TREE_CODE (exp)))
     {
@@ -4222,8 +3952,6 @@ expand_debug_expr (tree exp)
 
     binary:
     case tcc_binary:
-      if (mode == BLKmode)
-	return NULL_RTX;
       op1 = expand_debug_expr (TREE_OPERAND (exp, 1));
       if (!op1)
 	return NULL_RTX;
@@ -4236,10 +3964,18 @@ expand_debug_expr (tree exp)
 	case WIDEN_LSHIFT_EXPR:
 	  /* Ensure second operand isn't wider than the first one.  */
 	  inner_mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 1)));
-	  if (is_a <scalar_int_mode> (inner_mode, &op1_mode)
-	      && (GET_MODE_UNIT_PRECISION (mode)
-		  < GET_MODE_PRECISION (op1_mode)))
-	    op1 = lowpart_subreg (GET_MODE_INNER (mode), op1, op1_mode);
+	  if (SCALAR_INT_MODE_P (inner_mode))
+	    {
+	      machine_mode opmode = mode;
+	      if (VECTOR_MODE_P (mode))
+		opmode = GET_MODE_INNER (mode);
+	      if (SCALAR_INT_MODE_P (opmode)
+		  && (GET_MODE_PRECISION (opmode)
+		      < GET_MODE_PRECISION (inner_mode)))
+		op1 = simplify_gen_subreg (opmode, op1, inner_mode,
+					   subreg_lowpart_offset (opmode,
+								  inner_mode));
+	    }
 	  break;
 	default:
 	  break;
@@ -4248,8 +3984,6 @@ expand_debug_expr (tree exp)
 
     unary:
     case tcc_unary:
-      if (mode == BLKmode)
-	return NULL_RTX;
       inner_mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0)));
       op0 = expand_debug_expr (TREE_OPERAND (exp, 0));
       if (!op0)
@@ -4285,16 +4019,13 @@ expand_debug_expr (tree exp)
 	  set_mem_attributes (op0, exp, 0);
 	  return op0;
 	}
-      /* Fall through.  */
+      /* Fall through...  */
 
     case INTEGER_CST:
     case REAL_CST:
     case FIXED_CST:
       op0 = expand_expr (exp, NULL_RTX, mode, EXPAND_INITIALIZER);
       return op0;
-
-    case POLY_INT_CST:
-      return immed_wide_int_const (poly_int_cst_value (exp), mode);
 
     case COMPLEX_CST:
       gcc_assert (COMPLEX_MODE_P (mode));
@@ -4325,7 +4056,7 @@ expand_debug_expr (tree exp)
       /* This decl was probably optimized away.  */
       if (!op0)
 	{
-	  if (!VAR_P (exp)
+	  if (TREE_CODE (exp) != VAR_DECL
 	      || DECL_EXTERNAL (exp)
 	      || !TREE_STATIC (exp)
 	      || !DECL_NAME (exp)
@@ -4378,11 +4109,9 @@ expand_debug_expr (tree exp)
 
 	if (FLOAT_MODE_P (mode) && FLOAT_MODE_P (inner_mode))
 	  {
-	    if (GET_MODE_UNIT_BITSIZE (mode)
-		== GET_MODE_UNIT_BITSIZE (inner_mode))
+	    if (GET_MODE_BITSIZE (mode) == GET_MODE_BITSIZE (inner_mode))
 	      op0 = simplify_gen_subreg (mode, op0, inner_mode, 0);
-	    else if (GET_MODE_UNIT_BITSIZE (mode)
-		     < GET_MODE_UNIT_BITSIZE (inner_mode))
+	    else if (GET_MODE_BITSIZE (mode) < GET_MODE_BITSIZE (inner_mode))
 	      op0 = simplify_gen_unary (FLOAT_TRUNCATE, mode, op0, inner_mode);
 	    else
 	      op0 = simplify_gen_unary (FLOAT_EXTEND, mode, op0, inner_mode);
@@ -4402,13 +4131,12 @@ expand_debug_expr (tree exp)
 	    else
 	      op0 = simplify_gen_unary (FIX, mode, op0, inner_mode);
 	  }
-	else if (GET_MODE_UNIT_PRECISION (mode)
-		 == GET_MODE_UNIT_PRECISION (inner_mode))
-	  op0 = lowpart_subreg (mode, op0, inner_mode);
-	else if (GET_MODE_UNIT_PRECISION (mode)
-		 < GET_MODE_UNIT_PRECISION (inner_mode))
-	  op0 = simplify_gen_unary (TRUNCATE, mode, op0, inner_mode);
-	else if (UNARY_CLASS_P (exp)
+	else if (CONSTANT_P (op0)
+		 || GET_MODE_PRECISION (mode) <= GET_MODE_PRECISION (inner_mode))
+	  op0 = simplify_gen_subreg (mode, op0, inner_mode,
+				     subreg_lowpart_offset (mode,
+							    inner_mode));
+	else if (TREE_CODE_CLASS (TREE_CODE (exp)) == tcc_unary
 		 ? TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (exp, 0)))
 		 : unsignedp)
 	  op0 = simplify_gen_unary (ZERO_EXTEND, mode, op0, inner_mode);
@@ -4499,15 +4227,14 @@ expand_debug_expr (tree exp)
     case VIEW_CONVERT_EXPR:
       {
 	machine_mode mode1;
-	poly_int64 bitsize, bitpos;
+	HOST_WIDE_INT bitsize, bitpos;
 	tree offset;
-	int reversep, volatilep = 0;
-	tree tem
-	  = get_inner_reference (exp, &bitsize, &bitpos, &offset, &mode1,
-				 &unsignedp, &reversep, &volatilep);
+	int volatilep = 0;
+	tree tem = get_inner_reference (exp, &bitsize, &bitpos, &offset,
+					&mode1, &unsignedp, &volatilep, false);
 	rtx orig_op0;
 
-	if (known_eq (bitsize, 0))
+	if (bitsize == 0)
 	  return NULL;
 
 	orig_op0 = op0 = expand_debug_expr (tem);
@@ -4536,7 +4263,9 @@ expand_debug_expr (tree exp)
 	      offmode = TYPE_MODE (TREE_TYPE (offset));
 
 	    if (addrmode != offmode)
-	      op1 = lowpart_subreg (addrmode, op1, offmode);
+	      op1 = simplify_gen_subreg (addrmode, op1, offmode,
+					 subreg_lowpart_offset (addrmode,
+								offmode));
 
 	    /* Don't use offset_address here, we don't need a
 	       recognizable address, and we don't want to generate
@@ -4548,20 +4277,21 @@ expand_debug_expr (tree exp)
 	if (MEM_P (op0))
 	  {
 	    if (mode1 == VOIDmode)
+	      /* Bitfield.  */
+	      mode1 = smallest_mode_for_size (bitsize, MODE_INT);
+	    if (bitpos >= BITS_PER_UNIT)
 	      {
-		if (maybe_gt (bitsize, MAX_BITSIZE_MODE_ANY_INT))
-		  return NULL;
-		/* Bitfield.  */
-		mode1 = smallest_int_mode_for_size (bitsize);
+		op0 = adjust_address_nv (op0, mode1, bitpos / BITS_PER_UNIT);
+		bitpos %= BITS_PER_UNIT;
 	      }
-	    poly_int64 bytepos = bits_to_bytes_round_down (bitpos);
-	    if (maybe_ne (bytepos, 0))
+	    else if (bitpos < 0)
 	      {
-		op0 = adjust_address_nv (op0, mode1, bytepos);
-		bitpos = num_trailing_bits (bitpos);
+		HOST_WIDE_INT units
+		  = (-bitpos + BITS_PER_UNIT - 1) / BITS_PER_UNIT;
+		op0 = adjust_address_nv (op0, mode1, units);
+		bitpos += units * BITS_PER_UNIT;
 	      }
-	    else if (known_eq (bitpos, 0)
-		     && known_eq (bitsize, GET_MODE_BITSIZE (mode)))
+	    else if (bitpos == 0 && bitsize == GET_MODE_BITSIZE (mode))
 	      op0 = adjust_address_nv (op0, mode, 0);
 	    else if (GET_MODE (op0) != mode1)
 	      op0 = adjust_address_nv (op0, mode1, 0);
@@ -4572,18 +4302,17 @@ expand_debug_expr (tree exp)
 	    set_mem_attributes (op0, exp, 0);
 	  }
 
-	if (known_eq (bitpos, 0) && mode == GET_MODE (op0))
+	if (bitpos == 0 && mode == GET_MODE (op0))
 	  return op0;
 
-	if (maybe_lt (bitpos, 0))
+        if (bitpos < 0)
           return NULL;
 
-	if (GET_MODE (op0) == BLKmode || mode == BLKmode)
+	if (GET_MODE (op0) == BLKmode)
 	  return NULL;
 
-	poly_int64 bytepos;
-	if (multiple_p (bitpos, BITS_PER_UNIT, &bytepos)
-	    && known_eq (bitsize, GET_MODE_BITSIZE (mode1)))
+	if ((bitpos % BITS_PER_UNIT) == 0
+	    && bitsize == GET_MODE_BITSIZE (mode1))
 	  {
 	    machine_mode opmode = GET_MODE (op0);
 
@@ -4596,11 +4325,12 @@ expand_debug_expr (tree exp)
 	       debug stmts).  The gen_subreg below would rightfully
 	       crash, and the address doesn't really exist, so just
 	       drop it.  */
-	    if (known_ge (bitpos, GET_MODE_BITSIZE (opmode)))
+	    if (bitpos >= GET_MODE_BITSIZE (opmode))
 	      return NULL;
 
-	    if (multiple_p (bitpos, GET_MODE_BITSIZE (mode)))
-	      return simplify_gen_subreg (mode, op0, opmode, bytepos);
+	    if ((bitpos % GET_MODE_BITSIZE (mode)) == 0)
+	      return simplify_gen_subreg (mode, op0, opmode,
+					  bitpos / BITS_PER_UNIT);
 	  }
 
 	return simplify_gen_ternary (SCALAR_INT_MODE_P (GET_MODE (op0))
@@ -4610,8 +4340,7 @@ expand_debug_expr (tree exp)
 				     GET_MODE (op0) != VOIDmode
 				     ? GET_MODE (op0)
 				     : TYPE_MODE (TREE_TYPE (tem)),
-				     op0, gen_int_mode (bitsize, word_mode),
-				     gen_int_mode (bitpos, word_mode));
+				     op0, GEN_INT (bitsize), GEN_INT (bitpos));
       }
 
     case ABS_EXPR:
@@ -4638,30 +4367,29 @@ expand_debug_expr (tree exp)
 	 size_t, we need to check for mis-matched modes and correct
 	 the addend.  */
       if (op0 && op1
-	  && is_a <scalar_int_mode> (GET_MODE (op0), &op0_mode)
-	  && is_a <scalar_int_mode> (GET_MODE (op1), &op1_mode)
-	  && op0_mode != op1_mode)
+	  && GET_MODE (op0) != VOIDmode && GET_MODE (op1) != VOIDmode
+	  && GET_MODE (op0) != GET_MODE (op1))
 	{
-	  if (GET_MODE_BITSIZE (op0_mode) < GET_MODE_BITSIZE (op1_mode)
-	      /* If OP0 is a partial mode, then we must truncate, even
-		 if it has the same bitsize as OP1 as GCC's
-		 representation of partial modes is opaque.  */
-	      || (GET_MODE_CLASS (op0_mode) == MODE_PARTIAL_INT
-		  && (GET_MODE_BITSIZE (op0_mode)
-		      == GET_MODE_BITSIZE (op1_mode))))
-	    op1 = simplify_gen_unary (TRUNCATE, op0_mode, op1, op1_mode);
+	  if (GET_MODE_BITSIZE (GET_MODE (op0)) < GET_MODE_BITSIZE (GET_MODE (op1))
+	      /* If OP0 is a partial mode, then we must truncate, even if it has
+		 the same bitsize as OP1 as GCC's representation of partial modes
+		 is opaque.  */
+	      || (GET_MODE_CLASS (GET_MODE (op0)) == MODE_PARTIAL_INT
+		  && GET_MODE_BITSIZE (GET_MODE (op0)) == GET_MODE_BITSIZE (GET_MODE (op1))))
+	    op1 = simplify_gen_unary (TRUNCATE, GET_MODE (op0), op1,
+				      GET_MODE (op1));
 	  else
 	    /* We always sign-extend, regardless of the signedness of
 	       the operand, because the operand is always unsigned
 	       here even if the original C expression is signed.  */
-	    op1 = simplify_gen_unary (SIGN_EXTEND, op0_mode, op1, op1_mode);
+	    op1 = simplify_gen_unary (SIGN_EXTEND, GET_MODE (op0), op1,
+				      GET_MODE (op1));
 	}
       /* Fall through.  */
     case PLUS_EXPR:
       return simplify_gen_binary (PLUS, mode, op0, op1);
 
     case MINUS_EXPR:
-    case POINTER_DIFF_EXPR:
       return simplify_gen_binary (MINUS, mode, op0, op1);
 
     case MULT_EXPR:
@@ -4881,7 +4609,7 @@ expand_debug_expr (tree exp)
 						   GET_MODE_INNER (mode)));
       else
 	{
-	  scalar_mode imode = GET_MODE_INNER (mode);
+	  machine_mode imode = GET_MODE_INNER (mode);
 	  rtx re, im;
 
 	  if (MEM_P (op0))
@@ -4891,11 +4619,10 @@ expand_debug_expr (tree exp)
 	    }
 	  else
 	    {
-	      scalar_int_mode ifmode;
-	      scalar_int_mode ihmode;
+	      machine_mode ifmode = int_mode_for_mode (mode);
+	      machine_mode ihmode = int_mode_for_mode (imode);
 	      rtx halfsize;
-	      if (!int_mode_for_mode (mode).exists (&ifmode)
-		  || !int_mode_for_mode (imode).exists (&ihmode))
+	      if (ifmode == BLKmode || ihmode == BLKmode)
 		return NULL;
 	      halfsize = GEN_INT (GET_MODE_BITSIZE (ihmode));
 	      re = op0;
@@ -4928,22 +4655,21 @@ expand_debug_expr (tree exp)
 
 	  if (handled_component_p (TREE_OPERAND (exp, 0)))
 	    {
-	      poly_int64 bitoffset, bitsize, maxsize, byteoffset;
-	      bool reverse;
+	      HOST_WIDE_INT bitoffset, bitsize, maxsize;
 	      tree decl
-		= get_ref_base_and_extent (TREE_OPERAND (exp, 0), &bitoffset,
-					   &bitsize, &maxsize, &reverse);
-	      if ((VAR_P (decl)
+		= get_ref_base_and_extent (TREE_OPERAND (exp, 0),
+					   &bitoffset, &bitsize, &maxsize);
+	      if ((TREE_CODE (decl) == VAR_DECL
 		   || TREE_CODE (decl) == PARM_DECL
 		   || TREE_CODE (decl) == RESULT_DECL)
 		  && (!TREE_ADDRESSABLE (decl)
 		      || target_for_debug_bind (decl))
-		  && multiple_p (bitoffset, BITS_PER_UNIT, &byteoffset)
-		  && known_gt (bitsize, 0)
-		  && known_eq (bitsize, maxsize))
+		  && (bitoffset % BITS_PER_UNIT) == 0
+		  && bitsize > 0
+		  && bitsize == maxsize)
 		{
 		  rtx base = gen_rtx_DEBUG_IMPLICIT_PTR (mode, decl);
-		  return plus_constant (mode, base, byteoffset);
+		  return plus_constant (mode, base, bitoffset / BITS_PER_UNIT);
 		}
 	    }
 
@@ -4972,21 +4698,18 @@ expand_debug_expr (tree exp)
 	}
 
       as = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (exp)));
-      addr_mode = SCALAR_INT_TYPE_MODE (TREE_TYPE (exp));
-      op0 = convert_debug_memory_address (addr_mode, XEXP (op0, 0), as);
+      op0 = convert_debug_memory_address (mode, XEXP (op0, 0), as);
 
       return op0;
 
     case VECTOR_CST:
       {
-	unsigned HOST_WIDE_INT i, nelts;
+	unsigned i;
 
-	if (!VECTOR_CST_NELTS (exp).is_constant (&nelts))
-	  return NULL;
+	op0 = gen_rtx_CONCATN
+	  (mode, rtvec_alloc (TYPE_VECTOR_SUBPARTS (TREE_TYPE (exp))));
 
-	op0 = gen_rtx_CONCATN (mode, rtvec_alloc (nelts));
-
-	for (i = 0; i < nelts; ++i)
+	for (i = 0; i < VECTOR_CST_NELTS (exp); ++i)
 	  {
 	    op1 = expand_debug_expr (VECTOR_CST_ELT (exp, i));
 	    if (!op1)
@@ -5003,13 +4726,10 @@ expand_debug_expr (tree exp)
       else if (TREE_CODE (TREE_TYPE (exp)) == VECTOR_TYPE)
 	{
 	  unsigned i;
-	  unsigned HOST_WIDE_INT nelts;
 	  tree val;
 
-	  if (!TYPE_VECTOR_SUBPARTS (TREE_TYPE (exp)).is_constant (&nelts))
-	    goto flag_unsupported;
-
-	  op0 = gen_rtx_CONCATN (mode, rtvec_alloc (nelts));
+	  op0 = gen_rtx_CONCATN
+	    (mode, rtvec_alloc (TYPE_VECTOR_SUBPARTS (TREE_TYPE (exp))));
 
 	  FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (exp), i, val)
 	    {
@@ -5019,7 +4739,7 @@ expand_debug_expr (tree exp)
 	      XVECEXP (op0, 0, i) = op1;
 	    }
 
-	  if (i < nelts)
+	  if (i < TYPE_VECTOR_SUBPARTS (TREE_TYPE (exp)))
 	    {
 	      op1 = expand_debug_expr
 		(build_zero_cst (TREE_TYPE (TREE_TYPE (exp))));
@@ -5027,7 +4747,7 @@ expand_debug_expr (tree exp)
 	      if (!op1)
 		return NULL;
 
-	      for (; i < nelts; i++)
+	      for (; i < TYPE_VECTOR_SUBPARTS (TREE_TYPE (exp)); i++)
 		XVECEXP (op0, 0, i) = op1;
 	    }
 
@@ -5042,7 +4762,7 @@ expand_debug_expr (tree exp)
 
     case SSA_NAME:
       {
-	gimple *g = get_gimple_for_ssa_name (exp);
+	gimple g = get_gimple_for_ssa_name (exp);
 	if (g)
 	  {
 	    tree t = NULL_TREE;
@@ -5060,27 +4780,26 @@ expand_debug_expr (tree exp)
 	  }
 	else
 	  {
-	    /* If this is a reference to an incoming value of
-	       parameter that is never used in the code or where the
-	       incoming value is never used in the code, use
-	       PARM_DECL's DECL_RTL if set.  */
-	    if (SSA_NAME_IS_DEFAULT_DEF (exp)
-		&& SSA_NAME_VAR (exp)
-		&& TREE_CODE (SSA_NAME_VAR (exp)) == PARM_DECL
-		&& has_zero_uses (exp))
-	      {
-		op0 = expand_debug_parm_decl (SSA_NAME_VAR (exp));
-		if (op0)
-		  goto adjust_mode;
-		op0 = expand_debug_expr (SSA_NAME_VAR (exp));
-		if (op0)
-		  goto adjust_mode;
-	      }
-
 	    int part = var_to_partition (SA.map, exp);
 
 	    if (part == NO_PARTITION)
-	      return NULL;
+	      {
+		/* If this is a reference to an incoming value of parameter
+		   that is never used in the code or where the incoming
+		   value is never used in the code, use PARM_DECL's
+		   DECL_RTL if set.  */
+		if (SSA_NAME_IS_DEFAULT_DEF (exp)
+		    && TREE_CODE (SSA_NAME_VAR (exp)) == PARM_DECL)
+		  {
+		    op0 = expand_debug_parm_decl (SSA_NAME_VAR (exp));
+		    if (op0)
+		      goto adjust_mode;
+		    op0 = expand_debug_expr (SSA_NAME_VAR (exp));
+		    if (op0)
+		      goto adjust_mode;
+		  }
+		return NULL;
+	      }
 
 	    gcc_assert (part >= 0 && (unsigned)part < SA.map->num_partitions);
 
@@ -5094,6 +4813,9 @@ expand_debug_expr (tree exp)
 
     /* Vector stuff.  For most of the codes we don't have rtl codes.  */
     case REALIGN_LOAD_EXPR:
+    case REDUC_MAX_EXPR:
+    case REDUC_MIN_EXPR:
+    case REDUC_PLUS_EXPR:
     case VEC_COND_EXPR:
     case VEC_PACK_FIX_TRUNC_EXPR:
     case VEC_PACK_SAT_EXPR:
@@ -5109,8 +4831,6 @@ expand_debug_expr (tree exp)
     case VEC_WIDEN_LSHIFT_HI_EXPR:
     case VEC_WIDEN_LSHIFT_LO_EXPR:
     case VEC_PERM_EXPR:
-    case VEC_DUPLICATE_EXPR:
-    case VEC_SERIES_EXPR:
       return NULL;
 
     /* Misc codes.  */
@@ -5118,7 +4838,6 @@ expand_debug_expr (tree exp)
     case FIXED_CONVERT_EXPR:
     case OBJ_TYPE_REF:
     case WITH_SIZE_EXPR:
-    case BIT_INSERT_EXPR:
       return NULL;
 
     case DOT_PROD_EXPR:
@@ -5189,12 +4908,12 @@ expand_debug_expr (tree exp)
 
     default:
     flag_unsupported:
-      if (flag_checking)
-	{
-	  debug_tree (exp);
-	  gcc_unreachable ();
-	}
+#ifdef ENABLE_CHECKING
+      debug_tree (exp);
+      gcc_unreachable ();
+#else
       return NULL;
+#endif
     }
 }
 
@@ -5253,11 +4972,9 @@ expand_debug_source_expr (tree exp)
 
   if (FLOAT_MODE_P (mode) && FLOAT_MODE_P (inner_mode))
     {
-      if (GET_MODE_UNIT_BITSIZE (mode)
-	  == GET_MODE_UNIT_BITSIZE (inner_mode))
+      if (GET_MODE_BITSIZE (mode) == GET_MODE_BITSIZE (inner_mode))
 	op0 = simplify_gen_subreg (mode, op0, inner_mode, 0);
-      else if (GET_MODE_UNIT_BITSIZE (mode)
-	       < GET_MODE_UNIT_BITSIZE (inner_mode))
+      else if (GET_MODE_BITSIZE (mode) < GET_MODE_BITSIZE (inner_mode))
 	op0 = simplify_gen_unary (FLOAT_TRUNCATE, mode, op0, inner_mode);
       else
 	op0 = simplify_gen_unary (FLOAT_EXTEND, mode, op0, inner_mode);
@@ -5271,12 +4988,10 @@ expand_debug_source_expr (tree exp)
       else
 	op0 = simplify_gen_unary (FIX, mode, op0, inner_mode);
     }
-  else if (GET_MODE_UNIT_PRECISION (mode)
-	   == GET_MODE_UNIT_PRECISION (inner_mode))
-    op0 = lowpart_subreg (mode, op0, inner_mode);
-  else if (GET_MODE_UNIT_PRECISION (mode)
-	   < GET_MODE_UNIT_PRECISION (inner_mode))
-    op0 = simplify_gen_unary (TRUNCATE, mode, op0, inner_mode);
+  else if (CONSTANT_P (op0)
+	   || GET_MODE_BITSIZE (mode) <= GET_MODE_BITSIZE (inner_mode))
+    op0 = simplify_gen_subreg (mode, op0, inner_mode,
+			       subreg_lowpart_offset (mode, inner_mode));
   else if (TYPE_UNSIGNED (TREE_TYPE (exp)))
     op0 = simplify_gen_unary (ZERO_EXTEND, mode, op0, inner_mode);
   else
@@ -5352,7 +5067,7 @@ expand_debug_locations (void)
   flag_strict_aliasing = 0;
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    if (DEBUG_BIND_INSN_P (insn))
+    if (DEBUG_INSN_P (insn))
       {
 	tree value = (tree)INSN_VAR_LOCATION_LOC (insn);
 	rtx val;
@@ -5422,12 +5137,12 @@ reorder_operands (basic_block bb)
   unsigned int i = 0, n = 0;
   gimple_stmt_iterator gsi;
   gimple_seq stmts;
-  gimple *stmt;
+  gimple stmt;
   bool swap;
   tree op0, op1;
   ssa_op_iter iter;
   use_operand_p use_p;
-  gimple *def0, *def1;
+  gimple def0, def1;
 
   /* Compute cost of each statement using estimate_num_insns.  */
   stmts = bb_seq (bb);
@@ -5449,7 +5164,7 @@ reorder_operands (basic_block bb)
       FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
 	{
 	  tree use = USE_FROM_PTR (use_p);
-	  gimple *def_stmt;
+	  gimple def_stmt;
 	  if (TREE_CODE (use) != SSA_NAME)
 	    continue;
 	  def_stmt = get_gimple_for_ssa_name (use);
@@ -5498,8 +5213,8 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 {
   gimple_stmt_iterator gsi;
   gimple_seq stmts;
-  gimple *stmt = NULL;
-  rtx_note *note = NULL;
+  gimple stmt = NULL;
+  rtx_note *note;
   rtx_insn *last;
   edge e;
   edge_iterator ei;
@@ -5552,7 +5267,6 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 
   if (stmt || elt)
     {
-      gcc_checking_assert (!note);
       last = get_last_insn ();
 
       if (stmt)
@@ -5564,10 +5278,11 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
       if (elt)
 	emit_label (*elt);
 
+      /* Java emits line number notes in the top of labels.
+	 ??? Make this go away once line number notes are obsoleted.  */
       BB_HEAD (bb) = NEXT_INSN (last);
       if (NOTE_P (BB_HEAD (bb)))
 	BB_HEAD (bb) = NEXT_INSN (BB_HEAD (bb));
-      gcc_assert (LABEL_P (BB_HEAD (bb)));
       note = emit_note_after (NOTE_INSN_BASIC_BLOCK, BB_HEAD (bb));
 
       maybe_dump_rtl_for_gimple_stmt (stmt, last);
@@ -5575,8 +5290,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
   else
     BB_HEAD (bb) = note = emit_note (NOTE_INSN_BASIC_BLOCK);
 
-  if (note)
-    NOTE_BASIC_BLOCK (note) = bb;
+  NOTE_BASIC_BLOCK (note) = bb;
 
   for (; !gsi_end_p (gsi); gsi_next (&gsi))
     {
@@ -5608,13 +5322,13 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 	   a_2 = ...
            #DEBUG ... => #D1
 	 */
-      if (MAY_HAVE_DEBUG_BIND_INSNS
+      if (MAY_HAVE_DEBUG_INSNS
 	  && SA.values
 	  && !is_gimple_debug (stmt))
 	{
 	  ssa_op_iter iter;
 	  tree op;
-	  gimple *def;
+	  gimple def;
 
 	  location_t sloc = curr_insn_location ();
 
@@ -5643,7 +5357,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 		       instructions.  Generate a debug temporary, and
 		       replace all uses of OP in debug insns with that
 		       temporary.  */
-		    gimple *debugstmt;
+		    gimple debugstmt;
 		    tree value = gimple_assign_rhs_to_tree (def);
 		    tree vexpr = make_node (DEBUG_EXPR_DECL);
 		    rtx val;
@@ -5657,7 +5371,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 		      mode = DECL_MODE (value);
 		    else
 		      mode = TYPE_MODE (TREE_TYPE (value));
-		    SET_DECL_MODE (vexpr, mode);
+		    DECL_MODE (vexpr) = mode;
 
 		    val = gen_rtx_VAR_LOCATION
 			(mode, vexpr, (rtx)value, VAR_INIT_STATUS_INITIALIZED);
@@ -5689,77 +5403,39 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 	  if (new_bb)
 	    return new_bb;
 	}
-      else if (is_gimple_debug (stmt))
+      else if (gimple_debug_bind_p (stmt))
 	{
 	  location_t sloc = curr_insn_location ();
 	  gimple_stmt_iterator nsi = gsi;
 
 	  for (;;)
 	    {
-	      tree var;
-	      tree value = NULL_TREE;
-	      rtx val = NULL_RTX;
+	      tree var = gimple_debug_bind_get_var (stmt);
+	      tree value;
+	      rtx val;
 	      machine_mode mode;
 
-	      if (!gimple_debug_nonbind_marker_p (stmt))
-		{
-		  if (gimple_debug_bind_p (stmt))
-		    {
-		      var = gimple_debug_bind_get_var (stmt);
-
-		      if (TREE_CODE (var) != DEBUG_EXPR_DECL
-			  && TREE_CODE (var) != LABEL_DECL
-			  && !target_for_debug_bind (var))
-			goto delink_debug_stmt;
-
-		      if (DECL_P (var))
-			mode = DECL_MODE (var);
-		      else
-			mode = TYPE_MODE (TREE_TYPE (var));
-
-		      if (gimple_debug_bind_has_value_p (stmt))
-			value = gimple_debug_bind_get_value (stmt);
-
-		      val = gen_rtx_VAR_LOCATION
-			(mode, var, (rtx)value, VAR_INIT_STATUS_INITIALIZED);
-		    }
-		  else if (gimple_debug_source_bind_p (stmt))
-		    {
-		      var = gimple_debug_source_bind_get_var (stmt);
-
-		      value = gimple_debug_source_bind_get_value (stmt);
-
-		      mode = DECL_MODE (var);
-
-		      val = gen_rtx_VAR_LOCATION (mode, var, (rtx)value,
-						  VAR_INIT_STATUS_UNINITIALIZED);
-		    }
-		  else
-		    gcc_unreachable ();
-		}
-	      /* If this function was first compiled with markers
-		 enabled, but they're now disable (e.g. LTO), drop
-		 them on the floor.  */
-	      else if (gimple_debug_nonbind_marker_p (stmt)
-		       && !MAY_HAVE_DEBUG_MARKER_INSNS)
+	      if (TREE_CODE (var) != DEBUG_EXPR_DECL
+		  && TREE_CODE (var) != LABEL_DECL
+		  && !target_for_debug_bind (var))
 		goto delink_debug_stmt;
-	      else if (gimple_debug_begin_stmt_p (stmt))
-		val = GEN_RTX_DEBUG_MARKER_BEGIN_STMT_PAT ();
-	      else if (gimple_debug_inline_entry_p (stmt))
-		{
-		  tree block = gimple_block (stmt);
 
-		  if (block)
-		    val = GEN_RTX_DEBUG_MARKER_INLINE_ENTRY_PAT ();
-		  else
-		    goto delink_debug_stmt;
-		}
+	      if (gimple_debug_bind_has_value_p (stmt))
+		value = gimple_debug_bind_get_value (stmt);
 	      else
-		gcc_unreachable ();
+		value = NULL_TREE;
 
 	      last = get_last_insn ();
 
 	      set_curr_insn_location (gimple_location (stmt));
+
+	      if (DECL_P (var))
+		mode = DECL_MODE (var);
+	      else
+		mode = TYPE_MODE (TREE_TYPE (var));
+
+	      val = gen_rtx_VAR_LOCATION
+		(mode, var, (rtx)value, VAR_INIT_STATUS_INITIALIZED);
 
 	      emit_debug_insn (val);
 
@@ -5767,14 +5443,9 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 		{
 		  /* We can't dump the insn with a TREE where an RTX
 		     is expected.  */
-		  if (GET_CODE (val) == VAR_LOCATION)
-		    {
-		      gcc_checking_assert (PAT_VAR_LOCATION_LOC (val) == (rtx)value);
-		      PAT_VAR_LOCATION_LOC (val) = const0_rtx;
-		    }
+		  PAT_VAR_LOCATION_LOC (val) = const0_rtx;
 		  maybe_dump_rtl_for_gimple_stmt (stmt, last);
-		  if (GET_CODE (val) == VAR_LOCATION)
-		    PAT_VAR_LOCATION_LOC (val) = (rtx)value;
+		  PAT_VAR_LOCATION_LOC (val) = (rtx)value;
 		}
 
 	    delink_debug_stmt:
@@ -5790,8 +5461,38 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 	      if (gsi_end_p (nsi))
 		break;
 	      stmt = gsi_stmt (nsi);
-	      if (!is_gimple_debug (stmt))
+	      if (!gimple_debug_bind_p (stmt))
 		break;
+	    }
+
+	  set_curr_insn_location (sloc);
+	}
+      else if (gimple_debug_source_bind_p (stmt))
+	{
+	  location_t sloc = curr_insn_location ();
+	  tree var = gimple_debug_source_bind_get_var (stmt);
+	  tree value = gimple_debug_source_bind_get_value (stmt);
+	  rtx val;
+	  machine_mode mode;
+
+	  last = get_last_insn ();
+
+	  set_curr_insn_location (gimple_location (stmt));
+
+	  mode = DECL_MODE (var);
+
+	  val = gen_rtx_VAR_LOCATION (mode, var, (rtx)value,
+				      VAR_INIT_STATUS_UNINITIALIZED);
+
+	  emit_debug_insn (val);
+
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      /* We can't dump the insn with a TREE where an RTX
+		 is expected.  */
+	      PAT_VAR_LOCATION_LOC (val) = const0_rtx;
+	      maybe_dump_rtl_for_gimple_stmt (stmt, last);
+	      PAT_VAR_LOCATION_LOC (val) = (rtx)value;
 	    }
 
 	  set_curr_insn_location (sloc);
@@ -5856,9 +5557,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
   if (single_succ_p (bb)
       && (single_succ_edge (bb)->flags & EDGE_FALLTHRU)
       && (last = get_last_insn ())
-      && (JUMP_P (last)
-	  || (DEBUG_INSN_P (last)
-	      && JUMP_P (prev_nondebug_insn (last)))))
+      && JUMP_P (last))
     {
       rtx dummy = gen_reg_rtx (SImode);
       emit_insn_after_noloc (gen_move_insn (dummy, dummy), last, NULL);
@@ -5905,7 +5604,7 @@ construct_init_block (void)
     {
       tree label = gimple_block_label (e->dest);
 
-      emit_jump (jump_target_rtx (label));
+      emit_jump (label_rtx (label));
       flags = 0;
     }
   else
@@ -5914,17 +5613,19 @@ construct_init_block (void)
   init_block = create_basic_block (NEXT_INSN (get_insns ()),
 				   get_last_insn (),
 				   ENTRY_BLOCK_PTR_FOR_FN (cfun));
+  init_block->frequency = ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency;
   init_block->count = ENTRY_BLOCK_PTR_FOR_FN (cfun)->count;
   add_bb_to_loop (init_block, ENTRY_BLOCK_PTR_FOR_FN (cfun)->loop_father);
   if (e)
     {
       first_block = e->dest;
       redirect_edge_succ (e, init_block);
-      e = make_single_succ_edge (init_block, first_block, flags);
+      e = make_edge (init_block, first_block, flags);
     }
   else
-    e = make_single_succ_edge (init_block, EXIT_BLOCK_PTR_FOR_FN (cfun),
-			       EDGE_FALLTHRU);
+    e = make_edge (init_block, EXIT_BLOCK_PTR_FOR_FN (cfun), EDGE_FALLTHRU);
+  e->probability = REG_BR_PROB_BASE;
+  e->count = ENTRY_BLOCK_PTR_FOR_FN (cfun)->count;
 
   update_bb_for_insn (init_block);
   return init_block;
@@ -5977,7 +5678,7 @@ construct_exit_block (void)
   while (NEXT_INSN (head) && NOTE_P (NEXT_INSN (head)))
     head = NEXT_INSN (head);
   /* But make sure exit_block starts with RETURN_LABEL, otherwise the
-     bb count counting will be confused.  Any instructions before that
+     bb frequency counting will be confused.  Any instructions before that
      label are emitted for the case where PREV_BB falls through into the
      exit block, so append those instructions to prev_bb in that case.  */
   if (NEXT_INSN (head) != return_label)
@@ -5990,6 +5691,7 @@ construct_exit_block (void)
 	}
     }
   exit_block = create_basic_block (NEXT_INSN (head), end, prev_bb);
+  exit_block->frequency = EXIT_BLOCK_PTR_FOR_FN (cfun)->frequency;
   exit_block->count = EXIT_BLOCK_PTR_FOR_FN (cfun)->count;
   add_bb_to_loop (exit_block, EXIT_BLOCK_PTR_FOR_FN (cfun)->loop_father);
 
@@ -6003,13 +5705,22 @@ construct_exit_block (void)
 	ix++;
     }
 
-  e = make_single_succ_edge (exit_block, EXIT_BLOCK_PTR_FOR_FN (cfun),
-			     EDGE_FALLTHRU);
+  e = make_edge (exit_block, EXIT_BLOCK_PTR_FOR_FN (cfun), EDGE_FALLTHRU);
+  e->probability = REG_BR_PROB_BASE;
+  e->count = EXIT_BLOCK_PTR_FOR_FN (cfun)->count;
   FOR_EACH_EDGE (e2, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
     if (e2 != e)
       {
-	exit_block->count -= e2->count ();
+	e->count -= e2->count;
+	exit_block->count -= e2->count;
+	exit_block->frequency -= EDGE_FREQUENCY (e2);
       }
+  if (e->count < 0)
+    e->count = 0;
+  if (exit_block->count < 0)
+    exit_block->count = 0;
+  if (exit_block->frequency < 0)
+    exit_block->frequency = 0;
   update_bb_for_insn (exit_block);
 }
 
@@ -6069,7 +5780,7 @@ discover_nonconstant_array_refs (void)
   FOR_EACH_BB_FN (bb, cfun)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       {
-	gimple *stmt = gsi_stmt (gsi);
+	gimple stmt = gsi_stmt (gsi);
 	if (!is_gimple_debug (stmt))
 	  walk_gimple_op (stmt, discover_nonconstant_array_refs_r, NULL);
       }
@@ -6138,7 +5849,7 @@ expand_stack_alignment (void)
   gcc_assert ((stack_realign_drap != 0) == (drap_rtx != NULL));
 
   /* Do nothing if NULL is returned, which means DRAP is not needed.  */
-  if (drap_rtx != NULL)
+  if (NULL != drap_rtx)
     {
       crtl->args.internal_arg_pointer = drap_rtx;
 
@@ -6156,13 +5867,18 @@ expand_main_function (void)
      || (!defined(HAS_INIT_SECTION)			\
 	 && !defined(INIT_SECTION_ASM_OP)		\
 	 && !defined(INIT_ARRAY_SECTION_ASM_OP)))
-  emit_library_call (init_one_libfunc (NAME__MAIN), LCT_NORMAL, VOIDmode);
+  emit_library_call (init_one_libfunc (NAME__MAIN), LCT_NORMAL, VOIDmode, 0);
 #endif
 }
 
 
 /* Expand code to initialize the stack_protect_guard.  This is invoked at
    the beginning of a function to be protected.  */
+
+#ifndef HAVE_stack_protect_set
+# define HAVE_stack_protect_set		0
+# define gen_stack_protect_set(x,y)	(gcc_unreachable (), NULL_RTX)
+#endif
 
 static void
 stack_protect_prologue (void)
@@ -6171,19 +5887,19 @@ stack_protect_prologue (void)
   rtx x, y;
 
   x = expand_normal (crtl->stack_protect_guard);
-  if (guard_decl)
-    y = expand_normal (guard_decl);
-  else
-    y = const0_rtx;
+  y = expand_normal (guard_decl);
 
   /* Allow the target to copy from Y to X without leaking Y into a
      register.  */
-  if (targetm.have_stack_protect_set ())
-    if (rtx_insn *insn = targetm.gen_stack_protect_set (x, y))
-      {
-	emit_insn (insn);
-	return;
-      }
+  if (HAVE_stack_protect_set)
+    {
+      rtx insn = gen_stack_protect_set (x, y);
+      if (insn)
+	{
+	  emit_insn (insn);
+	  return;
+	}
+    }
 
   /* Otherwise do a straight move.  */
   emit_move_insn (x, y);
@@ -6208,8 +5924,7 @@ const pass_data pass_data_expand =
   TV_EXPAND, /* tv_id */
   ( PROP_ssa | PROP_gimple_leh | PROP_cfg
     | PROP_gimple_lcx
-    | PROP_gimple_lvec
-    | PROP_gimple_lva), /* properties_required */
+    | PROP_gimple_lvec ), /* properties_required */
   PROP_rtl, /* properties_provided */
   ( PROP_ssa | PROP_trees ), /* properties_destroyed */
   0, /* todo_flags_start */
@@ -6232,6 +5947,7 @@ unsigned int
 pass_expand::execute (function *fun)
 {
   basic_block bb, init_block;
+  sbitmap blocks;
   edge_iterator ei;
   edge e;
   rtx_insn *var_seq, *var_ret_seq;
@@ -6242,7 +5958,7 @@ pass_expand::execute (function *fun)
   timevar_pop (TV_OUT_OF_SSA);
   SA.partition_to_pseudo = XCNEWVEC (rtx, SA.map->num_partitions);
 
-  if (MAY_HAVE_DEBUG_BIND_STMTS && flag_tree_ter)
+  if (MAY_HAVE_DEBUG_STMTS && flag_tree_ter)
     {
       gimple_stmt_iterator gsi;
       FOR_EACH_BB_FN (bb, cfun)
@@ -6292,7 +6008,10 @@ pass_expand::execute (function *fun)
   discover_nonconstant_array_refs ();
 
   targetm.expand_to_rtl_hook ();
-  crtl->init_stack_alignment ();
+  crtl->stack_alignment_needed = STACK_BOUNDARY;
+  crtl->max_used_stack_slot_alignment = STACK_BOUNDARY;
+  crtl->stack_alignment_estimated = 0;
+  crtl->preferred_stack_boundary = STACK_BOUNDARY;
   fun->cfg->max_jumptable_ents = 0;
 
   /* Resovle the function section.  Some targets, like ARM EABI rely on knowledge
@@ -6338,67 +6057,69 @@ pass_expand::execute (function *fun)
       parm_birth_insn = var_seq;
     }
 
-  /* Now propagate the RTL assignment of each partition to the
-     underlying var of each SSA_NAME.  */
-  tree name;
-
-  FOR_EACH_SSA_NAME (i, name, cfun)
+  /* Now that we also have the parameter RTXs, copy them over to our
+     partitions.  */
+  for (i = 0; i < SA.map->num_partitions; i++)
     {
-      /* We might have generated new SSA names in
-	 update_alias_info_with_stack_vars.  They will have a NULL
-	 defining statements, and won't be part of the partitioning,
-	 so ignore those.  */
-      if (!SSA_NAME_DEF_STMT (name))
-	continue;
+      tree var = SSA_NAME_VAR (partition_to_var (SA.map, i));
 
-      adjust_one_expanded_partition_var (name);
+      if (TREE_CODE (var) != VAR_DECL
+	  && !SA.partition_to_pseudo[i])
+	SA.partition_to_pseudo[i] = DECL_RTL_IF_SET (var);
+      gcc_assert (SA.partition_to_pseudo[i]);
+
+      /* If this decl was marked as living in multiple places, reset
+	 this now to NULL.  */
+      if (DECL_RTL_IF_SET (var) == pc_rtx)
+	SET_DECL_RTL (var, NULL);
+
+      /* Some RTL parts really want to look at DECL_RTL(x) when x
+	 was a decl marked in REG_ATTR or MEM_ATTR.  We could use
+	 SET_DECL_RTL here making this available, but that would mean
+	 to select one of the potentially many RTLs for one DECL.  Instead
+	 of doing that we simply reset the MEM_EXPR of the RTL in question,
+	 then nobody can get at it and hence nobody can call DECL_RTL on it.  */
+      if (!DECL_RTL_SET_P (var))
+	{
+	  if (MEM_P (SA.partition_to_pseudo[i]))
+	    set_mem_expr (SA.partition_to_pseudo[i], NULL);
+	}
     }
 
-  /* Clean up RTL of variables that straddle across multiple
-     partitions, and check that the rtl of any PARM_DECLs that are not
-     cleaned up is that of their default defs.  */
-  FOR_EACH_SSA_NAME (i, name, cfun)
+  /* If we have a class containing differently aligned pointers
+     we need to merge those into the corresponding RTL pointer
+     alignment.  */
+  for (i = 1; i < num_ssa_names; i++)
     {
+      tree name = ssa_name (i);
       int part;
+      rtx r;
 
-      /* We might have generated new SSA names in
-	 update_alias_info_with_stack_vars.  They will have a NULL
-	 defining statements, and won't be part of the partitioning,
-	 so ignore those.  */
-      if (!SSA_NAME_DEF_STMT (name))
+      if (!name
+	  /* We might have generated new SSA names in
+	     update_alias_info_with_stack_vars.  They will have a NULL
+	     defining statements, and won't be part of the partitioning,
+	     so ignore those.  */
+	  || !SSA_NAME_DEF_STMT (name))
 	continue;
       part = var_to_partition (SA.map, name);
       if (part == NO_PARTITION)
 	continue;
 
-      /* If this decl was marked as living in multiple places, reset
-	 this now to NULL.  */
-      tree var = SSA_NAME_VAR (name);
-      if (var && DECL_RTL_IF_SET (var) == pc_rtx)
-	SET_DECL_RTL (var, NULL);
-      /* Check that the pseudos chosen by assign_parms are those of
-	 the corresponding default defs.  */
-      else if (SSA_NAME_IS_DEFAULT_DEF (name)
-	       && (TREE_CODE (var) == PARM_DECL
-		   || TREE_CODE (var) == RESULT_DECL))
+      /* Adjust all partition members to get the underlying decl of
+	 the representative which we might have created in expand_one_var.  */
+      if (SSA_NAME_VAR (name) == NULL_TREE)
 	{
-	  rtx in = DECL_RTL_IF_SET (var);
-	  gcc_assert (in);
-	  rtx out = SA.partition_to_pseudo[part];
-	  gcc_assert (in == out);
-
-	  /* Now reset VAR's RTL to IN, so that the _EXPR attrs match
-	     those expected by debug backends for each parm and for
-	     the result.  This is particularly important for stabs,
-	     whose register elimination from parm's DECL_RTL may cause
-	     -fcompare-debug differences as SET_DECL_RTL changes reg's
-	     attrs.  So, make sure the RTL already has the parm as the
-	     EXPR, so that it won't change.  */
-	  SET_DECL_RTL (var, NULL_RTX);
-	  if (MEM_P (in))
-	    set_mem_attributes (in, var, true);
-	  SET_DECL_RTL (var, in);
+	  tree leader = partition_to_var (SA.map, part);
+	  gcc_assert (SSA_NAME_VAR (leader) != NULL_TREE);
+	  replace_ssa_name_symbol (name, SSA_NAME_VAR (leader));
 	}
+      if (!POINTER_TYPE_P (TREE_TYPE (name)))
+	continue;
+
+      r = SA.partition_to_pseudo[part];
+      if (REG_P (r))
+	mark_reg_pointer (r, get_pointer_alignment (name));
     }
 
   /* If this function is `main', emit a call to `__main'
@@ -6410,13 +6131,10 @@ pass_expand::execute (function *fun)
 
   /* Initialize the stack_protect_guard field.  This must happen after the
      call to __main (if any) so that the external decl is initialized.  */
-  if (crtl->stack_protect_guard && targetm.stack_protect_runtime_enabled_p ())
+  if (crtl->stack_protect_guard)
     stack_protect_prologue ();
 
   expand_phi_nodes (&SA);
-
-  /* Release any stale SSA redirection data.  */
-  redirect_edge_var_map_empty ();
 
   /* Register rtl specific functions for cfg.  */
   rtl_register_cfg_hooks ();
@@ -6428,17 +6146,12 @@ pass_expand::execute (function *fun)
   FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR_FOR_FN (fun)->succs)
     e->flags &= ~EDGE_EXECUTABLE;
 
-  /* If the function has too many markers, drop them while expanding.  */
-  if (cfun->debug_marker_count
-      >= PARAM_VALUE (PARAM_MAX_DEBUG_MARKER_COUNT))
-    cfun->debug_nonbind_markers = false;
-
   lab_rtx_for_bb = new hash_map<basic_block, rtx_code_label *>;
   FOR_BB_BETWEEN (bb, init_block->next_bb, EXIT_BLOCK_PTR_FOR_FN (fun),
 		  next_bb)
     bb = expand_gimple_basic_block (bb, var_ret_seq != NULL_RTX);
 
-  if (MAY_HAVE_DEBUG_BIND_INSNS)
+  if (MAY_HAVE_DEBUG_INSNS)
     expand_debug_locations ();
 
   if (deep_ter_debug_map)
@@ -6450,7 +6163,7 @@ pass_expand::execute (function *fun)
   /* Free stuff we no longer need after GIMPLE optimizations.  */
   free_dominance_info (CDI_DOMINATORS);
   free_dominance_info (CDI_POST_DOMINATORS);
-  delete_tree_cfg_annotations (fun);
+  delete_tree_cfg_annotations ();
 
   timevar_push (TV_OUT_OF_SSA);
   finish_out_of_ssa (&SA);
@@ -6464,7 +6177,7 @@ pass_expand::execute (function *fun)
   /* Expansion is used by optimization passes too, set maybe_hot_insn_p
      conservatively to true until they are all profile aware.  */
   delete lab_rtx_for_bb;
-  free_histograms (fun);
+  free_histograms ();
 
   construct_exit_block ();
   insn_locations_finalize ();
@@ -6519,8 +6232,6 @@ pass_expand::execute (function *fun)
   /* We're done expanding trees to RTL.  */
   currently_expanding_to_rtl = 0;
 
-  flush_mark_addressable_queue ();
-
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (fun)->next_bb,
 		  EXIT_BLOCK_PTR_FOR_FN (fun), next_bb)
     {
@@ -6543,19 +6254,12 @@ pass_expand::execute (function *fun)
 	}
     }
 
-  auto_sbitmap blocks (last_basic_block_for_fn (fun));
+  blocks = sbitmap_alloc (last_basic_block_for_fn (fun));
   bitmap_ones (blocks);
   find_many_sub_basic_blocks (blocks);
+  sbitmap_free (blocks);
   purge_all_dead_edges ();
 
-  /* After initial rtl generation, call back to finish generating
-     exception support code.  We need to do this before cleaning up
-     the CFG as the code does not expect dead landing pads.  */
-  if (fun->eh->region_tree != NULL)
-    finish_eh_generation ();
-
-  /* Call expand_stack_alignment after finishing all
-     updates to crtl->preferred_stack_boundary.  */
   expand_stack_alignment ();
 
   /* Fixup REG_EQUIV notes in the prologue if there are tailcalls in this
@@ -6563,10 +6267,11 @@ pass_expand::execute (function *fun)
   if (crtl->tail_call_emit)
     fixup_tail_calls ();
 
-  /* BB subdivision may have created basic blocks that are are only reachable
-     from unlikely bbs but not marked as such in the profile.  */
-  if (optimize)
-    propagate_unlikely_bbs_forward ();
+  /* After initial rtl generation, call back to finish generating
+     exception support code.  We need to do this before cleaning up
+     the CFG as the code does not expect dead landing pads.  */
+  if (fun->eh->region_tree != NULL)
+    finish_eh_generation ();
 
   /* Remove unreachable blocks, otherwise we cannot compute dominators
      which are needed for loop state verification.  As a side-effect
@@ -6576,7 +6281,9 @@ pass_expand::execute (function *fun)
      gcc.c-torture/execute/ipa-sra-2.c execution, -Os -m32 fails otherwise.  */
   cleanup_cfg (CLEANUP_NO_INSN_DEL);
 
-  checking_verify_flow_info ();
+#ifdef ENABLE_CHECKING
+  verify_flow_info ();
+#endif
 
   /* Initialize pseudos allocated for hard registers.  */
   emit_initial_value_sets ();
@@ -6610,6 +6317,12 @@ pass_expand::execute (function *fun)
 	  TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (parent)) = 1;
     }
 
+  /* We are now committed to emitting code for this function.  Do any
+     preparation, such as emitting abstract debug info for the inline
+     before it gets mangled by optimization.  */
+  if (cgraph_function_possibly_inlined_p (current_function_decl))
+    (*debug_hooks->outlining_inline_function) (current_function_decl);
+
   TREE_ASM_WRITTEN (current_function_decl) = 1;
 
   /* After expanding, the return labels are no longer needed. */
@@ -6624,14 +6337,6 @@ pass_expand::execute (function *fun)
      the common parent easily.  */
   set_block_levels (DECL_INITIAL (fun->decl), 0);
   default_rtl_profile ();
-
-  /* For -dx discard loops now, otherwise IL verify in clean_state will
-     ICE.  */
-  if (rtl_dump_and_exit)
-    {
-      cfun->curr_properties &= ~PROP_loops;
-      loop_optimizer_finalize ();
-    }
 
   timevar_pop (TV_POST_EXPAND);
 

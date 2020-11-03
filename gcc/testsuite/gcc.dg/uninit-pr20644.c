@@ -16,10 +16,9 @@ int bar ()
 {
   int i = 1;
   int j;
-  /* { dg-warning "uninitialized" "uninitialized" { target *-*-* } .-1 } */
 
   if (1 == i)
-    return j;
+    return j; /* { dg-warning "uninitialized" "uninitialized" { target *-*-* } 18 } */
 
   return 0;
 }

@@ -32,3 +32,4 @@ int main()
 /* { dg-final { scan-tree-dump "Replaced b1.b with 1" "fre1" } } */
 /* { dg-final { scan-tree-dump "Replaced b1.D.\[0-9\]*.i with 0" "fre1" } } */
 /* { dg-final { scan-tree-dump "Replaced b1.D.\[0-9\]*.f with 1" "fre1" } } */
+/* { dg-final { cleanup-tree-dump "fre1" } } */

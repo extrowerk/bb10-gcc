@@ -1,5 +1,5 @@
 /* CPU mode switching
-   Copyright (C) 1998-2018 Free Software Foundation, Inc.
+   Copyright (C) 1998-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,20 +20,32 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
+#include "tm.h"
 #include "target.h"
 #include "rtl.h"
-#include "cfghooks.h"
-#include "df.h"
-#include "memmodel.h"
-#include "tm_p.h"
 #include "regs.h"
-#include "emit-rtl.h"
+#include "hard-reg-set.h"
+#include "flags.h"
+#include "insn-config.h"
+#include "recog.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgcleanup.h"
+#include "basic-block.h"
+#include "tm_p.h"
 #include "tree-pass.h"
+#include "df.h"
+#include "emit-rtl.h"
 
 /* We want target macros for the mode switching code to be able to refer
    to instruction attribute values.  */
@@ -119,7 +131,7 @@ commit_mode_sets (struct edge_list *edge_list, int e, struct bb_info *info)
 	  HARD_REG_SET live_at_edge;
 	  basic_block src_bb = eg->src;
 	  int cur_mode = info[src_bb->index].mode_out;
-	  rtx_insn *mode_set;
+	  rtx mode_set;
 
 	  REG_SET_TO_HARD_REG_SET (live_at_edge, df_get_live_out (src_bb));
 
@@ -133,7 +145,7 @@ commit_mode_sets (struct edge_list *edge_list, int e, struct bb_info *info)
 	  default_rtl_profile ();
 
 	  /* Do not bother to insert empty sequence.  */
-	  if (mode_set == NULL)
+	  if (mode_set == NULL_RTX)
 	    continue;
 
 	  /* We should not get an abnormal edge here.  */
@@ -255,7 +267,7 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
 	    && GET_CODE ((ret_reg = XEXP (PATTERN (last_insn), 0))) == REG)
 	  {
 	    int ret_start = REGNO (ret_reg);
-	    int nregs = REG_NREGS (ret_reg);
+	    int nregs = hard_regno_nregs[ret_start][GET_MODE (ret_reg)];
 	    int ret_end = ret_start + nregs;
 	    bool short_block = false;
 	    bool multi_reg_return = false;
@@ -361,8 +373,8 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
 		    if (!targetm.calls.function_value_regno_p (copy_start))
 		      copy_num = 0;
 		    else
-		      copy_num = hard_regno_nregs (copy_start,
-						   GET_MODE (copy_reg));
+		      copy_num
+			= hard_regno_nregs[copy_start][GET_MODE (copy_reg)];
 
 		    /* If the return register is not likely spilled, - as is
 		       the case for floating point on SH4 - then it might
@@ -440,7 +452,8 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
 			|| short_block
 			|| !(targetm.class_likely_spilled_p
 			     (REGNO_REG_CLASS (ret_start)))
-			|| nregs != REG_NREGS (ret_reg)
+			|| (nregs
+			    != hard_regno_nregs[ret_start][GET_MODE (ret_reg)])
 			/* For multi-hard-register floating point
 		   	   values, sometimes the likely-spilled part
 		   	   is ordinarily copied first, then the other

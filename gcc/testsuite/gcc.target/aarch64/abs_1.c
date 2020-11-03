@@ -7,14 +7,15 @@ extern void abort (void);
 long long
 abs64 (long long a)
 {
-  /* { dg-final { scan-assembler "csneg\t" } } */
+  /* { dg-final { scan-assembler "eor\t" } } */
+  /* { dg-final { scan-assembler "sub\t" } } */
   return llabs (a);
 }
 
 long long
 abs64_in_dreg (long long a)
 {
-  /* { dg-final { scan-assembler "csneg\t" } } */
+  /* { dg-final { scan-assembler "abs\td\[0-9\]+, d\[0-9\]+" } } */
   register long long x asm ("d8") = a;
   register long long y asm ("d9");
   asm volatile ("" : : "w" (x));
@@ -49,3 +50,4 @@ main (void)
   return 0;
 }
 
+/* { dg-final { cleanup-saved-temps } } */

@@ -17,28 +17,27 @@ character(25) :: astring
     )
 700 format('This format now works.'''& !comment
     )
-! See PR65903 for the following cases.
 800 format('This is actually ok.'& !comment
    ' end'  )
 900 format('This is actually ok.' & !comment
    ' end'  )
 write(astring,100)
-if (astring.ne."This format is OK.") STOP 1
+if (astring.ne."This format is OK.") call abort
 write(astring,200)
-if (astring.ne."This format now works.") STOP 2
+if (astring.ne."This format now works.") call abort
 write(astring,300)
-if (astring.ne."This format now works.") STOP 3
+if (astring.ne."This format now works.") call abort
 write(astring,400)
-if (astring.ne."This format is OK.") STOP 4
+if (astring.ne."This format is OK.") call abort
 write(astring,500)
-if (astring.ne."This format is OK.") STOP 5
+if (astring.ne."This format is OK.") call abort
 write(astring,600)
-if (astring.ne."This format now works.'") STOP 6
+if (astring.ne."This format now works.'") call abort
 write(astring,700)
-if (astring.ne."This format now works.'") STOP 7
+if (astring.ne."This format now works.'") call abort
 write(astring,800)
-if (astring.ne."This is actually ok.' end") STOP 8
+if (astring.ne."This is actually ok.' end") call abort
 write(astring,900)
-if (astring.ne."This is actually ok. end") STOP 9
+if (astring.ne."This is actually ok. end") call abort
 
 end

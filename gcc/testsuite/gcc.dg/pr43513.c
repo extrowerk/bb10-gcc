@@ -16,3 +16,4 @@ foo3 ()
 }
 
 /* { dg-final { scan-tree-dump-times "alloca" 0 "ccp2"} } */
+/* { dg-final { cleanup-tree-dump "ccp2" } } */

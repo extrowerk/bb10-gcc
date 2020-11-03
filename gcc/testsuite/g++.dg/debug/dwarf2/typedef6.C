@@ -1,5 +1,5 @@
 // Origin PR debug/
-// { dg-options "-gdwarf-2 -dA -gno-column-info" }
+// { dg-options "-g -dA" }
 
 class C {
 public:

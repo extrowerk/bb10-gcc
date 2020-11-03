@@ -1,6 +1,6 @@
-// { dg-do run { target c++11 } }
+// { dg-options "-std=gnu++11" }
 
-// Copyright (C) 2011-2018 Free Software Foundation, Inc.
+// Copyright (C) 2011-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -91,6 +91,8 @@ template<typename TestType, typename... T>
 template<typename... T>
   void test(T... args)
   {
+    bool test __attribute__((unused)) = true;
+
     VERIFY( test2<CannotUse>(args...) );
     VERIFY( test2<DoesNotUse>(args...) );
     VERIFY( test2<UsesWithTag>(args...) );

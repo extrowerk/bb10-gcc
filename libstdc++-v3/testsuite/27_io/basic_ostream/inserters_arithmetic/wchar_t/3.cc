@@ -1,4 +1,4 @@
-// Copyright (C) 2005-2018 Free Software Foundation, Inc.
+// Copyright (C) 2005-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -20,10 +20,11 @@
 #include <testsuite_hooks.h>
 
 template<typename T>
-void
+bool
 test03_check(T n)
 {
   using namespace std;
+  bool test __attribute__((unused)) = true;
 
   wstringbuf strbuf;
   wostream o(&strbuf);
@@ -40,6 +41,8 @@ test03_check(T n)
 
   o << oct << n << L' ' << hex << n;
   VERIFY ( strbuf.str() == expect );
+
+  return test;
 }
 
 void

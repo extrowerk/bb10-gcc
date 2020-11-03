@@ -21,10 +21,7 @@ struct B {};
 
 __attribute__ ((fastcall))
 void
-foo (int j, int k, int m, int n, int o)
-#if __cplusplus <= 201402L
-throw (B,A)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#endif
+foo (int j, int k, int m, int n, int o) throw (B,A)
 {
   aligned i;
 

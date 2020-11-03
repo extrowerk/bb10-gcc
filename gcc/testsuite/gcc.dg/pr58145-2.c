@@ -48,3 +48,4 @@ f5 (void)
 }
 
 /* { dg-final { scan-tree-dump-times " ={v} " 4 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

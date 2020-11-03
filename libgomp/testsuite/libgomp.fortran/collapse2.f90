@@ -24,7 +24,7 @@ firstdo: do i = 1, 3
         end do
       end do firstdo
     !$omp end parallel do
-    if (l) STOP 1
+    if (l) call abort
   end subroutine test1
 
   subroutine test2
@@ -37,7 +37,7 @@ firstdo: do i = 1, 3
           enddo
         enddo dokk
 115   continue
-    if (any(a(1:3,1:3,1:3).ne.1)) STOP 2
+    if (any(a(1:3,1:3,1:3).ne.1)) call abort
 
     !$omp do collapse(3)
  dol: do 120 l=1,3
@@ -47,7 +47,7 @@ firstdo: do i = 1, 3
           enddo
         enddo doll
 120   end do dol
-    if (any(a(1:3,1:3,1:3).ne.2)) STOP 3
+    if (any(a(1:3,1:3,1:3).ne.2)) call abort
   end subroutine test2
 
 end program collapse2

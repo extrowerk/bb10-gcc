@@ -6,7 +6,7 @@ extern void abort (void);
 extern void *alloca (__SIZE_TYPE__);
 char *dummy (void);
 
-#define NOINLINE __attribute__((noinline)) __attribute__ ((noclone))
+#define NOINLINE __attribute__((noinline))
 
 void *save_ret1[6];
 void *test4a (char *);

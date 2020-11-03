@@ -32,7 +32,7 @@ int main() {
   Global = 43;
   WTFGlobal = 143;
   pthread_join(t, 0);
-  fprintf(stderr, "OK\n");
+  printf("OK\n");
 }
 
 /* { dg-prune-output "WARNING: ThreadSanitizer: data race.*(\n|\r\n|\r)" } */

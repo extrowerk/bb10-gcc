@@ -9,9 +9,10 @@ package cgi
 import (
 	"os"
 	"syscall"
+	"testing"
 )
 
-func isProcessRunning(pid int) bool {
+func isProcessRunning(t *testing.T, pid int) bool {
 	p, err := os.FindProcess(pid)
 	if err != nil {
 		return false

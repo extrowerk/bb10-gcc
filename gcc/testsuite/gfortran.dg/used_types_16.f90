@@ -16,7 +16,7 @@ TYPE :: dummy_atom
 END TYPE
 
 TYPE :: dummy_atom_private
-  TYPE(dummy_atom_list)       :: neighbors
+  TYPE(dummy_atom_list)       :: neighbours
 END TYPE
 END MODULE
 

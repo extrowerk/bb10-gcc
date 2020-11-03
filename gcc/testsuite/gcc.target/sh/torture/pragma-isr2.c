@@ -1,5 +1,6 @@
 /* Check whether rte is generated only for an ISRs.  */
 /* { dg-do compile }  */
+/* { dg-skip-if "" { "sh*-*-*" } { "-m5*" } { "" } }  */
 /* { dg-final { scan-assembler-times "rte" 1 } }  */
 
 #pragma interrupt

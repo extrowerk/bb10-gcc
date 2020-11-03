@@ -8,9 +8,7 @@ public:
 # 200 "lineno2.C"
 };
 
-int
 main()
 {
-   undef1(); // { dg-error "" "" { target *-*-* } 205 }
-   return 0;
+   undef1(); // { dg-error "" "" { target *-*-* } 204 }
 }

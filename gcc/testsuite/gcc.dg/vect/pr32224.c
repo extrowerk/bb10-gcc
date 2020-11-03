@@ -15,3 +15,4 @@ gmpz_export (void *data)
     __src++;
   }
 }
+/* { dg-final { cleanup-tree-dump "vect" } } */

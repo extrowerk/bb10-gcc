@@ -17,3 +17,4 @@ foo ()
 
 /* { dg-final { scan-tree-dump-not "& 7" "sanopt" } } */
 /* { dg-final { scan-tree-dump-not "__builtin___asan_report_store" "sanopt" } } */
+/* { dg-final { cleanup-tree-dump "sanopt" } } */

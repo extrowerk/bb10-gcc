@@ -121,41 +121,17 @@ func TestSubImage(t *testing.T) {
 }
 
 func BenchmarkEncodeGray(b *testing.B) {
+	b.StopTimer()
 	img := image.NewGray(image.Rect(0, 0, 640, 480))
 	b.SetBytes(640 * 480 * 1)
-	b.ReportAllocs()
-	b.ResetTimer()
+	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		Encode(ioutil.Discard, img)
 	}
 }
 
-type pool struct {
-	b *EncoderBuffer
-}
-
-func (p *pool) Get() *EncoderBuffer {
-	return p.b
-}
-
-func (p *pool) Put(b *EncoderBuffer) {
-	p.b = b
-}
-
-func BenchmarkEncodeGrayWithBufferPool(b *testing.B) {
-	img := image.NewGray(image.Rect(0, 0, 640, 480))
-	e := Encoder{
-		BufferPool: &pool{},
-	}
-	b.SetBytes(640 * 480 * 1)
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		e.Encode(ioutil.Discard, img)
-	}
-}
-
 func BenchmarkEncodeNRGBOpaque(b *testing.B) {
+	b.StopTimer()
 	img := image.NewNRGBA(image.Rect(0, 0, 640, 480))
 	// Set all pixels to 0xFF alpha to force opaque mode.
 	bo := img.Bounds()
@@ -168,40 +144,40 @@ func BenchmarkEncodeNRGBOpaque(b *testing.B) {
 		b.Fatal("expected image to be opaque")
 	}
 	b.SetBytes(640 * 480 * 4)
-	b.ReportAllocs()
-	b.ResetTimer()
+	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		Encode(ioutil.Discard, img)
 	}
 }
 
 func BenchmarkEncodeNRGBA(b *testing.B) {
+	b.StopTimer()
 	img := image.NewNRGBA(image.Rect(0, 0, 640, 480))
 	if img.Opaque() {
 		b.Fatal("expected image not to be opaque")
 	}
 	b.SetBytes(640 * 480 * 4)
-	b.ReportAllocs()
-	b.ResetTimer()
+	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		Encode(ioutil.Discard, img)
 	}
 }
 
 func BenchmarkEncodePaletted(b *testing.B) {
+	b.StopTimer()
 	img := image.NewPaletted(image.Rect(0, 0, 640, 480), color.Palette{
 		color.RGBA{0, 0, 0, 255},
 		color.RGBA{255, 255, 255, 255},
 	})
 	b.SetBytes(640 * 480 * 1)
-	b.ReportAllocs()
-	b.ResetTimer()
+	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		Encode(ioutil.Discard, img)
 	}
 }
 
 func BenchmarkEncodeRGBOpaque(b *testing.B) {
+	b.StopTimer()
 	img := image.NewRGBA(image.Rect(0, 0, 640, 480))
 	// Set all pixels to 0xFF alpha to force opaque mode.
 	bo := img.Bounds()
@@ -214,21 +190,20 @@ func BenchmarkEncodeRGBOpaque(b *testing.B) {
 		b.Fatal("expected image to be opaque")
 	}
 	b.SetBytes(640 * 480 * 4)
-	b.ReportAllocs()
-	b.ResetTimer()
+	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		Encode(ioutil.Discard, img)
 	}
 }
 
 func BenchmarkEncodeRGBA(b *testing.B) {
+	b.StopTimer()
 	img := image.NewRGBA(image.Rect(0, 0, 640, 480))
 	if img.Opaque() {
 		b.Fatal("expected image not to be opaque")
 	}
 	b.SetBytes(640 * 480 * 4)
-	b.ReportAllocs()
-	b.ResetTimer()
+	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		Encode(ioutil.Discard, img)
 	}

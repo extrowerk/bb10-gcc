@@ -24,6 +24,6 @@
   end do
   !$acc end parallel
   do i = 1, n
-     if (a(i) .ne. fact(i)) STOP 1
+     if (a(i) .ne. fact(i)) call abort
   end do
 end

@@ -6,11 +6,9 @@
       INTEGER I
 
       CALL ACC_PRESENT_OR_COPYIN (I)
-      WRITE(0, *) "CheCKpOInT"
 !$ACC ENTER DATA CREATE (I)
 
       END
 
-! { dg-output "CheCKpOInT(\n|\r\n|\r).*" }
-! { dg-output "already mapped to" }
 ! { dg-shouldfail "" }
+! { dg-output "already mapped to" }

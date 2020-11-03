@@ -1,7 +1,6 @@
-/* { dg-require-effective-target trampolines } */
-
 main()
 {
+#ifndef NO_TRAMPOLINES
   void p(void ((*f) (void ())))
     {
       void r()
@@ -18,7 +17,7 @@ main()
     }
 
   p(q);
-
+#endif
   exit(0);
 }
 

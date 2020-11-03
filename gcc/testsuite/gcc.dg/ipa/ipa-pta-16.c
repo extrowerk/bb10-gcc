@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-O2 -fno-tree-sra -fipa-pta -fdump-ipa-pta2" } */
+/* { dg-options "-O2 -fno-tree-sra -fipa-pta -fdump-ipa-pta" } */
 
 struct X
 {
@@ -29,4 +29,5 @@ int main()
   return 0;
 }
 
-/* { dg-final { scan-ipa-dump "y.\[0-9\]*\\\+\[0-9\]* = { i }" "pta2" } } */
+/* { dg-final { scan-ipa-dump "y.\[0-9\]*\\\+\[0-9\]* = { i }" "pta" } } */
+/* { dg-final { cleanup-ipa-dump "pta" } } */

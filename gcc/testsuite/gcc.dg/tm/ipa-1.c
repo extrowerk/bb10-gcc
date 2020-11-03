@@ -11,3 +11,4 @@ void bar(void)
 }
 
 /* { dg-final { scan-tree-dump-times "_ZGTt3foo" 1 "tmmark" } } */
+/* { dg-final { cleanup-tree-dump "tmmark" } } */

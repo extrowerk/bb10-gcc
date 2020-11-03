@@ -10,13 +10,13 @@
   z = "cockatoo"
   length = len (z)
   z(:) = ''
-  if (len(z) .ne. length) STOP 1
-  if (trim (z) .ne. '') STOP 2
+  if (len(z) .ne. length) call abort
+  if (trim (z) .ne. '') call abort
   z(:3) = "foo"
-  if (len(z) .ne. length) STOP 3
-  if (trim (z) .ne. "foo") STOP 4
+  if (len(z) .ne. length) call abort
+  if (trim (z) .ne. "foo") call abort
   z(4:) = "__bar"
-  if (len(z) .ne. length) STOP 5
-  if (trim (z) .ne. "foo__bar") STOP 6
+  if (len(z) .ne. length) call abort
+  if (trim (z) .ne. "foo__bar") call abort
   deallocate (z)
 end

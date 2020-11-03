@@ -33,7 +33,6 @@ func (h *myHeap) Push(v interface{}) {
 }
 
 func (h myHeap) verify(t *testing.T, i int) {
-	t.Helper()
 	n := h.Len()
 	j1 := 2*i + 1
 	j2 := 2*i + 2
@@ -174,7 +173,7 @@ func TestRemove2(t *testing.T) {
 
 func BenchmarkDup(b *testing.B) {
 	const n = 10000
-	h := make(myHeap, 0, n)
+	h := make(myHeap, n)
 	for i := 0; i < b.N; i++ {
 		for j := 0; j < n; j++ {
 			Push(&h, 0) // all elements are the same

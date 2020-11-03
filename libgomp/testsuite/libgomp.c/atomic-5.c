@@ -1,5 +1,6 @@
 /* PR middle-end/36106 */
-/* { dg-additional-options "-mcx16" { target { { i?86-*-* x86_64-*-* } && lp64 } } } */
+/* { dg-options "-O2" } */
+/* { dg-options "-O2 -mcx16" { target { { i?86-*-* x86_64-*-* } && lp64 } } } */
 
 #ifdef __x86_64__
 # include "cpuid.h"

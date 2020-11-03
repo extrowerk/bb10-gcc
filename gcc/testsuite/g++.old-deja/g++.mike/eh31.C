@@ -11,7 +11,6 @@ public:
 };
 
 
-int
 main() {
   try {
     throw Foo();

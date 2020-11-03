@@ -1,4 +1,4 @@
-// Copyright (C) 2005-2018 Free Software Foundation, Inc.
+// Copyright (C) 2005-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -37,6 +37,7 @@ int array2[2];
 void 
 test1()
 {
+  bool test __attribute__((unused)) = true;
   Icontainer con1(array1, array1);
   Ocontainer con2(array2, array2);
   VERIFY( unique_copy(con1.begin(), con1.end(), con2.begin()).ptr == array2 );
@@ -45,6 +46,7 @@ test1()
 void
 test2()
 {
+  bool test __attribute__((unused)) = true;
   Icontainer con1(array1, array1 + 6);
   Ocontainer con2(array2, array2 + 2);
   VERIFY( unique_copy(con1.begin(), con1.end(), con2.begin()).ptr 
@@ -55,6 +57,7 @@ test2()
 void
 test3()
 {
+  bool test __attribute__((unused)) = true;
   Icontainer con1(array1, array1);
   Fcontainer con2(array2, array2);
   VERIFY( unique_copy(con1.begin(), con1.end(), con2.begin()).ptr == array2 );
@@ -63,6 +66,7 @@ test3()
 void
 test4()
 {
+  bool test __attribute__((unused)) = true;
   Icontainer con1(array1, array1 + 6);
   Fcontainer con2(array2, array2 + 2);
   VERIFY( unique_copy(con1.begin(), con1.end(), con2.begin()).ptr

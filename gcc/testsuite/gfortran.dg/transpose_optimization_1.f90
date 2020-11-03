@@ -1,5 +1,5 @@
 ! { dg-do compile }
-! { dg-options "-Warray-temporaries -fdump-tree-original -finline-matmul-limit=0" }
+! { dg-options "-Warray-temporaries -fdump-tree-original" }
 !
 ! PR fortran/45648
 ! Non-copying descriptor transpose optimization (for function call args).
@@ -103,3 +103,4 @@ contains
 end module foo
 
 ! { dg-final { scan-tree-dump-times "struct\[^\\n\]*atmp" 4 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

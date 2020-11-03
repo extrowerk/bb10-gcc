@@ -38,7 +38,6 @@ const (
 	alertInappropriateFallback  alert = 86
 	alertUserCanceled           alert = 90
 	alertNoRenegotiation        alert = 100
-	alertNoApplicationProtocol  alert = 120
 )
 
 var alertText = map[alert]string{
@@ -65,15 +64,14 @@ var alertText = map[alert]string{
 	alertInappropriateFallback:  "inappropriate fallback",
 	alertUserCanceled:           "user canceled",
 	alertNoRenegotiation:        "no renegotiation",
-	alertNoApplicationProtocol:  "no application protocol",
 }
 
 func (e alert) String() string {
 	s, ok := alertText[e]
 	if ok {
-		return "tls: " + s
+		return s
 	}
-	return "tls: alert(" + strconv.Itoa(int(e)) + ")"
+	return "alert(" + strconv.Itoa(int(e)) + ")"
 }
 
 func (e alert) Error() string {

@@ -1,5 +1,3 @@
-/* { dg-add-options stack_size } */
-
 /* PR optimization/8750
    Used to fail under Cygwin with 
    -O2 -fomit-frame-pointer        

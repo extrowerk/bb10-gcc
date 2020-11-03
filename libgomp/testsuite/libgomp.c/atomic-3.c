@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-O0" } */
+/* { dg-options "-fopenmp -O0" } */
 
 #include <omp.h>
 #include <stdlib.h>

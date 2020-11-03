@@ -31,4 +31,5 @@ int xgp_ahd_interpolate (int tile)
  return 0;
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */
 

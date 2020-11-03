@@ -1,6 +1,5 @@
-/* { dg-do run { target openacc_nvidia_accel_selected } } */
+/* { dg-do run } */
 
-#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <openacc.h>
@@ -22,7 +21,6 @@ main (int argc, char **argv)
 
   d = acc_malloc (N);
 
-  fprintf (stderr, "CheCKpOInT\n");
   acc_memcpy_to_device (d, d, N);
 
   memset (&h[0], 0, N);
@@ -42,6 +40,4 @@ main (int argc, char **argv)
   return 0;
 }
 
-/* { dg-output "CheCKpOInT(\n|\r\n|\r).*" } */
-/* { dg-output "invalid host or device address" } */
-/* { dg-shouldfail "" } */
+/* { dg-shouldfail "libgomp: invalid host or device address" } */

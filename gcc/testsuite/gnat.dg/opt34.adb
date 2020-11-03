@@ -26,3 +26,4 @@ begin
 end;
 
 -- { dg-final { scan-tree-dump "Created a replacement for result" "esra" } }
+-- { dg-final { cleanup-tree-dump "esra" } }

@@ -1,5 +1,3 @@
-// { dg-options "-std=c++98" }
-
 #include <exception>
 
 struct One { };

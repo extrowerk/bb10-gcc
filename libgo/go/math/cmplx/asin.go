@@ -49,8 +49,11 @@ import "math"
 
 // Asin returns the inverse sine of x.
 func Asin(x complex128) complex128 {
-	if imag(x) == 0 && math.Abs(real(x)) <= 1 {
-		return complex(math.Asin(real(x)), imag(x))
+	if imag(x) == 0 {
+		if math.Abs(real(x)) > 1 {
+			return complex(math.Pi/2, 0) // DOMAIN error
+		}
+		return complex(math.Asin(real(x)), 0)
 	}
 	ct := complex(-imag(x), real(x)) // i * x
 	xx := x * x
@@ -62,8 +65,12 @@ func Asin(x complex128) complex128 {
 
 // Asinh returns the inverse hyperbolic sine of x.
 func Asinh(x complex128) complex128 {
-	if imag(x) == 0 && math.Abs(real(x)) <= 1 {
-		return complex(math.Asinh(real(x)), imag(x))
+	// TODO check range
+	if imag(x) == 0 {
+		if math.Abs(real(x)) > 1 {
+			return complex(math.Pi/2, 0) // DOMAIN error
+		}
+		return complex(math.Asinh(real(x)), 0)
 	}
 	xx := x * x
 	x1 := complex(1+real(xx), imag(xx)) // 1 + x*x
@@ -133,6 +140,10 @@ func Acosh(x complex128) complex128 {
 
 // Atan returns the inverse tangent of x.
 func Atan(x complex128) complex128 {
+	if real(x) == 0 && imag(x) > 1 {
+		return NaN()
+	}
+
 	x2 := real(x) * real(x)
 	a := 1 - x2 - imag(x)*imag(x)
 	if a == 0 {

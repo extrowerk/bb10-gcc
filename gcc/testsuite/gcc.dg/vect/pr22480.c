@@ -29,3 +29,4 @@ test_3 (void)
    bm[j] <<= am[j];
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

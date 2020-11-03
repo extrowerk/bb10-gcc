@@ -8,6 +8,7 @@
 /* { dg-final { scan-assembler-times "vfcedbs\t" 2 } } */
 /* { dg-final { scan-assembler-times "vfchdbs\t" 2 } } */
 
+/* { dg-final { cleanup-saved-temps } } */
 
 #include <vecintrin.h>
 

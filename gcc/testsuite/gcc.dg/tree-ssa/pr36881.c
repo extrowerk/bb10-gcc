@@ -23,3 +23,4 @@ const char *foo (int i)
 
 /* { dg-final { scan-assembler-not "CSWTCH" } } */
 /* { dg-final { scan-tree-dump "need runtime relocations" "switchconv" } } */
+/* { dg-final { cleanup-tree-dump "switchconv" } } */

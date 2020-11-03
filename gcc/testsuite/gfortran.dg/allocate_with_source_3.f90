@@ -21,7 +21,7 @@ program assumed_shape_01
   type(cstruct), pointer :: u(:)
 
 ! The following is VALID Fortran 2008 but NOT YET supported 
-  allocate(u, source=[cstruct( 4, [1.1,2.2] ) ]) 
+  allocate(u, source=[cstruct( 4, [1.1,2.2] ) ]) ! { dg-error "Array specification required in ALLOCATE statement" }
   call psub(t, u)
   deallocate (u)
 

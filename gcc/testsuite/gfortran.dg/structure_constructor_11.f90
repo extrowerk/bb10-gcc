@@ -57,7 +57,7 @@ program ala
    call bar%a%init()
 
    ! They should be called once
-   if (count1 /= 23 .or. count2 /= 42) STOP 1
+   if (count1 /= 23 .or. count2 /= 42) call abort ()
 
 contains
 
@@ -93,3 +93,4 @@ end program ala
 ! { dg-final { scan-tree-dump-times "this->_data->a.cleanup = \\*cleanup;" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "ext_ptr.\[0-9\]+.init = this->_data->a.init;" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "ext_ptr.\[0-9\]+.cleanup = this->_data->a.cleanup;" 1 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

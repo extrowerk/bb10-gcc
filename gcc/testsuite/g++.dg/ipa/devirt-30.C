@@ -22,3 +22,4 @@ void f(B* b)
 }
 
 // { dg-final { scan-ipa-dump-not "Speculatively devirtualizing" "devirt" } }
+// { dg-final { cleanup-ipa-dump "devirt" } }

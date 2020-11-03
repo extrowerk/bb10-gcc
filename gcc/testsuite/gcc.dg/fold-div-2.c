@@ -9,4 +9,5 @@ double f(double x)
 /* Division should be turned into 1.0.  */
 
 /* { dg-final { scan-tree-dump-not " / " "gimple" } } */
+/* { dg-final { cleanup-tree-dump "gimple" } } */
 

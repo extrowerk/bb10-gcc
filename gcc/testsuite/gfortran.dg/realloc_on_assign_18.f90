@@ -11,9 +11,10 @@ type(t), allocatable :: x, y(:)
 x = t()
 y = [ t :: ]
 
-if (.not. allocated (x)) STOP 1
-if (.not. allocated (y)) STOP 2
+if (.not. allocated (x)) call abort ()
+if (.not. allocated (y)) call abort ()
 end
 
 ! { dg-final { scan-tree-dump "x = \\(struct t .\\) __builtin_malloc \\(1\\);" "original" } }
 ! { dg-final { scan-tree-dump "y.data = \\(void . restrict\\) __builtin_malloc \\(1\\);" "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

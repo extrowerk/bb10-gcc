@@ -8,7 +8,6 @@ void myterm() {
   exit (0);
 }
 
-int
 main() {
   try {
     throw "";

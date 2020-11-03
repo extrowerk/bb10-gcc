@@ -1,8 +1,5 @@
-/* Exercise acc_copyin and acc_copyout on nvidia targets.  */
+/* { dg-do run } */
 
-/* { dg-do run { target openacc_nvidia_accel_selected } } */
-
-#include <stdio.h>
 #include <stdlib.h>
 #include <openacc.h>
 
@@ -22,7 +19,6 @@ main (int argc, char **argv)
 
   (void) acc_copyin (h, N);
 
-  fprintf (stderr, "CheCKpOInT\n");
   acc_copyout (h, N + 1);
 
   free (h);
@@ -30,6 +26,4 @@ main (int argc, char **argv)
   return 0;
 }
 
-/* { dg-output "CheCKpOInT(\n|\r\n|\r).*" } */
-/* { dg-output "\\\[\[0-9a-fA-FxX\]+,256\\\] surrounds2 \\\[\[0-9a-fA-FxX\]+,\\\+257\\\]" } */
-/* { dg-shouldfail "" } */
+/* { dg-shouldfail "libgomp: \[\h+,256\] surounds2 \[\h+,\+257\]" } */

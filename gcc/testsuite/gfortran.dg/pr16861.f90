@@ -12,7 +12,7 @@ contains
     integer :: n
 
     do n = 1, i
-      if (j(n) /= n**2) STOP 1
+      if (j(n) /= n**2) call abort
     end do
   end subroutine baz
 end module bar

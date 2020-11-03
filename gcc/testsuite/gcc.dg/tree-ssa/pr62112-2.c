@@ -14,3 +14,4 @@ void h(){
 }
 
 /* { dg-final { scan-tree-dump-not "Deleted dead" "dse1" } } */
+/* { dg-final { cleanup-tree-dump "dse1" } } */

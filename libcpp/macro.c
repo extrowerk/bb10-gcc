@@ -1,5 +1,5 @@
 /* Part of CPP library.  (Macro and #define handling.)
-   Copyright (C) 1986-2018 Free Software Foundation, Inc.
+   Copyright (C) 1986-2015 Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -51,7 +51,7 @@ struct macro_arg
 enum macro_arg_token_kind {
   MACRO_ARG_TOKEN_NORMAL,
   /* This is a macro argument token that got transformed into a string
-     literal, e.g. #foo.  */
+     litteral, e.g. #foo.  */
   MACRO_ARG_TOKEN_STRINGIFIED,
   /* This is a token resulting from the expansion of a macro
      argument that was itself a macro.  */
@@ -73,7 +73,7 @@ struct macro_arg_token_iter
      -ftrack-macro-expansion is used this location tracks loci across
      macro expansion.  */
   const source_location *location_ptr;
-#if CHECKING_P
+#ifdef ENABLE_CHECKING
   /* The number of times the iterator went forward. This useful only
      when checking is enabled.  */
   size_t num_forwards;
@@ -89,163 +89,11 @@ struct macro_arg_saved_data {
   union _cpp_hashnode_value value;
 };
 
-static const char *vaopt_paste_error =
-  N_("'##' cannot appear at either end of __VA_OPT__");
-
-/* A class for tracking __VA_OPT__ state while iterating over a
-   sequence of tokens.  This is used during both macro definition and
-   expansion.  */
-class vaopt_state {
-
- public:
-
-  /* Initialize the state tracker.  ANY_ARGS is true if variable
-     arguments were provided to the macro invocation.  */
-  vaopt_state (cpp_reader *pfile, bool is_variadic, bool any_args)
-    : m_pfile (pfile),
-    m_allowed (any_args),
-    m_variadic (is_variadic),
-    m_last_was_paste (false),
-    m_state (0),
-    m_paste_location (0),
-    m_location (0)
-  {
-  }
-
-  enum update_type
-  {
-    ERROR,
-    DROP,
-    INCLUDE,
-    BEGIN,
-    END
-  };
-
-  /* Given a token, update the state of this tracker and return a
-     boolean indicating whether the token should be be included in the
-     expansion.  */
-  update_type update (const cpp_token *token)
-  {
-    /* If the macro isn't variadic, just don't bother.  */
-    if (!m_variadic)
-      return INCLUDE;
-
-    if (token->type == CPP_NAME
-	&& token->val.node.node == m_pfile->spec_nodes.n__VA_OPT__)
-      {
-	if (m_state > 0)
-	  {
-	    cpp_error_at (m_pfile, CPP_DL_ERROR, token->src_loc,
-			  "__VA_OPT__ may not appear in a __VA_OPT__");
-	    return ERROR;
-	  }
-	++m_state;
-	m_location = token->src_loc;
-	return BEGIN;
-      }
-    else if (m_state == 1)
-      {
-	if (token->type != CPP_OPEN_PAREN)
-	  {
-	    cpp_error_at (m_pfile, CPP_DL_ERROR, m_location,
-			  "__VA_OPT__ must be followed by an "
-			  "open parenthesis");
-	    return ERROR;
-	  }
-	++m_state;
-	return DROP;
-      }
-    else if (m_state >= 2)
-      {
-	if (m_state == 2 && token->type == CPP_PASTE)
-	  {
-	    cpp_error_at (m_pfile, CPP_DL_ERROR, token->src_loc,
-			  vaopt_paste_error);
-	    return ERROR;
-	  }
-	/* Advance states before further considering this token, in
-	   case we see a close paren immediately after the open
-	   paren.  */
-	if (m_state == 2)
-	  ++m_state;
-
-	bool was_paste = m_last_was_paste;
-	m_last_was_paste = false;
-	if (token->type == CPP_PASTE)
-	  {
-	    m_last_was_paste = true;
-	    m_paste_location = token->src_loc;
-	  }
-	else if (token->type == CPP_OPEN_PAREN)
-	  ++m_state;
-	else if (token->type == CPP_CLOSE_PAREN)
-	  {
-	    --m_state;
-	    if (m_state == 2)
-	      {
-		/* Saw the final paren.  */
-		m_state = 0;
-
-		if (was_paste)
-		  {
-		    cpp_error_at (m_pfile, CPP_DL_ERROR, token->src_loc,
-				  vaopt_paste_error);
-		    return ERROR;
-		  }
-
-		return END;
-	      }
-	  }
-	return m_allowed ? INCLUDE : DROP;
-      }
-
-    /* Nothing to do with __VA_OPT__.  */
-    return INCLUDE;
-  }
-
-  /* Ensure that any __VA_OPT__ was completed.  If ok, return true.
-     Otherwise, issue an error and return false.  */
-  bool completed ()
-  {
-    if (m_variadic && m_state != 0)
-      cpp_error_at (m_pfile, CPP_DL_ERROR, m_location,
-		    "unterminated __VA_OPT__");
-    return m_state == 0;
-  }
-
- private:
-
-  /* The cpp_reader.  */
-  cpp_reader *m_pfile;
-
-  /* True if there were varargs.  */
-  bool m_allowed;
-  /* True if the macro is variadic.  */
-  bool m_variadic;
-  /* If true, the previous token was ##.  This is used to detect when
-     a paste occurs at the end of the sequence.  */
-  bool m_last_was_paste;
-
-  /* The state variable:
-     0 means not parsing
-     1 means __VA_OPT__ seen, looking for "("
-     2 means "(" seen (so the next token can't be "##")
-     >= 3 means looking for ")", the number encodes the paren depth.  */
-  int m_state;
-
-  /* The location of the paste token.  */
-  source_location m_paste_location;
-
-  /* Location of the __VA_OPT__ token.  */
-  source_location m_location;
-};
-
 /* Macro expansion.  */
 
 static int enter_macro_context (cpp_reader *, cpp_hashnode *,
 				const cpp_token *, source_location);
-static int builtin_macro (cpp_reader *, cpp_hashnode *,
-			  source_location, source_location);
+static int builtin_macro (cpp_reader *, cpp_hashnode *, source_location);
 static void push_ptoken_context (cpp_reader *, cpp_hashnode *, _cpp_buff *,
 				 const cpp_token **, unsigned int);
 static void push_extended_tokens_context (cpp_reader *, cpp_hashnode *,
@@ -293,7 +141,7 @@ static inline const cpp_token **tokens_buff_put_token_to (const cpp_token **,
                                                           const cpp_token *,
                                                           source_location,
                                                           source_location,
-                                                          const line_map_macro *,
+                                                          const struct line_map *,
                                                           unsigned int);
 
 static const cpp_token **tokens_buff_add_token (_cpp_buff *,
@@ -301,7 +149,7 @@ static const cpp_token **tokens_buff_add_token (_cpp_buff *,
 						const cpp_token *,
 						source_location,
 						source_location,
-						const line_map_macro *,
+						const struct line_map *,
 						unsigned int);
 static inline void tokens_buff_remove_last_token (_cpp_buff *);
 static void replace_args (cpp_reader *, cpp_hashnode *, cpp_macro *,
@@ -347,9 +195,7 @@ _cpp_warn_if_unused_macro (cpp_reader *pfile, cpp_hashnode *node,
       cpp_macro *macro = node->value.macro;
 
       if (!macro->used
-	  && MAIN_FILE_P (linemap_check_ordinary
-			    (linemap_lookup (pfile->line_table,
-					     macro->line))))
+	  && MAIN_FILE_P (linemap_lookup (pfile->line_table, macro->line)))
 	cpp_warning_with_line (pfile, CPP_W_UNUSED_MACROS, macro->line, 0,
 			       "macro \"%s\" is not used", NODE_NAME (node));
     }
@@ -381,8 +227,7 @@ static const char * const monthnames[] =
 /* Helper function for builtin_macro.  Returns the text generated by
    a builtin macro. */
 const uchar *
-_cpp_builtin_macro_text (cpp_reader *pfile, cpp_hashnode *node,
-			 source_location loc)
+_cpp_builtin_macro_text (cpp_reader *pfile, cpp_hashnode *node)
 {
   const uchar *result = NULL;
   linenum_type number = 1;
@@ -452,8 +297,6 @@ _cpp_builtin_macro_text (cpp_reader *pfile, cpp_hashnode *node,
 	    if (!name)
 	      abort ();
 	  }
-	if (pfile->cb.remap_filename)
-	  name = pfile->cb.remap_filename (name);
 	len = strlen (name);
 	buf = _cpp_unaligned_alloc (pfile, len * 2 + 3);
 	result = buf;
@@ -474,14 +317,11 @@ _cpp_builtin_macro_text (cpp_reader *pfile, cpp_hashnode *node,
     case BT_SPECLINE:
       /* If __LINE__ is embedded in a macro, it must expand to the
 	 line of the macro's invocation, not its definition.
-	 Otherwise things like assert() will not work properly.
-	 See WG14 N1911, WG21 N4220 sec 6.5, and PR 61861.  */
-      if (CPP_OPTION (pfile, traditional))
-	loc = pfile->line_table->highest_line;
-      else
-	loc = linemap_resolve_location (pfile->line_table, loc,
-					LRK_MACRO_EXPANSION_POINT, NULL);
-      number = linemap_get_expansion_line (pfile->line_table, loc);
+	 Otherwise things like assert() will not work properly.  */
+      number = linemap_get_expansion_line (pfile->line_table,
+					   CPP_OPTION (pfile, traditional)
+					   ? pfile->line_table->highest_line
+					   : pfile->cur_token[-1].src_loc);
       break;
 
       /* __STDC__ has the value 1 under normal circumstances.
@@ -510,24 +350,13 @@ _cpp_builtin_macro_text (cpp_reader *pfile, cpp_hashnode *node,
 	  time_t tt;
 	  struct tm *tb = NULL;
 
-	  /* Set a reproducible timestamp for __DATE__ and __TIME__ macro
-	     if SOURCE_DATE_EPOCH is defined.  */
-	  if (pfile->source_date_epoch == (time_t) -2
-	      && pfile->cb.get_source_date_epoch != NULL)
-	    pfile->source_date_epoch = pfile->cb.get_source_date_epoch (pfile);
-
-	  if (pfile->source_date_epoch >= (time_t) 0)
-	    tb = gmtime (&pfile->source_date_epoch);
-	  else
-	    {
-	      /* (time_t) -1 is a legitimate value for "number of seconds
-		 since the Epoch", so we have to do a little dance to
-		 distinguish that from a genuine error.  */
-	      errno = 0;
-	      tt = time (NULL);
-	      if (tt != (time_t)-1 || errno == 0)
-		tb = localtime (&tt);
-	    }
+	  /* (time_t) -1 is a legitimate value for "number of seconds
+	     since the Epoch", so we have to do a little dance to
+	     distinguish that from a genuine error.  */
+	  errno = 0;
+	  tt = time(NULL);
+	  if (tt != (time_t)-1 || errno == 0)
+	    tb = localtime (&tt);
 
 	  if (tb)
 	    {
@@ -586,8 +415,7 @@ _cpp_builtin_macro_text (cpp_reader *pfile, cpp_hashnode *node,
    return the token to the caller.  LOC is the location of the expansion
    point of the macro.  */
 static int
-builtin_macro (cpp_reader *pfile, cpp_hashnode *node,
-	       source_location loc, source_location expand_loc)
+builtin_macro (cpp_reader *pfile, cpp_hashnode *node, source_location loc)
 {
   const uchar *buf;
   size_t len;
@@ -600,10 +428,10 @@ builtin_macro (cpp_reader *pfile, cpp_hashnode *node,
       if (pfile->state.in_directive)
 	return 0;
 
-      return _cpp_do__Pragma (pfile, loc);
+      return _cpp_do__Pragma (pfile);
     }
 
-  buf = _cpp_builtin_macro_text (pfile, node, expand_loc);
+  buf = _cpp_builtin_macro_text (pfile, node);
   len = ustrlen (buf);
   nbuf = (char *) alloca (len + 1);
   memcpy (nbuf, buf, len);
@@ -625,8 +453,9 @@ builtin_macro (cpp_reader *pfile, cpp_hashnode *node,
 	 macro.  */
       source_location *virt_locs = NULL;
       _cpp_buff *token_buf = tokens_buff_new (pfile, 1, &virt_locs);
-      const line_map_macro * map =
-	linemap_enter_macro (pfile->line_table, node, loc, 1);
+      const line_map * map =
+	linemap_enter_macro (pfile->line_table, node,
+					    token->src_loc, 1);
       tokens_buff_add_token (token_buf, virt_locs, token,
 			     pfile->line_table->builtin_location,
 			     pfile->line_table->builtin_location,
@@ -655,21 +484,13 @@ cpp_quote_string (uchar *dest, const uchar *src, unsigned int len)
     {
       uchar c = *src++;
 
-      switch (c)
+      if (c == '\\' || c == '"')
 	{
-	case '\n':
-	  /* Naked LF can appear in raw string literals  */
-	  c = 'n';
-	  /* FALLTHROUGH */
-
-	case '\\':
-	case '"':
 	  *dest++ = '\\';
-	  /* FALLTHROUGH */
-
-	default:
 	  *dest++ = c;
 	}
+      else
+	  *dest++ = c;
     }
 
   return dest;
@@ -708,7 +529,7 @@ stringify_arg (cpp_reader *pfile, macro_arg *arg)
 		   || token->type == CPP_WSTRING || token->type == CPP_WCHAR
 		   || token->type == CPP_STRING32 || token->type == CPP_CHAR32
 		   || token->type == CPP_STRING16 || token->type == CPP_CHAR16
-		   || token->type == CPP_UTF8STRING || token->type == CPP_UTF8CHAR
+		   || token->type == CPP_UTF8STRING
 		   || cpp_userdef_string_p (token->type)
 		   || cpp_userdef_char_p (token->type));
 
@@ -929,8 +750,7 @@ _cpp_arguments_ok (cpp_reader *pfile, cpp_macro *macro, const cpp_hashnode *node
 
   if (argc < macro->paramc)
     {
-      /* In C++2a (here the va_opt flag is used), and also as a GNU
-	 extension, variadic arguments are allowed to not appear in
+      /* As an extension, variadic arguments are allowed to not appear in
 	 the invocation at all.
 	 e.g. #define debug(format, args...) something
 	 debug("string");
@@ -940,8 +760,7 @@ _cpp_arguments_ok (cpp_reader *pfile, cpp_macro *macro, const cpp_hashnode *node
 
       if (argc + 1 == macro->paramc && macro->variadic)
 	{
-	  if (CPP_PEDANTIC (pfile) && ! macro->syshdr
-	      && ! CPP_OPTION (pfile, va_opt))
+	  if (CPP_PEDANTIC (pfile) && ! macro->syshdr)
 	    {
 	      if (CPP_OPTION (pfile, cplusplus))
 		cpp_error (pfile, CPP_DL_PEDWARN,
@@ -1348,7 +1167,7 @@ enter_macro_context (cpp_reader *pfile, cpp_hashnode *node,
 	    {
 	      unsigned int i;
 	      const cpp_token *src = macro->exp.tokens;
-	      const line_map_macro *map;
+	      const struct line_map *map;
 	      source_location *virt_locs = NULL;
 	      _cpp_buff *macro_tokens
 		= tokens_buff_new (pfile, tokens_count, &virt_locs);
@@ -1410,29 +1229,22 @@ enter_macro_context (cpp_reader *pfile, cpp_hashnode *node,
   pfile->about_to_expand_macro_p = false;
   /* Handle built-in macros and the _Pragma operator.  */
   {
-    source_location loc, expand_loc;
-
+    source_location loc;
     if (/* The top-level macro invocation that triggered the expansion
 	   we are looking at is with a standard macro ...*/
 	!(pfile->top_most_macro_node->flags & NODE_BUILTIN)
 	/* ... and it's a function-like macro invocation.  */
 	&& pfile->top_most_macro_node->value.macro->fun_like)
-      {
-	/* Then the location of the end of the macro invocation is the
-	   location of the closing parenthesis.  */
-	loc = pfile->cur_token[-1].src_loc;
-	expand_loc = loc;
-      }
+      /* Then the location of the end of the macro invocation is the
+	 location of the closing parenthesis.  */
+      loc = pfile->cur_token[-1].src_loc;
     else
-      {
-	/* Otherwise, the location of the end of the macro invocation is
-	   the location of the expansion point of that top-level macro
-	   invocation.  */
-	loc = location;
-	expand_loc = pfile->invocation_location;
-      }
+      /* Otherwise, the location of the end of the macro invocation is
+	 the location of the expansion point of that top-level macro
+	 invocation.  */
+      loc = location;
 
-    return builtin_macro (pfile, node, loc, expand_loc);
+    return builtin_macro (pfile, node, loc);
   }
 }
 
@@ -1496,11 +1308,14 @@ set_arg_token (macro_arg *arg, const cpp_token *token,
 
   if (loc != NULL)
     {
-      /* We can't set the location of a stringified argument
-	 token and we can't set any location if we aren't tracking
-	 macro expansion locations.   */
-      gcc_checking_assert (kind != MACRO_ARG_TOKEN_STRINGIFIED
-			   && track_macro_exp_p);
+#ifdef ENABLE_CHECKING
+      if (kind == MACRO_ARG_TOKEN_STRINGIFIED
+	  || !track_macro_exp_p)
+	/* We can't set the location of a stringified argument
+	   token and we can't set any location if we aren't tracking
+	   macro expansion locations.   */
+	abort ();
+#endif
       *loc = location;
     }
 }
@@ -1586,7 +1401,7 @@ macro_arg_token_iter_init (macro_arg_token_iter *iter,
   iter->location_ptr = NULL;
   if (track_macro_exp_p)
     iter->location_ptr = get_arg_token_location (arg, kind);
-#if CHECKING_P
+#ifdef ENABLE_CHECKING
   iter->num_forwards = 0;
   if (track_macro_exp_p
       && token_ptr != NULL
@@ -1611,14 +1426,14 @@ macro_arg_token_iter_forward (macro_arg_token_iter *it)
 	it->location_ptr++;
       break;
     case MACRO_ARG_TOKEN_STRINGIFIED:
-#if CHECKING_P
+#ifdef ENABLE_CHECKING
       if (it->num_forwards > 0)
 	abort ();
 #endif
       break;
     }
 
-#if CHECKING_P
+#ifdef ENABLE_CHECKING
   it->num_forwards++;
 #endif
 }
@@ -1627,7 +1442,7 @@ macro_arg_token_iter_forward (macro_arg_token_iter *it)
 static const cpp_token *
 macro_arg_token_iter_get_token (const macro_arg_token_iter *it)
 {
-#if CHECKING_P
+#ifdef ENABLE_CHECKING
   if (it->kind == MACRO_ARG_TOKEN_STRINGIFIED
       && it->num_forwards > 0)
     abort ();
@@ -1641,7 +1456,7 @@ macro_arg_token_iter_get_token (const macro_arg_token_iter *it)
 static source_location
 macro_arg_token_iter_get_location (const macro_arg_token_iter *it)
 {
-#if CHECKING_P
+#ifdef ENABLE_CHECKING
   if (it->kind == MACRO_ARG_TOKEN_STRINGIFIED
       && it->num_forwards > 0)
     abort ();
@@ -1703,30 +1518,6 @@ expanded_token_index (cpp_reader *pfile, cpp_macro *macro,
   return cur_replacement_token - macro->exp.tokens;
 }
 
-/* Copy whether PASTE_LEFT is set from SRC to *PASTE_FLAG.  */
-
-static void
-copy_paste_flag (cpp_reader *pfile, const cpp_token **paste_flag,
-		 const cpp_token *src)
-{
-  cpp_token *token = _cpp_temp_token (pfile);
-  token->type = (*paste_flag)->type;
-  token->val = (*paste_flag)->val;
-  if (src->flags & PASTE_LEFT)
-    token->flags = (*paste_flag)->flags | PASTE_LEFT;
-  else
-    token->flags = (*paste_flag)->flags & ~PASTE_LEFT;
-  *paste_flag = token;
-}
-
-/* True IFF the last token emitted into BUFF (if any) is PTR.  */
-
-static bool
-last_token_is (_cpp_buff *buff, const cpp_token **ptr)
-{
-  return (ptr && tokens_buff_last_token_ptr (buff) == ptr);
-}
-
 /* Replace the parameters in a function-like macro of NODE with the
    actual ARGS, and place the result in a newly pushed token context.
    Expand each argument before replacing, unless it is operated upon
@@ -1744,7 +1535,7 @@ replace_args (cpp_reader *pfile, cpp_hashnode *node, cpp_macro *macro,
   _cpp_buff *buff = NULL;
   source_location *virt_locs = NULL;
   unsigned int exp_count;
-  const line_map_macro *map = NULL;
+  const struct line_map *map = NULL;
   int track_macro_exp;
 
   /* First, fully macro-expand arguments, calculating the number of
@@ -1845,9 +1636,9 @@ replace_args (cpp_reader *pfile, cpp_hashnode *node, cpp_macro *macro,
 	   multiple tokens. This is to save memory at the expense of
 	   accuracy.
 
-	   Suppose we have #define SQUARE(A) A * A
+	   Suppose we have #define SQARE(A) A * A
 
-	   And then we do SQUARE(2+3)
+	   And then we do SQARE(2+3)
 
 	   Then the tokens 2, +, 3, will have the same location,
 	   saying they come from the expansion of the argument A.  */
@@ -1857,69 +1648,12 @@ replace_args (cpp_reader *pfile, cpp_hashnode *node, cpp_macro *macro,
 				 num_macro_tokens);
     }
   i = 0;
-  vaopt_state vaopt_tracker (pfile, macro->variadic,
-			     args[macro->paramc - 1].count > 0);
-  const cpp_token **vaopt_start = NULL;
   for (src = macro->exp.tokens; src < limit; src++)
     {
       unsigned int arg_tokens_count;
       macro_arg_token_iter from;
       const cpp_token **paste_flag = NULL;
       const cpp_token **tmp_token_ptr;
-
-      /* __VA_OPT__ handling.  */
-      vaopt_state::update_type vostate = vaopt_tracker.update (src);
-      if (vostate != vaopt_state::INCLUDE)
-	{
-	  if (vostate == vaopt_state::BEGIN)
-	    {
-	      /* Padding on the left of __VA_OPT__ (unless RHS of ##).  */
-	      if (src != macro->exp.tokens && !(src[-1].flags & PASTE_LEFT))
-		{
-		  const cpp_token *t = padding_token (pfile, src);
-		  unsigned index = expanded_token_index (pfile, macro, src, i);
-		  /* Allocate a virtual location for the padding token and
-		     append the token and its location to BUFF and
-		     VIRT_LOCS.   */
-		  tokens_buff_add_token (buff, virt_locs, t,
-					 t->src_loc, t->src_loc,
-					 map, index);
-		}
-	      vaopt_start = tokens_buff_last_token_ptr (buff);
-	    }
-	  else if (vostate == vaopt_state::END)
-	    {
-	      const cpp_token **start = vaopt_start;
-	      vaopt_start = NULL;
-
-	      /* Remove any tail padding from inside the __VA_OPT__.  */
-	      paste_flag = tokens_buff_last_token_ptr (buff);
-	      while (paste_flag && paste_flag != start
-		     && (*paste_flag)->type == CPP_PADDING)
-		{
-		  tokens_buff_remove_last_token (buff);
-		  paste_flag = tokens_buff_last_token_ptr (buff);
-		}
-
-	      if (src->flags & PASTE_LEFT)
-		{
-		  /* With a non-empty __VA_OPT__ on the LHS of ##, the last
-		     token should be flagged PASTE_LEFT.  */
-		  if (paste_flag && (*paste_flag)->type != CPP_PADDING)
-		    copy_paste_flag (pfile, paste_flag, src);
-		}
-	      else
-		{
-		  /* Otherwise, avoid paste on RHS, __VA_OPT__(c)d or
-		     __VA_OPT__(c)__VA_OPT__(d).  */
-		  const cpp_token *t = &pfile->avoid_paste;
-		  tokens_buff_add_token (buff, virt_locs,
-					 t, t->src_loc, t->src_loc,
-					 NULL, 0);
-		}
-	    }
-	  continue;
-	}
 
       if (src->type != CPP_MACRO_ARG)
 	{
@@ -1998,11 +1732,8 @@ replace_args (cpp_reader *pfile, cpp_hashnode *node, cpp_macro *macro,
 		  else
 		    paste_flag = tmp_token_ptr;
 		}
-	      /* Remove the paste flag if the RHS is a placemarker, unless the
-		 previous emitted token is at the beginning of __VA_OPT__;
-		 placemarkers within __VA_OPT__ are ignored in that case.  */
-	      else if (arg_tokens_count == 0
-		       && tmp_token_ptr != vaopt_start)
+	      /* Remove the paste flag if the RHS is a placemarker.  */
+	      else if (arg_tokens_count == 0)
 		paste_flag = tmp_token_ptr;
 	    }
 	}
@@ -2014,26 +1745,11 @@ replace_args (cpp_reader *pfile, cpp_hashnode *node, cpp_macro *macro,
 						 track_macro_expansion),
 				     MACRO_ARG_TOKEN_EXPANDED,
 				     arg, arg->expanded);
-
-	  if (last_token_is (buff, vaopt_start))
-	    {
-	      /* We're expanding an arg at the beginning of __VA_OPT__.
-		 Skip padding. */
-	      while (arg_tokens_count)
-		{
-		  const cpp_token *t = macro_arg_token_iter_get_token (&from);
-		  if (t->type != CPP_PADDING)
-		    break;
-		  macro_arg_token_iter_forward (&from);
-		  --arg_tokens_count;
-		}
-	    }
 	}
 
       /* Padding on the left of an argument (unless RHS of ##).  */
       if ((!pfile->state.in_directive || pfile->state.directive_wants_padding)
-	  && src != macro->exp.tokens && !(src[-1].flags & PASTE_LEFT)
-	  && !last_token_is (buff, vaopt_start))
+	  && src != macro->exp.tokens && !(src[-1].flags & PASTE_LEFT))
 	{
 	  const cpp_token *t = padding_token (pfile, src);
 	  unsigned index = expanded_token_index (pfile, macro, src, i);
@@ -2057,9 +1773,9 @@ replace_args (cpp_reader *pfile, cpp_hashnode *node, cpp_macro *macro,
 		 save extra memory while tracking macro expansion
 		 locations.  So in that case here is what we do:
 
-		 Suppose we have #define SQUARE(A) A * A
+		 Suppose we have #define SQARE(A) A * A
 
-		 And then we do SQUARE(2+3)
+		 And then we do SQARE(2+3)
 
 		 Then the tokens 2, +, 3, will have the same location,
 		 saying they come from the expansion of the argument
@@ -2067,9 +1783,9 @@ replace_args (cpp_reader *pfile, cpp_hashnode *node, cpp_macro *macro,
 
 	      So that means we are going to ignore the COUNT tokens
 	      resulting from the expansion of the current macro
-	      argument. In other words all the ARG_TOKENS_COUNT tokens
+	      arugment. In other words all the ARG_TOKENS_COUNT tokens
 	      resulting from the expansion of the macro argument will
-	      have the index I.  Normally, each of those tokens should
+	      have the index I. Normally, each of those token should
 	      have index I+J.  */
 	      unsigned token_index = i;
 	      unsigned index;
@@ -2087,8 +1803,8 @@ replace_args (cpp_reader *pfile, cpp_hashnode *node, cpp_macro *macro,
 	  /* With a non-empty argument on the LHS of ##, the last
 	     token should be flagged PASTE_LEFT.  */
 	  if (src->flags & PASTE_LEFT)
-	    paste_flag
-	      = (const cpp_token **) tokens_buff_last_token_ptr (buff);
+	    paste_flag =
+	      (const cpp_token **) tokens_buff_last_token_ptr (buff);
 	}
       else if (CPP_PEDANTIC (pfile) && ! CPP_OPTION (pfile, c99)
 	       && ! macro->syshdr && ! cpp_in_system_header (pfile))
@@ -2118,8 +1834,7 @@ replace_args (cpp_reader *pfile, cpp_hashnode *node, cpp_macro *macro,
 		     NODE_NAME (node), src->val.macro_arg.arg_no);
 
       /* Avoid paste on RHS (even case count == 0).  */
-      if (!pfile->state.in_directive && !(src->flags & PASTE_LEFT)
-	  && !last_token_is (buff, vaopt_start))
+      if (!pfile->state.in_directive && !(src->flags & PASTE_LEFT))
 	{
 	  const cpp_token *t = &pfile->avoid_paste;
 	  tokens_buff_add_token (buff, virt_locs,
@@ -2129,7 +1844,16 @@ replace_args (cpp_reader *pfile, cpp_hashnode *node, cpp_macro *macro,
 
       /* Add a new paste flag, or remove an unwanted one.  */
       if (paste_flag)
-	copy_paste_flag (pfile, paste_flag, src);
+	{
+	  cpp_token *token = _cpp_temp_token (pfile);
+	  token->type = (*paste_flag)->type;
+	  token->val = (*paste_flag)->val;
+	  if (src->flags & PASTE_LEFT)
+	    token->flags = (*paste_flag)->flags | PASTE_LEFT;
+	  else
+	    token->flags = (*paste_flag)->flags & ~PASTE_LEFT;
+	  *paste_flag = token;
+	}
 
       i += arg_tokens_count;
     }
@@ -2300,8 +2024,6 @@ tokens_buff_count (_cpp_buff *buff)
 static const cpp_token **
 tokens_buff_last_token_ptr (_cpp_buff *buff)
 {
-  if (BUFF_FRONT (buff) == buff->base)
-    return NULL;
   return &((const cpp_token **) BUFF_FRONT (buff))[-1];
 }
 
@@ -2344,7 +2066,7 @@ tokens_buff_put_token_to (const cpp_token **dest,
 			  const cpp_token *token,
 			  source_location virt_loc,
 			  source_location parm_def_loc,			  
-			  const line_map_macro *map,
+			  const struct line_map *map,
 			  unsigned int macro_token_index)
 {
   source_location macro_loc = virt_loc;
@@ -2389,7 +2111,7 @@ tokens_buff_add_token (_cpp_buff *buffer,
 		       const cpp_token *token,
 		       source_location virt_loc,
 		       source_location parm_def_loc,
-		       const line_map_macro *map,
+		       const struct line_map *map,
 		       unsigned int macro_token_index)
 {
   const cpp_token **result;
@@ -2420,9 +2142,11 @@ tokens_buff_add_token (_cpp_buff *buffer,
 static void
 alloc_expanded_arg_mem (cpp_reader *pfile, macro_arg *arg, size_t capacity)
 {
-  gcc_checking_assert (arg->expanded == NULL
-		       && arg->expanded_virt_locs == NULL);
-
+#ifdef ENABLE_CHECKING
+  if (arg->expanded != NULL
+      || arg->expanded_virt_locs != NULL)
+    abort ();
+#endif
   arg->expanded = XNEWVEC (const cpp_token *, capacity);
   if (CPP_OPTION (pfile, track_macro_expansion))
     arg->expanded_virt_locs = XNEWVEC (source_location, capacity);
@@ -2983,7 +2707,10 @@ _cpp_backup_tokens (cpp_reader *pfile, unsigned int count)
 	    {
 	      macro_context *m = pfile->context->c.mc;
 	      m->cur_virt_loc--;
-	      gcc_checking_assert (m->cur_virt_loc >= m->virt_locs);
+#ifdef ENABLE_CHECKING
+	      if (m->cur_virt_loc < m->virt_locs)
+		abort ();
+#endif
 	    }
 	  else
 	    abort ();
@@ -3142,7 +2869,6 @@ parse_params (cpp_reader *pfile, cpp_macro *macro)
 	    return true;
 
 	  /* Fall through to pick up the error.  */
-	  /* FALLTHRU */
 	case CPP_COMMA:
 	  if (!prev_ident)
 	    {
@@ -3324,9 +3050,6 @@ create_iso_definition (cpp_reader *pfile, cpp_macro *macro)
       *token = *ctoken;
     }
 
-  /* The argument doesn't matter here.  */
-  vaopt_state vaopt_tracker (pfile, macro->variadic, true);
-
   for (;;)
     {
       /* Check the stringifying # constraint 6.10.3.2.1 of
@@ -3395,15 +3118,9 @@ create_iso_definition (cpp_reader *pfile, cpp_macro *macro)
 	    }
 	}
 
-      if (vaopt_tracker.update (token) == vaopt_state::ERROR)
-	return false;
-
       following_paste_op = (token->type == CPP_PASTE);
       token = lex_expansion_token (pfile, macro);
     }
-
-  if (!vaopt_tracker.completed ())
-    return false;
 
   macro->exp.tokens = (cpp_token *) BUFF_FRONT (pfile->a_buff);
   macro->traditional = 0;
@@ -3581,7 +3298,7 @@ check_trad_stringification (cpp_reader *pfile, const cpp_macro *macro,
 	  if (NODE_LEN (node) == len
 	      && !memcmp (p, NODE_NAME (node), len))
 	    {
-	      cpp_warning (pfile, CPP_W_TRADITIONAL,
+	      cpp_error (pfile, CPP_DL_WARNING,
 	   "macro argument \"%s\" would be stringified in traditional C",
 			 NODE_NAME (node));
 	      break;
@@ -3736,12 +3453,4 @@ cpp_macro_definition (cpp_reader *pfile, cpp_hashnode *node)
 
   *buffer = '\0';
   return pfile->macro_buffer;
-}
-
-/* Get the line at which the macro was defined.  */
-
-source_location
-cpp_macro_definition_location (cpp_hashnode *node)
-{
-  return node->value.macro->line;
 }

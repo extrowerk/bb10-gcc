@@ -1,8 +1,9 @@
-// { dg-do compile { target c++11 } }
+// { dg-options "-std=gnu++11" }
+// { dg-do compile }
 
 // 2007-05-03  Benjamin Kosnik  <bkoz@redhat.com>
 //
-// Copyright (C) 2007-2018 Free Software Foundation, Inc.
+// Copyright (C) 2007-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -60,7 +61,6 @@ void test01()
   static_assert(is_unsigned<test24_type>::value, "");
   static_assert(sizeof(test24_type) == sizeof(test_enum), "");
 
-#ifndef __STRICT_ANSI__
   // GNU Extensions.
 #ifdef _GLIBCXX_USE_INT128
   typedef make_unsigned<unsigned __int128>::type test25_type;
@@ -68,6 +68,5 @@ void test01()
 
   typedef make_unsigned<__int128>::type  	 test26_type;
   static_assert(is_same<test26_type, unsigned __int128>::value, "");
-#endif
 #endif
 }

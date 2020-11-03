@@ -4,4 +4,4 @@
 /* /* */  // { dg-error "\"\.\*\" within comment .-Werror=comment." }
 
 // \
-          // { dg-error "multi-line comment .-Werror=comment." "multi-line" { target *-*-* } .-1 }
+          // { dg-error "multi-line comment .-Werror=comment." "multi-line" { target *-*-* } 6 }

@@ -1,6 +1,5 @@
 // { dg-do run  }
 // { dg-options "" }
-// { dg-require-effective-target alloca }
 // Testcase for constructor expressions (GNU extension)
 
 struct Any {
@@ -10,7 +9,6 @@ struct Any {
 
 int i, j;
 
-int
 main () {
   struct Any *ap = (struct Any *)
     __builtin_alloca (sizeof(struct Any));

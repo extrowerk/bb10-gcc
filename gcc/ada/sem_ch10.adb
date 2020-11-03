@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -23,51 +23,49 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Aspects;   use Aspects;
-with Atree;     use Atree;
-with Contracts; use Contracts;
-with Debug;     use Debug;
-with Einfo;     use Einfo;
-with Errout;    use Errout;
-with Exp_Util;  use Exp_Util;
-with Elists;    use Elists;
-with Fname;     use Fname;
-with Fname.UF;  use Fname.UF;
-with Freeze;    use Freeze;
-with Ghost;     use Ghost;
-with Impunit;   use Impunit;
-with Inline;    use Inline;
-with Lib;       use Lib;
-with Lib.Load;  use Lib.Load;
-with Lib.Xref;  use Lib.Xref;
-with Namet;     use Namet;
-with Nlists;    use Nlists;
-with Nmake;     use Nmake;
-with Opt;       use Opt;
-with Output;    use Output;
-with Par_SCO;   use Par_SCO;
-with Restrict;  use Restrict;
-with Rident;    use Rident;
-with Rtsfind;   use Rtsfind;
-with Sem;       use Sem;
-with Sem_Aux;   use Sem_Aux;
-with Sem_Ch3;   use Sem_Ch3;
-with Sem_Ch6;   use Sem_Ch6;
-with Sem_Ch7;   use Sem_Ch7;
-with Sem_Ch8;   use Sem_Ch8;
-with Sem_Dist;  use Sem_Dist;
-with Sem_Prag;  use Sem_Prag;
-with Sem_Util;  use Sem_Util;
-with Sem_Warn;  use Sem_Warn;
-with Stand;     use Stand;
-with Sinfo;     use Sinfo;
-with Sinfo.CN;  use Sinfo.CN;
-with Sinput;    use Sinput;
-with Snames;    use Snames;
-with Style;     use Style;
-with Stylesw;   use Stylesw;
-with Tbuild;    use Tbuild;
-with Uname;     use Uname;
+with Aspects;  use Aspects;
+with Atree;    use Atree;
+with Debug;    use Debug;
+with Einfo;    use Einfo;
+with Errout;   use Errout;
+with Exp_Util; use Exp_Util;
+with Elists;   use Elists;
+with Fname;    use Fname;
+with Fname.UF; use Fname.UF;
+with Freeze;   use Freeze;
+with Impunit;  use Impunit;
+with Inline;   use Inline;
+with Lib;      use Lib;
+with Lib.Load; use Lib.Load;
+with Lib.Xref; use Lib.Xref;
+with Namet;    use Namet;
+with Nlists;   use Nlists;
+with Nmake;    use Nmake;
+with Opt;      use Opt;
+with Output;   use Output;
+with Par_SCO;  use Par_SCO;
+with Restrict; use Restrict;
+with Rident;   use Rident;
+with Rtsfind;  use Rtsfind;
+with Sem;      use Sem;
+with Sem_Aux;  use Sem_Aux;
+with Sem_Ch3;  use Sem_Ch3;
+with Sem_Ch6;  use Sem_Ch6;
+with Sem_Ch7;  use Sem_Ch7;
+with Sem_Ch8;  use Sem_Ch8;
+with Sem_Dist; use Sem_Dist;
+with Sem_Prag; use Sem_Prag;
+with Sem_Util; use Sem_Util;
+with Sem_Warn; use Sem_Warn;
+with Stand;    use Stand;
+with Sinfo;    use Sinfo;
+with Sinfo.CN; use Sinfo.CN;
+with Sinput;   use Sinput;
+with Snames;   use Snames;
+with Style;    use Style;
+with Stylesw;  use Stylesw;
+with Tbuild;   use Tbuild;
+with Uname;    use Uname;
 
 package body Sem_Ch10 is
 
@@ -84,13 +82,6 @@ package body Sem_Ch10 is
    --  then it also performs a basic decoration of the real entities. This is
    --  required in order to avoid passing non-decorated entities to the
    --  back-end. Implements Ada 2005 (AI-50217).
-
-   procedure Analyze_Proper_Body (N : Node_Id; Nam : Entity_Id);
-   --  Common processing for all stubs (subprograms, tasks, packages, and
-   --  protected cases). N is the stub to be analyzed. Once the subunit name
-   --  is established, load and analyze. Nam is the non-overloadable entity
-   --  for which the proper body provides a completion. Subprogram stubs are
-   --  handled differently because they can be declarations.
 
    procedure Check_Body_Needed_For_SAL (Unit_Name : Entity_Id);
    --  Check whether the source for the body of a compilation unit must be
@@ -138,12 +129,9 @@ package body Sem_Ch10 is
    --  Check that the shadow entity is not already in the homonym chain, for
    --  example through a limited_with clause in a parent unit.
 
-   procedure Install_Context_Clauses (N : Node_Id; Chain : Boolean := True);
+   procedure Install_Context_Clauses (N : Node_Id);
    --  Subsidiary to Install_Context and Install_Parents. Process all with
-   --  and use clauses for current unit and its library unit if any. The flag
-   --  Chain is used to control the "chaining" or linking together of use-type
-   --  and use-package clauses to avoid circularities with reinstalling
-   --  clauses.
+   --  and use clauses for current unit and its library unit if any.
 
    procedure Install_Limited_Context_Clauses (N : Node_Id);
    --  Subsidiary to Install_Context. Process only limited with_clauses for
@@ -162,10 +150,7 @@ package body Sem_Ch10 is
    --  is called when compiling the private part of a package, or installing
    --  the private declarations of a parent unit.
 
-   procedure Install_Parents
-     (Lib_Unit   : Node_Id;
-      Is_Private : Boolean;
-      Chain      : Boolean := True);
+   procedure Install_Parents (Lib_Unit : Node_Id; Is_Private : Boolean);
    --  This procedure establishes the context for the compilation of a child
    --  unit. If Lib_Unit is a child library spec then the context of the parent
    --  is installed, and the parent itself made immediately visible, so that
@@ -174,9 +159,7 @@ package body Sem_Ch10 is
    --  parents are loaded in the nested case. If Lib_Unit is a library body,
    --  the only effect of Install_Parents is to install the private decls of
    --  the parents, because the visible parent declarations will have been
-   --  installed as part of the context of the corresponding spec. The flag
-   --  Chain is used to control the "chaining" or linking of use-type and
-   --  use-package clauses to avoid circularities when installing context.
+   --  installed as part of the context of the corresponding spec.
 
    procedure Install_Siblings (U_Name : Entity_Id; N : Node_Id);
    --  In the compilation of a child unit, a child of any of the  ancestor
@@ -218,6 +201,13 @@ package body Sem_Ch10 is
 
    procedure Unchain (E : Entity_Id);
    --  Remove single entity from visibility list
+
+   procedure Analyze_Proper_Body (N : Node_Id; Nam : Entity_Id);
+   --  Common processing for all stubs (subprograms, tasks, packages, and
+   --  protected cases). N is the stub to be analyzed. Once the subunit name
+   --  is established, load and analyze. Nam is the non-overloadable entity
+   --  for which the proper body provides a completion. Subprogram stubs are
+   --  handled differently because they can be declarations.
 
    procedure sm;
    --  A dummy procedure, for debugging use, called just before analyzing the
@@ -278,8 +268,8 @@ package body Sem_Ch10 is
          procedure Process_Body_Clauses
           (Context_List      : List_Id;
            Clause            : Node_Id;
-           Used              : out Boolean;
-           Used_Type_Or_Elab : out Boolean);
+           Used              : in out Boolean;
+           Used_Type_Or_Elab : in out Boolean);
          --  Examine the context clauses of a package body, trying to match the
          --  name entity of Clause with any list element. If the match occurs
          --  on a use package clause set Used to True, for a use type clause or
@@ -288,8 +278,8 @@ package body Sem_Ch10 is
          procedure Process_Spec_Clauses
           (Context_List : List_Id;
            Clause       : Node_Id;
-           Used         : out Boolean;
-           Withed       : out Boolean;
+           Used         : in out Boolean;
+           Withed       : in out Boolean;
            Exit_On_Self : Boolean := False);
          --  Examine the context clauses of a package spec, trying to match
          --  the name entity of Clause with any list element. If the match
@@ -307,8 +297,8 @@ package body Sem_Ch10 is
          procedure Process_Body_Clauses
           (Context_List      : List_Id;
            Clause            : Node_Id;
-           Used              : out Boolean;
-           Used_Type_Or_Elab : out Boolean)
+           Used              : in out Boolean;
+           Used_Type_Or_Elab : in out Boolean)
          is
             Nam_Ent   : constant Entity_Id := Entity (Name (Clause));
             Cont_Item : Node_Id;
@@ -350,52 +340,60 @@ package body Sem_Ch10 is
                then
                   --  Search through use clauses
 
-                  Use_Item := Name (Cont_Item);
+                  Use_Item := First (Names (Cont_Item));
+                  while Present (Use_Item) and then not Used loop
 
-                  --  Case of a direct use of the one we are looking for
+                     --  Case of a direct use of the one we are looking for
 
-                  if Entity (Use_Item) = Nam_Ent then
-                     Used := True;
+                     if Entity (Use_Item) = Nam_Ent then
+                        Used := True;
 
-                  --  Handle nested case, as in "with P; use P.Q.R"
+                     --  Handle nested case, as in "with P; use P.Q.R"
 
-                  else
-                     declare
-                        UE : Node_Id;
+                     else
+                        declare
+                           UE : Node_Id;
 
-                     begin
-                        --  Loop through prefixes looking for match
+                        begin
+                           --  Loop through prefixes looking for match
 
-                        UE := Use_Item;
-                        while Nkind (UE) = N_Expanded_Name loop
-                           if Same_Unit (Prefix (UE), Nam_Ent) then
-                              Used := True;
-                              exit;
-                           end if;
+                           UE := Use_Item;
+                           while Nkind (UE) = N_Expanded_Name loop
+                              if Same_Unit (Prefix (UE), Nam_Ent) then
+                                 Used := True;
+                                 exit;
+                              end if;
 
-                           UE := Prefix (UE);
-                        end loop;
-                     end;
-                  end if;
+                              UE := Prefix (UE);
+                           end loop;
+                        end;
+                     end if;
+
+                     Next (Use_Item);
+                  end loop;
 
                --  USE TYPE clause
 
                elsif Nkind (Cont_Item) = N_Use_Type_Clause
                  and then not Used_Type_Or_Elab
                then
-                  Subt_Mark := Subtype_Mark (Cont_Item);
-                  if not Used_Type_Or_Elab
-                    and then Same_Unit (Prefix (Subt_Mark), Nam_Ent)
-                  then
-                     Used_Type_Or_Elab := True;
-                  end if;
+                  Subt_Mark := First (Subtype_Marks (Cont_Item));
+                  while Present (Subt_Mark)
+                    and then not Used_Type_Or_Elab
+                  loop
+                     if Same_Unit (Prefix (Subt_Mark), Nam_Ent) then
+                        Used_Type_Or_Elab := True;
+                     end if;
+
+                     Next (Subt_Mark);
+                  end loop;
 
                --  Pragma Elaborate or Elaborate_All
 
                elsif Nkind (Cont_Item) = N_Pragma
                  and then
-                   Nam_In (Pragma_Name_Unmapped (Cont_Item),
-                           Name_Elaborate, Name_Elaborate_All)
+                   Nam_In (Pragma_Name (Cont_Item), Name_Elaborate,
+                                                    Name_Elaborate_All)
                  and then not Used_Type_Or_Elab
                then
                   Prag_Unit :=
@@ -420,12 +418,13 @@ package body Sem_Ch10 is
          procedure Process_Spec_Clauses
           (Context_List : List_Id;
            Clause       : Node_Id;
-           Used         : out Boolean;
-           Withed       : out Boolean;
+           Used         : in out Boolean;
+           Withed       : in out Boolean;
            Exit_On_Self : Boolean := False)
          is
             Nam_Ent   : constant Entity_Id := Entity (Name (Clause));
             Cont_Item : Node_Id;
+            Use_Item  : Node_Id;
 
          begin
             Used := False;
@@ -449,9 +448,14 @@ package body Sem_Ch10 is
                if Nkind (Cont_Item) = N_Use_Package_Clause
                  and then not Used
                then
-                  if Entity (Name (Cont_Item)) = Nam_Ent then
-                     Used := True;
-                  end if;
+                  Use_Item := First (Names (Cont_Item));
+                  while Present (Use_Item) and then not Used loop
+                     if Entity (Use_Item) = Nam_Ent then
+                        Used := True;
+                     end if;
+
+                     Next (Use_Item);
+                  end loop;
 
                --  Package with clause. Avoid processing self, implicitly
                --  generated with clauses or limited with clauses. Note that
@@ -472,8 +476,8 @@ package body Sem_Ch10 is
                --  visibility analysis, but is also not redundant.
 
                elsif Nkind (Cont_Item) = N_With_Clause
-                 and then Comes_From_Source (Cont_Item)
                  and then not Implicit_With (Cont_Item)
+                 and then Comes_From_Source (Cont_Item)
                  and then not Limited_Present (Cont_Item)
                  and then Cont_Item /= Clause
                  and then Entity (Name (Cont_Item)) = Nam_Ent
@@ -510,23 +514,23 @@ package body Sem_Ch10 is
 
                if Present (Spec_Context_Items) then
                   declare
-                     Used_In_Body      : Boolean;
-                     Used_In_Spec      : Boolean;
-                     Used_Type_Or_Elab : Boolean;
-                     Withed_In_Spec    : Boolean;
+                     Used_In_Body      : Boolean := False;
+                     Used_In_Spec      : Boolean := False;
+                     Used_Type_Or_Elab : Boolean := False;
+                     Withed_In_Spec    : Boolean := False;
 
                   begin
                      Process_Spec_Clauses
-                       (Context_List => Spec_Context_Items,
-                        Clause       => Clause,
-                        Used         => Used_In_Spec,
-                        Withed       => Withed_In_Spec);
+                      (Context_List => Spec_Context_Items,
+                       Clause       => Clause,
+                       Used         => Used_In_Spec,
+                       Withed       => Withed_In_Spec);
 
                      Process_Body_Clauses
-                       (Context_List      => Context_Items,
-                        Clause            => Clause,
-                        Used              => Used_In_Body,
-                        Used_Type_Or_Elab => Used_Type_Or_Elab);
+                      (Context_List      => Context_Items,
+                       Clause            => Clause,
+                       Used              => Used_In_Body,
+                       Used_Type_Or_Elab => Used_Type_Or_Elab);
 
                      --  "Type Elab" refers to the presence of either a use
                      --  type clause, pragmas Elaborate or Elaborate_All.
@@ -552,36 +556,36 @@ package body Sem_Ch10 is
                                   or else Used_In_Spec)
                      then
                         Error_Msg_N -- CODEFIX
-                          ("redundant with clause in body?r?", Clause);
+                          ("redundant with clause in body??", Clause);
                      end if;
 
-                     Used_In_Body      := False;
-                     Used_In_Spec      := False;
+                     Used_In_Body := False;
+                     Used_In_Spec := False;
                      Used_Type_Or_Elab := False;
-                     Withed_In_Spec    := False;
+                     Withed_In_Spec := False;
                   end;
 
                --  Standalone package spec or body check
 
                else
                   declare
-                     Dummy  : Boolean := False;
-                     Withed : Boolean := False;
+                     Dont_Care : Boolean := False;
+                     Withed    : Boolean := False;
 
                   begin
                      --  The mechanism for examining the context clauses of a
                      --  package spec can be applied to package body clauses.
 
                      Process_Spec_Clauses
-                       (Context_List => Context_Items,
-                        Clause       => Clause,
-                        Used         => Dummy,
-                        Withed       => Withed,
-                        Exit_On_Self => True);
+                      (Context_List => Context_Items,
+                       Clause       => Clause,
+                       Used         => Dont_Care,
+                       Withed       => Withed,
+                       Exit_On_Self => True);
 
                      if Withed then
                         Error_Msg_N -- CODEFIX
-                          ("redundant with clause?r?", Clause);
+                          ("redundant with clause??", Clause);
                      end if;
                   end;
                end if;
@@ -607,7 +611,7 @@ package body Sem_Ch10 is
 
       --  If the unit is a subunit whose parent has not been analyzed (which
       --  indicates that the main unit is a subunit, either the current one or
-      --  one of its descendants) then the subunit is compiled as part of the
+      --  one of its descendents) then the subunit is compiled as part of the
       --  analysis of the parent, which we proceed to do. Basically this gets
       --  handled from the top down and we don't want to do anything at this
       --  level (i.e. this subunit will be handled on the way down from the
@@ -642,7 +646,9 @@ package body Sem_Ch10 is
             Circularity : Boolean := True;
 
          begin
-            if In_Predefined_Unit (N) then
+            if Is_Predefined_File_Name
+                 (Unit_File_Name (Get_Source_Unit (Unit (N))))
+            then
                Circularity := False;
 
             else
@@ -686,7 +692,7 @@ package body Sem_Ch10 is
       if Nkind (Unit_Node) = N_Package_Body then
 
          --  If no Lib_Unit, then there was a serious previous error, so just
-         --  ignore the entire analysis effort.
+         --  ignore the entire analysis effort
 
          if No (Lib_Unit) then
             Check_Error_Detected;
@@ -776,15 +782,15 @@ package body Sem_Ch10 is
                   begin
                      Set_Comes_From_Source_Default (False);
 
-                     --  Note: We copy the Context_Items from the explicit body
-                     --  to the implicit spec, setting the former to Empty_List
-                     --  to preserve the treeish nature of the tree, during
-                     --  analysis of the spec. Then we put it back the way it
-                     --  was -- copy the Context_Items from the spec to the
-                     --  body, and set the spec Context_Items to Empty_List.
-                     --  It is necessary to preserve the treeish nature,
-                     --  because otherwise we will call End_Use_* twice on the
-                     --  same thing.
+                     --  Checks for redundant USE TYPE clauses have a special
+                     --  exception for the synthetic spec we create here. This
+                     --  special case relies on the two compilation units
+                     --  sharing the same context clause.
+
+                     --  Note: We used to do a shallow copy (New_Copy_List),
+                     --  which defeated those checks and also created malformed
+                     --  trees (subtype mark shared by two distinct
+                     --  N_Use_Type_Clause nodes) which crashed the compiler.
 
                      Lib_Unit :=
                        Make_Compilation_Unit (Loc,
@@ -797,7 +803,6 @@ package body Sem_Ch10 is
                          Aux_Decls_Node =>
                            Make_Compilation_Unit_Aux (Loc));
 
-                     Set_Context_Items (N, Empty_List);
                      Set_Library_Unit (N, Lib_Unit);
                      Set_Parent_Spec (Unit (Lib_Unit), Cunit (Unum));
                      Make_Child_Decl_Unit (N);
@@ -810,11 +815,6 @@ package body Sem_Ch10 is
                      Set_Is_Child_Unit (Defining_Entity (Unit_Node));
                      Set_Debug_Info_Needed (Defining_Entity (Unit (Lib_Unit)));
                      Set_Comes_From_Source_Default (SCS);
-
-                     --  Restore Context_Items to the body
-
-                     Set_Context_Items (N, Context_Items (Lib_Unit));
-                     Set_Context_Items (Lib_Unit, Empty_List);
                   end;
                end if;
             end if;
@@ -878,7 +878,7 @@ package body Sem_Ch10 is
       end if;
 
       --  All components of the context: with-clauses, library unit, ancestors
-      --  if any, (and their context) are analyzed and installed.
+      --  if any, (and their context)  are analyzed and installed.
 
       --  Call special debug routine sm if this is the main unit
 
@@ -911,9 +911,13 @@ package body Sem_Ch10 is
 
       --  Register predefined units in Rtsfind
 
-      if In_Predefined_Unit (N) then
-         Set_RTU_Loaded (Unit_Node);
-      end if;
+      declare
+         Unum : constant Unit_Number_Type := Get_Source_Unit (Sloc (N));
+      begin
+         if Is_Predefined_File_Name (Unit_File_Name (Unum)) then
+            Set_RTU_Loaded (Unit_Node);
+         end if;
+      end;
 
       --  Treat compilation unit pragmas that appear after the library unit
 
@@ -934,7 +938,7 @@ package body Sem_Ch10 is
       if Nkind_In (Unit_Node, N_Generic_Subprogram_Declaration,
                               N_Subprogram_Declaration)
       then
-         Analyze_Entry_Or_Subprogram_Contract (Defining_Entity (Unit_Node));
+         Analyze_Subprogram_Contract (Defining_Entity (Unit_Node));
       end if;
 
       --  Generate distribution stubs if requested and no error
@@ -1016,18 +1020,16 @@ package body Sem_Ch10 is
 
       Remove_Context (N);
 
-      --  When generating code for a non-generic main unit, check that withed
-      --  generic units have a body if they need it, even if the units have not
-      --  been instantiated. Force the load of the bodies to produce the proper
-      --  error if the body is absent. The same applies to GNATprove mode, with
-      --  the added benefit of capturing global references within the generic.
-      --  This in turn allows for proper inlining of subprogram bodies without
-      --  a previous declaration.
+      --  If this is the main unit and we are generating code, we must check
+      --  that all generic units in the context have a body if they need it,
+      --  even if they have not been instantiated. In the absence of .ali files
+      --  for generic units, we must force the load of the body, just to
+      --  produce the proper error if the body is absent. We skip this
+      --  verification if the main unit itself is generic.
 
       if Get_Cunit_Unit_Number (N) = Main_Unit
-        and then ((Operating_Mode = Generate_Code and then Expander_Active)
-                     or else
-                  (Operating_Mode = Check_Semantics and then GNATprove_Mode))
+        and then Operating_Mode = Generate_Code
+        and then Expander_Active
       then
          --  Check whether the source for the body of the unit must be included
          --  in a standalone library.
@@ -1058,13 +1060,13 @@ package body Sem_Ch10 is
                if Nkind (Item) = N_With_Clause
                  and then not Implicit_With (Item)
 
-                 --  Ada 2005 (AI-50217): Ignore limited-withed units
+                  --  Ada 2005 (AI-50217): Ignore limited-withed units
 
                  and then not Limited_Present (Item)
                then
                   Nam := Entity (Name (Item));
 
-                  --  Compile the generic subprogram, unless it is intrinsic or
+                  --  Compile generic subprogram, unless it is intrinsic or
                   --  imported so no body is required, or generic package body
                   --  if the package spec requires a body.
 
@@ -1078,21 +1080,20 @@ package body Sem_Ch10 is
 
                      if Present (Renamed_Object (Nam)) then
                         Un :=
-                          Load_Unit
-                            (Load_Name  =>
-                               Get_Body_Name
-                                 (Get_Unit_Name
-                                   (Unit_Declaration_Node
-                                     (Renamed_Object (Nam)))),
-                             Required   => False,
-                             Subunit    => False,
-                             Error_Node => N,
-                             Renamings  => True);
+                           Load_Unit
+                             (Load_Name  => Get_Body_Name
+                                              (Get_Unit_Name
+                                                (Unit_Declaration_Node
+                                                  (Renamed_Object (Nam)))),
+                              Required   => False,
+                              Subunit    => False,
+                              Error_Node => N,
+                              Renamings  => True);
                      else
                         Un :=
                           Load_Unit
-                            (Load_Name  =>
-                               Get_Body_Name (Get_Unit_Name (Item)),
+                            (Load_Name  => Get_Body_Name
+                                             (Get_Unit_Name (Item)),
                              Required   => False,
                              Subunit    => False,
                              Error_Node => N,
@@ -1121,47 +1122,6 @@ package body Sem_Ch10 is
 
             Style_Check := Save_Style_Check;
          end;
-
-         --  In GNATprove mode, force the loading of an Interrupt_Priority when
-         --  processing compilation units with potentially "main" subprograms.
-         --  This is required for the ceiling priority protocol checks, which
-         --  are triggered by these subprograms.
-
-         if GNATprove_Mode
-           and then Nkind_In (Unit_Node, N_Function_Instantiation,
-                                         N_Procedure_Instantiation,
-                                         N_Subprogram_Body)
-         then
-            declare
-               Spec : Node_Id;
-
-            begin
-               case Nkind (Unit_Node) is
-                  when N_Subprogram_Body =>
-                     Spec := Specification (Unit_Node);
-
-                  when N_Subprogram_Instantiation =>
-                     Spec :=
-                       Subprogram_Specification (Entity (Name (Unit_Node)));
-
-                  when others =>
-                     raise Program_Error;
-               end case;
-
-               pragma Assert (Nkind (Spec) in N_Subprogram_Specification);
-
-               --  Main subprogram must have no parameters, and if it is a
-               --  function, it must return an integer.
-
-               if No (Parameter_Specifications (Spec))
-                 and then (Nkind (Spec) = N_Procedure_Specification
-                             or else
-                           Is_Integer_Type (Etype (Result_Definition (Spec))))
-               then
-                  SPARK_Implicit_Load (RE_Interrupt_Priority);
-               end if;
-            end;
-         end if;
       end if;
 
       --  Deal with creating elaboration counter if needed. We create an
@@ -1192,38 +1152,32 @@ package body Sem_Ch10 is
             --  where the elaboration routine might otherwise be called more
             --  than once.
 
-            --  They are also needed to ensure explicit visibility from the
-            --  binder generated code of all the units involved in a partition
-            --  when control-flow preservation is requested.
+            --  Case of units which do not require elaboration checks
 
-            --  Case of units which do not require an elaboration entity
+            if
+              --  Pure units do not need checks
 
-            if not Opt.Suppress_Control_Flow_Optimizations
-              and then
-              ( --  Pure units do not need checks
+              Is_Pure (Spec_Id)
 
-                Is_Pure (Spec_Id)
+              --  Preelaborated units do not need checks
 
-                --  Preelaborated units do not need checks
+              or else Is_Preelaborated (Spec_Id)
 
-                or else Is_Preelaborated (Spec_Id)
+              --  No checks needed if pragma Elaborate_Body present
 
-                --  No checks needed if pragma Elaborate_Body present
+              or else Has_Pragma_Elaborate_Body (Spec_Id)
 
-                or else Has_Pragma_Elaborate_Body (Spec_Id)
+              --  No checks needed if unit does not require a body
 
-                --  No checks needed if unit does not require a body
+              or else not Unit_Requires_Body (Spec_Id)
 
-                or else not Unit_Requires_Body (Spec_Id)
+              --  No checks needed for predefined files
 
-                --  No checks needed for predefined files
+              or else Is_Predefined_File_Name (Unit_File_Name (Unum))
 
-                or else Is_Predefined_Unit (Unum)
+              --  No checks required if no separate spec
 
-                --  No checks required if no separate spec
-
-                or else Acts_As_Spec (N)
-              )
+              or else Acts_As_Spec (N)
             then
                --  This is a case where we only need the entity for
                --  checking to prevent multiple elaboration checks.
@@ -1487,9 +1441,8 @@ package body Sem_Ch10 is
                      P := Parent_Spec (Unit (N));
                      loop
                         if Unit (P) = Lib_U then
-                           Error_Msg_N
-                             ("limited with_clause cannot name ancestor",
-                              Item);
+                           Error_Msg_N ("limited with_clause cannot "
+                                        & "name ancestor", Item);
                            exit;
                         end if;
 
@@ -1532,7 +1485,7 @@ package body Sem_Ch10 is
 
                            --  Check if the named package (or some ancestor)
                            --  leaves visible the full-view of the unit given
-                           --  in the limited-with clause.
+                           --  in the limited-with clause
 
                            loop
                               if Designate_Same_Unit (Lim_Unit_Name,
@@ -1540,11 +1493,13 @@ package body Sem_Ch10 is
                               then
                                  Error_Msg_Sloc := Sloc (It);
                                  Error_Msg_N
-                                   ("simultaneous visibility of limited and "
-                                    & "unlimited views not allowed", Item);
+                                   ("simultaneous visibility of limited "
+                                    & "and unlimited views not allowed",
+                                    Item);
                                  Error_Msg_NE
-                                   ("\unlimited view visible through context "
-                                    & "clause #", Item, It);
+                                   ("\unlimited view visible through "
+                                    & "context clause #",
+                                    Item, It);
                                  exit;
 
                               elsif Nkind (Unit_Name) = N_Identifier then
@@ -1571,15 +1526,15 @@ package body Sem_Ch10 is
                Analyze (Item);
             end if;
 
-            --  A limited_with does not impose an elaboration order, but there
-            --  is a semantic dependency for recompilation purposes.
+            --  A limited_with does not impose an elaboration order, but
+            --  there is a semantic dependency for recompilation purposes.
 
             if not Implicit_With (Item) then
                Version_Update (N, Library_Unit (Item));
             end if;
 
-         --  Pragmas and use clauses and with clauses other than limited with's
-         --  are ignored in this pass through the context items.
+            --  Pragmas and use clauses and with clauses other than limited
+            --  with's are ignored in this pass through the context items.
 
          else
             null;
@@ -1625,7 +1580,6 @@ package body Sem_Ch10 is
 
          Set_Has_Completion (Nam);
          Set_Scope (Defining_Entity (N), Current_Scope);
-         Set_Ekind (Defining_Entity (N), E_Package_Body);
          Set_Corresponding_Spec_Of_Stub (N, Nam);
          Generate_Reference (Nam, Id, 'b');
          Analyze_Proper_Body (N, Nam);
@@ -1741,19 +1695,9 @@ package body Sem_Ch10 is
             --  body may not be available, in which case do not try analysis.
 
             if Serious_Errors_Detected > 0
-              and then No (Library_Unit (Library_Unit (N)))
+              and then  No (Library_Unit (Library_Unit (N)))
             then
                return;
-            end if;
-
-            --  Collect SCO information for loaded subunit if we are in the
-            --  extended main unit.
-
-            if Generate_SCO
-              and then In_Extended_Main_Source_Unit
-                         (Cunit_Entity (Current_Sem_Unit))
-            then
-               SCO_Record_Raw (Get_Cunit_Unit_Number (Library_Unit (N)));
             end if;
 
             Analyze_Subunit (Library_Unit (N));
@@ -1870,8 +1814,9 @@ package body Sem_Ch10 is
             --  Give message if we did not get the unit Emit warning even if
             --  missing subunit is not within main unit, to simplify debugging.
 
-            pragma Assert (Original_Operating_Mode = Generate_Code);
-            if Unum = No_Unit then
+            if Original_Operating_Mode = Generate_Code
+              and then Unum = No_Unit
+            then
                Error_Msg_Unit_1 := Subunit_Name;
                Error_Msg_File_1 :=
                  Get_File_Name (Subunit_Name, Subunit => True);
@@ -1915,11 +1860,12 @@ package body Sem_Ch10 is
                   Version_Update (Cunit (Main_Unit), Comp_Unit);
 
                   --  Collect SCO information for loaded subunit if we are in
-                  --  the extended main unit.
+                  --  the main unit.
 
                   if Generate_SCO
-                    and then In_Extended_Main_Source_Unit
-                               (Cunit_Entity (Current_Sem_Unit))
+                    and then
+                      In_Extended_Main_Source_Unit
+                        (Cunit_Entity (Current_Sem_Unit))
                   then
                      SCO_Record_Raw (Unum);
                   end if;
@@ -1966,8 +1912,18 @@ package body Sem_Ch10 is
          Error_Msg_N ("missing specification for Protected body", N);
 
       else
+         --  Currently there are no language-defined aspects that can apply to
+         --  a protected body stub. Issue an error and remove the aspects to
+         --  prevent cascaded errors.
+
+         if Has_Aspects (N) then
+            Error_Msg_N
+              ("aspects on protected bodies are not allowed",
+               First (Aspect_Specifications (N)));
+            Remove_Aspects (N);
+         end if;
+
          Set_Scope (Defining_Entity (N), Current_Scope);
-         Set_Ekind (Defining_Entity (N), E_Protected_Body);
          Set_Has_Completion (Etype (Nam));
          Set_Corresponding_Spec_Of_Stub (N, Nam);
          Generate_Reference (Nam, Defining_Identifier (N), 'b');
@@ -2027,6 +1983,39 @@ package body Sem_Ch10 is
       Restore_Opt_Config_Switches (Opts);
    end Analyze_Subprogram_Body_Stub;
 
+   -------------------------------------------
+   -- Analyze_Subprogram_Body_Stub_Contract --
+   -------------------------------------------
+
+   procedure Analyze_Subprogram_Body_Stub_Contract (Stub_Id : Entity_Id) is
+      Stub_Decl : constant Node_Id   := Parent (Parent (Stub_Id));
+      Spec_Id   : constant Entity_Id := Corresponding_Spec_Of_Stub (Stub_Decl);
+
+   begin
+      --  A subprogram body stub may act as its own spec or as the completion
+      --  of a previous declaration. Depending on the context, the contract of
+      --  the stub may contain two sets of pragmas.
+
+      --  The stub is a completion, the applicable pragmas are:
+      --    Refined_Depends
+      --    Refined_Global
+
+      if Present (Spec_Id) then
+         Analyze_Subprogram_Body_Contract (Stub_Id);
+
+      --  The stub acts as its own spec, the applicable pragmas are:
+      --    Contract_Cases
+      --    Depends
+      --    Global
+      --    Postcondition
+      --    Precondition
+      --    Test_Case
+
+      else
+         Analyze_Subprogram_Contract (Stub_Id);
+      end if;
+   end Analyze_Subprogram_Body_Stub_Contract;
+
    ---------------------
    -- Analyze_Subunit --
    ---------------------
@@ -2045,16 +2034,12 @@ package body Sem_Ch10 is
    --  context before analyzing the proper body itself. On exit, we remove only
    --  the explicit context of the subunit.
 
-   --  WARNING: This routine manages SPARK regions. Return statements must be
-   --  replaced by gotos which jump to the end of the routine and restore the
-   --  SPARK mode.
-
    procedure Analyze_Subunit (N : Node_Id) is
       Lib_Unit : constant Node_Id   := Library_Unit (N);
       Par_Unit : constant Entity_Id := Current_Scope;
 
       Lib_Spec        : Node_Id := Library_Unit (Lib_Unit);
-      Num_Scopes      : Nat := 0;
+      Num_Scopes      : Int := 0;
       Use_Clauses     : array (1 .. Scope_Stack.Last) of Node_Id;
       Enclosing_Child : Entity_Id := Empty;
       Svg             : constant Suppress_Record := Scope_Suppress;
@@ -2096,6 +2081,7 @@ package body Sem_Ch10 is
 
       procedure Analyze_Subunit_Context is
          Item      :  Node_Id;
+         Nam       :  Node_Id;
          Unit_Name : Entity_Id;
 
       begin
@@ -2121,7 +2107,7 @@ package body Sem_Ch10 is
                      --  attempt processing.
 
                      if Serious_Errors_Detected > 0
-                       and then No (Entity (Name (Item)))
+                       and then  No (Entity (Name (Item)))
                      then
                         Set_Entity (Name (Item), Standard_Standard);
                      end if;
@@ -2146,10 +2132,18 @@ package body Sem_Ch10 is
                end if;
 
             elsif Nkind (Item) = N_Use_Package_Clause then
-               Analyze (Name (Item));
+               Nam := First (Names (Item));
+               while Present (Nam) loop
+                  Analyze (Nam);
+                  Next (Nam);
+               end loop;
 
             elsif Nkind (Item) = N_Use_Type_Clause then
-               Analyze (Subtype_Mark (Item));
+               Nam := First (Subtype_Marks (Item));
+               while Present (Nam) loop
+                  Analyze (Nam);
+                  Next (Nam);
+               end loop;
             end if;
 
             Next (Item);
@@ -2196,7 +2190,7 @@ package body Sem_Ch10 is
             Re_Install_Parents (Library_Unit (L), Scope (Scop));
          end if;
 
-         Install_Context (L, False);
+         Install_Context (L);
 
          --  If the subunit occurs within a child unit, we must restore the
          --  immediate visibility of any siblings that may occur in context.
@@ -2243,7 +2237,7 @@ package body Sem_Ch10 is
          for J in reverse 1 .. Num_Scopes loop
             U := Use_Clauses (J);
             Scope_Stack.Table (Scope_Stack.Last - J + 1).First_Use_Clause := U;
-            Install_Use_Clauses (U);
+            Install_Use_Clauses (U, Force_Installation => True);
          end loop;
       end Re_Install_Use_Clauses;
 
@@ -2271,12 +2265,6 @@ package body Sem_Ch10 is
 
          Pop_Scope;
       end Remove_Scope;
-
-      Saved_SM  : SPARK_Mode_Type := SPARK_Mode;
-      Saved_SMP : Node_Id         := SPARK_Mode_Pragma;
-      --  Save the SPARK mode-related data to restore on exit. Removing
-      --  enclosing scopes and contexts to provide a clean environment for the
-      --  context of the subunit will eliminate any previously set SPARK_Mode.
 
    --  Start of processing for Analyze_Subunit
 
@@ -2335,15 +2323,6 @@ package body Sem_Ch10 is
 
          Analyze_Subunit_Context;
 
-         --  Take into account the effect of any SPARK_Mode configuration
-         --  pragma, which takes precedence over a different value of
-         --  SPARK_Mode inherited from the context of the stub.
-
-         if SPARK_Mode /= None then
-            Saved_SM  := SPARK_Mode;
-            Saved_SMP := SPARK_Mode_Pragma;
-         end if;
-
          Re_Install_Parents (Lib_Unit, Par_Unit);
          Set_Is_Immediately_Visible (Par_Unit);
 
@@ -2367,7 +2346,7 @@ package body Sem_Ch10 is
          end if;
 
          Re_Install_Use_Clauses;
-         Install_Context (N, Chain => False);
+         Install_Context (N);
 
          --  Restore state of suppress flags for current body
 
@@ -2383,13 +2362,6 @@ package body Sem_Ch10 is
       end if;
 
       Generate_Parent_References (Unit (N), Par_Unit);
-
-      --  Reinstall the SPARK_Mode which was in effect prior to any scope and
-      --  context manipulations, taking into account a possible SPARK_Mode
-      --  configuration pragma if present.
-
-      Install_SPARK_Mode (Saved_SM, Saved_SMP);
-
       Analyze (Proper_Body (Unit (N)));
       Remove_Context (N);
 
@@ -2437,8 +2409,18 @@ package body Sem_Ch10 is
          Error_Msg_N ("missing specification for task body", N);
 
       else
+         --  Currently there are no language-defined aspects that can apply to
+         --  a task body stub. Issue an error and remove the aspects to prevent
+         --  cascaded errors.
+
+         if Has_Aspects (N) then
+            Error_Msg_N
+              ("aspects on task bodies are not allowed",
+               First (Aspect_Specifications (N)));
+            Remove_Aspects (N);
+         end if;
+
          Set_Scope (Defining_Entity (N), Current_Scope);
-         Set_Ekind (Defining_Entity (N), E_Task_Body);
          Generate_Reference (Nam, Defining_Identifier (N), 'b');
          Set_Corresponding_Spec_Of_Stub (N, Nam);
 
@@ -2462,7 +2444,7 @@ package body Sem_Ch10 is
          if Expander_Active then
             Insert_After (N,
               Make_Assignment_Statement (Loc,
-                Name        =>
+                Name =>
                   Make_Identifier (Loc,
                     Chars => New_External_Name (Chars (Etype (Nam)), 'E')),
                  Expression => New_Occurrence_Of (Standard_True, Loc)));
@@ -2512,10 +2494,18 @@ package body Sem_Ch10 is
       --  himself, but that's a marginal case, and fixing it is hard ???
 
       if Restriction_Check_Required (No_Obsolescent_Features) then
-         if In_Predefined_Renaming (U) then
-            Check_Restriction (No_Obsolescent_Features, N);
-            Restriction_Violation := True;
-         end if;
+         declare
+            F : constant File_Name_Type :=
+                  Unit_File_Name (Get_Source_Unit (U));
+         begin
+            if Is_Predefined_File_Name (F, Renamings_Included => True)
+                 and then not
+               Is_Predefined_File_Name (F, Renamings_Included => False)
+            then
+               Check_Restriction (No_Obsolescent_Features, N);
+               Restriction_Violation := True;
+            end if;
+         end;
       end if;
 
       --  Check No_Implementation_Units violation
@@ -2538,27 +2528,8 @@ package body Sem_Ch10 is
          --  Ada 2005 (AI-50217): Build visibility structures but do not
          --  analyze the unit.
 
-         --  If the designated unit is a predefined unit, which might be used
-         --  implicitly through the rtsfind machinery, a limited with clause
-         --  on such a unit is usually pointless, because run-time units are
-         --  unlikely to appear in mutually dependent units, and because this
-         --  disables the rtsfind mechanism. We transform such limited with
-         --  clauses into regular with clauses.
-
          if Sloc (U) /= No_Location then
-            if In_Predefined_Unit (U)
-
-              --  In ASIS mode the rtsfind mechanism plays no role, and
-              --  we need to maintain the original tree structure, so
-              --  this transformation is not performed in this case.
-
-              and then not ASIS_Mode
-            then
-               Set_Limited_Present (N, False);
-               Analyze_With_Clause (N);
-            else
-               Build_Limited_Views (N);
-            end if;
+            Build_Limited_Views (N);
          end if;
 
          return;
@@ -2576,9 +2547,23 @@ package body Sem_Ch10 is
          Set_Analyzed (N);
       end if;
 
-      Semantics (Library_Unit (N));
+      --  If the library unit is a predefined unit, and we are in high
+      --  integrity mode, then temporarily reset Configurable_Run_Time_Mode
+      --  for the analysis of the with'ed unit. This mode does not prevent
+      --  explicit with'ing of run-time units.
 
-      Intunit := Is_Internal_Unit (Current_Sem_Unit);
+      if Configurable_Run_Time_Mode
+        and then Is_Predefined_File_Name (Unit_File_Name (Get_Source_Unit (U)))
+      then
+         Configurable_Run_Time_Mode := False;
+         Semantics (Library_Unit (N));
+         Configurable_Run_Time_Mode := True;
+
+      else
+         Semantics (Library_Unit (N));
+      end if;
+
+      Intunit := Is_Internal_File_Name (Unit_File_Name (Current_Sem_Unit));
 
       if Sloc (U) /= No_Location then
 
@@ -2631,8 +2616,8 @@ package body Sem_Ch10 is
                      Error_Msg_F ("\use ""~"" instead?i?", Name (N));
                   else
                      Error_Msg_F
-                       ("\use of this unit is non-portable and "
-                        & "version-dependent?i?", Name (N));
+                       ("\use of this unit is non-portable " &
+                        "and version-dependent?i?", Name (N));
                   end if;
 
                elsif U_Kind = Ada_2005_Unit
@@ -2870,8 +2855,6 @@ package body Sem_Ch10 is
                Set_Fatal_Error (Current_Sem_Unit, Error_Ignored);
             end if;
       end case;
-
-      Mark_Ghost_Clause (N);
    end Analyze_With_Clause;
 
    ------------------------------
@@ -2995,12 +2978,10 @@ package body Sem_Ch10 is
                   if Ekind (Priv_Child) = E_Generic_Package
                     and then Chars (Priv_Child) in Text_IO_Package_Name
                     and then Chars (Scope (Scope (Priv_Child))) = Name_Ada
-                    and then Scope (Scope (Scope (Priv_Child))) =
-                               Standard_Standard
                   then
                      Error_Msg_NE
                        ("& is a nested package, not a compilation unit",
-                        Name (Item), Priv_Child);
+                       Name (Item), Priv_Child);
 
                   else
                      Error_Msg_N
@@ -3028,6 +3009,7 @@ package body Sem_Ch10 is
 
          Next (Item);
       end loop;
+
    end Check_Private_Child_Unit;
 
    ----------------------
@@ -3063,7 +3045,10 @@ package body Sem_Ch10 is
    ------------------------
 
    procedure Expand_With_Clause (Item : Node_Id; Nam : Node_Id; N : Node_Id) is
-      Loc : constant Source_Ptr := Sloc (Nam);
+      Loc   : constant Source_Ptr := Sloc (Nam);
+      Ent   : constant Entity_Id := Entity (Nam);
+      Withn : Node_Id;
+      P     : Node_Id;
 
       function Build_Unit_Name (Nam : Node_Id) return Node_Id;
       --  Build name to be used in implicit with_clause. In most cases this
@@ -3090,8 +3075,8 @@ package body Sem_Ch10 is
             if Present (Entity (Selector_Name (Nam)))
               and then Chars (Entity (Selector_Name (Nam))) /= Chars (Ent)
               and then
-                Nkind (Unit_Declaration_Node (Entity (Selector_Name (Nam)))) =
-                  N_Package_Renaming_Declaration
+                Nkind (Unit_Declaration_Node (Entity (Selector_Name (Nam))))
+                  = N_Package_Renaming_Declaration
             then
                --  The name in the with_clause is of the form A.B.C, and B is
                --  given by a renaming declaration. In that case we may not
@@ -3100,7 +3085,7 @@ package body Sem_Ch10 is
                --  visible, so analyze the declaration for B now, in case it
                --  has not been done yet.
 
-               Ent := Entity (Selector_Name (Nam));
+               Ent :=  Entity (Selector_Name (Nam));
                Analyze
                  (Parent
                    (Unit_Declaration_Node (Entity (Selector_Name (Nam)))));
@@ -3108,19 +3093,13 @@ package body Sem_Ch10 is
 
             Result :=
               Make_Expanded_Name (Loc,
-                Chars         => Chars (Entity (Nam)),
-                Prefix        => Build_Unit_Name (Prefix (Nam)),
+                Chars  => Chars (Entity (Nam)),
+                Prefix => Build_Unit_Name (Prefix (Nam)),
                 Selector_Name => New_Occurrence_Of (Ent, Loc));
             Set_Entity (Result, Ent);
-
             return Result;
          end if;
       end Build_Unit_Name;
-
-      --  Local variables
-
-      Ent   : constant Entity_Id  := Entity (Nam);
-      Withn : Node_Id;
 
    --  Start of processing for Expand_With_Clause
 
@@ -3129,18 +3108,18 @@ package body Sem_Ch10 is
         Make_With_Clause (Loc,
           Name => Build_Unit_Name (Nam));
 
+      P := Parent (Unit_Declaration_Node (Ent));
+      Set_Library_Unit       (Withn, P);
       Set_Corresponding_Spec (Withn, Ent);
-      Set_First_Name         (Withn);
-      Set_Implicit_With      (Withn);
-      Set_Library_Unit       (Withn, Parent (Unit_Declaration_Node (Ent)));
-      Set_Parent_With        (Withn);
+      Set_First_Name         (Withn, True);
+      Set_Implicit_With      (Withn, True);
 
       --  If the unit is a package or generic package declaration, a private_
       --  with_clause on a child unit implies that the implicit with on the
       --  parent is also private.
 
-      if Nkind_In (Unit (N), N_Generic_Package_Declaration,
-                             N_Package_Declaration)
+      if Nkind_In (Unit (N), N_Package_Declaration,
+                             N_Generic_Package_Declaration)
       then
          Set_Private_Present (Withn, Private_Present (Item));
       end if;
@@ -3280,8 +3259,8 @@ package body Sem_Ch10 is
          P_Spec : Node_Id := P;
 
       begin
-         --  Ancestor may have been rewritten as a package body. Retrieve the
-         --  original spec to trace earlier ancestors.
+         --  Ancestor may have been rewritten as a package body. Retrieve
+         --  the original spec to trace earlier ancestors.
 
          if Nkind (P) = N_Package_Body
            and then Nkind (Original_Node (P)) = N_Package_Instantiation
@@ -3294,8 +3273,7 @@ package body Sem_Ch10 is
          else
             return
               Make_Selected_Component (Loc,
-                Prefix        =>
-                  Build_Ancestor_Name (Unit (Parent_Spec (P_Spec))),
+                Prefix => Build_Ancestor_Name (Unit (Parent_Spec (P_Spec))),
                 Selector_Name => P_Ref);
          end if;
       end Build_Ancestor_Name;
@@ -3314,12 +3292,10 @@ package body Sem_Ch10 is
          else
             Result :=
               Make_Expanded_Name (Loc,
-                Chars         => Chars (P_Name),
-                Prefix        =>
-                  Build_Ancestor_Name (Unit (Parent_Spec (P_Unit))),
+                Chars  => Chars (P_Name),
+                Prefix => Build_Ancestor_Name (Unit (Parent_Spec (P_Unit))),
                 Selector_Name => New_Occurrence_Of (P_Name, Loc));
             Set_Entity (Result, P_Name);
-
             return Result;
          end if;
       end Build_Unit_Name;
@@ -3349,11 +3325,10 @@ package body Sem_Ch10 is
 
       Withn := Make_With_Clause (Loc, Name => Build_Unit_Name);
 
-      Set_Corresponding_Spec (Withn, P_Name);
-      Set_First_Name         (Withn);
-      Set_Implicit_With      (Withn);
-      Set_Library_Unit       (Withn, P);
-      Set_Parent_With        (Withn);
+      Set_Library_Unit          (Withn, P);
+      Set_Corresponding_Spec    (Withn, P_Name);
+      Set_First_Name            (Withn, True);
+      Set_Implicit_With         (Withn, True);
 
       --  Node is placed at the beginning of the context items, so that
       --  subsequent use clauses on the parent can be validated.
@@ -3391,17 +3366,14 @@ package body Sem_Ch10 is
    -- Install_Context --
    ---------------------
 
-   procedure Install_Context (N : Node_Id; Chain : Boolean := True) is
+   procedure Install_Context (N : Node_Id) is
       Lib_Unit : constant Node_Id := Unit (N);
 
    begin
-      Install_Context_Clauses (N, Chain);
+      Install_Context_Clauses (N);
 
       if Is_Child_Spec (Lib_Unit) then
-         Install_Parents
-           (Lib_Unit   => Lib_Unit,
-            Is_Private => Private_Present (Parent (Lib_Unit)),
-            Chain      => Chain);
+         Install_Parents (Lib_Unit, Private_Present (Parent (Lib_Unit)));
       end if;
 
       Install_Limited_Context_Clauses (N);
@@ -3411,7 +3383,7 @@ package body Sem_Ch10 is
    -- Install_Context_Clauses --
    -----------------------------
 
-   procedure Install_Context_Clauses (N : Node_Id; Chain : Boolean := True) is
+   procedure Install_Context_Clauses (N : Node_Id) is
       Lib_Unit      : constant Node_Id := Unit (N);
       Item          : Node_Id;
       Uname_Node    : Entity_Id;
@@ -3528,7 +3500,7 @@ package body Sem_Ch10 is
                   --  Exclude license check if withed unit is an internal unit.
                   --  This situation arises e.g. with the GPL version of GNAT.
 
-                  if Is_Internal_Unit (Withu) then
+                  if Is_Internal_File_Name (Unit_File_Name (Withu)) then
                      null;
 
                      --  Otherwise check various cases
@@ -3562,12 +3534,12 @@ package body Sem_Ch10 is
          --  Case of USE PACKAGE clause
 
          elsif Nkind (Item) = N_Use_Package_Clause then
-            Analyze_Use_Package (Item, Chain);
+            Analyze_Use_Package (Item);
 
          --  Case of USE TYPE clause
 
          elsif Nkind (Item) = N_Use_Type_Clause then
-            Analyze_Use_Type (Item, Chain);
+            Analyze_Use_Type (Item);
 
          --  case of PRAGMA
 
@@ -3597,7 +3569,7 @@ package body Sem_Ch10 is
         or else (Nkind (Lib_Unit) = N_Subprogram_Body
                   and then not Acts_As_Spec (N))
       then
-         Install_Context (Library_Unit (N), Chain);
+         Install_Context (Library_Unit (N));
 
          --  Only install private with-clauses of a spec that comes from
          --  source, excluding specs created for a subprogram body that is
@@ -3711,6 +3683,7 @@ package body Sem_Ch10 is
          Item   : Node_Id;
          Spec   : Node_Id;
          WEnt   : Entity_Id;
+         Nam    : Node_Id;
          E      : Entity_Id;
          E2     : Entity_Id;
 
@@ -3720,11 +3693,10 @@ package body Sem_Ch10 is
          --  Protect the frontend against previous critical errors
 
          case Nkind (Unit (Library_Unit (W))) is
-            when N_Generic_Package_Declaration
-               | N_Generic_Subprogram_Declaration
-               | N_Package_Declaration
-               | N_Subprogram_Declaration
-            =>
+            when N_Subprogram_Declaration         |
+                 N_Package_Declaration            |
+                 N_Generic_Subprogram_Declaration |
+                 N_Generic_Package_Declaration    =>
                null;
 
             when others =>
@@ -3743,36 +3715,43 @@ package body Sem_Ch10 is
 
             if Nkind (Item) = N_Use_Package_Clause then
 
-               E := Entity (Name (Item));
+               --  Traverse the list of packages
 
-               pragma Assert (Present (Parent (E)));
+               Nam := First (Names (Item));
+               while Present (Nam) loop
+                  E := Entity (Nam);
 
-               if Nkind (Parent (E)) = N_Package_Renaming_Declaration
-                 and then Renamed_Entity (E) = WEnt
-               then
-                  --  The unlimited view is visible through use clause and
-                  --  renamings. There is no need to generate the error
-                  --  message here because Is_Visible_Through_Renamings
-                  --  takes care of generating the precise error message.
+                  pragma Assert (Present (Parent (E)));
 
-                  return;
+                  if Nkind (Parent (E)) = N_Package_Renaming_Declaration
+                    and then Renamed_Entity (E) = WEnt
+                  then
+                     --  The unlimited view is visible through use clause and
+                     --  renamings. There is no need to generate the error
+                     --  message here because Is_Visible_Through_Renamings
+                     --  takes care of generating the precise error message.
 
-               elsif Nkind (Parent (E)) = N_Package_Specification then
-
-                  --  The use clause may refer to a local package.
-                  --  Check all the enclosing scopes.
-
-                  E2 := E;
-                  while E2 /= Standard_Standard and then E2 /= WEnt loop
-                     E2 := Scope (E2);
-                  end loop;
-
-                  if E2 = WEnt then
-                     Error_Msg_N
-                       ("unlimited view visible through use clause ", W);
                      return;
+
+                  elsif Nkind (Parent (E)) = N_Package_Specification then
+
+                     --  The use clause may refer to a local package.
+                     --  Check all the enclosing scopes.
+
+                     E2 := E;
+                     while E2 /= Standard_Standard and then E2 /= WEnt loop
+                        E2 := Scope (E2);
+                     end loop;
+
+                     if E2 = WEnt then
+                        Error_Msg_N
+                          ("unlimited view visible through use clause ", W);
+                        return;
+                     end if;
                   end if;
-               end if;
+
+                  Next (Nam);
+               end loop;
             end if;
 
             Next (Item);
@@ -3920,9 +3899,9 @@ package body Sem_Ch10 is
             Set_Parent (Withn, Parent (N));
          end if;
 
+         Set_Limited_Present (Withn);
          Set_First_Name      (Withn);
          Set_Implicit_With   (Withn);
-         Set_Limited_Present (Withn);
 
          Unum :=
            Load_Unit
@@ -4075,11 +4054,7 @@ package body Sem_Ch10 is
    -- Install_Parents --
    ---------------------
 
-   procedure Install_Parents
-     (Lib_Unit   : Node_Id;
-      Is_Private : Boolean;
-      Chain      : Boolean := True)
-   is
+   procedure Install_Parents (Lib_Unit : Node_Id; Is_Private : Boolean) is
       P      : Node_Id;
       E_Name : Entity_Id;
       P_Name : Entity_Id;
@@ -4135,16 +4110,13 @@ package body Sem_Ch10 is
       --  This is the recursive call that ensures all parents are loaded
 
       if Is_Child_Spec (P) then
-         Install_Parents
-           (Lib_Unit   => P,
-            Is_Private =>
-              Is_Private or else Private_Present (Parent (Lib_Unit)),
-            Chain      => Chain);
+         Install_Parents (P,
+           Is_Private or else Private_Present (Parent (Lib_Unit)));
       end if;
 
       --  Now we can install the context for this parent
 
-      Install_Context_Clauses (Parent_Spec (Lib_Unit), Chain);
+      Install_Context_Clauses (Parent_Spec (Lib_Unit));
       Install_Limited_Context_Clauses (Parent_Spec (Lib_Unit));
       Install_Siblings (P_Name, Parent (Lib_Unit));
 
@@ -4258,18 +4230,13 @@ package body Sem_Ch10 is
 
          --  Do not install private_with_clauses declaration, unless unit
          --  is itself a private child unit, or is a body. Note that for a
-         --  subprogram body the private_with_clause does not take effect
-         --  until after the specification.
+         --  subprogram body the private_with_clause does not take effect until
+         --  after the specification.
 
          if Nkind (Item) /= N_With_Clause
            or else Implicit_With (Item)
            or else Limited_Present (Item)
            or else Error_Posted (Item)
-
-            --  Skip processing malformed trees
-
-           or else (Try_Semantics
-                     and then Nkind (Name (Item)) not in N_Has_Entity)
          then
             null;
 
@@ -4485,7 +4452,7 @@ package body Sem_Ch10 is
                   while Present (Subp_Id) loop
                      if Chars (Node (Subp_Id)) = Chars (E) then
                         if Nkind (Parent (Parent (Node (Subp_Id))))
-                          /= N_Subprogram_Renaming_Declaration
+                          /=  N_Subprogram_Renaming_Declaration
                         then
                            Prev_Id := Subp_Id;
                            Next_Elmt (Subp_Id);
@@ -5266,7 +5233,7 @@ package body Sem_Ch10 is
       --  skipped for dummy units (for missing packages).
 
       if Sloc (Uname) /= No_Location
-        and then (not Is_Internal_Unit (Current_Sem_Unit)
+        and then (not Is_Internal_File_Name (Unit_File_Name (Current_Sem_Unit))
                    or else Current_Sem_Unit = Main_Unit)
       then
          Check_Restricted_Unit
@@ -5637,11 +5604,6 @@ package body Sem_Ch10 is
             Decorate_Type        (Shadow, Scop, Is_Tagged);
             Set_Non_Limited_View (Shadow, Ent);
 
-            if Is_Tagged then
-               Set_Non_Limited_View
-                 (Class_Wide_Type (Shadow), Class_Wide_Type (Ent));
-            end if;
-
             if Is_Incomplete_Or_Private_Type (Ent) then
                Set_Private_Dependents (Shadow, New_Elmt_List);
             end if;
@@ -5669,10 +5631,12 @@ package body Sem_Ch10 is
 
       procedure Decorate_State (Ent : Entity_Id; Scop : Entity_Id) is
       begin
-         Set_Ekind               (Ent, E_Abstract_State);
-         Set_Etype               (Ent, Standard_Void_Type);
-         Set_Scope               (Ent, Scop);
-         Set_Encapsulating_State (Ent, Empty);
+         Set_Ekind                   (Ent, E_Abstract_State);
+         Set_Etype                   (Ent, Standard_Void_Type);
+         Set_Scope                   (Ent, Scop);
+         Set_Encapsulating_State     (Ent, Empty);
+         Set_Refinement_Constituents (Ent, New_Elmt_List);
+         Set_Part_Of_Constituents    (Ent, New_Elmt_List);
       end Decorate_State;
 
       -------------------
@@ -5689,19 +5653,15 @@ package body Sem_Ch10 is
 
       begin
          --  An unanalyzed type or a shadow entity of a type is treated as an
-         --  incomplete type, and carries the corresponding attributes.
+         --  incomplete type.
 
-         Set_Ekind              (Ent, E_Incomplete_Type);
-         Set_Etype              (Ent, Ent);
-         Set_Full_View          (Ent, Empty);
-         Set_Is_First_Subtype   (Ent);
-         Set_Scope              (Ent, Scop);
-         Set_Stored_Constraint  (Ent, No_Elist);
-         Init_Size_Align        (Ent);
-
-         if From_Limited_With (Ent) then
-            Set_Private_Dependents (Ent, New_Elmt_List);
-         end if;
+         Set_Ekind             (Ent, E_Incomplete_Type);
+         Set_Etype             (Ent, Ent);
+         Set_Scope             (Ent, Scop);
+         Set_Is_First_Subtype  (Ent);
+         Set_Stored_Constraint (Ent, No_Elist);
+         Set_Full_View         (Ent, Empty);
+         Init_Size_Align       (Ent);
 
          --  A tagged type and its corresponding shadow entity share one common
          --  class-wide type. The list of primitive operations for the shadow
@@ -5711,33 +5671,35 @@ package body Sem_Ch10 is
             Set_Is_Tagged_Type (Ent);
             Set_Direct_Primitive_Operations (Ent, New_Elmt_List);
 
-            CW_Typ :=
-              New_External_Entity
-                (E_Void, Scope (Ent), Sloc (Ent), Ent, 'C', 0, 'T');
+            if No (Class_Wide_Type (Ent)) then
+               CW_Typ :=
+                 New_External_Entity
+                   (E_Void, Scope (Ent), Sloc (Ent), Ent, 'C', 0, 'T');
 
-            Set_Class_Wide_Type (Ent, CW_Typ);
+               Set_Class_Wide_Type (Ent, CW_Typ);
 
-            --  Set parent to be the same as the parent of the tagged type.
-            --  We need a parent field set, and it is supposed to point to
-            --  the declaration of the type. The tagged type declaration
-            --  essentially declares two separate types, the tagged type
-            --  itself and the corresponding class-wide type, so it is
-            --  reasonable for the parent fields to point to the declaration
-            --  in both cases.
+               --  Set parent to be the same as the parent of the tagged type.
+               --  We need a parent field set, and it is supposed to point to
+               --  the declaration of the type. The tagged type declaration
+               --  essentially declares two separate types, the tagged type
+               --  itself and the corresponding class-wide type, so it is
+               --  reasonable for the parent fields to point to the declaration
+               --  in both cases.
 
-            Set_Parent (CW_Typ, Parent (Ent));
+               Set_Parent (CW_Typ, Parent (Ent));
 
-            Set_Ekind                     (CW_Typ, E_Class_Wide_Type);
-            Set_Class_Wide_Type           (CW_Typ, CW_Typ);
-            Set_Etype                     (CW_Typ, Ent);
-            Set_Equivalent_Type           (CW_Typ, Empty);
-            Set_From_Limited_With         (CW_Typ, From_Limited_With (Ent));
-            Set_Has_Unknown_Discriminants (CW_Typ);
-            Set_Is_First_Subtype          (CW_Typ);
-            Set_Is_Tagged_Type            (CW_Typ);
-            Set_Materialize_Entity        (CW_Typ, Materialize);
-            Set_Scope                     (CW_Typ, Scop);
-            Init_Size_Align               (CW_Typ);
+               Set_Ekind                     (CW_Typ, E_Class_Wide_Type);
+               Set_Etype                     (CW_Typ, Ent);
+               Set_Scope                     (CW_Typ, Scop);
+               Set_Is_Tagged_Type            (CW_Typ);
+               Set_Is_First_Subtype          (CW_Typ);
+               Init_Size_Align               (CW_Typ);
+               Set_Has_Unknown_Discriminants (CW_Typ);
+               Set_Class_Wide_Type           (CW_Typ, CW_Typ);
+               Set_Equivalent_Type           (CW_Typ, Empty);
+               Set_From_Limited_With         (CW_Typ, From_Limited_With (Ent));
+               Set_Materialize_Entity        (CW_Typ, Materialize);
+            end if;
          end if;
       end Decorate_Type;
 
@@ -6065,9 +6027,8 @@ package body Sem_Ch10 is
             Error_Msg_N ("subprograms not allowed in limited with_clauses", N);
             return;
 
-         when N_Generic_Package_Declaration
-            | N_Generic_Subprogram_Declaration
-         =>
+         when N_Generic_Package_Declaration |
+              N_Generic_Subprogram_Declaration =>
             Error_Msg_N ("generics not allowed in limited with_clauses", N);
             return;
 
@@ -6139,7 +6100,7 @@ package body Sem_Ch10 is
       Last_Public_Shadow := Last_Shadow;
 
       --  Ada 2005 (AI-262): Build the limited view of the private declarations
-      --  to accommodate limited private with clauses.
+      --  to accomodate limited private with clauses.
 
       Process_Declarations_And_States
         (Pack  => Pack,
@@ -6177,14 +6138,6 @@ package body Sem_Ch10 is
                if Nkind (CI) = N_With_Clause
                  and then not
                    No_Elab_Code_All (Get_Source_Unit (Library_Unit (CI)))
-
-                 --  In GNATprove mode, some runtime units are implicitly
-                 --  loaded to make their entities available for analysis. In
-                 --  this case, ignore violations of No_Elaboration_Code_All
-                 --  for this special analysis mode.
-
-                 and then not
-                   (GNATprove_Mode and then Implicit_With (CI))
                then
                   Error_Msg_Sloc := Sloc (No_Elab_Code_All_Pragma);
                   Error_Msg_N
@@ -6205,14 +6158,15 @@ package body Sem_Ch10 is
    -------------------------------
 
    procedure Check_Body_Needed_For_SAL (Unit_Name : Entity_Id) is
+
       function Entity_Needs_Body (E : Entity_Id) return Boolean;
       --  Determine whether use of entity E might require the presence of its
       --  body. For a package this requires a recursive traversal of all nested
       --  declarations.
 
-      -----------------------
-      -- Entity_Needs_Body --
-      -----------------------
+      ---------------------------
+      -- Entity_Needed_For_SAL --
+      ---------------------------
 
       function Entity_Needs_Body (E : Entity_Id) return Boolean is
          Ent : Entity_Id;
@@ -6222,18 +6176,7 @@ package body Sem_Ch10 is
             return True;
 
          elsif Ekind_In (E, E_Generic_Function, E_Generic_Procedure) then
-
-            --  A generic subprogram always requires the presence of its
-            --  body because an instantiation needs both templates. The only
-            --  exceptions is a generic subprogram renaming. In this case the
-            --  body is needed only when the template is declared outside the
-            --  compilation unit being checked.
-
-            if Present (Renamed_Entity (E)) then
-               return not Within_Scope (E, Unit_Name);
-            else
-               return True;
-            end if;
+            return True;
 
          elsif Ekind (E) = E_Generic_Package
            and then
@@ -6447,13 +6390,6 @@ package body Sem_Ch10 is
       --  Limited_Withed_Unit.
 
       else
-         --  If the limited_with_clause is in some other unit in the context
-         --  then it is not visible in the main unit.
-
-         if not In_Extended_Main_Source_Unit (N) then
-            Set_Is_Immediately_Visible (P, False);
-         end if;
-
          --  Real entities that are type or subtype declarations were hidden
          --  from visibility at the point of installation of the limited-view.
          --  Now we recover the previous value of the hidden attribute.
@@ -6632,16 +6568,13 @@ package body Sem_Ch10 is
 
             --  If private_with_clause is redundant, remove it from context,
             --  as a small optimization to subsequent handling of private_with
-            --  clauses in other nested packages. We replace the clause with
-            --  a null statement, which is otherwise ignored by the rest of
-            --  the compiler, so that ASIS tools can reconstruct the source.
+            --  clauses in other nested packages.
 
             if In_Regular_With_Clause (Entity (Name (Item))) then
                declare
                   Nxt : constant Node_Id := Next (Item);
                begin
-                  Rewrite (Item, Make_Null_Statement (Sloc (Item)));
-                  Analyze (Item);
+                  Remove (Item);
                   Item := Nxt;
                end;
 

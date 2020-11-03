@@ -55,3 +55,4 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "OUTER LOOP VECTORIZED." 1 "vect" { target vect_strided2 } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

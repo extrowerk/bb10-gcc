@@ -12,4 +12,5 @@ void f(void)
 /* { dg-final { scan-tree-dump-times "Bool_Glob = 0" 0 "dse1"} } */
 /* { dg-final { scan-tree-dump-times "Bool_Glob = 1" 1 "dse1"} } */
 
+/* { dg-final { cleanup-tree-dump "dse1" } } */
 

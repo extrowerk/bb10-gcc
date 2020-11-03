@@ -1,5 +1,3 @@
-// { dg-options -fno-new-ttp-matching }
-
 template <template <typename> class C>
 void f(C<double>) {}
 

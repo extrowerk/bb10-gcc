@@ -1,6 +1,5 @@
 /* { dg-do compile } */
 /* { dg-options "-O2" } */
-/* { dg-additional-options "-Wno-return-type" } */
 
 
 typedef int size_t;

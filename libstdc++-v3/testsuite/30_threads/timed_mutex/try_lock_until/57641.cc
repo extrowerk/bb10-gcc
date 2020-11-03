@@ -1,10 +1,11 @@
-// { dg-do run }
-// { dg-options "-pthread"  }
-// { dg-require-effective-target c++11 }
-// { dg-require-effective-target pthread }
+// { dg-do run { target *-*-freebsd* *-*-dragonfly* *-*-netbsd* *-*-linux* *-*-gnu* *-*-solaris* *-*-cygwin *-*-darwin* powerpc-ibm-aix* } }
+// { dg-options " -std=gnu++11 -pthread" { target *-*-freebsd* *-*-dragonfly* *-*-netbsd* *-*-linux* *-*-gnu* powerpc-ibm-aix* } }
+// { dg-options " -std=gnu++11 -pthreads" { target *-*-solaris* } }
+// { dg-options " -std=gnu++11 " { target *-*-cygwin *-*-darwin* } }
 // { dg-require-cstdint "" }
+// { dg-require-gthreads-timed "" }
 
-// Copyright (C) 2013-2018 Free Software Foundation, Inc.
+// Copyright (C) 2013-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -48,20 +49,21 @@ struct clock
 };
 
 std::timed_mutex mx;
-bool locked = false;
+bool test = false;
 
 void f()
 {
-  locked = mx.try_lock_until(clock::now() + C::milliseconds(1));
+  test = mx.try_lock_until(clock::now() + C::milliseconds(1));
 }
 
 int main()
 {
+  bool test = false;
   std::lock_guard<std::timed_mutex> l(mx);
   auto start = C::system_clock::now();
   std::thread t(f);
   t.join();
   auto stop = C::system_clock::now();
   VERIFY( (stop - start) < C::seconds(9) );
-  VERIFY( !locked );
+  VERIFY( !test );
 }

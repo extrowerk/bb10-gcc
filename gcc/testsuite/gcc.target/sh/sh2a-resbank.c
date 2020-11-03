@@ -1,5 +1,6 @@
 /* Test for resbank attribute.  */
-/* { dg-do compile { target { sh2a } } }  */
+/* { dg-do assemble }  */
+/* { dg-skip-if "" { "sh*-*-*" } "*" "-m2a -m2a-nofpu -m2a-single -m2a-single-only" } */
 /* { dg-final { scan-assembler "resbank" } } */
  
 extern void bar(void);

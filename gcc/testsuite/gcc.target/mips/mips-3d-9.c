@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-mips3d forbid_cpu=octeon.* (REQUIRES_STDLIB)" } */
+/* { dg-options "-mips3d" } */
 
 /* Matrix Multiplications */
 #include <stdlib.h>

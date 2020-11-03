@@ -1,6 +1,5 @@
 // { dg-do run  }
 // { dg-options "-O" }
-// { dg-require-effective-target alloca }
 typedef struct { } e;
 
 char *p;

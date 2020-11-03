@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for NEC V850 series
-   Copyright (C) 1996-2018 Free Software Foundation, Inc.
+   Copyright (C) 1996-2015 Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
    This file is part of GCC.
@@ -18,43 +18,67 @@
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
 
-#define IN_TARGET_CODE 1
-
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
-#include "target.h"
-#include "rtl.h"
+#include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
-#include "df.h"
-#include "memmodel.h"
-#include "tm_p.h"
 #include "stringpool.h"
-#include "attribs.h"
-#include "insn-config.h"
-#include "regs.h"
-#include "emit-rtl.h"
-#include "recog.h"
-#include "diagnostic-core.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "calls.h"
+#include "rtl.h"
+#include "regs.h"
+#include "hard-reg-set.h"
+#include "insn-config.h"
 #include "conditions.h"
 #include "output.h"
 #include "insn-attr.h"
+#include "flags.h"
+#include "recog.h"
+#include "hashtab.h"
+#include "function.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
-#include "cfgrtl.h"
-#include "builtins.h"
-
-/* This file should be included last.  */
+#include "diagnostic-core.h"
+#include "ggc.h"
+#include "tm_p.h"
+#include "target.h"
 #include "target-def.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
+#include "predict.h"
+#include "basic-block.h"
+#include "df.h"
+#include "opts.h"
+#include "builtins.h"
 
 #ifndef streq
 #define streq(a,b) (strcmp (a, b) == 0)
 #endif
 
-static void v850_print_operand_address (FILE *, machine_mode, rtx);
+static void v850_print_operand_address (FILE *, rtx);
 
 /* Names of the various data areas used on the v850.  */
 const char * GHS_default_section_names [(int) COUNT_OF_GHS_SECTION_KINDS];
@@ -269,22 +293,25 @@ const_double_split (rtx x, HOST_WIDE_INT * p_high, HOST_WIDE_INT * p_low)
   if (GET_CODE (x) == CONST_DOUBLE)
     {
       long t[2];
+      REAL_VALUE_TYPE rv;
 
       switch (GET_MODE (x))
 	{
-	case E_DFmode:
-	  REAL_VALUE_TO_TARGET_DOUBLE (*CONST_DOUBLE_REAL_VALUE (x), t);
+	case DFmode:
+	  REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
+	  REAL_VALUE_TO_TARGET_DOUBLE (rv, t);
 	  *p_high = t[1];	/* since v850 is little endian */
 	  *p_low = t[0];	/* high is second word */
 	  return;
 
-	case E_SFmode:
-	  REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (x), *p_high);
+	case SFmode:
+	  REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
+	  REAL_VALUE_TO_TARGET_SINGLE (rv, *p_high);
 	  *p_low = 0;
 	  return;
 
-	case E_VOIDmode:
-	case E_DImode:
+	case VOIDmode:
+	case DImode:
 	  *p_high = CONST_DOUBLE_HIGH (x);
 	  *p_low  = CONST_DOUBLE_LOW (x);
 	  return;
@@ -344,10 +371,13 @@ const_costs (rtx r, enum rtx_code c)
 }
 
 static bool
-v850_rtx_costs (rtx x, machine_mode mode, int outer_code,
-		int opno ATTRIBUTE_UNUSED, int *total, bool speed)
+v850_rtx_costs (rtx x,
+                int codearg,
+                int outer_code ATTRIBUTE_UNUSED,
+		int opno ATTRIBUTE_UNUSED,
+                int * total, bool speed)
 {
-  enum rtx_code code = GET_CODE (x);
+  enum rtx_code code = (enum rtx_code) codearg;
 
   switch (code)
     {
@@ -371,7 +401,9 @@ v850_rtx_costs (rtx x, machine_mode mode, int outer_code,
 
     case MULT:
       if (TARGET_V850E
-	  && (mode == SImode || mode == HImode || mode == QImode))
+	  && (   GET_MODE (x) == SImode
+	      || GET_MODE (x) == HImode
+	      || GET_MODE (x) == QImode))
         {
 	  if (GET_CODE (XEXP (x, 1)) == REG)
 	    *total = 4;
@@ -544,13 +576,10 @@ v850_print_operand (FILE * file, rtx x, int code)
 	  fprintf (file, reg_names[REGNO (x) + 1]);
 	  break;
 	case MEM:
-	  {
-	    machine_mode mode = GET_MODE (x);
-	    x = XEXP (adjust_address (x, SImode, 4), 0);
-	    v850_print_operand_address (file, mode, x);
-	    if (GET_CODE (x) == CONST_INT)
-	      fprintf (file, "[r0]");
-	  }
+	  x = XEXP (adjust_address (x, SImode, 4), 0);
+	  v850_print_operand_address (file, x);
+	  if (GET_CODE (x) == CONST_INT)
+	    fprintf (file, "[r0]");
 	  break;
 	  
 	case CONST_INT:
@@ -596,10 +625,10 @@ v850_print_operand (FILE * file, rtx x, int code)
 	default:
 	  gcc_unreachable ();
 
-	case E_QImode: fputs (".b", file); break;
-	case E_HImode: fputs (".h", file); break;
-	case E_SImode: fputs (".w", file); break;
-	case E_SFmode: fputs (".w", file); break;
+	case QImode: fputs (".b", file); break;
+	case HImode: fputs (".h", file); break;
+	case SImode: fputs (".w", file); break;
+	case SFmode: fputs (".w", file); break;
 	}
       break;
     case '.':			/* Register r0.  */
@@ -624,11 +653,10 @@ v850_print_operand (FILE * file, rtx x, int code)
 	{
 	case MEM:
 	  if (GET_CODE (XEXP (x, 0)) == CONST_INT)
-	    output_address (GET_MODE (x),
-			    gen_rtx_PLUS (SImode, gen_rtx_REG (SImode, 0),
+	    output_address (gen_rtx_PLUS (SImode, gen_rtx_REG (SImode, 0),
 					  XEXP (x, 0)));
 	  else
-	    output_address (GET_MODE (x), XEXP (x, 0));
+	    output_address (XEXP (x, 0));
 	  break;
 
 	case REG:
@@ -646,7 +674,7 @@ v850_print_operand (FILE * file, rtx x, int code)
 	case CONST:
 	case LABEL_REF:
 	case CODE_LABEL:
-	  v850_print_operand_address (file, VOIDmode, x);
+	  v850_print_operand_address (file, x);
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -660,7 +688,7 @@ v850_print_operand (FILE * file, rtx x, int code)
 /* Output assembly language output for the address ADDR to FILE.  */
 
 static void
-v850_print_operand_address (FILE * file, machine_mode /*mode*/, rtx addr)
+v850_print_operand_address (FILE * file, rtx addr)
 {
   switch (GET_CODE (addr))
     {
@@ -900,7 +928,7 @@ output_move_single (rtx * operands)
 	return "%S0st%W0 %.,%0";
     }
 
-  fatal_insn ("output_move_single:", gen_rtx_SET (dst, src));
+  fatal_insn ("output_move_single:", gen_rtx_SET (VOIDmode, dst, src));
   return "";
 }
 
@@ -1006,7 +1034,7 @@ v850_gen_compare (enum rtx_code cond, machine_mode mode, rtx op0, rtx op1)
       rtx cc_reg;
       mode = v850_gen_float_compare (cond, mode, op0, op1);
       cc_reg = gen_rtx_REG (mode, CC_REGNUM);
-      emit_insn (gen_rtx_SET (cc_reg, gen_rtx_REG (mode, FCC_REGNUM)));
+      emit_insn (gen_rtx_SET(mode, cc_reg, gen_rtx_REG (mode, FCC_REGNUM)));  
 
       return gen_rtx_fmt_ee (cond, mode, cc_reg, const0_rtx);
     }
@@ -1022,7 +1050,7 @@ ep_memory_offset (machine_mode mode, int unsignedp ATTRIBUTE_UNUSED)
 
   switch (mode)
     {
-    case E_QImode:
+    case QImode:
       if (TARGET_SMALL_SLD)
 	max_offset = (1 << 4);
       else if ((TARGET_V850E_UP)
@@ -1032,7 +1060,7 @@ ep_memory_offset (machine_mode mode, int unsignedp ATTRIBUTE_UNUSED)
 	max_offset = (1 << 7);
       break;
 
-    case E_HImode:
+    case HImode:
       if (TARGET_SMALL_SLD)
 	max_offset = (1 << 5);
       else if ((TARGET_V850E_UP)
@@ -1042,8 +1070,8 @@ ep_memory_offset (machine_mode mode, int unsignedp ATTRIBUTE_UNUSED)
 	max_offset = (1 << 8);
       break;
 
-    case E_SImode:
-    case E_SFmode:
+    case SImode:
+    case SFmode:
       max_offset = (1 << 8);
       break;
       
@@ -1212,10 +1240,10 @@ Saved %d bytes (%d uses of register %s) in function %s, starting as insn %d, end
       && SET_SRC (PATTERN (insn)) == *p_r1)
     delete_insn (insn);
   else
-    emit_insn_before (gen_rtx_SET (*p_r1, *p_ep), first_insn);
+    emit_insn_before (gen_rtx_SET (Pmode, *p_r1, *p_ep), first_insn);
 
-  emit_insn_before (gen_rtx_SET (*p_ep, reg), first_insn);
-  emit_insn_before (gen_rtx_SET (*p_ep, *p_r1), last_insn);
+  emit_insn_before (gen_rtx_SET (Pmode, *p_ep, reg), first_insn);
+  emit_insn_before (gen_rtx_SET (Pmode, *p_ep, *p_r1), last_insn);
 }
 
 
@@ -1378,11 +1406,12 @@ v850_reorg (void)
 		 for the register */
 	      if (GET_CODE (dest) == REG)
 		{
+		  machine_mode mode = GET_MODE (dest);
 		  int regno;
 		  int endregno;
 
 		  regno = REGNO (dest);
-		  endregno = END_REGNO (dest);
+		  endregno = regno + HARD_REGNO_NREGS (regno, mode);
 
 		  if (!use_ep)
 		    {
@@ -1574,7 +1603,7 @@ compute_register_save_size (long * p_reg_saved)
   -------------------------- ---- ------------------   V */
 
 int
-compute_frame_size (poly_int64 size, long * p_reg_saved)
+compute_frame_size (int size, long * p_reg_saved)
 {
   return (size
 	  + compute_register_save_size (p_reg_saved)
@@ -1716,7 +1745,8 @@ expand_prologue (void)
 			  + (TARGET_DISABLE_CALLT ? (TARGET_LONG_CALLS ? 2 : 1) : 0)));
 
 	  XVECEXP (save_all, 0, 0)
-	    = gen_rtx_SET (stack_pointer_rtx,
+	    = gen_rtx_SET (VOIDmode,
+			   stack_pointer_rtx,
 			   gen_rtx_PLUS (Pmode,
 					 stack_pointer_rtx,
 					 GEN_INT(-alloc_stack)));
@@ -1724,7 +1754,8 @@ expand_prologue (void)
 	    {
 	      offset -= 4;
 	      XVECEXP (save_all, 0, i+1)
-		= gen_rtx_SET (gen_rtx_MEM (Pmode,
+		= gen_rtx_SET (VOIDmode,
+			       gen_rtx_MEM (Pmode,
 					    gen_rtx_PLUS (Pmode,
 							  stack_pointer_rtx,
 							  GEN_INT(offset))),
@@ -1743,7 +1774,7 @@ expand_prologue (void)
 
 	  v850_all_frame_related (save_all);
 
-	  code = recog (save_all, NULL, NULL);
+	  code = recog (save_all, NULL_RTX, NULL);
 	  if (code >= 0)
 	    {
 	      rtx insn = emit_insn (save_all);
@@ -1872,16 +1903,17 @@ expand_epilogue (void)
 					  rtvec_alloc (num_restore + 2));
 	  XVECEXP (restore_all, 0, 0) = ret_rtx;
 	  XVECEXP (restore_all, 0, 1)
-	    = gen_rtx_SET (stack_pointer_rtx,
-			   gen_rtx_PLUS (Pmode,
-					 stack_pointer_rtx,
-					 GEN_INT (alloc_stack)));
+	    = gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+			    gen_rtx_PLUS (Pmode,
+					  stack_pointer_rtx,
+					  GEN_INT (alloc_stack)));
 
 	  offset = alloc_stack - 4;
 	  for (i = 0; i < num_restore; i++)
 	    {
 	      XVECEXP (restore_all, 0, i+2)
-		= gen_rtx_SET (restore_regs[i],
+		= gen_rtx_SET (VOIDmode,
+			       restore_regs[i],
 			       gen_rtx_MEM (Pmode,
                                             gen_rtx_PLUS (Pmode,
                                                           stack_pointer_rtx,
@@ -1889,7 +1921,7 @@ expand_epilogue (void)
 	      offset -= 4;
 	    }
 
-	  code = recog (restore_all, NULL, NULL);
+	  code = recog (restore_all, NULL_RTX, NULL);
 	  
 	  if (code >= 0)
 	    {
@@ -2074,7 +2106,8 @@ v850_set_data_area (tree decl, v850_data_area data_area)
 /* Handle an "interrupt" attribute; arguments as in
    struct attribute_spec.handler.  */
 static tree
-v850_handle_interrupt_attribute (tree *node, tree name,
+v850_handle_interrupt_attribute (tree * node,
+                                 tree name,
                                  tree args ATTRIBUTE_UNUSED,
                                  int flags ATTRIBUTE_UNUSED,
                                  bool * no_add_attrs)
@@ -2092,7 +2125,8 @@ v850_handle_interrupt_attribute (tree *node, tree name,
 /* Handle a "sda", "tda" or "zda" attribute; arguments as in
    struct attribute_spec.handler.  */
 static tree
-v850_handle_data_area_attribute (tree *node, tree name,
+v850_handle_data_area_attribute (tree* node,
+                                 tree name,
                                  tree args ATTRIBUTE_UNUSED,
                                  int flags ATTRIBUTE_UNUSED,
                                  bool * no_add_attrs)
@@ -2122,7 +2156,7 @@ v850_handle_data_area_attribute (tree *node, tree name,
 	  *no_add_attrs = true;
 	}
 
-      /* FALLTHRU */
+      /* Drop through.  */
 
     case FUNCTION_DECL:
       area = v850_get_data_area (decl);
@@ -2477,7 +2511,6 @@ v850_output_aligned_bss (FILE * file,
 
     case DATA_AREA_TDA:
       switch_to_section (tdata_section);
-      break;
       
     default:
       switch_to_section (bss_section);
@@ -2970,7 +3003,7 @@ v850_select_section (tree exp,
 static bool
 v850_function_value_regno_p (const unsigned int regno)
 {
-  return (regno == RV_REGNUM);
+  return (regno == 10);
 }
 
 /* Worker function for TARGET_RETURN_IN_MEMORY.  */
@@ -2993,16 +3026,7 @@ v850_function_value (const_tree valtype,
                     const_tree fn_decl_or_type ATTRIBUTE_UNUSED,
                     bool outgoing ATTRIBUTE_UNUSED)
 {
-  return gen_rtx_REG (TYPE_MODE (valtype), RV_REGNUM);
-}
-
-/* Implement TARGET_LIBCALL_VALUE.  */
-
-static rtx
-v850_libcall_value (machine_mode mode,
-		    const_rtx func ATTRIBUTE_UNUSED)
-{
-  return gen_rtx_REG (mode, RV_REGNUM);
+  return gen_rtx_REG (TYPE_MODE (valtype), 10);
 }
 
 
@@ -3078,66 +3102,6 @@ v850_legitimate_constant_p (machine_mode mode ATTRIBUTE_UNUSED, rtx x)
 	       && !CONST_OK_FOR_K (INTVAL (XEXP (XEXP (x, 0), 1)))));
 }
 
-/* Helper function for `v850_legitimate_address_p'.  */
-
-static bool
-v850_reg_ok_for_base_p (const_rtx reg, bool strict_p)
-{
-  if (strict_p)
-  {
-    return REGNO_OK_FOR_BASE_P (REGNO (reg));
-  } else {
-    return true;
-  }
-}
-
-/* Accept either REG or SUBREG where a register is valid.  */
-
-static bool
-v850_rtx_ok_for_base_p (const_rtx x, bool strict_p)
-{
-  return ((REG_P (x) && v850_reg_ok_for_base_p  (x, strict_p))
-	  || (SUBREG_P (x) && REG_P (SUBREG_REG (x))
-	      && v850_reg_ok_for_base_p (SUBREG_REG (x), strict_p)));
-}
-
-/* Implement TARGET_LEGITIMATE_ADDRESS_P.  */
-
-static bool
-v850_legitimate_address_p (machine_mode mode, rtx x, bool strict_p,
-			   addr_space_t as ATTRIBUTE_UNUSED)
-{
-  gcc_assert (ADDR_SPACE_GENERIC_P (as));
-
-  if (v850_rtx_ok_for_base_p (x, strict_p))
-    return true;
-  if (CONSTANT_ADDRESS_P (x)
-      && (mode == QImode || INTVAL (x) % 2 == 0)
-      && (GET_MODE_SIZE (mode) <= 4 || INTVAL (x) % 4 == 0))
-    return true;
-  if (GET_CODE (x) == LO_SUM
-      && REG_P (XEXP (x, 0))
-      && v850_reg_ok_for_base_p (XEXP (x, 0), strict_p)
-      && CONSTANT_P (XEXP (x, 1))
-      && (!CONST_INT_P (XEXP (x, 1))
-	  || ((mode == QImode || INTVAL (XEXP (x, 1)) % 2 == 0)
-	      && constraint_satisfied_p (XEXP (x, 1), CONSTRAINT_K)))
-      && GET_MODE_SIZE (mode) <= GET_MODE_SIZE (word_mode))
-    return true;
-  if (special_symbolref_operand (x, mode)
-      && (GET_MODE_SIZE (mode) <= GET_MODE_SIZE (word_mode)))
-    return true;
-  if (GET_CODE (x) == PLUS
-      && v850_rtx_ok_for_base_p (XEXP (x, 0), strict_p)
-      && constraint_satisfied_p (XEXP (x,1), CONSTRAINT_K)
-      && ((mode == QImode || INTVAL (XEXP (x, 1)) % 2 == 0)
-	   && CONST_OK_FOR_K (INTVAL (XEXP (x, 1))
-			      + (GET_MODE_NUNITS (mode) * UNITS_PER_WORD))))
-    return true;
-
-  return false;  
-}
-
 static int
 v850_memory_move_cost (machine_mode mode,
 		       reg_class_t reg_class ATTRIBUTE_UNUSED,
@@ -3187,19 +3151,19 @@ v850_adjust_insn_length (rtx_insn *insn, int length)
 
 static const struct attribute_spec v850_attribute_table[] =
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req,
-       affects_type_identity, handler, exclude } */
-  { "interrupt_handler", 0, 0, true,  false, false, false,
-    v850_handle_interrupt_attribute, NULL },
-  { "interrupt",         0, 0, true,  false, false, false,
-    v850_handle_interrupt_attribute, NULL },
-  { "sda",               0, 0, true,  false, false, false,
-    v850_handle_data_area_attribute, NULL },
-  { "tda",               0, 0, true,  false, false, false,
-    v850_handle_data_area_attribute, NULL },
-  { "zda",               0, 0, true,  false, false, false,
-    v850_handle_data_area_attribute, NULL },
-  { NULL,                0, 0, false, false, false, false, NULL, NULL }
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
+       affects_type_identity } */
+  { "interrupt_handler", 0, 0, true,  false, false,
+    v850_handle_interrupt_attribute, false },
+  { "interrupt",         0, 0, true,  false, false,
+    v850_handle_interrupt_attribute, false },
+  { "sda",               0, 0, true,  false, false,
+    v850_handle_data_area_attribute, false },
+  { "tda",               0, 0, true,  false, false,
+    v850_handle_data_area_attribute, false },
+  { "zda",               0, 0, true,  false, false,
+    v850_handle_data_area_attribute, false },
+  { NULL,                0, 0, false, false, false, NULL, false }
 };
 
 static void
@@ -3245,23 +3209,6 @@ v850_gen_movdi (rtx * operands)
     return "st.w %1, %0 ; st.w %R1, %R0 ";
   
   return "st.dw %1, %0";
-}
-
-/* Implement TARGET_HARD_REGNO_MODE_OK.  */
-
-static bool
-v850_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
-{
-  return GET_MODE_SIZE (mode) <= 4 || ((regno & 1) == 0 && regno != 0);
-}
-
-/* Implement TARGET_MODES_TIEABLE_P.  */
-
-static bool
-v850_modes_tieable_p (machine_mode mode1, machine_mode mode2)
-{
-  return (mode1 == mode2
-	  || (GET_MODE_SIZE (mode1) <= 4 && GET_MODE_SIZE (mode2) <= 4));
 }
 
 /* Initialize the GCC target structure.  */
@@ -3321,8 +3268,6 @@ v850_modes_tieable_p (machine_mode mode1, machine_mode mode2)
 #define TARGET_FUNCTION_VALUE_REGNO_P v850_function_value_regno_p
 #undef  TARGET_FUNCTION_VALUE
 #define TARGET_FUNCTION_VALUE v850_function_value
-#undef  TARGET_LIBCALL_VALUE
-#define TARGET_LIBCALL_VALUE v850_libcall_value
 
 #undef  TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
@@ -3359,20 +3304,8 @@ v850_modes_tieable_p (machine_mode mode1, machine_mode mode2)
 #undef  TARGET_LEGITIMATE_CONSTANT_P
 #define TARGET_LEGITIMATE_CONSTANT_P v850_legitimate_constant_p
 
-#undef TARGET_LRA_P
-#define TARGET_LRA_P hook_bool_void_false
-
-#undef  TARGET_ADDR_SPACE_LEGITIMATE_ADDRESS_P
-#define TARGET_ADDR_SPACE_LEGITIMATE_ADDRESS_P v850_legitimate_address_p
-
 #undef  TARGET_CAN_USE_DOLOOP_P
 #define TARGET_CAN_USE_DOLOOP_P can_use_doloop_if_innermost
-
-#undef  TARGET_HARD_REGNO_MODE_OK
-#define TARGET_HARD_REGNO_MODE_OK v850_hard_regno_mode_ok
-
-#undef  TARGET_MODES_TIEABLE_P
-#define TARGET_MODES_TIEABLE_P v850_modes_tieable_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

@@ -26,7 +26,7 @@ struct Bar {
 int g = g;
 Foo foo = foo;
 
-void func()
+int func()
 {
   Bar *bar1, bar2;
   Foo local_foo;

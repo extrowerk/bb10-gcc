@@ -5,12 +5,13 @@
 namespace N
 {
     template<typename> 
-    struct X { };
+    struct X { };		// { dg-message "N::X" }
 }
 
-N::X X;                           // { dg-error "" }
+N::X X;                           // { dg-error "" "" }
 
 int main()
 {
-    return sizeof(X);	    // { dg-prune-output "not declared in this scope" }
+    return sizeof(X);             // { dg-error "" "" }
+    // { dg-message "suggested alternative" "suggested alternative" { target *-*-* } 15 }
 }

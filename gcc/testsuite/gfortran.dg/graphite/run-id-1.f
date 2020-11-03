@@ -41,7 +41,7 @@
       end if
 
       if (w1(1,1).ne.21.0d0) then
-        STOP 1
+        call abort()
       end if
 
       end

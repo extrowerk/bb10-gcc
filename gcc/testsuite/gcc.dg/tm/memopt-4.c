@@ -22,3 +22,4 @@ int f()
 
 /* { dg-final { scan-tree-dump-times "tm_save.\[0-9_\]+ = lala.x\\\[55\\\]" 1 "tmedge" } } */
 /* { dg-final { scan-tree-dump-times "lala.x\\\[55\\\] = tm_save" 1 "tmedge" } } */
+/* { dg-final { cleanup-tree-dump "tmedge" } } */

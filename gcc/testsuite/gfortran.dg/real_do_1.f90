@@ -15,11 +15,11 @@ program real_do_1
     y = y + 0.1
     n = n + 1
   end do
-  if (n .ne. 11) STOP 1
+  if (n .ne. 11) call abort()
 contains
 subroutine check (a, b)
   real, intent(in) :: a, b
 
-  if (abs (a - b) .gt. 0.00001) STOP 2
+  if (abs (a - b) .gt. 0.00001) call abort()
 end subroutine
 end program

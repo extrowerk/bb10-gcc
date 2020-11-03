@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for HPPA.
-   Copyright (C) 1992-2018 Free Software Foundation, Inc.
+   Copyright (C) 1992-2015 Free Software Foundation, Inc.
    Contributed by Tim Moore (moore@cs.utah.edu), based on sparc.c
 
 This file is part of GCC.
@@ -18,44 +18,69 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-#define IN_TARGET_CODE 1
-
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "memmodel.h"
-#include "backend.h"
-#include "target.h"
+#include "tm.h"
 #include "rtl.h"
-#include "tree.h"
-#include "df.h"
-#include "tm_p.h"
-#include "stringpool.h"
-#include "attribs.h"
-#include "optabs.h"
 #include "regs.h"
-#include "emit-rtl.h"
-#include "recog.h"
-#include "diagnostic-core.h"
+#include "hard-reg-set.h"
+#include "insn-config.h"
+#include "conditions.h"
 #include "insn-attr.h"
+#include "flags.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
 #include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
+#include "stringpool.h"
 #include "varasm.h"
 #include "calls.h"
 #include "output.h"
+#include "dbxout.h"
 #include "except.h"
+#include "hashtab.h"
+#include "function.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
 #include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
+#include "insn-codes.h"
+#include "optabs.h"
 #include "reload.h"
+#include "diagnostic-core.h"
+#include "ggc.h"
+#include "recog.h"
+#include "predict.h"
+#include "tm_p.h"
+#include "target.h"
 #include "common/common-target.h"
+#include "target-def.h"
 #include "langhooks.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
+#include "basic-block.h"
+#include "df.h"
 #include "opts.h"
 #include "builtins.h"
-
-/* This file should be included last.  */
-#include "target-def.h"
 
 /* Return nonzero if there is a bypass for the output of 
    OUT_INSN and the fp store IN_INSN.  */
@@ -98,7 +123,7 @@ static void fix_range (const char *);
 static int hppa_register_move_cost (machine_mode mode, reg_class_t,
 				    reg_class_t);
 static int hppa_address_cost (rtx, machine_mode mode, addr_space_t, bool);
-static bool hppa_rtx_costs (rtx, machine_mode, int, int, int *, bool);
+static bool hppa_rtx_costs (rtx, int, int, int, int *, bool);
 static inline rtx force_mode (machine_mode, rtx);
 static void pa_reorg (void);
 static void pa_combine_instructions (void);
@@ -118,10 +143,10 @@ static void set_reg_plus_d (int, int, HOST_WIDE_INT, int);
 static rtx pa_function_value (const_tree, const_tree, bool);
 static rtx pa_libcall_value (machine_mode, const_rtx);
 static bool pa_function_value_regno_p (const unsigned int);
-static void pa_output_function_prologue (FILE *);
+static void pa_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void update_total_code_bytes (unsigned int);
-static void pa_output_function_epilogue (FILE *);
-static int pa_adjust_cost (rtx_insn *, int, rtx_insn *, int, unsigned int);
+static void pa_output_function_epilogue (FILE *, HOST_WIDE_INT);
+static int pa_adjust_cost (rtx_insn *, rtx, rtx_insn *, int);
 static int pa_adjust_priority (rtx_insn *, int);
 static int pa_issue_rate (void);
 static int pa_reloc_rw_mask (void);
@@ -145,7 +170,7 @@ static rtx pa_expand_builtin (tree, rtx, rtx, machine_mode mode, int);
 static rtx hppa_builtin_saveregs (void);
 static void hppa_va_start (tree, rtx);
 static tree hppa_gimplify_va_arg_expr (tree, tree, gimple_seq *, gimple_seq *);
-static bool pa_scalar_mode_supported_p (scalar_mode);
+static bool pa_scalar_mode_supported_p (machine_mode);
 static bool pa_commutative_p (const_rtx x, int outer_code);
 static void copy_fp_args (rtx_insn *) ATTRIBUTE_UNUSED;
 static int length_fp_args (rtx_insn *) ATTRIBUTE_UNUSED;
@@ -161,7 +186,9 @@ static void pa_hpux64_gas_file_start (void) ATTRIBUTE_UNUSED;
 static void pa_hpux64_hpas_file_start (void) ATTRIBUTE_UNUSED;
 static void output_deferred_plabels (void);
 static void output_deferred_profile_counters (void) ATTRIBUTE_UNUSED;
-static void pa_file_end (void);
+#ifdef ASM_OUTPUT_EXTERNAL_REAL
+static void pa_hpux_file_end (void);
+#endif
 static void pa_init_libfuncs (void);
 static rtx pa_struct_value_rtx (tree, int);
 static bool pa_pass_by_reference (cumulative_args_t, machine_mode,
@@ -172,14 +199,11 @@ static void pa_function_arg_advance (cumulative_args_t, machine_mode,
 				     const_tree, bool);
 static rtx pa_function_arg (cumulative_args_t, machine_mode,
 			    const_tree, bool);
-static pad_direction pa_function_arg_padding (machine_mode, const_tree);
 static unsigned int pa_function_arg_boundary (machine_mode, const_tree);
 static struct machine_function * pa_init_machine_status (void);
 static reg_class_t pa_secondary_reload (bool, rtx, reg_class_t,
 					machine_mode,
 					secondary_reload_info *);
-static bool pa_secondary_memory_needed (machine_mode,
-					reg_class_t, reg_class_t);
 static void pa_extra_live_on_entry (bitmap);
 static machine_mode pa_promote_function_mode (const_tree,
 						   machine_mode, int *,
@@ -199,13 +223,6 @@ static bool pa_cannot_force_const_mem (machine_mode, rtx);
 static bool pa_legitimate_constant_p (machine_mode, rtx);
 static unsigned int pa_section_type_flags (tree, const char *, int);
 static bool pa_legitimate_address_p (machine_mode, rtx, bool);
-static bool pa_callee_copies (cumulative_args_t, machine_mode,
-			      const_tree, bool);
-static unsigned int pa_hard_regno_nregs (unsigned int, machine_mode);
-static bool pa_hard_regno_mode_ok (unsigned int, machine_mode);
-static bool pa_modes_tieable_p (machine_mode, machine_mode);
-static bool pa_can_change_mode_class (machine_mode, machine_mode, reg_class_t);
-static HOST_WIDE_INT pa_starting_frame_offset (void);
 
 /* The following extra sections are only used for SOM.  */
 static GTY(()) section *som_readonly_data_section;
@@ -302,7 +319,11 @@ static size_t n_deferred_plabels = 0;
 #define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
 
 #undef TARGET_ASM_FILE_END
-#define TARGET_ASM_FILE_END pa_file_end
+#ifdef ASM_OUTPUT_EXTERNAL_REAL
+#define TARGET_ASM_FILE_END pa_hpux_file_end
+#else
+#define TARGET_ASM_FILE_END output_deferred_plabels
+#endif
 
 #undef TARGET_ASM_RELOC_RW_MASK
 #define TARGET_ASM_RELOC_RW_MASK pa_reloc_rw_mask
@@ -350,15 +371,13 @@ static size_t n_deferred_plabels = 0;
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE pa_pass_by_reference
 #undef TARGET_CALLEE_COPIES
-#define TARGET_CALLEE_COPIES pa_callee_copies
+#define TARGET_CALLEE_COPIES hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true
 #undef TARGET_ARG_PARTIAL_BYTES
 #define TARGET_ARG_PARTIAL_BYTES pa_arg_partial_bytes
 #undef TARGET_FUNCTION_ARG
 #define TARGET_FUNCTION_ARG pa_function_arg
 #undef TARGET_FUNCTION_ARG_ADVANCE
 #define TARGET_FUNCTION_ARG_ADVANCE pa_function_arg_advance
-#undef TARGET_FUNCTION_ARG_PADDING
-#define TARGET_FUNCTION_ARG_PADDING pa_function_arg_padding
 #undef TARGET_FUNCTION_ARG_BOUNDARY
 #define TARGET_FUNCTION_ARG_BOUNDARY pa_function_arg_boundary
 
@@ -377,8 +396,6 @@ static size_t n_deferred_plabels = 0;
 
 #undef TARGET_SECONDARY_RELOAD
 #define TARGET_SECONDARY_RELOAD pa_secondary_reload
-#undef TARGET_SECONDARY_MEMORY_NEEDED
-#define TARGET_SECONDARY_MEMORY_NEEDED pa_secondary_memory_needed
 
 #undef TARGET_EXTRA_LIVE_ON_ENTRY
 #define TARGET_EXTRA_LIVE_ON_ENTRY pa_extra_live_on_entry
@@ -408,25 +425,6 @@ static size_t n_deferred_plabels = 0;
 #define TARGET_SECTION_TYPE_FLAGS pa_section_type_flags
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P pa_legitimate_address_p
-
-#undef TARGET_LRA_P
-#define TARGET_LRA_P hook_bool_void_false
-
-#undef TARGET_HARD_REGNO_NREGS
-#define TARGET_HARD_REGNO_NREGS pa_hard_regno_nregs
-#undef TARGET_HARD_REGNO_MODE_OK
-#define TARGET_HARD_REGNO_MODE_OK pa_hard_regno_mode_ok
-#undef TARGET_MODES_TIEABLE_P
-#define TARGET_MODES_TIEABLE_P pa_modes_tieable_p
-
-#undef TARGET_CAN_CHANGE_MODE_CLASS
-#define TARGET_CAN_CHANGE_MODE_CLASS pa_can_change_mode_class
-
-#undef TARGET_CONSTANT_ALIGNMENT
-#define TARGET_CONSTANT_ALIGNMENT constant_alignment_word_strings
-
-#undef TARGET_STARTING_FRAME_OFFSET
-#define TARGET_STARTING_FRAME_OFFSET pa_starting_frame_offset
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -670,7 +668,7 @@ pa_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	rtx tmp;
 
 	real_inf (&inf);
-	tmp = const_double_from_real_value (inf, target_mode);
+	tmp = CONST_DOUBLE_FROM_REAL_VALUE (inf, target_mode);
 
 	tmp = validize_mem (force_const_mem (target_mode, tmp));
 
@@ -725,7 +723,7 @@ pa_symbolic_expression_p (rtx x)
 /* Accept any constant that can be moved in one instruction into a
    general register.  */
 int
-pa_cint_ok_for_move (unsigned HOST_WIDE_INT ival)
+pa_cint_ok_for_move (HOST_WIDE_INT ival)
 {
   /* OK if ldo, ldil, or zdepi, can be used.  */
   return (VAL_14_BITS_P (ival)
@@ -737,12 +735,11 @@ pa_cint_ok_for_move (unsigned HOST_WIDE_INT ival)
    significant 11 bits of the value must be zero and the value must
    not change sign when extended from 32 to 64 bits.  */
 int
-pa_ldil_cint_p (unsigned HOST_WIDE_INT ival)
+pa_ldil_cint_p (HOST_WIDE_INT ival)
 {
-  unsigned HOST_WIDE_INT x;
+  HOST_WIDE_INT x = ival & (((HOST_WIDE_INT) -1 << 31) | 0x7ff);
 
-  x = ival & (((unsigned HOST_WIDE_INT) -1 << 31) | 0x7ff);
-  return x == 0 || x == ((unsigned HOST_WIDE_INT) -1 << 31);
+  return x == 0 || x == ((HOST_WIDE_INT) -1 << 31);
 }
 
 /* True iff zdepi can be used to generate this CONST_INT.
@@ -809,7 +806,7 @@ legitimize_pic_address (rtx orig, machine_mode mode, rtx reg)
 	 So instead we just emit the raw set, which avoids the movXX
 	 expanders completely.  */
       mark_reg_pointer (reg, BITS_PER_UNIT);
-      insn = emit_insn (gen_rtx_SET (reg, orig));
+      insn = emit_insn (gen_rtx_SET (VOIDmode, reg, orig));
 
       /* Put a REG_EQUAL note on this insn, so that it can be optimized.  */
       add_reg_note (insn, REG_EQUAL, orig);
@@ -930,7 +927,7 @@ hppa_tls_call (rtx arg)
 
   ret = gen_reg_rtx (Pmode);
   emit_library_call_value (gen_tls_get_addr (), ret,
-			   LCT_CONST, Pmode, arg, Pmode);
+		  	   LCT_CONST, Pmode, 1, arg, Pmode);
 
   return ret;
 }
@@ -1000,23 +997,6 @@ legitimize_tls_address (rtx addr)
   return ret;
 }
 
-/* Helper for hppa_legitimize_address.  Given X, return true if it
-   is a left shift by 1, 2 or 3 positions or a multiply by 2, 4 or 8.
-
-   This respectively represent canonical shift-add rtxs or scaled
-   memory addresses.  */
-static bool
-mem_shadd_or_shadd_rtx_p (rtx x)
-{
-  return ((GET_CODE (x) == ASHIFT
-	   || GET_CODE (x) == MULT)
-	  && GET_CODE (XEXP (x, 1)) == CONST_INT
-	  && ((GET_CODE (x) == ASHIFT
-	       && pa_shadd_constant_p (INTVAL (XEXP (x, 1))))
-	      || (GET_CODE (x) == MULT
-		  && pa_mem_shadd_constant_p (INTVAL (XEXP (x, 1))))));
-}
-
 /* Try machine-dependent ways of modifying an illegitimate address
    to be legitimate.  If we find one, return the new, valid address.
    This macro is used in only one place: `memory_address' in explow.c.
@@ -1061,13 +1041,6 @@ mem_shadd_or_shadd_rtx_p (rtx x)
    It is also beneficial to handle (plus (mult (X) (Y)) (Z)) in a special
    manner if Y is 2, 4, or 8.  (allows more shadd insns and shifted indexed
    addressing modes to be used).
-
-   Note that the addresses passed into hppa_legitimize_address always
-   come from a MEM, so we only have to match the MULT form on incoming
-   addresses.  But to be future proof we also match the ASHIFT form.
-
-   However, this routine always places those shift-add sequences into
-   registers, so we have to generate the ASHIFT form as our output.
 
    Put X and Z into registers.  Then put the entire expression into
    a register.  */
@@ -1165,21 +1138,18 @@ hppa_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       return plus_constant (Pmode, ptr_reg, offset - newoffset);
     }
 
-  /* Handle (plus (mult (a) (mem_shadd_constant)) (b)).  */
+  /* Handle (plus (mult (a) (shadd_constant)) (b)).  */
 
-  if (GET_CODE (x) == PLUS
-      && mem_shadd_or_shadd_rtx_p (XEXP (x, 0))
+  if (GET_CODE (x) == PLUS && GET_CODE (XEXP (x, 0)) == MULT
+      && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
+      && pa_shadd_constant_p (INTVAL (XEXP (XEXP (x, 0), 1)))
       && (OBJECT_P (XEXP (x, 1))
 	  || GET_CODE (XEXP (x, 1)) == SUBREG)
       && GET_CODE (XEXP (x, 1)) != CONST)
     {
-      /* If we were given a MULT, we must fix the constant
-	 as we're going to create the ASHIFT form.  */
-      int shift_val = INTVAL (XEXP (XEXP (x, 0), 1));
-      if (GET_CODE (XEXP (x, 0)) == MULT)
-	shift_val = exact_log2 (shift_val);
-
+      int val = INTVAL (XEXP (XEXP (x, 0), 1));
       rtx reg1, reg2;
+
       reg1 = XEXP (x, 1);
       if (GET_CODE (reg1) != REG)
 	reg1 = force_reg (Pmode, force_operand (reg1, 0));
@@ -1188,30 +1158,26 @@ hppa_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       if (GET_CODE (reg2) != REG)
         reg2 = force_reg (Pmode, force_operand (reg2, 0));
 
-      return force_reg (Pmode,
-			gen_rtx_PLUS (Pmode,
-				      gen_rtx_ASHIFT (Pmode, reg2,
-						      GEN_INT (shift_val)),
-				      reg1));
+      return force_reg (Pmode, gen_rtx_PLUS (Pmode,
+					     gen_rtx_MULT (Pmode,
+							   reg2,
+							   GEN_INT (val)),
+					     reg1));
     }
 
-  /* Similarly for (plus (plus (mult (a) (mem_shadd_constant)) (b)) (c)).
+  /* Similarly for (plus (plus (mult (a) (shadd_constant)) (b)) (c)).
 
      Only do so for floating point modes since this is more speculative
      and we lose if it's an integer store.  */
   if (GET_CODE (x) == PLUS
       && GET_CODE (XEXP (x, 0)) == PLUS
-      && mem_shadd_or_shadd_rtx_p (XEXP (XEXP (x, 0), 0))
+      && GET_CODE (XEXP (XEXP (x, 0), 0)) == MULT
+      && GET_CODE (XEXP (XEXP (XEXP (x, 0), 0), 1)) == CONST_INT
+      && pa_shadd_constant_p (INTVAL (XEXP (XEXP (XEXP (x, 0), 0), 1)))
       && (mode == SFmode || mode == DFmode))
     {
-      int shift_val = INTVAL (XEXP (XEXP (XEXP (x, 0), 0), 1));
 
-      /* If we were given a MULT, we must fix the constant
-	 as we're going to create the ASHIFT form.  */
-      if (GET_CODE (XEXP (XEXP (x, 0), 0)) == MULT)
-	shift_val = exact_log2 (shift_val);
-
-      /* Try and figure out what to use as a base register.  */
+      /* First, try and figure out what to use as a base register.  */
       rtx reg1, reg2, base, idx;
 
       reg1 = XEXP (XEXP (x, 0), 1);
@@ -1235,9 +1201,9 @@ hppa_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	{
 	  base = reg1;
 	  idx = gen_rtx_PLUS (Pmode,
-			      gen_rtx_ASHIFT (Pmode,
-					      XEXP (XEXP (XEXP (x, 0), 0), 0),
-					      GEN_INT (shift_val)),
+			      gen_rtx_MULT (Pmode,
+					    XEXP (XEXP (XEXP (x, 0), 0), 0),
+					    XEXP (XEXP (XEXP (x, 0), 0), 1)),
 			      XEXP (x, 1));
 	}
       else if (GET_CODE (reg2) == REG
@@ -1259,8 +1225,8 @@ hppa_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	{
 	  /* Divide the CONST_INT by the scale factor, then add it to A.  */
 	  int val = INTVAL (XEXP (idx, 1));
-	  val /= (1 << shift_val);
 
+	  val /= INTVAL (XEXP (XEXP (idx, 0), 1));
 	  reg1 = XEXP (XEXP (idx, 0), 0);
 	  if (GET_CODE (reg1) != REG)
 	    reg1 = force_reg (Pmode, force_operand (reg1, 0));
@@ -1271,8 +1237,8 @@ hppa_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	  return
 	    force_reg
 	      (Pmode, gen_rtx_PLUS (Pmode,
-				    gen_rtx_ASHIFT (Pmode, reg1,
-						    GEN_INT (shift_val)),
+				    gen_rtx_MULT (Pmode, reg1,
+						  XEXP (XEXP (idx, 0), 1)),
 				    base));
 	}
 
@@ -1281,6 +1247,7 @@ hppa_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	  && INTVAL (XEXP (idx, 1)) <= 4096
 	  && INTVAL (XEXP (idx, 1)) >= -4096)
 	{
+	  int val = INTVAL (XEXP (XEXP (idx, 0), 1));
 	  rtx reg1, reg2;
 
 	  reg1 = force_reg (Pmode, gen_rtx_PLUS (Pmode, base, XEXP (idx, 1)));
@@ -1289,11 +1256,11 @@ hppa_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	  if (GET_CODE (reg2) != CONST_INT)
 	    reg2 = force_reg (Pmode, force_operand (reg2, 0));
 
-	  return force_reg (Pmode,
-			    gen_rtx_PLUS (Pmode,
-					  gen_rtx_ASHIFT (Pmode, reg2,
-							  GEN_INT (shift_val)),
-					  reg1));
+	  return force_reg (Pmode, gen_rtx_PLUS (Pmode,
+						 gen_rtx_MULT (Pmode,
+							       reg2,
+							       GEN_INT (val)),
+						 reg1));
 	}
 
       /* Get the index into a register, then add the base + index and
@@ -1311,8 +1278,8 @@ hppa_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 
       reg1 = force_reg (Pmode,
 			gen_rtx_PLUS (Pmode,
-				      gen_rtx_ASHIFT (Pmode, reg1,
-						      GEN_INT (shift_val)),
+				      gen_rtx_MULT (Pmode, reg1,
+						    XEXP (XEXP (idx, 0), 1)),
 				      reg2));
 
       /* Add the result to our base register and return.  */
@@ -1348,7 +1315,7 @@ hppa_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       if (GET_CODE (y) == PLUS || GET_CODE (y) == MINUS)
 	{
 	  /* See if this looks like
-		(plus (mult (reg) (mem_shadd_const))
+		(plus (mult (reg) (shadd_const))
 		      (const (plus (symbol_ref) (const_int))))
 
 	     Where const_int is small.  In that case the const
@@ -1357,18 +1324,14 @@ hppa_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	     If const_int is big, but can be divided evenly by shadd_const
 	     and added to (reg).  This allows more scaled indexed addresses.  */
 	  if (GET_CODE (XEXP (y, 0)) == SYMBOL_REF
-	      && mem_shadd_or_shadd_rtx_p (XEXP (x, 0))
+	      && GET_CODE (XEXP (x, 0)) == MULT
 	      && GET_CODE (XEXP (y, 1)) == CONST_INT
 	      && INTVAL (XEXP (y, 1)) >= -4096
-	      && INTVAL (XEXP (y, 1)) <= 4095)
+	      && INTVAL (XEXP (y, 1)) <= 4095
+	      && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
+	      && pa_shadd_constant_p (INTVAL (XEXP (XEXP (x, 0), 1))))
 	    {
-	      int shift_val = INTVAL (XEXP (XEXP (x, 0), 1));
-
-	      /* If we were given a MULT, we must fix the constant
-		 as we're going to create the ASHIFT form.  */
-	      if (GET_CODE (XEXP (x, 0)) == MULT)
-		shift_val = exact_log2 (shift_val);
-
+	      int val = INTVAL (XEXP (XEXP (x, 0), 1));
 	      rtx reg1, reg2;
 
 	      reg1 = XEXP (x, 1);
@@ -1379,27 +1342,21 @@ hppa_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	      if (GET_CODE (reg2) != REG)
 	        reg2 = force_reg (Pmode, force_operand (reg2, 0));
 
-	      return
-		force_reg (Pmode,
-			   gen_rtx_PLUS (Pmode,
-					 gen_rtx_ASHIFT (Pmode,
-							 reg2,
-							 GEN_INT (shift_val)),
-					 reg1));
+	      return force_reg (Pmode,
+				gen_rtx_PLUS (Pmode,
+					      gen_rtx_MULT (Pmode,
+							    reg2,
+							    GEN_INT (val)),
+					      reg1));
 	    }
 	  else if ((mode == DFmode || mode == SFmode)
 		   && GET_CODE (XEXP (y, 0)) == SYMBOL_REF
-		   && mem_shadd_or_shadd_rtx_p (XEXP (x, 0))
+		   && GET_CODE (XEXP (x, 0)) == MULT
 		   && GET_CODE (XEXP (y, 1)) == CONST_INT
-		   && INTVAL (XEXP (y, 1)) % (1 << INTVAL (XEXP (XEXP (x, 0), 1))) == 0)
+		   && INTVAL (XEXP (y, 1)) % INTVAL (XEXP (XEXP (x, 0), 1)) == 0
+		   && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
+		   && pa_shadd_constant_p (INTVAL (XEXP (XEXP (x, 0), 1))))
 	    {
-	      int shift_val = INTVAL (XEXP (XEXP (x, 0), 1));
-
-	      /* If we were given a MULT, we must fix the constant
-		 as we're going to create the ASHIFT form.  */
-	      if (GET_CODE (XEXP (x, 0)) == MULT)
-		shift_val = exact_log2 (shift_val);
-
 	      regx1
 		= force_reg (Pmode, GEN_INT (INTVAL (XEXP (y, 1))
 					     / INTVAL (XEXP (XEXP (x, 0), 1))));
@@ -1411,8 +1368,8 @@ hppa_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	      return
 		force_reg (Pmode,
 			   gen_rtx_PLUS (Pmode,
-					 gen_rtx_ASHIFT (Pmode, regx2,
-						         GEN_INT (shift_val)),
+					 gen_rtx_MULT (Pmode, regx2,
+						       XEXP (XEXP (x, 0), 1)),
 					 force_reg (Pmode, XEXP (y, 0))));
 	    }
 	  else if (GET_CODE (XEXP (y, 1)) == CONST_INT
@@ -1500,12 +1457,10 @@ hppa_address_cost (rtx X, machine_mode mode ATTRIBUTE_UNUSED,
    scanned.  In either case, *TOTAL contains the cost result.  */
 
 static bool
-hppa_rtx_costs (rtx x, machine_mode mode, int outer_code,
-		int opno ATTRIBUTE_UNUSED,
+hppa_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 		int *total, bool speed ATTRIBUTE_UNUSED)
 {
   int factor;
-  int code = GET_CODE (x);
 
   switch (code)
     {
@@ -1537,14 +1492,14 @@ hppa_rtx_costs (rtx x, machine_mode mode, int outer_code,
       return true;
 
     case MULT:
-      if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+      if (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
 	{
 	  *total = COSTS_N_INSNS (3);
 	  return true;
 	}
 
       /* A mode size N times larger than SImode needs O(N*N) more insns.  */
-      factor = GET_MODE_SIZE (mode) / 4;
+      factor = GET_MODE_SIZE (GET_MODE (x)) / 4;
       if (factor == 0)
 	factor = 1;
 
@@ -1555,7 +1510,7 @@ hppa_rtx_costs (rtx x, machine_mode mode, int outer_code,
       return true;
 
     case DIV:
-      if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+      if (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
 	{
 	  *total = COSTS_N_INSNS (14);
 	  return true;
@@ -1566,7 +1521,7 @@ hppa_rtx_costs (rtx x, machine_mode mode, int outer_code,
     case MOD:
     case UMOD:
       /* A mode size N times larger than SImode needs O(N*N) more insns.  */
-      factor = GET_MODE_SIZE (mode) / 4;
+      factor = GET_MODE_SIZE (GET_MODE (x)) / 4;
       if (factor == 0)
 	factor = 1;
 
@@ -1575,7 +1530,7 @@ hppa_rtx_costs (rtx x, machine_mode mode, int outer_code,
 
     case PLUS: /* this includes shNadd insns */
     case MINUS:
-      if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+      if (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
 	{
 	  *total = COSTS_N_INSNS (3);
 	  return true;
@@ -1583,7 +1538,7 @@ hppa_rtx_costs (rtx x, machine_mode mode, int outer_code,
 
       /* A size N times larger than UNITS_PER_WORD needs N times as
 	 many insns, taking N times as long.  */
-      factor = GET_MODE_SIZE (mode) / UNITS_PER_WORD;
+      factor = GET_MODE_SIZE (GET_MODE (x)) / UNITS_PER_WORD;
       if (factor == 0)
 	factor = 1;
       *total = factor * COSTS_N_INSNS (1);
@@ -1750,7 +1705,9 @@ pa_emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 		}
 	      else
 		emit_move_insn (scratch_reg, XEXP (op1, 0));
-	      op1 = replace_equiv_address (op1, scratch_reg);
+	      emit_insn (gen_rtx_SET (VOIDmode, operand0,
+				  replace_equiv_address (op1, scratch_reg)));
+	      return 1;
 	    }
 	}
       else if ((!INT14_OK_STRICT && symbolic_memory_operand (op1, VOIDmode))
@@ -1760,10 +1717,10 @@ pa_emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 	  /* Load memory address into SCRATCH_REG.  */
 	  scratch_reg = force_mode (word_mode, scratch_reg);
 	  emit_move_insn (scratch_reg, XEXP (op1, 0));
-	  op1 = replace_equiv_address (op1, scratch_reg);
+	  emit_insn (gen_rtx_SET (VOIDmode, operand0,
+				  replace_equiv_address (op1, scratch_reg)));
+	  return 1;
 	}
-      emit_insn (gen_rtx_SET (operand0, op1));
-      return 1;
     }
   else if (scratch_reg
 	   && FP_REG_P (operand1)
@@ -1801,7 +1758,10 @@ pa_emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 		}
 	      else
 		emit_move_insn (scratch_reg, XEXP (op0, 0));
-	      op0 = replace_equiv_address (op0, scratch_reg);
+	      emit_insn (gen_rtx_SET (VOIDmode,
+				      replace_equiv_address (op0, scratch_reg),
+				      operand1));
+	      return 1;
 	    }
 	}
       else if ((!INT14_OK_STRICT && symbolic_memory_operand (op0, VOIDmode))
@@ -1809,12 +1769,12 @@ pa_emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 	       || IS_INDEX_ADDR_P (XEXP (op0, 0)))
 	{
 	  /* Load memory address into SCRATCH_REG.  */
-	  scratch_reg = force_mode (word_mode, scratch_reg);
 	  emit_move_insn (scratch_reg, XEXP (op0, 0));
-	  op0 = replace_equiv_address (op0, scratch_reg);
+	  emit_insn (gen_rtx_SET (VOIDmode,
+				  replace_equiv_address (op0, scratch_reg),
+				  operand1));
+	  return 1;
 	}
-      emit_insn (gen_rtx_SET (op0, operand1));
-      return 1;
     }
   /* Handle secondary reloads for loads of FP registers from constant
      expressions by forcing the constant into memory.  For the most part,
@@ -1829,7 +1789,7 @@ pa_emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 
       if (operand1 == CONST0_RTX (mode))
 	{
-	  emit_insn (gen_rtx_SET (operand0, operand1));
+	  emit_insn (gen_rtx_SET (VOIDmode, operand0, operand1));
 	  return 1;
 	}
 
@@ -1846,7 +1806,7 @@ pa_emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
       pa_emit_move_sequence (xoperands, Pmode, 0);
 
       /* Now load the destination register.  */
-      emit_insn (gen_rtx_SET (operand0,
+      emit_insn (gen_rtx_SET (mode, operand0,
 			      replace_equiv_address (const_mem, scratch_reg)));
       return 1;
     }
@@ -1868,12 +1828,11 @@ pa_emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 	  scratch_reg = force_mode (word_mode, scratch_reg);
 
 	  emit_move_insn (scratch_reg, XEXP (XEXP (operand1, 0), 1));
-	  emit_move_insn (scratch_reg, gen_rtx_fmt_ee (GET_CODE (XEXP (operand1,
-								        0)),
-						       Pmode,
-						       XEXP (XEXP (operand1, 0),
-						       0),
-						       scratch_reg));
+	  emit_move_insn (scratch_reg,
+			  gen_rtx_fmt_ee (GET_CODE (XEXP (operand1, 0)),
+					  Pmode,
+					  XEXP (XEXP (operand1, 0), 0),
+					  scratch_reg));
 
 	  /* Now we are going to load the scratch register from memory,
 	     we want to load it in the same width as the original MEM,
@@ -1910,7 +1869,7 @@ pa_emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 
       if (register_operand (operand1, mode)
 	  || (GET_CODE (operand1) == CONST_INT
-	      && pa_cint_ok_for_move (UINTVAL (operand1)))
+	      && pa_cint_ok_for_move (INTVAL (operand1)))
 	  || (operand1 == CONST0_RTX (mode))
 	  || (GET_CODE (operand1) == HIGH
 	      && !symbolic_operand (XEXP (operand1, 0), VOIDmode))
@@ -1956,11 +1915,20 @@ pa_emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 		  type = strip_array_types (type);
 
 		  if (POINTER_TYPE_P (type))
-		    mark_reg_pointer (operand0, BITS_PER_UNIT);
+		    {
+		      int align;
+
+		      type = TREE_TYPE (type);
+		      /* Using TYPE_ALIGN_OK is rather conservative as
+			 only the ada frontend actually sets it.  */
+		      align = (TYPE_ALIGN_OK (type) ? TYPE_ALIGN (type)
+			       : BITS_PER_UNIT);
+		      mark_reg_pointer (operand0, align);
+		    }
 		}
 	    }
 
-	  emit_insn (gen_rtx_SET (operand0, operand1));
+	  emit_insn (gen_rtx_SET (VOIDmode, operand0, operand1));
 	  return 1;
 	}
     }
@@ -1971,14 +1939,14 @@ pa_emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 	{
 	  rtx temp = gen_reg_rtx (DFmode);
 
-	  emit_insn (gen_rtx_SET (temp, operand1));
-	  emit_insn (gen_rtx_SET (operand0, temp));
+	  emit_insn (gen_rtx_SET (VOIDmode, temp, operand1));
+	  emit_insn (gen_rtx_SET (VOIDmode, operand0, temp));
 	  return 1;
 	}
       if (register_operand (operand1, mode) || operand1 == CONST0_RTX (mode))
 	{
 	  /* Run this case quickly.  */
-	  emit_insn (gen_rtx_SET (operand0, operand1));
+	  emit_insn (gen_rtx_SET (VOIDmode, operand0, operand1));
 	  return 1;
 	}
       if (! (reload_in_progress || reload_completed))
@@ -2145,12 +2113,15 @@ pa_emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 		mark_reg_pointer (temp, BITS_PER_UNIT);
 
 	      if (ishighonly)
-		set = gen_rtx_SET (operand0, temp);
+		set = gen_rtx_SET (mode, operand0, temp);
 	      else
-		set = gen_rtx_SET (operand0,
+		set = gen_rtx_SET (VOIDmode,
+				   operand0,
 				   gen_rtx_LO_SUM (mode, temp, operand1));
 
-	      emit_insn (gen_rtx_SET (temp, gen_rtx_HIGH (mode, operand1)));
+	      emit_insn (gen_rtx_SET (VOIDmode,
+				      temp,
+				      gen_rtx_HIGH (mode, operand1)));
 	      emit_insn (set);
 
 	    }
@@ -2177,7 +2148,7 @@ pa_emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 	  operands[1] = tmp;
 	}
       else if (GET_CODE (operand1) != CONST_INT
-	       || !pa_cint_ok_for_move (UINTVAL (operand1)))
+	       || !pa_cint_ok_for_move (INTVAL (operand1)))
 	{
 	  rtx temp;
 	  rtx_insn *insn;
@@ -2246,12 +2217,13 @@ pa_emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 
 	      low = value - high;
 
-	      emit_insn (gen_rtx_SET (temp, GEN_INT (high)));
+	      emit_insn (gen_rtx_SET (VOIDmode, temp, GEN_INT (high)));
 	      operands[1] = gen_rtx_PLUS (mode, temp, GEN_INT (low));
 	    }
 	  else
 	    {
-	      emit_insn (gen_rtx_SET (temp, gen_rtx_HIGH (mode, operand1)));
+	      emit_insn (gen_rtx_SET (VOIDmode, temp,
+				      gen_rtx_HIGH (mode, operand1)));
 	      operands[1] = gen_rtx_LO_SUM (mode, temp, operand1);
 	    }
 
@@ -2273,7 +2245,7 @@ pa_emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 		{
 		  operand1 = GEN_INT (insv);
 
-		  emit_insn (gen_rtx_SET (temp,
+		  emit_insn (gen_rtx_SET (VOIDmode, temp,
 					  gen_rtx_HIGH (mode, operand1)));
 		  emit_move_insn (temp, gen_rtx_LO_SUM (mode, temp, operand1));
 		  if (mode == DImode)
@@ -2388,12 +2360,14 @@ pa_singlemove_string (rtx *operands)
   if (GET_CODE (operands[1]) == CONST_DOUBLE)
     {
       long i;
+      REAL_VALUE_TYPE d;
 
       gcc_assert (GET_MODE (operands[1]) == SFmode);
 
       /* Translate the CONST_DOUBLE to a CONST_INT with the same target
 	 bit pattern.  */
-      REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (operands[1]), i);
+      REAL_VALUE_FROM_CONST_DOUBLE (d, operands[1]);
+      REAL_VALUE_TO_TARGET_SINGLE (d, i);
 
       operands[1] = GEN_INT (i);
       /* Fall through to CONST_INT case.  */
@@ -3320,24 +3294,6 @@ pa_output_64bit_ior (rtx *operands)
 static bool
 pa_assemble_integer (rtx x, unsigned int size, int aligned_p)
 {
-  bool result;
-  tree decl = NULL;
-
-  /* When we have a SYMBOL_REF with a SYMBOL_REF_DECL, we need to call
-     call assemble_external and set the SYMBOL_REF_DECL to NULL before
-     calling output_addr_const.  Otherwise, it may call assemble_external
-     in the midst of outputing the assembler code for the SYMBOL_REF.
-     We restore the SYMBOL_REF_DECL after the output is done.  */
-  if (GET_CODE (x) == SYMBOL_REF)
-    {
-      decl = SYMBOL_REF_DECL (x);
-      if (decl)
-	{
-	  assemble_external (decl);
-	  SET_SYMBOL_REF_DECL (x, NULL);
-	}
-    }
-
   if (size == UNITS_PER_WORD
       && aligned_p
       && function_label_operand (x, VOIDmode))
@@ -3350,15 +3306,9 @@ pa_assemble_integer (rtx x, unsigned int size, int aligned_p)
 
       output_addr_const (asm_out_file, x);
       fputc ('\n', asm_out_file);
-      result = true;
+      return true;
     }
-  else
-    result = default_assemble_integer (x, size, aligned_p);
-
-  if (decl)
-    SET_SYMBOL_REF_DECL (x, decl);
-
-  return result;
+  return default_assemble_integer (x, size, aligned_p);
 }
 
 /* Output an ascii string.  */
@@ -3661,7 +3611,7 @@ store_reg (int reg, HOST_WIDE_INT disp, int base)
       if (DO_FRAME_NOTES)
 	{
 	  add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-			gen_rtx_SET (tmpreg,
+			gen_rtx_SET (VOIDmode, tmpreg,
 				     gen_rtx_PLUS (Pmode, basereg, delta)));
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
@@ -3679,7 +3629,8 @@ store_reg (int reg, HOST_WIDE_INT disp, int base)
       insn = emit_move_insn (dest, src);
       if (DO_FRAME_NOTES)
 	add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-		      gen_rtx_SET (gen_rtx_MEM (word_mode,
+		      gen_rtx_SET (VOIDmode,
+				   gen_rtx_MEM (word_mode,
 						gen_rtx_PLUS (word_mode,
 							      basereg,
 							      delta)),
@@ -3746,7 +3697,7 @@ set_reg_plus_d (int reg, int base, HOST_WIDE_INT disp, int note)
 			     gen_rtx_PLUS (Pmode, tmpreg, basereg));
       if (DO_FRAME_NOTES)
 	add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-		      gen_rtx_SET (tmpreg,
+		      gen_rtx_SET (VOIDmode, tmpreg,
 				   gen_rtx_PLUS (Pmode, basereg, delta)));
     }
   else
@@ -3767,7 +3718,7 @@ set_reg_plus_d (int reg, int base, HOST_WIDE_INT disp, int note)
 }
 
 HOST_WIDE_INT
-pa_compute_frame_size (poly_int64 size, int *fregs_live)
+pa_compute_frame_size (HOST_WIDE_INT size, int *fregs_live)
 {
   int freg_saved = 0;
   int i, j;
@@ -3781,11 +3732,11 @@ pa_compute_frame_size (poly_int64 size, int *fregs_live)
   size = (size + UNITS_PER_WORD - 1) & ~(UNITS_PER_WORD - 1);
 
   /* Space for previous frame pointer + filler.  If any frame is
-     allocated, we need to add in the TARGET_STARTING_FRAME_OFFSET.  We
+     allocated, we need to add in the STARTING_FRAME_OFFSET.  We
      waste some space here for the sake of HP compatibility.  The
      first slot is only used when the frame pointer is needed.  */
   if (size || frame_pointer_needed)
-    size += pa_starting_frame_offset ();
+    size += STARTING_FRAME_OFFSET;
   
   /* If the current function calls __builtin_eh_return, then we need
      to allocate stack space for registers that will hold data for
@@ -3842,6 +3793,15 @@ pa_compute_frame_size (poly_int64 size, int *fregs_live)
 	  & ~(PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT - 1));
 }
 
+/* Generate the assembly code for function entry.  FILE is a stdio
+   stream to output the code to.  SIZE is an int: how many units of
+   temporary storage to allocate.
+
+   Refer to the array `regs_ever_live' to determine which registers to
+   save; `regs_ever_live[I]' is nonzero if register number I is ever
+   used in the function.  This function is responsible for knowing
+   which registers should not be saved even if used.  */
+
 /* On HP-PA, move-double insns between fpu and cpu need an 8-byte block
    of memory.  If any fpu reg is used in the function, we allocate
    such a block here, at the bottom of the frame, just in case it's needed.
@@ -3851,7 +3811,7 @@ pa_compute_frame_size (poly_int64 size, int *fregs_live)
    to do this is made in regclass.c.  */
 
 static void
-pa_output_function_prologue (FILE *file)
+pa_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
   /* The function's label and associated .PROC must never be
      separated and must be output *after* any profiling declarations
@@ -3920,7 +3880,7 @@ pa_expand_prologue (void)
      and must be changed in tandem with this code.  */
   local_fsize = (size + UNITS_PER_WORD - 1) & ~(UNITS_PER_WORD - 1);
   if (local_fsize || frame_pointer_needed)
-    local_fsize += pa_starting_frame_offset ();
+    local_fsize += STARTING_FRAME_OFFSET;
 
   actual_fsize = pa_compute_frame_size (size, &save_fregs);
   if (flag_stack_usage_info)
@@ -4169,7 +4129,7 @@ pa_expand_prologue (void)
 					     plus_constant (Pmode, base,
 							    offset));
 		      add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-				    gen_rtx_SET (mem, reg));
+				    gen_rtx_SET (VOIDmode, mem, reg));
 		    }
 		  else
 		    {
@@ -4181,8 +4141,8 @@ pa_expand_prologue (void)
 							     offset + 4));
 		      rtx regl = gen_rtx_REG (SFmode, i);
 		      rtx regr = gen_rtx_REG (SFmode, i + 1);
-		      rtx setl = gen_rtx_SET (meml, regl);
-		      rtx setr = gen_rtx_SET (memr, regr);
+		      rtx setl = gen_rtx_SET (VOIDmode, meml, regl);
+		      rtx setr = gen_rtx_SET (VOIDmode, memr, regr);
 		      rtvec vec;
 
 		      RTX_FRAME_RELATED_P (setl) = 1;
@@ -4265,7 +4225,7 @@ update_total_code_bytes (unsigned int nbytes)
    adjustments before returning.  */
 
 static void
-pa_output_function_epilogue (FILE *file)
+pa_output_function_epilogue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
   rtx_insn *insn = get_last_insn ();
   bool extra_nop;
@@ -4574,82 +4534,63 @@ hppa_profile_hook (int label_no)
      lcla2 and load_offset_label_address insn patterns.  */
   rtx reg = gen_reg_rtx (SImode);
   rtx_code_label *label_rtx = gen_label_rtx ();
-  int reg_parm_stack_space = REG_PARM_STACK_SPACE (NULL_TREE);
-  rtx arg_bytes, begin_label_rtx, mcount, sym;
+  rtx begin_label_rtx;
   rtx_insn *call_insn;
   char begin_label_name[16];
-  bool use_mcount_pcrel_call;
-
-  /* Set up call destination.  */
-  sym = gen_rtx_SYMBOL_REF (Pmode, "_mcount");
-  pa_encode_label (sym);
-  mcount = gen_rtx_MEM (Pmode, sym);
-
-  /* If we can reach _mcount with a pc-relative call, we can optimize
-     loading the address of the current function.  This requires linker
-     long branch stub support.  */
-  if (!TARGET_PORTABLE_RUNTIME
-      && !TARGET_LONG_CALLS
-      && (TARGET_SOM || flag_function_sections))
-    use_mcount_pcrel_call = TRUE;
-  else
-    use_mcount_pcrel_call = FALSE;
 
   ASM_GENERATE_INTERNAL_LABEL (begin_label_name, FUNC_BEGIN_PROLOG_LABEL,
 			       label_no);
   begin_label_rtx = gen_rtx_SYMBOL_REF (SImode, ggc_strdup (begin_label_name));
 
+  if (TARGET_64BIT)
+    emit_move_insn (arg_pointer_rtx,
+		    gen_rtx_PLUS (word_mode, virtual_outgoing_args_rtx,
+				  GEN_INT (64)));
+
   emit_move_insn (gen_rtx_REG (word_mode, 26), gen_rtx_REG (word_mode, 2));
 
-  if (!use_mcount_pcrel_call)
-    {
-      /* The address of the function is loaded into %r25 with an instruction-
-	 relative sequence that avoids the use of relocations.  The sequence
-	 is split so that the load_offset_label_address instruction can
-	 occupy the delay slot of the call to _mcount.  */
-      if (TARGET_PA_20)
-	emit_insn (gen_lcla2 (reg, label_rtx));
-      else
-	emit_insn (gen_lcla1 (reg, label_rtx));
-
-      emit_insn (gen_load_offset_label_address (gen_rtx_REG (SImode, 25), 
-						reg,
-						begin_label_rtx,
-						label_rtx));
-    }
-
-  if (!NO_DEFERRED_PROFILE_COUNTERS)
-    {
-      rtx count_label_rtx, addr, r24;
-      char count_label_name[16];
-
-      funcdef_nos.safe_push (label_no);
-      ASM_GENERATE_INTERNAL_LABEL (count_label_name, "LP", label_no);
-      count_label_rtx = gen_rtx_SYMBOL_REF (Pmode,
-					    ggc_strdup (count_label_name));
-
-      addr = force_reg (Pmode, count_label_rtx);
-      r24 = gen_rtx_REG (Pmode, 24);
-      emit_move_insn (r24, addr);
-
-      arg_bytes = GEN_INT (TARGET_64BIT ? 24 : 12);
-      if (use_mcount_pcrel_call)
-	call_insn = emit_call_insn (gen_call_mcount (mcount, arg_bytes,
-						     begin_label_rtx));
-      else
-	call_insn = emit_call_insn (gen_call (mcount, arg_bytes));
-
-      use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), r24);
-    }
+  /* The address of the function is loaded into %r25 with an instruction-
+     relative sequence that avoids the use of relocations.  The sequence
+     is split so that the load_offset_label_address instruction can
+     occupy the delay slot of the call to _mcount.  */
+  if (TARGET_PA_20)
+    emit_insn (gen_lcla2 (reg, label_rtx));
   else
-    {
-      arg_bytes = GEN_INT (TARGET_64BIT ? 16 : 8);
-      if (use_mcount_pcrel_call)
-	call_insn = emit_call_insn (gen_call_mcount (mcount, arg_bytes,
-						     begin_label_rtx));
-      else
-	call_insn = emit_call_insn (gen_call (mcount, arg_bytes));
-    }
+    emit_insn (gen_lcla1 (reg, label_rtx));
+
+  emit_insn (gen_load_offset_label_address (gen_rtx_REG (SImode, 25), 
+					    reg, begin_label_rtx, label_rtx));
+
+#if !NO_DEFERRED_PROFILE_COUNTERS
+  {
+    rtx count_label_rtx, addr, r24;
+    char count_label_name[16];
+
+    funcdef_nos.safe_push (label_no);
+    ASM_GENERATE_INTERNAL_LABEL (count_label_name, "LP", label_no);
+    count_label_rtx = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (count_label_name));
+
+    addr = force_reg (Pmode, count_label_rtx);
+    r24 = gen_rtx_REG (Pmode, 24);
+    emit_move_insn (r24, addr);
+
+    call_insn =
+      emit_call_insn (gen_call (gen_rtx_MEM (Pmode, 
+					     gen_rtx_SYMBOL_REF (Pmode, 
+								 "_mcount")),
+				GEN_INT (TARGET_64BIT ? 24 : 12)));
+
+    use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), r24);
+  }
+#else
+
+  call_insn =
+    emit_call_insn (gen_call (gen_rtx_MEM (Pmode, 
+					   gen_rtx_SYMBOL_REF (Pmode, 
+							       "_mcount")),
+			      GEN_INT (TARGET_64BIT ? 16 : 8)));
+
+#endif
 
   use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), gen_rtx_REG (SImode, 25));
   use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), gen_rtx_REG (SImode, 26));
@@ -4657,10 +4598,6 @@ hppa_profile_hook (int label_no)
   /* Indicate the _mcount call cannot throw, nor will it execute a
      non-local goto.  */
   make_reg_eh_region_note_nothrow_nononlocal (call_insn);
-
-  /* Allocate space for fixed arguments.  */
-  if (reg_parm_stack_space > crtl->outgoing_args_size)
-    crtl->outgoing_args_size = reg_parm_stack_space;
 }
 
 /* Fetch the return address for the frame COUNT steps up from
@@ -4787,10 +4724,10 @@ pa_emit_bcond_fp (rtx operands[])
   rtx operand1 = operands[2];
   rtx label = operands[3];
 
-  emit_insn (gen_rtx_SET (gen_rtx_REG (CCFPmode, 0),
+  emit_insn (gen_rtx_SET (VOIDmode, gen_rtx_REG (CCFPmode, 0),
 		          gen_rtx_fmt_ee (code, CCFPmode, operand0, operand1)));
 
-  emit_jump_insn (gen_rtx_SET (pc_rtx,
+  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
 			       gen_rtx_IF_THEN_ELSE (VOIDmode,
 						     gen_rtx_fmt_ee (NE,
 							      VOIDmode,
@@ -4805,14 +4742,13 @@ pa_emit_bcond_fp (rtx operands[])
    a dependency LINK or INSN on DEP_INSN.  COST is the current cost.  */
 
 static int
-pa_adjust_cost (rtx_insn *insn, int dep_type, rtx_insn *dep_insn, int cost,
-		unsigned int)
+pa_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
 {
   enum attr_type attr_type;
 
   /* Don't adjust costs for a pa8000 chip, also do not adjust any
      true dependencies as they are described with bypasses now.  */
-  if (pa_cpu >= PROCESSOR_8000 || dep_type == 0)
+  if (pa_cpu >= PROCESSOR_8000 || REG_NOTE_KIND (link) == 0)
     return cost;
 
   if (! recog_memoized (insn))
@@ -4820,7 +4756,7 @@ pa_adjust_cost (rtx_insn *insn, int dep_type, rtx_insn *dep_insn, int cost,
 
   attr_type = get_attr_type (insn);
 
-  switch (dep_type)
+  switch (REG_NOTE_KIND (link))
     {
     case REG_DEP_ANTI:
       /* Anti dependency; DEP_INSN reads a register that INSN writes some
@@ -5363,11 +5299,6 @@ pa_print_operand (FILE *file, rtx x, int code)
       gcc_assert (GET_CODE (x) == CONST_INT);
       fprintf (file, HOST_WIDE_INT_PRINT_DEC, 32 - (INTVAL (x) & 31));
       return;
-    case 'o':
-      gcc_assert (GET_CODE (x) == CONST_INT
-		  && (INTVAL (x) == 1 || INTVAL (x) == 2 || INTVAL (x) == 3));
-      fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (x));
-      return;
     case 'O':
       gcc_assert (GET_CODE (x) == CONST_INT && exact_log2 (INTVAL (x)) >= 0);
       fprintf (file, "%d", exact_log2 (INTVAL (x)));
@@ -5507,10 +5438,10 @@ pa_print_operand (FILE *file, rtx x, int code)
 		       reg_names [REGNO (index)], reg_names [REGNO (base)]);
 	    }
 	  else
-	    output_address (GET_MODE (x), XEXP (x, 0));
+	    output_address (XEXP (x, 0));
 	  break;
 	default:
-	  output_address (GET_MODE (x), XEXP (x, 0));
+	  output_address (XEXP (x, 0));
 	  break;
 	}
     }
@@ -5890,7 +5821,7 @@ pa_emit_hpdiv_const (rtx *operands, int unsignedp)
       emit
 	(gen_rtx_PARALLEL
 	 (VOIDmode,
-	  gen_rtvec (6, gen_rtx_SET (gen_rtx_REG (SImode, 29),
+	  gen_rtvec (6, gen_rtx_SET (VOIDmode, gen_rtx_REG (SImode, 29),
 				     gen_rtx_fmt_ee (unsignedp ? UDIV : DIV,
 						     SImode,
 						     gen_rtx_REG (SImode, 26),
@@ -6091,19 +6022,19 @@ pa_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
     {
       switch (mode)
 	{
-	case E_SImode:
+	case SImode:
 	  sri->icode = CODE_FOR_reload_insi_r1;
 	  break;
 
-	case E_DImode:
+	case DImode:
 	  sri->icode = CODE_FOR_reload_indi_r1;
 	  break;
 
-	case E_SFmode:
+	case SFmode:
 	  sri->icode = CODE_FOR_reload_insf_r1;
 	  break;
 
-	case E_DFmode:
+	case DFmode:
 	  sri->icode = CODE_FOR_reload_indf_r1;
 	  break;
 
@@ -6125,11 +6056,11 @@ pa_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
 	{
 	  switch (mode)
 	    {
-	    case E_SImode:
+	    case SImode:
 	      sri->icode = CODE_FOR_reload_insi_r1;
 	      break;
 
-	    case E_DImode:
+	    case DImode:
 	      sri->icode = CODE_FOR_reload_indi_r1;
 	      break;
 
@@ -6200,20 +6131,6 @@ pa_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
   return NO_REGS;
 }
 
-/* Implement TARGET_SECONDARY_MEMORY_NEEDED.  */
-
-static bool
-pa_secondary_memory_needed (machine_mode mode ATTRIBUTE_UNUSED,
-			    reg_class_t class1 ATTRIBUTE_UNUSED,
-			    reg_class_t class2 ATTRIBUTE_UNUSED)
-{
-#ifdef PA_SECONDARY_MEMORY_NEEDED
-  return PA_SECONDARY_MEMORY_NEEDED (mode, class1, class2);
-#else
-  return false;
-#endif
-}
-
 /* Implement TARGET_EXTRA_LIVE_ON_ENTRY.  The argument pointer
    is only marked as live on entry by df-scan when it is a fixed
    register.  It isn't a fixed register in the 64-bit runtime,
@@ -6272,9 +6189,7 @@ pa_pass_by_reference (cumulative_args_t ca ATTRIBUTE_UNUSED,
     return size <= 0 || size > 8;
 }
 
-/* Implement TARGET_FUNCTION_ARG_PADDING.  */
-
-static pad_direction
+enum direction
 pa_function_arg_padding (machine_mode mode, const_tree type)
 {
   if (mode == BLKmode
@@ -6284,11 +6199,11 @@ pa_function_arg_padding (machine_mode mode, const_tree type)
 	      || TREE_CODE (type) == COMPLEX_TYPE
 	      || TREE_CODE (type) == VECTOR_TYPE)))
     {
-      /* Return PAD_NONE if justification is not required.  */
+      /* Return none if justification is not required.  */
       if (type
 	  && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
 	  && (int_size_in_bytes (type) * BITS_PER_UNIT) % PARM_BOUNDARY == 0)
-	return PAD_NONE;
+	return none;
 
       /* The directions set here are ignored when a BLKmode argument larger
 	 than a word is placed in a register.  Different code is used for
@@ -6298,18 +6213,18 @@ pa_function_arg_padding (machine_mode mode, const_tree type)
 	 the stack and in registers should be identical.  */
       if (TARGET_64BIT)
 	/* The 64-bit runtime specifies left justification for aggregates.  */
-	return PAD_UPWARD;
+        return upward;
       else
 	/* The 32-bit runtime architecture specifies right justification.
 	   When the argument is passed on the stack, the argument is padded
 	   with garbage on the left.  The HP compiler pads with zeros.  */
-	return PAD_DOWNWARD;
+	return downward;
     }
 
   if (GET_MODE_BITSIZE (mode) < PARM_BOUNDARY)
-    return PAD_DOWNWARD;
+    return downward;
   else
-    return PAD_NONE;
+    return none;
 }
 
 
@@ -6456,7 +6371,7 @@ hppa_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
    2 * BITS_PER_WORD isn't equal LONG_LONG_TYPE_SIZE.  */
 
 static bool
-pa_scalar_mode_supported_p (scalar_mode mode)
+pa_scalar_mode_supported_p (machine_mode mode)
 {
   int precision = GET_MODE_PRECISION (mode);
 
@@ -6504,7 +6419,7 @@ branch_to_delay_slot_p (rtx_insn *insn)
   if (dbr_sequence_length ())
     return FALSE;
 
-  jump_insn = next_active_insn (JUMP_LABEL_AS_INSN (insn));
+  jump_insn = next_active_insn (JUMP_LABEL (insn));
   while (insn)
     {
       insn = next_active_insn (insn);
@@ -6515,7 +6430,7 @@ branch_to_delay_slot_p (rtx_insn *insn)
 	 the branch is followed by an asm.  */
       if (!insn
 	  || GET_CODE (PATTERN (insn)) == ASM_INPUT
-	  || asm_noperands (PATTERN (insn)) >= 0
+	  || extract_asm_operands (PATTERN (insn)) != NULL_RTX
 	  || get_attr_length (insn) > 0)
 	break;
     }
@@ -6538,7 +6453,7 @@ branch_needs_nop_p (rtx_insn *insn)
   if (dbr_sequence_length ())
     return FALSE;
 
-  jump_insn = next_active_insn (JUMP_LABEL_AS_INSN (insn));
+  jump_insn = next_active_insn (JUMP_LABEL (insn));
   while (insn)
     {
       insn = next_active_insn (insn);
@@ -6546,7 +6461,7 @@ branch_needs_nop_p (rtx_insn *insn)
 	return TRUE;
 
       if (!(GET_CODE (PATTERN (insn)) == ASM_INPUT
-	   || asm_noperands (PATTERN (insn)) >= 0)
+	   || extract_asm_operands (PATTERN (insn)) != NULL_RTX)
 	  && get_attr_length (insn) > 0)
 	break;
     }
@@ -6561,7 +6476,7 @@ branch_needs_nop_p (rtx_insn *insn)
 static bool
 use_skip_p (rtx_insn *insn)
 {
-  rtx_insn *jump_insn = next_active_insn (JUMP_LABEL_AS_INSN (insn));
+  rtx_insn *jump_insn = next_active_insn (JUMP_LABEL (insn));
 
   while (insn)
     {
@@ -6570,7 +6485,7 @@ use_skip_p (rtx_insn *insn)
       /* We can't rely on the length of asms, so we can't skip asms.  */
       if (!insn
 	  || GET_CODE (PATTERN (insn)) == ASM_INPUT
-	  || asm_noperands (PATTERN (insn)) >= 0)
+	  || extract_asm_operands (PATTERN (insn)) != NULL_RTX)
 	break;
       if (get_attr_length (insn) == 4
 	  && jump_insn == next_active_insn (insn))
@@ -6783,57 +6698,6 @@ pa_output_cbranch (rtx *operands, int negated, rtx_insn *insn)
   return buf;
 }
 
-/* Output a PIC pc-relative instruction sequence to load the address of
-   OPERANDS[0] to register OPERANDS[2].  OPERANDS[0] is a symbol ref
-   or a code label.  OPERANDS[1] specifies the register to use to load
-   the program counter.  OPERANDS[3] may be used for label generation
-   The sequence is always three instructions in length.  The program
-   counter recorded for PA 1.X is eight bytes more than that for PA 2.0.
-   Register %r1 is clobbered.  */
-
-static void
-pa_output_pic_pcrel_sequence (rtx *operands)
-{
-  gcc_assert (SYMBOL_REF_P (operands[0]) || LABEL_P (operands[0]));
-  if (TARGET_PA_20)
-    {
-      /* We can use mfia to determine the current program counter.  */
-      if (TARGET_SOM || !TARGET_GAS)
-	{
-	  operands[3] = gen_label_rtx ();
-	  targetm.asm_out.internal_label (asm_out_file, "L",
-					  CODE_LABEL_NUMBER (operands[3]));
-	  output_asm_insn ("mfia %1", operands);
-	  output_asm_insn ("addil L'%0-%l3,%1", operands);
-	  output_asm_insn ("ldo R'%0-%l3(%%r1),%2", operands);
-	}
-      else
-	{
-	  output_asm_insn ("mfia %1", operands);
-	  output_asm_insn ("addil L'%0-$PIC_pcrel$0+12,%1", operands);
-	  output_asm_insn ("ldo R'%0-$PIC_pcrel$0+16(%%r1),%2", operands);
-	}
-    }
-  else
-    {
-      /* We need to use a branch to determine the current program counter.  */
-      output_asm_insn ("{bl|b,l} .+8,%1", operands);
-      if (TARGET_SOM || !TARGET_GAS)
-	{
-	  operands[3] = gen_label_rtx ();
-	  output_asm_insn ("addil L'%0-%l3,%1", operands);
-	  targetm.asm_out.internal_label (asm_out_file, "L",
-					  CODE_LABEL_NUMBER (operands[3]));
-	  output_asm_insn ("ldo R'%0-%l3(%%r1),%2", operands);
-	}
-      else
-	{
-	  output_asm_insn ("addil L'%0-$PIC_pcrel$0+4,%1", operands);
-	  output_asm_insn ("ldo R'%0-$PIC_pcrel$0+8(%%r1),%2", operands);
-	}
-    }
-}
-
 /* This routine handles output of long unconditional branches that
    exceed the maximum range of a simple branch instruction.  Since
    we don't have a register available for the branch, we save register
@@ -6854,7 +6718,7 @@ pa_output_pic_pcrel_sequence (rtx *operands)
 const char *
 pa_output_lbranch (rtx dest, rtx_insn *insn, int xdelay)
 {
-  rtx xoperands[4];
+  rtx xoperands[2];
  
   xoperands[0] = dest;
 
@@ -6924,9 +6788,20 @@ pa_output_lbranch (rtx dest, rtx_insn *insn, int xdelay)
     }
   else if (flag_pic)
     {
-      xoperands[1] = gen_rtx_REG (Pmode, 1);
-      xoperands[2] = xoperands[1];
-      pa_output_pic_pcrel_sequence (xoperands);
+      output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
+      if (TARGET_SOM || !TARGET_GAS)
+	{
+	  xoperands[1] = gen_label_rtx ();
+	  output_asm_insn ("addil L'%l0-%l1,%%r1", xoperands);
+	  targetm.asm_out.internal_label (asm_out_file, "L",
+					  CODE_LABEL_NUMBER (xoperands[1]));
+	  output_asm_insn ("ldo R'%l0-%l1(%%r1),%%r1", xoperands);
+	}
+      else
+	{
+	  output_asm_insn ("addil L'%l0-$PIC_pcrel$0+4,%%r1", xoperands);
+	  output_asm_insn ("ldo R'%l0-$PIC_pcrel$0+8(%%r1),%%r1", xoperands);
+	}
       output_asm_insn ("bv %%r0(%%r1)", xoperands);
     }
   else
@@ -7755,9 +7630,10 @@ pa_output_millicode_call (rtx_insn *insn, rtx call_dest)
 {
   int attr_length = get_attr_length (insn);
   int seq_length = dbr_sequence_length ();
-  rtx xoperands[4];
+  rtx xoperands[3];
 
   xoperands[0] = call_dest;
+  xoperands[2] = gen_rtx_REG (Pmode, TARGET_64BIT ? 2 : 31);
 
   /* Handle the common case where we are sure that the branch will
      reach the beginning of the $CODE$ subspace.  The within reach
@@ -7769,8 +7645,7 @@ pa_output_millicode_call (rtx_insn *insn, rtx call_dest)
 	  || (attr_length == 28
 	      && get_attr_type (insn) == TYPE_SH_FUNC_ADRS)))
     {
-      xoperands[1] = gen_rtx_REG (Pmode, TARGET_64BIT ? 2 : 31);
-      output_asm_insn ("{bl|b,l} %0,%1", xoperands);
+      output_asm_insn ("{bl|b,l} %0,%2", xoperands);
     }
   else
     {
@@ -7781,9 +7656,22 @@ pa_output_millicode_call (rtx_insn *insn, rtx call_dest)
 	     this doesn't work in shared libraries and other dynamically
 	     loaded objects.  Using a pc-relative sequence also avoids
 	     problems related to the implicit use of the gp register.  */
-	  xoperands[1] = gen_rtx_REG (Pmode, 1);
-	  xoperands[2] = xoperands[1];
-	  pa_output_pic_pcrel_sequence (xoperands);
+	  output_asm_insn ("b,l .+8,%%r1", xoperands);
+
+	  if (TARGET_GAS)
+	    {
+	      output_asm_insn ("addil L'%0-$PIC_pcrel$0+4,%%r1", xoperands);
+	      output_asm_insn ("ldo R'%0-$PIC_pcrel$0+8(%%r1),%%r1", xoperands);
+	    }
+	  else
+	    {
+	      xoperands[1] = gen_label_rtx ();
+	      output_asm_insn ("addil L'%0-%l1,%%r1", xoperands);
+	      targetm.asm_out.internal_label (asm_out_file, "L",
+					 CODE_LABEL_NUMBER (xoperands[1]));
+	      output_asm_insn ("ldo R'%0-%l1(%%r1),%%r1", xoperands);
+	    }
+
 	  output_asm_insn ("bve,l (%%r1),%%r2", xoperands);
 	}
       else if (TARGET_PORTABLE_RUNTIME)
@@ -7813,12 +7701,27 @@ pa_output_millicode_call (rtx_insn *insn, rtx call_dest)
 	}
       else
 	{
-	  xoperands[1] = gen_rtx_REG (Pmode, 31);
-	  xoperands[2] = gen_rtx_REG (Pmode, 1);
-	  pa_output_pic_pcrel_sequence (xoperands);
+	  output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
+	  output_asm_insn ("addi 16,%%r1,%%r31", xoperands);
 
-	  /* Adjust return address.  */
-	  output_asm_insn ("ldo {16|24}(%%r31),%%r31", xoperands);
+	  if (TARGET_SOM || !TARGET_GAS)
+	    {
+	      /* The HP assembler can generate relocations for the
+		 difference of two symbols.  GAS can do this for a
+		 millicode symbol but not an arbitrary external
+		 symbol when generating SOM output.  */
+	      xoperands[1] = gen_label_rtx ();
+	      targetm.asm_out.internal_label (asm_out_file, "L",
+					 CODE_LABEL_NUMBER (xoperands[1]));
+	      output_asm_insn ("addil L'%0-%l1,%%r1", xoperands);
+	      output_asm_insn ("ldo R'%0-%l1(%%r1),%%r1", xoperands);
+	    }
+	  else
+	    {
+	      output_asm_insn ("addil L'%0-$PIC_pcrel$0+8,%%r1", xoperands);
+	      output_asm_insn ("ldo R'%0-$PIC_pcrel$0+12(%%r1),%%r1",
+			       xoperands);
+	    }
 
 	  /* Jump to our target address in %r1.  */
 	  output_asm_insn ("bv %%r0(%%r1)", xoperands);
@@ -7896,7 +7799,8 @@ pa_attr_length_call (rtx_insn *insn, int sibcall)
 
   /* long pc-relative branch sequence.  */
   else if (TARGET_LONG_PIC_SDIFF_CALL
-	   || (TARGET_GAS && !TARGET_SOM && local_call))
+	   || (TARGET_GAS && !TARGET_SOM
+	       && (TARGET_LONG_PIC_PCREL_CALL || local_call)))
     {
       length += 20;
 
@@ -7938,7 +7842,7 @@ pa_output_call (rtx_insn *insn, rtx call_dest, int sibcall)
   int seq_length = dbr_sequence_length ();
   tree call_decl = SYMBOL_REF_DECL (call_dest);
   int local_call = call_decl && targetm.binds_local_p (call_decl);
-  rtx xoperands[4];
+  rtx xoperands[2];
 
   xoperands[0] = call_dest;
 
@@ -8002,7 +7906,8 @@ pa_output_call (rtx_insn *insn, rtx call_dest, int sibcall)
              they don't allow an instruction in the delay slot.  */
 	  if (!((TARGET_LONG_ABS_CALL || local_call) && !flag_pic)
 	      && !TARGET_LONG_PIC_SDIFF_CALL
-	      && !(TARGET_GAS && !TARGET_SOM && local_call)
+	      && !(TARGET_GAS && !TARGET_SOM
+		   && (TARGET_LONG_PIC_PCREL_CALL || local_call))
 	      && !TARGET_64BIT)
 	    indirect_call = 1;
 
@@ -8047,23 +7952,33 @@ pa_output_call (rtx_insn *insn, rtx call_dest, int sibcall)
 	    }
 	  else
 	    {
-	      /* The HP assembler and linker can handle relocations for
-		 the difference of two symbols.  The HP assembler
-		 recognizes the sequence as a pc-relative call and
-		 the linker provides stubs when needed.  */
-
-	      /* GAS currently can't generate the relocations that
-		 are needed for the SOM linker under HP-UX using this
-		 sequence.  The GNU linker doesn't generate the stubs
-		 that are needed for external calls on TARGET_ELF32
-		 with this sequence.  For now, we have to use a longer
-	         plabel sequence when using GAS for non local calls.  */
-	      if (TARGET_LONG_PIC_SDIFF_CALL
-		  || (TARGET_GAS && !TARGET_SOM && local_call))
+	      if (TARGET_LONG_PIC_SDIFF_CALL)
 		{
-		  xoperands[1] = gen_rtx_REG (Pmode, 1);
-		  xoperands[2] = xoperands[1];
-		  pa_output_pic_pcrel_sequence (xoperands);
+		  /* The HP assembler and linker can handle relocations
+		     for the difference of two symbols.  The HP assembler
+		     recognizes the sequence as a pc-relative call and
+		     the linker provides stubs when needed.  */
+		  xoperands[1] = gen_label_rtx ();
+		  output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
+		  output_asm_insn ("addil L'%0-%l1,%%r1", xoperands);
+		  targetm.asm_out.internal_label (asm_out_file, "L",
+					     CODE_LABEL_NUMBER (xoperands[1]));
+		  output_asm_insn ("ldo R'%0-%l1(%%r1),%%r1", xoperands);
+		}
+	      else if (TARGET_GAS && !TARGET_SOM
+		       && (TARGET_LONG_PIC_PCREL_CALL || local_call))
+		{
+		  /*  GAS currently can't generate the relocations that
+		      are needed for the SOM linker under HP-UX using this
+		      sequence.  The GNU linker doesn't generate the stubs
+		      that are needed for external calls on TARGET_ELF32
+		      with this sequence.  For now, we have to use a
+		      longer plabel sequence when using GAS.  */
+		  output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
+		  output_asm_insn ("addil L'%0-$PIC_pcrel$0+4,%%r1",
+				   xoperands);
+		  output_asm_insn ("ldo R'%0-$PIC_pcrel$0+8(%%r1),%%r1",
+				   xoperands);
 		}
 	      else
 		{
@@ -8184,148 +8099,85 @@ pa_attr_length_indirect_call (rtx_insn *insn)
   if (TARGET_64BIT)
     return 12;
 
-  if (TARGET_FAST_INDIRECT_CALLS)
+  if (TARGET_FAST_INDIRECT_CALLS
+      || (!TARGET_LONG_CALLS
+	  && !TARGET_PORTABLE_RUNTIME
+	  && ((TARGET_PA_20 && !TARGET_SOM && distance < 7600000)
+	      || distance < MAX_PCREL17F_OFFSET)))
     return 8;
+
+  if (flag_pic)
+    return 20;
 
   if (TARGET_PORTABLE_RUNTIME)
     return 16;
 
-  /* Inline version of $$dyncall.  */
-  if ((TARGET_NO_SPACE_REGS || TARGET_PA_20) && !optimize_size)
-    return 20;
-
-  if (!TARGET_LONG_CALLS
-      && ((TARGET_PA_20 && !TARGET_SOM && distance < 7600000)
-	  || distance < MAX_PCREL17F_OFFSET))
-    return 8;
-
   /* Out of reach, can use ble.  */
-  if (!flag_pic)
-    return 12;
-
-  /* Inline version of $$dyncall.  */
-  if (TARGET_NO_SPACE_REGS || TARGET_PA_20)
-    return 20;
-
-  if (!optimize_size)
-    return 36;
-
-  /* Long PIC pc-relative call.  */
-  return 20;
+  return 12;
 }
 
 const char *
 pa_output_indirect_call (rtx_insn *insn, rtx call_dest)
 {
-  rtx xoperands[4];
-  int length;
+  rtx xoperands[1];
 
   if (TARGET_64BIT)
     {
       xoperands[0] = call_dest;
-      output_asm_insn ("ldd 16(%0),%%r2\n\t"
-		       "bve,l (%%r2),%%r2\n\t"
-		       "ldd 24(%0),%%r27", xoperands);
+      output_asm_insn ("ldd 16(%0),%%r2", xoperands);
+      output_asm_insn ("bve,l (%%r2),%%r2\n\tldd 24(%0),%%r27", xoperands);
       return "";
     }
 
   /* First the special case for kernels, level 0 systems, etc.  */
   if (TARGET_FAST_INDIRECT_CALLS)
-    {
-      pa_output_arg_descriptor (insn);
-      if (TARGET_PA_20)
-	return "bve,l,n (%%r22),%%r2\n\tnop";
-      return "ble 0(%%sr4,%%r22)\n\tcopy %%r31,%%r2"; 
-    }
-
-  if (TARGET_PORTABLE_RUNTIME)
-    {
-      output_asm_insn ("ldil L'$$dyncall,%%r31\n\t"
-		       "ldo R'$$dyncall(%%r31),%%r31", xoperands);
-      pa_output_arg_descriptor (insn);
-      return "blr %%r0,%%r2\n\tbv,n %%r0(%%r31)";
-    }
-
-  /* Maybe emit a fast inline version of $$dyncall.  */
-  if ((TARGET_NO_SPACE_REGS || TARGET_PA_20) && !optimize_size)
-    {
-      output_asm_insn ("bb,>=,n %%r22,30,.+12\n\t"
-		       "ldw 2(%%r22),%%r19\n\t"
-		       "ldw -2(%%r22),%%r22", xoperands);
-      pa_output_arg_descriptor (insn);
-      if (TARGET_NO_SPACE_REGS)
-	{
-	  if (TARGET_PA_20)
-	    return "bve,l,n (%%r22),%%r2\n\tnop";
-	  return "ble 0(%%sr4,%%r22)\n\tcopy %%r31,%%r2";
-	}
-      return "bve,l (%%r22),%%r2\n\tstw %%r2,-24(%%sp)";
-    }
+    return "ble 0(%%sr4,%%r22)\n\tcopy %%r31,%%r2"; 
 
   /* Now the normal case -- we can reach $$dyncall directly or
      we're sure that we can get there via a long-branch stub. 
 
      No need to check target flags as the length uniquely identifies
      the remaining cases.  */
-  length = pa_attr_length_indirect_call (insn);
-  if (length == 8)
+  if (pa_attr_length_indirect_call (insn) == 8)
     {
-      pa_output_arg_descriptor (insn);
-
       /* The HP linker sometimes substitutes a BLE for BL/B,L calls to
 	 $$dyncall.  Since BLE uses %r31 as the link register, the 22-bit
 	 variant of the B,L instruction can't be used on the SOM target.  */
       if (TARGET_PA_20 && !TARGET_SOM)
-	return "b,l,n $$dyncall,%%r2\n\tnop";
+	return ".CALL\tARGW0=GR\n\tb,l $$dyncall,%%r2\n\tcopy %%r2,%%r31";
       else
-	return "bl $$dyncall,%%r31\n\tcopy %%r31,%%r2";
+	return ".CALL\tARGW0=GR\n\tbl $$dyncall,%%r31\n\tcopy %%r31,%%r2";
     }
 
   /* Long millicode call, but we are not generating PIC or portable runtime
      code.  */
-  if (length == 12)
-    {
-      output_asm_insn ("ldil L'$$dyncall,%%r2", xoperands);
-      pa_output_arg_descriptor (insn);
-      return "ble R'$$dyncall(%%sr4,%%r2)\n\tcopy %%r31,%%r2";
-    }
+  if (pa_attr_length_indirect_call (insn) == 12)
+    return ".CALL\tARGW0=GR\n\tldil L'$$dyncall,%%r2\n\tble R'$$dyncall(%%sr4,%%r2)\n\tcopy %%r31,%%r2";
 
-  /* Maybe emit a fast inline version of $$dyncall.  The long PIC
-     pc-relative call sequence is five instructions.  The inline PA 2.0
-     version of $$dyncall is also five instructions.  The PA 1.X versions
-     are longer but still an overall win.  */
-  if (TARGET_NO_SPACE_REGS || TARGET_PA_20 || !optimize_size)
-    {
-      output_asm_insn ("bb,>=,n %%r22,30,.+12\n\t"
-		       "ldw 2(%%r22),%%r19\n\t"
-		       "ldw -2(%%r22),%%r22", xoperands);
-      if (TARGET_NO_SPACE_REGS)
-	{
-	  pa_output_arg_descriptor (insn);
-	  if (TARGET_PA_20)
-	    return "bve,l,n (%%r22),%%r2\n\tnop";
-	  return "ble 0(%%sr4,%%r22)\n\tcopy %%r31,%%r2";
-	}
-      if (TARGET_PA_20)
-	{
-	  pa_output_arg_descriptor (insn);
-	  return "bve,l (%%r22),%%r2\n\tstw %%r2,-24(%%sp)";
-	}
-      output_asm_insn ("bl .+8,%%r2\n\t"
-		       "ldo 16(%%r2),%%r2\n\t"
-		       "ldsid (%%r22),%%r1\n\t"
-		       "mtsp %%r1,%%sr0", xoperands);
-      pa_output_arg_descriptor (insn);
-      return "be 0(%%sr0,%%r22)\n\tstw %%r2,-24(%%sp)";
-    }
- 
+  /* Long millicode call for portable runtime.  */
+  if (pa_attr_length_indirect_call (insn) == 16)
+    return "ldil L'$$dyncall,%%r31\n\tldo R'$$dyncall(%%r31),%%r31\n\tblr %%r0,%%r2\n\tbv,n %%r0(%%r31)";
+
   /* We need a long PIC call to $$dyncall.  */
-  xoperands[0] = gen_rtx_SYMBOL_REF (Pmode, "$$dyncall");
-  xoperands[1] = gen_rtx_REG (Pmode, 2);
-  xoperands[2] = gen_rtx_REG (Pmode, 1);
-  pa_output_pic_pcrel_sequence (xoperands);
-  pa_output_arg_descriptor (insn);
-  return "bv %%r0(%%r1)\n\tldo {12|20}(%%r2),%%r2";
+  xoperands[0] = NULL_RTX;
+  output_asm_insn ("{bl|b,l} .+8,%%r2", xoperands);
+  if (TARGET_SOM || !TARGET_GAS)
+    {
+      xoperands[0] = gen_label_rtx ();
+      output_asm_insn ("addil L'$$dyncall-%0,%%r2", xoperands);
+      targetm.asm_out.internal_label (asm_out_file, "L",
+				      CODE_LABEL_NUMBER (xoperands[0]));
+      output_asm_insn ("ldo R'$$dyncall-%0(%%r1),%%r1", xoperands);
+    }
+  else
+    {
+      output_asm_insn ("addil L'$$dyncall-$PIC_pcrel$0+4,%%r2", xoperands);
+      output_asm_insn ("ldo R'$$dyncall-$PIC_pcrel$0+8(%%r1),%%r1",
+		       xoperands);
+    }
+  output_asm_insn ("bv %%r0(%%r1)", xoperands);
+  output_asm_insn ("ldo 12(%%r2),%%r2", xoperands);
+  return "";
 }
 
 /* In HPUX 8.0's shared library scheme, special relocations are needed
@@ -8403,7 +8255,7 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
   static unsigned int current_thunk_number;
   int val_14 = VAL_14_BITS_P (delta);
   unsigned int old_last_address = last_address, nbytes = 0;
-  char label[17];
+  char label[16];
   rtx xoperands[4];
 
   xoperands[0] = XEXP (DECL_RTL (function), 0);
@@ -8469,8 +8321,6 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
     }
   else if (TARGET_64BIT)
     {
-      rtx xop[4];
-
       /* We only have one call-clobbered scratch register, so we can't
          make use of the delay slot if delta doesn't fit in 14 bits.  */
       if (!val_14)
@@ -8479,11 +8329,18 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
 	  output_asm_insn ("ldo R'%2(%%r1),%%r26", xoperands);
 	}
 
-      /* Load function address into %r1.  */
-      xop[0] = xoperands[0];
-      xop[1] = gen_rtx_REG (Pmode, 1);
-      xop[2] = xop[1];
-      pa_output_pic_pcrel_sequence (xop);
+      output_asm_insn ("b,l .+8,%%r1", xoperands);
+
+      if (TARGET_GAS)
+	{
+	  output_asm_insn ("addil L'%0-$PIC_pcrel$0+4,%%r1", xoperands);
+	  output_asm_insn ("ldo R'%0-$PIC_pcrel$0+8(%%r1),%%r1", xoperands);
+	}
+      else
+	{
+	  xoperands[3] = GEN_INT (val_14 ? 8 : 16);
+	  output_asm_insn ("addil L'%0-%1-%3,%%r1", xoperands);
+	}
 
       if (val_14)
 	{
@@ -8503,7 +8360,7 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
       output_asm_insn ("ldo R'%0(%%r1),%%r22", xoperands);
 
       if (!val_14)
-	output_asm_insn ("ldil L'%2,%%r26", xoperands);
+	output_asm_insn ("addil L'%2,%%r26", xoperands);
 
       output_asm_insn ("bv %%r0(%%r22)", xoperands);
 
@@ -8514,7 +8371,7 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
 	}
       else
 	{
-	  output_asm_insn ("ldo R'%2(%%r26),%%r26", xoperands);
+	  output_asm_insn ("ldo R'%2(%%r1),%%r26", xoperands);
 	  nbytes += 20;
 	}
     }
@@ -8566,13 +8423,18 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
     }
   else if (flag_pic)
     {
-      rtx xop[4];
+      output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
 
-      /* Load function address into %r22.  */
-      xop[0] = xoperands[0];
-      xop[1] = gen_rtx_REG (Pmode, 1);
-      xop[2] = gen_rtx_REG (Pmode, 22);
-      pa_output_pic_pcrel_sequence (xop);
+      if (TARGET_SOM || !TARGET_GAS)
+	{
+	  output_asm_insn ("addil L'%0-%1-8,%%r1", xoperands);
+	  output_asm_insn ("ldo R'%0-%1-8(%%r1),%%r22", xoperands);
+	}
+      else
+	{
+	  output_asm_insn ("addil L'%0-$PIC_pcrel$0+4,%%r1", xoperands);
+	  output_asm_insn ("ldo R'%0-$PIC_pcrel$0+8(%%r1),%%r22", xoperands);
+	}
 
       if (!val_14)
 	output_asm_insn ("addil L'%2,%%r26", xoperands);
@@ -8655,6 +8517,9 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
 static bool
 pa_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 {
+  if (TARGET_PORTABLE_RUNTIME)
+    return false;
+
   /* Sibcalls are not ok because the arg pointer register is not a fixed
      register.  This prevents the sibcall optimization from occurring.  In
      addition, there are problems with stub placement using GNU ld.  This
@@ -8664,11 +8529,8 @@ pa_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
   if (TARGET_64BIT)
     return false;
 
-  if (TARGET_PORTABLE_RUNTIME)
-    return false;
-
   /* Sibcalls are only ok within a translation unit.  */
-  return decl && targetm.binds_local_p (decl);
+  return (decl && !TREE_PUBLIC (decl));
 }
 
 /* ??? Addition is not commutative on the PA due to the weird implicit
@@ -8801,7 +8663,7 @@ pa_asm_output_aligned_bss (FILE *stream,
 
   fprintf (stream, "\t.align %u\n", align / BITS_PER_UNIT);
   ASM_OUTPUT_LABEL (stream, name);
-  fprintf (stream, "\t.block " HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
+  fprintf (stream, "\t.block "HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
 }
 
 /* Both the HP and GNU assemblers under HP-UX provide a .comm directive
@@ -8831,7 +8693,7 @@ pa_asm_output_aligned_common (FILE *stream,
   switch_to_section (bss_section);
 
   assemble_name (stream, name);
-  fprintf (stream, "\t.comm " HOST_WIDE_INT_PRINT_UNSIGNED"\n",
+  fprintf (stream, "\t.comm "HOST_WIDE_INT_PRINT_UNSIGNED"\n",
            MAX (size, align / BITS_PER_UNIT));
 }
 
@@ -8858,7 +8720,7 @@ pa_asm_output_aligned_local (FILE *stream,
 #endif
 
   ASM_OUTPUT_LABEL (stream, name);
-  fprintf (stream, "\t.block " HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
+  fprintf (stream, "\t.block "HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
 }
 
 /* Returns 1 if the 6 operands specified in OPERANDS are suitable for
@@ -8918,22 +8780,11 @@ pa_fmpysuboperands (rtx *operands)
 }
 
 /* Return 1 if the given constant is 2, 4, or 8.  These are the valid
-   constants for a MULT embedded inside a memory address.  */
-int
-pa_mem_shadd_constant_p (int val)
-{
-  if (val == 2 || val == 4 || val == 8)
-    return 1;
-  else
-    return 0;
-}
-
-/* Return 1 if the given constant is 1, 2, or 3.  These are the valid
    constants for shadd instructions.  */
 int
 pa_shadd_constant_p (int val)
 {
-  if (val == 1 || val == 2 || val == 3)
+  if (val == 2 || val == 4 || val == 8)
     return 1;
   else
     return 0;
@@ -9234,17 +9085,17 @@ pa_combine_instructions (void)
 		  || anchor_attr == PA_COMBINE_TYPE_FMPY))
 	    {
 	      /* Emit the new instruction and delete the old anchor.  */
-	      rtvec vtemp = gen_rtvec (2, copy_rtx (PATTERN (anchor)),
-				       copy_rtx (PATTERN (floater)));
-	      rtx temp = gen_rtx_PARALLEL (VOIDmode, vtemp);
-	      emit_insn_before (temp, anchor);
+	      emit_insn_before (gen_rtx_PARALLEL
+				(VOIDmode,
+				 gen_rtvec (2, PATTERN (anchor),
+					    PATTERN (floater))),
+				anchor);
 
 	      SET_INSN_DELETED (anchor);
 
 	      /* Emit a special USE insn for FLOATER, then delete
 		 the floating insn.  */
-	      temp = copy_rtx (PATTERN (floater));
-	      emit_insn_before (gen_rtx_USE (VOIDmode, temp), floater);
+	      emit_insn_before (gen_rtx_USE (VOIDmode, floater), floater);
 	      delete_insn (floater);
 
 	      continue;
@@ -9252,19 +9103,21 @@ pa_combine_instructions (void)
 	  else if (floater
 		   && anchor_attr == PA_COMBINE_TYPE_UNCOND_BRANCH)
 	    {
+	      rtx temp;
 	      /* Emit the new_jump instruction and delete the old anchor.  */
-	      rtvec vtemp = gen_rtvec (2, copy_rtx (PATTERN (anchor)),
-				       copy_rtx (PATTERN (floater)));
-	      rtx temp = gen_rtx_PARALLEL (VOIDmode, vtemp);
-	      temp = emit_jump_insn_before (temp, anchor);
+	      temp
+		= emit_jump_insn_before (gen_rtx_PARALLEL
+					 (VOIDmode,
+					  gen_rtvec (2, PATTERN (anchor),
+						     PATTERN (floater))),
+					 anchor);
 
 	      JUMP_LABEL (temp) = JUMP_LABEL (anchor);
 	      SET_INSN_DELETED (anchor);
 
 	      /* Emit a special USE insn for FLOATER, then delete
 		 the floating insn.  */
-	      temp = copy_rtx (PATTERN (floater));
-	      emit_insn_before (gen_rtx_USE (VOIDmode, temp), floater);
+	      emit_insn_before (gen_rtx_USE (VOIDmode, floater), floater);
 	      delete_insn (floater);
 	      continue;
 	    }
@@ -9485,7 +9338,7 @@ pa_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
 			 const_tree type, bool named ATTRIBUTE_UNUSED)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
-  int arg_size = pa_function_arg_size (mode, type);
+  int arg_size = FUNCTION_ARG_SIZE (mode, type);
 
   cum->nargs_prototype--;
   cum->words += (arg_size
@@ -9517,7 +9370,7 @@ pa_function_arg (cumulative_args_t cum_v, machine_mode mode,
   if (mode == VOIDmode)
     return NULL_RTX;
 
-  arg_size = pa_function_arg_size (mode, type);
+  arg_size = FUNCTION_ARG_SIZE (mode, type);
 
   /* If this arg would be passed partially or totally on the stack, then
      this routine should return zero.  pa_arg_partial_bytes will
@@ -9724,10 +9577,10 @@ pa_arg_partial_bytes (cumulative_args_t cum_v, machine_mode mode,
   if (!TARGET_64BIT)
     return 0;
 
-  if (pa_function_arg_size (mode, type) > 1 && (cum->words & 1))
+  if (FUNCTION_ARG_SIZE (mode, type) > 1 && (cum->words & 1))
     offset = 1;
 
-  if (cum->words + offset + pa_function_arg_size (mode, type) <= max_arg_words)
+  if (cum->words + offset + FUNCTION_ARG_SIZE (mode, type) <= max_arg_words)
     /* Arg fits fully into registers.  */
     return 0;
   else if (cum->words + offset >= max_arg_words)
@@ -9796,7 +9649,7 @@ som_output_comdat_data_section_asm_op (const void *data)
   output_section_asm_op (data);
 }
 
-/* Implement TARGET_ASM_INIT_SECTIONS.  */
+/* Implement TARGET_ASM_INITIALIZE_SECTIONS  */
 
 static void
 pa_som_asm_init_sections (void)
@@ -9979,26 +9832,22 @@ pa_hpux_asm_output_external (FILE *file, tree decl, const char *name)
   extern_symbol p = {decl, name};
   vec_safe_push (extern_symbols, p);
 }
-#endif
 
 /* Output text required at the end of an assembler file.
    This includes deferred plabels and .import directives for
    all external symbols that were actually referenced.  */
 
 static void
-pa_file_end (void)
+pa_hpux_file_end (void)
 {
-#ifdef ASM_OUTPUT_EXTERNAL_REAL
   unsigned int i;
   extern_symbol *p;
 
   if (!NO_DEFERRED_PROFILE_COUNTERS)
     output_deferred_profile_counters ();
-#endif
 
   output_deferred_plabels ();
 
-#ifdef ASM_OUTPUT_EXTERNAL_REAL
   for (i = 0; vec_safe_iterate (extern_symbols, i, &p); i++)
     {
       tree decl = p->decl;
@@ -10009,61 +9858,58 @@ pa_file_end (void)
     }
 
   vec_free (extern_symbols);
+}
 #endif
 
-  if (NEED_INDICATE_EXEC_STACK)
-    file_end_indicate_exec_stack ();
-}
+/* Return true if a change from mode FROM to mode TO for a register
+   in register class RCLASS is invalid.  */
 
-/* Implement TARGET_CAN_CHANGE_MODE_CLASS.  */
-
-static bool
-pa_can_change_mode_class (machine_mode from, machine_mode to,
-			  reg_class_t rclass)
+bool
+pa_cannot_change_mode_class (machine_mode from, machine_mode to,
+			     enum reg_class rclass)
 {
   if (from == to)
-    return true;
-
-  if (GET_MODE_SIZE (from) == GET_MODE_SIZE (to))
-    return true;
-
-  /* Reject changes to/from modes with zero size.  */
-  if (!GET_MODE_SIZE (from) || !GET_MODE_SIZE (to))
     return false;
 
   /* Reject changes to/from complex and vector modes.  */
   if (COMPLEX_MODE_P (from) || VECTOR_MODE_P (from)
       || COMPLEX_MODE_P (to) || VECTOR_MODE_P (to))
-    return false;
+    return true;
       
-  /* There is no way to load QImode or HImode values directly from memory
-     to a FP register.  SImode loads to the FP registers are not zero
-     extended.  On the 64-bit target, this conflicts with the definition
-     of LOAD_EXTEND_OP.  Thus, we can't allow changing between modes with
-     different sizes in the floating-point registers.  */
-  if (MAYBE_FP_REG_CLASS_P (rclass))
+  if (GET_MODE_SIZE (from) == GET_MODE_SIZE (to))
     return false;
 
-  /* TARGET_HARD_REGNO_MODE_OK places modes with sizes larger than a word
+  /* There is no way to load QImode or HImode values directly from
+     memory.  SImode loads to the FP registers are not zero extended.
+     On the 64-bit target, this conflicts with the definition of
+     LOAD_EXTEND_OP.  Thus, we can't allow changing between modes
+     with different sizes in the floating-point registers.  */
+  if (MAYBE_FP_REG_CLASS_P (rclass))
+    return true;
+
+  /* HARD_REGNO_MODE_OK places modes with sizes larger than a word
      in specific sets of registers.  Thus, we cannot allow changing
      to a larger mode when it's larger than a word.  */
   if (GET_MODE_SIZE (to) > UNITS_PER_WORD
       && GET_MODE_SIZE (to) > GET_MODE_SIZE (from))
-    return false;
+    return true;
 
-  return true;
+  return false;
 }
 
-/* Implement TARGET_MODES_TIEABLE_P.
+/* Returns TRUE if it is a good idea to tie two pseudo registers
+   when one has mode MODE1 and one has mode MODE2.
+   If HARD_REGNO_MODE_OK could produce different values for MODE1 and MODE2,
+   for any hard reg, then this must be FALSE for correct output.
    
    We should return FALSE for QImode and HImode because these modes
    are not ok in the floating-point registers.  However, this prevents
    tieing these modes to SImode and DImode in the general registers.
-   So, this isn't a good idea.  We rely on TARGET_HARD_REGNO_MODE_OK and
-   TARGET_CAN_CHANGE_MODE_CLASS to prevent these modes from being used
+   So, this isn't a good idea.  We rely on HARD_REGNO_MODE_OK and
+   CANNOT_CHANGE_MODE_CLASS to prevent these modes from being used
    in the floating-point registers.  */
 
-static bool
+bool
 pa_modes_tieable_p (machine_mode mode1, machine_mode mode2)
 {
   /* Don't tie modes in different classes.  */
@@ -10235,7 +10081,7 @@ pa_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
 
 #ifdef HAVE_ENABLE_EXECUTE_STACK
   emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__enable_execute_stack"),
-		     LCT_NORMAL, VOIDmode, XEXP (m_tramp, 0), Pmode);
+		     LCT_NORMAL, VOIDmode, 1, XEXP (m_tramp, 0), Pmode);
 #endif
 }
 
@@ -10398,7 +10244,7 @@ pa_legitimate_constant_p (machine_mode mode, rtx x)
       && !reload_in_progress
       && !reload_completed
       && !LEGITIMATE_64BIT_CONST_INT_P (INTVAL (x))
-      && !pa_cint_ok_for_move (UINTVAL (x)))
+      && !pa_cint_ok_for_move (INTVAL (x)))
     return false;
 
   if (function_label_operand (x, mode))
@@ -10546,16 +10392,9 @@ pa_legitimate_address_p (machine_mode mode, rtx x, bool strict)
 
       if (!TARGET_DISABLE_INDEXING
 	  && GET_CODE (index) == MULT
-	  /* Only accept base operands with the REG_POINTER flag prior to
-	     reload on targets with non-equivalent space registers.  */
-	  && (TARGET_NO_SPACE_REGS
-	      || (base == XEXP (x, 1)
-		  && (reload_completed
-		      || (reload_in_progress && HARD_REGISTER_P (base))
-		      || REG_POINTER (base))))
+	  && MODE_OK_FOR_SCALED_INDEXING_P (mode)
 	  && REG_P (XEXP (index, 0))
 	  && GET_MODE (XEXP (index, 0)) == Pmode
-	  && MODE_OK_FOR_SCALED_INDEXING_P (mode)
 	  && (strict ? STRICT_REG_OK_FOR_INDEX_P (XEXP (index, 0))
 		     : REG_OK_FOR_INDEX_P (XEXP (index, 0)))
 	  && GET_CODE (XEXP (index, 1)) == CONST_INT
@@ -10680,8 +10519,6 @@ pa_output_addr_vec (rtx lab, rtx body)
 {
   int idx, vlen = XVECLEN (body, 0);
 
-  if (!TARGET_SOM)
-    fputs ("\t.align 4\n", asm_out_file);
   targetm.asm_out.internal_label (asm_out_file, "L", CODE_LABEL_NUMBER (lab));
   if (TARGET_GAS)
     fputs ("\t.begin_brtab\n", asm_out_file);
@@ -10767,8 +10604,7 @@ pa_expand_compare_and_swap_loop (rtx mem, rtx old_reg, rtx new_reg, rtx seq)
 
   /* Mark this jump predicted not taken.  */
   emit_cmp_and_jump_insns (success, const0_rtx, EQ, const0_rtx,
-                           GET_MODE (success), 1, label,
-			   profile_probability::guessed_never ());
+                           GET_MODE (success), 1, label, 0);
   return true;
 }
 
@@ -10791,63 +10627,6 @@ pa_maybe_emit_compare_and_swap_exchange_loop (rtx target, rtx mem, rtx val)
     }
 
   return NULL_RTX;
-}
-
-/* Implement TARGET_CALLEE_COPIES.  The callee is responsible for copying
-   arguments passed by hidden reference in the 32-bit HP runtime.  Users
-   can override this behavior for better compatibility with openmp at the
-   risk of library incompatibilities.  Arguments are always passed by value
-   in the 64-bit HP runtime.  */
-
-static bool
-pa_callee_copies (cumulative_args_t cum ATTRIBUTE_UNUSED,
-		  machine_mode mode ATTRIBUTE_UNUSED,
-		  const_tree type ATTRIBUTE_UNUSED,
-		  bool named ATTRIBUTE_UNUSED)
-{
-  return !TARGET_CALLER_COPIES;
-}
-
-/* Implement TARGET_HARD_REGNO_NREGS.  */
-
-static unsigned int
-pa_hard_regno_nregs (unsigned int regno ATTRIBUTE_UNUSED, machine_mode mode)
-{
-  return PA_HARD_REGNO_NREGS (regno, mode);
-}
-
-/* Implement TARGET_HARD_REGNO_MODE_OK.  */
-
-static bool
-pa_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
-{
-  return PA_HARD_REGNO_MODE_OK (regno, mode);
-}
-
-/* Implement TARGET_STARTING_FRAME_OFFSET.
-
-   On the 32-bit ports, we reserve one slot for the previous frame
-   pointer and one fill slot.  The fill slot is for compatibility
-   with HP compiled programs.  On the 64-bit ports, we reserve one
-   slot for the previous frame pointer.  */
-
-static HOST_WIDE_INT
-pa_starting_frame_offset (void)
-{
-  return 8;
-}
-
-/* Figure out the size in words of the function argument.  The size
-   returned by this function should always be greater than zero because
-   we pass variable and zero sized objects by reference.  */
-
-HOST_WIDE_INT
-pa_function_arg_size (machine_mode mode, const_tree type)
-{
-  HOST_WIDE_INT size;
-
-  size = mode != BLKmode ? GET_MODE_SIZE (mode) : int_size_in_bytes (type); 
-  return CEIL (size, UNITS_PER_WORD);
 }
 
 #include "gt-pa.h"

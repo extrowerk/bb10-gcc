@@ -6,5 +6,5 @@ program main
   close (12)
   read (12, '(6A)') answer
   close (12, status="delete")
-  if (answer /= "XABCDX") STOP 1
+  if (answer /= "XABCDX") call abort()
 end program main

@@ -8,16 +8,16 @@ program array_function_1
   a = (/ 1, 2, 3, 4, 5 /)
 
   b = f(a(l:u) - 2)
-  if (b /= 0) STOP 1
+  if (b /= 0) call abort
 
   b = f(a(4:2) - 2)
-  if (b /= 0) STOP 2
+  if (b /= 0) call abort
 
   b = f(a(u:l) - 2)
-  if (b /= 3) STOP 3
+  if (b /= 3) call abort
 
   b = f(a(2:4) - 2)
-  if (b /= 3) STOP 4
+  if (b /= 3) call abort
 
   contains
     integer function f(x)

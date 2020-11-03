@@ -12,3 +12,4 @@ foo()
 }
 
 /* { dg-final { scan-tree-dump-times "doesGoIrrevocable" 1 "tmmark" } } */
+/* { dg-final { cleanup-tree-dump "tmmark" } } */

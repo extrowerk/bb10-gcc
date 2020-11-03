@@ -56,9 +56,11 @@ program test_assign
 
   select type (item2)
     type is (myItem)
-      if (item2%name /= 'abc') STOP 1
+      if (item2%name /= 'abc') call abort()
     class default
-      STOP 2
+      call abort()
   end select
 
 end
+
+! { dg-final { cleanup-modules "mod1 mod2" } }

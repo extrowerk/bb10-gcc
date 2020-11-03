@@ -11,3 +11,4 @@ void foo()
     for (i=0; i<2; ++i) ;
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

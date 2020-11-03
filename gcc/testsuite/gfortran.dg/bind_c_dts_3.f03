@@ -31,7 +31,7 @@ contains
     integer(c_int), value :: expected_value
 
     if (my_type%my_nested_type%i .ne. expected_value) then
-       STOP 1
+       call abort ()
     end if
   end subroutine sub0
 end module bind_c_dts_3

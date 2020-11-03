@@ -1,5 +1,5 @@
 /* Chains of recurrences.
-   Copyright (C) 2003-2018 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <pop@cri.ensmp.fr>
 
 This file is part of GCC.
@@ -59,9 +59,9 @@ enum ev_direction scev_direction (const_tree);
 extern tree chrec_fold_plus (tree, tree, tree);
 extern tree chrec_fold_minus (tree, tree, tree);
 extern tree chrec_fold_multiply (tree, tree, tree);
-extern tree chrec_convert (tree, tree, gimple *, bool = true, tree = NULL);
-extern tree chrec_convert_rhs (tree, tree, gimple *);
-extern tree chrec_convert_aggressive (tree, tree, bool *);
+extern tree chrec_convert (tree, tree, gimple);
+extern tree chrec_convert_rhs (tree, tree, gimple);
+extern tree chrec_convert_aggressive (tree, tree);
 
 /* Operations.  */
 extern tree chrec_apply (unsigned, tree, tree);
@@ -74,8 +74,8 @@ extern tree hide_evolution_in_other_loops_than_loop (tree, unsigned);
 extern tree reset_evolution_in_loop (unsigned, tree, tree);
 extern tree chrec_merge (tree, tree);
 extern void for_each_scev_op (tree *, bool (*) (tree *, void *), void *);
-extern bool convert_affine_scev (struct loop *, tree, tree *, tree *, gimple *,
-				 bool, tree = NULL);
+extern bool convert_affine_scev (struct loop *, tree, tree *, tree *, gimple,
+				 bool);
 
 /* Observers.  */
 extern bool eq_evolutions_p (const_tree, const_tree);
@@ -157,9 +157,8 @@ build_polynomial_chrec (unsigned loop_num,
   if (chrec_zerop (right))
     return left;
 
-  tree chrec = build2 (POLYNOMIAL_CHREC, TREE_TYPE (left), left, right);
-  CHREC_VARIABLE (chrec) = loop_num;
-  return chrec;
+  return build3 (POLYNOMIAL_CHREC, TREE_TYPE (left),
+		 build_int_cst (NULL_TREE, loop_num), left, right);
 }
 
 /* Determines whether the expression CHREC is a constant.  */
@@ -170,9 +169,15 @@ evolution_function_is_constant_p (const_tree chrec)
   if (chrec == NULL_TREE)
     return false;
 
-  if (CONSTANT_CLASS_P (chrec))
-    return true;
-  return is_gimple_min_invariant (chrec);
+  switch (TREE_CODE (chrec))
+    {
+    case INTEGER_CST:
+    case REAL_CST:
+      return true;
+
+    default:
+      return false;
+    }
 }
 
 /* Determine whether CHREC is an affine evolution function in LOOPNUM.  */

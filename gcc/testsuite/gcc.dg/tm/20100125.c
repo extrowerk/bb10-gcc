@@ -15,3 +15,4 @@ void set_remove(int * val)
 }
 
 /* { dg-final { scan-tree-dump-times "getTMCloneOrIrrevocable" 0 "tmmark" } } */
+/* { dg-final { cleanup-tree-dump "tmmark" } } */

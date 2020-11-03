@@ -8,7 +8,7 @@ public:
   operator int() { return i; }
 };
 
-C f (register C x)	// { dg-error "ISO C\\+\\+17 does not allow 'register' storage class specifier" "" { target c++17 } }
+C f (register C x)
 {
   return x + 31;
 }

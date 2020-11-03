@@ -1,15 +1,14 @@
-// Copyright 2010 The Go Authors. All rights reserved.
+// Copyright 2010 The Go Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build aix darwin dragonfly freebsd linux nacl netbsd openbsd solaris
+// +build darwin dragonfly freebsd linux nacl netbsd openbsd solaris
 
 package exec
 
 import (
 	"errors"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -43,13 +42,16 @@ func LookPath(file string) (string, error) {
 		}
 		return "", &Error{file, err}
 	}
-	path := os.Getenv("PATH")
-	for _, dir := range filepath.SplitList(path) {
+	pathenv := os.Getenv("PATH")
+	if pathenv == "" {
+		return "", &Error{file, ErrNotFound}
+	}
+	for _, dir := range strings.Split(pathenv, ":") {
 		if dir == "" {
 			// Unix shell semantics: path element "" means "."
 			dir = "."
 		}
-		path := filepath.Join(dir, file)
+		path := dir + "/" + file
 		if err := findExecutable(path); err == nil {
 			return path, nil
 		}

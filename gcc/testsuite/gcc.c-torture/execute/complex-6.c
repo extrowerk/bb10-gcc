@@ -1,5 +1,3 @@
-/* { dg-skip-if "requires io" { freestanding } }  */
-
 /* This test tests complex conjugate and passing/returning of
    complex parameter.  */
 

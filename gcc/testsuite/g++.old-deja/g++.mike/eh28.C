@@ -8,7 +8,6 @@ int fail = 1;
 class X            { public: virtual void p() { } };
 class Y : public X { public: virtual void p() { fail = 0; } };
 
-int
 main()
 {
   try          { Y y; throw y; }

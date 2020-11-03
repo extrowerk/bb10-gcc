@@ -1,5 +1,3 @@
-/* { dg-additional-options "-Wno-return-type" } */
-
 typedef unsigned int PRUint32;
 typedef int PRInt32;
 typedef unsigned long PRUint64;

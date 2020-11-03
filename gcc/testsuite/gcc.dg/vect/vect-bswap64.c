@@ -1,8 +1,10 @@
-/* { dg-additional-options "-msse4" { target sse4_runtime } } */
+/* { dg-require-effective-target vect_bswap } */
 
 #include "tree-vect.h"
 
 #define N 128
+
+volatile int y = 0;
 
 static inline void
 vfoo64 (unsigned long long* a)
@@ -19,13 +21,12 @@ main (void)
   unsigned long long expect[N];
   int i;
 
-  check_vect ();
-
   for (i = 0; i < N; ++i)
     {
       arr[i] = i;
       expect[i] = __builtin_bswap64 (i);
-      asm volatile ("" ::: "memory");
+      if (y) /* Avoid vectorisation.  */
+        abort ();
     }
 
   vfoo64 (arr);
@@ -39,4 +40,5 @@ main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target { vect_bswap || sse4_runtime } } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

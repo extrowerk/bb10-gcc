@@ -7,5 +7,5 @@
   n = SUM((/(i,i=1,n)/))
 
   ! 'i' must not be changed
-  IF (i /= 10) STOP 1
+  IF (i /= 10) CALL abort()
 END

@@ -1,6 +1,5 @@
 /* { dg-do run } */
 
-#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <openacc.h>
@@ -20,7 +19,6 @@ main (int argc, char **argv)
       h[i] = i;
     }
 
-  fprintf (stderr, "CheCKpOInT\n");
   d = acc_present_or_copyin (0, N);
   if (!d)
     abort ();
@@ -40,6 +38,4 @@ main (int argc, char **argv)
   return 0;
 }
 
-/* { dg-output "CheCKpOInT(\n|\r\n|\r).*" } */
-/* { dg-output "\\\[\[^\n\r]*,\\\+256\\\] is a bad range" } */
-/* { dg-shouldfail "" } */
+/* { dg-shouldfail "libgomp: \[\(nil\),+256\] is a bad range" } */

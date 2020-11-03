@@ -26,3 +26,4 @@ int main ()
 
 
 /* { dg-final { scan-ipa-dump-times "versioned function" 0 "cp"  } } */
+/* { dg-final { cleanup-ipa-dump "cp" } } */

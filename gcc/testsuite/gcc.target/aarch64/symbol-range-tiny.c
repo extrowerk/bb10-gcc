@@ -10,3 +10,4 @@ foo()
 }
 
 /* { dg-final { scan-assembler-not "adr\tx\[0-9\]+, fixed_regs\\\+" } } */
+/* { dg-final {cleanup-saved-temps } } */

@@ -1,9 +1,9 @@
-// { dg-do run { target c++11 } }
-// { dg-require-namedlocale "de_DE.UTF-8" }
+// { dg-require-namedlocale "de_DE.utf8" }
+// { dg-options " -std=gnu++11 " }
 
 // 2014-04-14 Rüdiger Sonderfeld  <ruediger@c-plusplus.de>
 
-// Copyright (C) 2014-2018 Free Software Foundation, Inc.
+// Copyright (C) 2014-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -26,7 +26,7 @@
 #include <sstream>
 #include <testsuite_hooks.h>
 
-#ifdef TEST_TIMEGET_VERBOSE
+#ifndef _GLIBCXX_ASSERT
 #  include <iostream>
 #  define PRINT(x) cout << #x << ": " << x << endl
 #  define TESTHEAD(x) cout << x << endl
@@ -38,9 +38,10 @@
 void test02()
 {
   using namespace std;
+  bool test __attribute__((unused)) = true;
 
   locale loc_c = locale::classic();
-  locale loc_de = locale("de_DE.UTF-8");
+  locale loc_de = locale("de_DE.utf8");
   VERIFY( loc_de != loc_c );
 
   istringstream iss;

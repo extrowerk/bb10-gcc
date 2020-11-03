@@ -19,7 +19,7 @@ func TestXOR(t *testing.T) {
 				d2 := make([]byte, 1024+alignD)[alignD:]
 				xorBytes(d1, p, q)
 				safeXORBytes(d2, p, q)
-				if !bytes.Equal(d1, d2) {
+				if bytes.Compare(d1, d2) != 0 {
 					t.Error("not equal")
 				}
 			}

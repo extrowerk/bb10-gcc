@@ -1,6 +1,6 @@
 // -*- C++ -*- forwarding header.
 
-// Copyright (C) 2000-2018 Free Software Foundation, Inc.
+// Copyright (C) 2000-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -36,7 +36,6 @@
 #include_next <math.h>
 
 // Get rid of those macros defined in <math.h> in lieu of real functions.
-#undef abs
 #undef div
 #undef acos
 #undef asin
@@ -53,7 +52,6 @@
 #undef ldexp
 #undef log
 #undef log10
-#undef modf
 #undef pow
 #undef sin
 #undef sinh
@@ -76,10 +74,20 @@
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
+  template<typename _Tp>
+    inline _Tp
+    __pow_helper(_Tp __x, int __n)
+    {
+      return __n < 0
+        ? _Tp(1)/__cmath_power(__x, -__n)
+        : __cmath_power(__x, __n);
+    }
+
+#ifdef abs
+#undef abs
   inline double
   abs(double __x)
   { return __builtin_fabs(__x); }
-
   inline float
   abs(float __x)
   { return __builtin_fabsf(__x); }
@@ -87,7 +95,10 @@ namespace std _GLIBCXX_VISIBILITY(default)
   inline long double
   abs(long double __x)
   { return __builtin_fabsl(__x); }
+#endif 
 
+#ifdef modf
+#undef modf
 #if _GLIBCXX_HAVE_MODFF
   inline float
   modf(float __x, float* __iptr) { return modff(__x, __iptr); }
@@ -114,6 +125,7 @@ namespace std _GLIBCXX_VISIBILITY(default)
     * __iptr = static_cast<long double>(__tmp);
     return __res;
   }
+#endif
 #endif
 }
 #endif

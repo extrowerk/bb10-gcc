@@ -3,5 +3,5 @@
 program test_newunit
     integer :: st, un = 0
     open (newunit=un, file='nonexisting.dat', status='old', iostat=st)
-    if (un /= 0) STOP 1
+    if (un /= 0) call abort
 end program test_newunit

@@ -1,5 +1,5 @@
 // { dg-do run  }
-// { dg-options "-O2 -Wno-register" }
+// { dg-options "-O2" }
 
 #include <exception>
 

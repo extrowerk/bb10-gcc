@@ -1,5 +1,5 @@
 /* This file contains definitions for the register renamer.
-   Copyright (C) 2011-2018 Free Software Foundation, Inc.
+   Copyright (C) 2011-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -28,8 +28,6 @@ struct du_head
   struct du_head *next_chain;
   /* The first and last elements of this chain.  */
   struct du_chain *first, *last;
-  /* The chain that this chain is tied to.  */
-  struct du_head *tied_chain;
   /* Describes the register being tracked.  */
   unsigned regno;
   int nregs;
@@ -47,12 +45,6 @@ struct du_head
      such as the SET_DEST of a CALL_INSN or an asm operand that used
      to be a hard register.  */
   unsigned int cannot_rename:1;
-  /* Nonzero if the chain has already been renamed.  */
-  unsigned int renamed:1;
-
-  /* Fields for use by target code.  */
-  unsigned int target_data_1;
-  unsigned int target_data_2;
 };
 
 typedef struct du_head *du_head_p;
@@ -76,8 +68,7 @@ struct du_chain
 struct operand_rr_info
 {
   /* The number of chains recorded for this operand.  */
-  short n_chains;
-  bool failed;
+  int n_chains;
   /* Holds either the chain for the operand itself, or for the registers in
      a memory operand.  */
   struct du_chain *chains[MAX_REGS_PER_ADDRESS];
@@ -100,8 +91,6 @@ extern void regrename_analyze (bitmap);
 extern du_head_p regrename_chain_from_id (unsigned int);
 extern int find_rename_reg (du_head_p, enum reg_class, HARD_REG_SET *, int,
 			    bool);
-extern bool regrename_do_replace (du_head_p, int);
-extern reg_class regrename_find_superclass (du_head_p, int *,
-					    HARD_REG_SET *);
+extern void regrename_do_replace (du_head_p, int);
 
 #endif

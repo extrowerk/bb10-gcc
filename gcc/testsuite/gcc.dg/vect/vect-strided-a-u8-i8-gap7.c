@@ -16,6 +16,8 @@ typedef struct {
    unsigned char h;
 } s;
 
+volatile int y = 0;
+
 __attribute__ ((noinline)) int
 main1 ()
 {
@@ -23,7 +25,7 @@ main1 ()
   s arr[N];
   s *ptr = arr;
   s res[N];
-  unsigned char u, t, s, x, z, w;
+  unsigned char u, t, s, x, y, z, w;
 
   for (i = 0; i < N; i++)
     {
@@ -35,7 +37,8 @@ main1 ()
       arr[i].f = i * 5;
       arr[i].g = i - 3;
       arr[i].h = 67;
-      asm volatile ("" ::: "memory");
+      if (y) /* Avoid vectorization.  */
+        abort ();
     }
 
   for (i = 0; i < N; i++)
@@ -81,4 +84,5 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_strided8 } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */
   

@@ -20,4 +20,5 @@ main ()
 /* Function should be inlined as called once.  */
 /* { dg-final { scan-tree-dump-not "large_function" "optimized"} } */
 
+/* { dg-final { cleanup-tree-dump "optimized" } } */
 

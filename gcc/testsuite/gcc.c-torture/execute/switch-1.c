@@ -22,7 +22,7 @@ foo (int x)
 }
 
 int
-main ()
+main (int argc)
 {
   int i, r;
 

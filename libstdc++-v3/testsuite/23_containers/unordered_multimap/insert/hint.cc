@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2018 Free Software Foundation, Inc.
+// Copyright (C) 2013-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,7 +15,7 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// { dg-do run { target c++11 } }
+// { dg-options "-std=gnu++11" }
 
 // Insert with hint, specific to this library implementation.
 
@@ -25,6 +25,8 @@
 
 void test01()
 {
+  bool test __attribute__((unused)) = true;
+
   typedef std::unordered_multimap<int, int> Map;
   typedef typename Map::value_type Pair;
 
@@ -54,6 +56,8 @@ struct hasher
 
 void test02()
 {
+  bool test __attribute__((unused)) = true;
+
   typedef std::unordered_multimap<int, int, hasher> Map;
   typedef typename Map::value_type Pair;
 
@@ -85,6 +89,8 @@ void test02()
 
 void test03()
 {
+  bool test __attribute__((unused)) = true;
+
   typedef std::unordered_multimap<int, int> Map;
   typedef typename Map::value_type Pair;
 

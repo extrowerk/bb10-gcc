@@ -1,8 +1,8 @@
-// { dg-require-namedlocale "de_DE.ISO8859-15" }
+// { dg-require-namedlocale "de_DE.ISO-8859-15@euro" }
 
 // 2003-04-30  Petur Runolfsson <peturr02@ru.is>
 
-// Copyright (C) 2003-2018 Free Software Foundation, Inc.
+// Copyright (C) 2003-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,6 +27,7 @@ void test01()
 {
   using namespace std;
 
+  bool test __attribute__((unused)) = true;
   const char* name = "tmp_9520";
 
   FILE* file = fopen(name, "w");
@@ -34,7 +35,7 @@ void test01()
     putc(static_cast<unsigned char>(i), file);
   fclose(file);
 
-  locale loc (locale(ISO_8859(15,de_DE)));
+  locale loc (locale("de_DE.ISO-8859-15@euro"));
   locale::global(loc); // Set locale for stdin
 
   VERIFY( freopen(name, "r", stdin) );

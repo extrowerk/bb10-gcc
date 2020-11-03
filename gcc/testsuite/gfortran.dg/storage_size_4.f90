@@ -9,8 +9,8 @@
   implicit none
   integer, parameter :: ESize = storage_size('a')
   integer, parameter :: ESize2 = storage_size('aa')
-  if ( ESize/CHARACTER_STORAGE_SIZE /= 1) STOP 1
-  if ( ESize2/CHARACTER_STORAGE_SIZE /= 2) STOP 2
+  if ( ESize/CHARACTER_STORAGE_SIZE /= 1) call abort()
+  if ( ESize2/CHARACTER_STORAGE_SIZE /= 2) call abort()
 end
 
 subroutine S ( A )
@@ -19,4 +19,5 @@ subroutine S ( A )
   esize = ( storage_size(a) + 7 ) / 8
 end
 
-! { dg-final { scan-tree-dump-not "_gfortran_stop" "original" } }
+! { dg-final { scan-tree-dump-not "abort" "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

@@ -16,3 +16,5 @@ contains
     class(cfml), intent(inout) :: s
   end subroutine mld
 end module cf
+
+! { dg-final { cleanup-modules "cf" } }

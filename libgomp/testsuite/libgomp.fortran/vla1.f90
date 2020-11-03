@@ -155,7 +155,7 @@ contains
     call check (size (k, 3), 3, l)
     call check (size (k), 15, l)
 !$omp end parallel
-    if (l) STOP 1
+    if (l) call abort
   end subroutine foo
 
   subroutine test

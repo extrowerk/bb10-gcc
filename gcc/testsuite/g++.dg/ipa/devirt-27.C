@@ -24,3 +24,4 @@ int test(void)
   return d->foo()+b->foo();
 }
 /* { dg-final { scan-tree-dump "OBJ_TYPE_REF" "optimized"  } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

@@ -1,4 +1,4 @@
-/* Copyright (C) 2008-2018 Free Software Foundation, Inc.
+/* Copyright (C) 2008-2015 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>.
 
    This file is part of the GNU Offloading and Multi Processing Library
@@ -35,13 +35,13 @@
 
 #define FUTEX_WAIT	0
 #define FUTEX_WAKE	1
-#define FUTEX_PRIVATE_FLAG	128
+#define FUTEX_PRIVATE_FLAG	128L
 
 #ifdef HAVE_ATTRIBUTE_VISIBILITY
 # pragma GCC visibility push(hidden)
 #endif
 
-extern int gomp_futex_wait, gomp_futex_wake;
+extern long int gomp_futex_wait, gomp_futex_wake;
 
 #include <futex.h>
 

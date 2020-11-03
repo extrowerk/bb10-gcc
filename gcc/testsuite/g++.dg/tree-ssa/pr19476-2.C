@@ -1,6 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdump-tree-optimized -fdelete-null-pointer-checks" } */
-/* { dg-skip-if "" keeps_null_pointer_checks } */
+/* { dg-options "-O2 -fdump-tree-optimized" } */
 
 #include <new>
 
@@ -15,3 +14,4 @@ int g(){
 
 /* { dg-final { scan-tree-dump     "return 42" "optimized" } } */
 /* { dg-final { scan-tree-dump-not "return 33" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

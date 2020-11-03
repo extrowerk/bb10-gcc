@@ -56,6 +56,6 @@ program main
     x%proc => print_my_square
     call x%proc(x, output_unit)
 
-    if (calls/=2) STOP 1
+    if (calls/=2) call abort
 
 end program main 

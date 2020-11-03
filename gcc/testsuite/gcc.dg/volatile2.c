@@ -19,3 +19,4 @@ void foo(struct GTeth_softc *sc)
 }
 
 /* { dg-final { scan-tree-dump "{v}" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

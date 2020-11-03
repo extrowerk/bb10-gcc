@@ -39,9 +39,9 @@ contains
       do i2 = 1, n2
         do i1 = 1, n1
           if (i1 + d1 .gt. n1 .or. i2 + d2 .gt. n2 .or. i3 + d3 .gt. n3) then
-            if (b (i1, i2, i3) .ne. filler) STOP 1
+            if (b (i1, i2, i3) .ne. filler) call abort
           else
-            if (b (i1, i2, i3) .ne. a (i1 + d1, i2 + d2, i3 + d3)) STOP 2
+            if (b (i1, i2, i3) .ne. a (i1 + d1, i2 + d2, i3 + d3)) call abort
           end if
         end do
       end do

@@ -67,3 +67,4 @@ void l (double d, vecf* r)
 }
 
 /* { dg-final { scan-tree-dump-not "VEC_PERM_EXPR" "forwprop1" } } */
+/* { dg-final { cleanup-tree-dump "forwprop1" } } */

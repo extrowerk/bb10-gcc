@@ -2,7 +2,7 @@
 
 // 1999-08-23 bkoz
 
-// Copyright (C) 1999-2018 Free Software Foundation, Inc.
+// Copyright (C) 1999-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -52,8 +52,10 @@ test_is_iec559()
 }
 
 // libstdc++/8949
-void test04()
+bool test04()
 {
+  bool test __attribute__((unused)) = true;
+
   VERIFY( !std::numeric_limits<short>::is_iec559 );
   VERIFY( !std::numeric_limits<unsigned short>::is_iec559 );
   VERIFY( !std::numeric_limits<int>::is_iec559 );
@@ -62,6 +64,7 @@ void test04()
   VERIFY( !std::numeric_limits<unsigned long>::is_iec559 );
   VERIFY( !std::numeric_limits<long long>::is_iec559 );
   VERIFY( !std::numeric_limits<unsigned long long>::is_iec559 );
+  return test;
 }
 
 int main()

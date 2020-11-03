@@ -10,3 +10,4 @@ void foo(int* a)
 }
 
 // { dg-final { scan-tree-dump "vectorized 1 loops" "vect" } }
+// { dg-final { cleanup-tree-dump "vect" } }

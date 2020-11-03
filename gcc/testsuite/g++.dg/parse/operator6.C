@@ -1,6 +1,5 @@
 // PR c++/25635
 
-struct A {}; // { dg-message "defined here" }
+struct A {};
 
-A::operator int(); // { dg-error "no declaration matches" }
-// { dg-message "no conversion operators" "" { target *-*-* } .-1 }
+A::operator int(); // { dg-error "class" }

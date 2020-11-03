@@ -13,6 +13,6 @@
       write(10,'(A)') "Hello"
       rewind(10)
       read(10,'(A)',end=100) foo
-      STOP 1
+      call abort
  100  continue
       end

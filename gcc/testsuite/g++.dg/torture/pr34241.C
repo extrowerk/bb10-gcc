@@ -15,5 +15,4 @@ struct A
 A test ()
 {
   const A a (42, true);
-  return a;
 }

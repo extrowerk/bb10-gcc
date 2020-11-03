@@ -1,5 +1,6 @@
 /* { dg-do compile }  */
 /* { dg-additional-options "-std=gnu99" }  */
+/* { dg-skip-if "" { "sh*-*-*" } { "-m5*" } { "" } }  */
 
 struct thread_info {
  struct task_struct *task;

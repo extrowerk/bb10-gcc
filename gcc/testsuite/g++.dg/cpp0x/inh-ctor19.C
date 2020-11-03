@@ -8,7 +8,7 @@ struct A
 
 struct B : A
 {
-  using A::A;
+  using A::A;   // { dg-error "inherited" }
 };
 
 constexpr B b;  // { dg-error "literal" }

@@ -6,7 +6,6 @@
    Written by Roger Sayle, 16th August 2002.  */
 
 /* { dg-do link } */
-/* { dg-skip-if "" { *-*-* } { "-O0" } { "" } } */
 
 extern double atan (double);
 extern float atanf (float);

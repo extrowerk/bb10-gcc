@@ -14,4 +14,5 @@ end
 
 ! { dg-final { scan-tree-dump-times "ubound.. = " 1 "original" } }
 ! { dg-final { scan-tree-dump-times "size.. = " 2 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }
 

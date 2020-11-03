@@ -3,7 +3,7 @@
 
 // 2006-03-22  Paolo Carlini  <pcarlini@suse.de>
 
-// Copyright (C) 2006-2018 Free Software Foundation, Inc.
+// Copyright (C) 2006-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -19,6 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
+
+// No asserts, avoid leaking the semaphores if a VERIFY fails.
+#undef _GLIBCXX_ASSERT
 
 #include <testsuite_hooks.h>
 #include <fstream>
@@ -36,7 +39,7 @@ bool test01()
   using namespace std;
   using namespace __gnu_test;
 
-  bool test = true;
+  bool test __attribute__((unused)) = true;
 
   const char* name = "tmp_fifo6";
 
@@ -47,13 +50,13 @@ bool test01()
   semaphore s1, s2;
 
   int child = fork();
-  test &= bool( child != -1 );
+  VERIFY( child != -1 );
 
   if (child == 0)
     {
       filebuf fbout;
       fbout.open(name, ios_base::in | ios_base::out);
-      test &= bool( fbout.is_open() );
+      VERIFY( fbout.is_open() );
       fbout.sputn("Whatever", 8);
       fbout.pubsync();
       s1.signal();
@@ -76,7 +79,7 @@ bool test01()
   oss << &fbin;
   fbin.close();
 
-  test &= bool( oss.str() == "Whatever" );
+  VERIFY( oss.str() == "Whatever" );
 
   return test;
 }

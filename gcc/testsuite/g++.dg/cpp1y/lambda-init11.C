@@ -16,4 +16,5 @@ int main(){
   foo(3.14f);
   foo(0);
   foo('a');
+  foo(false);
 }

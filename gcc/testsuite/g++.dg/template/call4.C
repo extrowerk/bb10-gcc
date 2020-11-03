@@ -1,6 +1,6 @@
 // PR c++/25364
 
-struct OFX_PropertySuiteV1
+class OFX_PropertySuiteV1
 {
   static int propGetDouble ();
 };

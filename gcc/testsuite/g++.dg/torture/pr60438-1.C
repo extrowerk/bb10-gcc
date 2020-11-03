@@ -23,6 +23,4 @@ foo (struct C *y, float x)
       d.a = (int) (b * x);
     }
   baz (&d);
-
-  return 0;
 }

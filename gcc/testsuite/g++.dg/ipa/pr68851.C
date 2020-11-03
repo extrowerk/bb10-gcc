@@ -8,7 +8,7 @@ public:
 };
 class A {
 public:
-  virtual bool isFormControlElement() const { return false; }
+  virtual bool isFormControlElement() const {}
 };
 class C {
   struct D {
@@ -20,10 +20,10 @@ class F {
   virtual bool isFormControlElement() const;
 };
 class G : A, F {
-  bool isFormControlElement() const { return true; }
+  bool isFormControlElement() const {}
 };
 bool C::checkPseudoClass(const D &p1, int &) const {
   A &a = *p1.element;
   a.isFormControlElement();
-  return a.isFormControlElement() || a.isFormControlElement();
+  a.isFormControlElement() || a.isFormControlElement();
 }

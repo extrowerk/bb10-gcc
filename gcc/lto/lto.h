@@ -1,5 +1,5 @@
 /* LTO declarations.
-   Copyright (C) 2009-2018 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -21,15 +21,17 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef LTO_H
 #define LTO_H
 
+#include "hashtab.h"
+#include "vec.h"
 
 /* A file.  */
-struct lto_file
+typedef struct lto_file_struct
 {
   /* The name of the file.  */
   const char *filename;
   /* The offset for the object inside an ar archive file (or zero).  */
   off_t offset;
-};
+} lto_file;
 
 /* In lto-lang.c  */
 extern const char *resolution_file_name;

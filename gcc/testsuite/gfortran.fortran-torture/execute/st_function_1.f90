@@ -18,6 +18,6 @@ contains
 subroutine check(a, b)
   character (len=*) :: a, b
 
-  if ((a .ne. b) .or. (len(a) .ne. len(b))) STOP 1
+  if ((a .ne. b) .or. (len(a) .ne. len(b))) call abort ()
 end subroutine
 end program

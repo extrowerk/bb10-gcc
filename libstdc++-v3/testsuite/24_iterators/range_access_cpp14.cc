@@ -1,6 +1,7 @@
-// { dg-do run { target c++14 } }
+// { dg-do run }
+// { dg-options "-std=gnu++14" }
 
-// Copyright (C) 2015-2018 Free Software Foundation, Inc.
+// Copyright (C) 2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -17,11 +18,13 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// C++ 2014 24.7, range access [iterator.range]
+// 24.6.5, range access [iterator.range]
 
 #include <iterator>
 #include <vector>
 #include <testsuite_hooks.h>
+
+bool test __attribute__((unused)) = true;
 
 void
 test01()
@@ -45,7 +48,7 @@ test02()
   constexpr auto ce __attribute__((unused)) = std::cend(i);
 }
 
-void
+int
 test03()
 {
   std::initializer_list<int> il{1};
@@ -57,7 +60,7 @@ test03()
   VERIFY(std::crend(il) == std::reverse_iterator<const int*>(il.begin()));
 }
 
-void
+int
 test04()
 {
   std::vector<int> v{1};

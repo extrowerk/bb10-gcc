@@ -43,7 +43,7 @@ struct D<X> : public C {
 	D (int _i) : C(), i(_i) { }
 	D () : D(-1) { }
 	virtual ~D() { }
-	virtual int f () { return 0; }
+	virtual int f () { }
 };
 
 void f_D () { D<X>* d = new D<X>(); }

@@ -13,7 +13,7 @@ template <class T>
 void func(void)
 {
   (void)A<T>::type();	 // { dg-error "non-type" "non-type" }
-// { dg-message "if a type" "note" { target *-*-* } .-1 }
+// { dg-message "if a type" "note" { target *-*-* } 15 }
 }
 
 template void func<float>(void);    // { dg-message "required from here" }

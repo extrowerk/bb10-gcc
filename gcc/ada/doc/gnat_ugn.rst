@@ -1,40 +1,38 @@
 GNAT User's Guide for Native Platforms
 ======================================
 
-.. only:: not latex
+*GNAT, The GNU Ada Development Environment*
 
-    *GNAT, The GNU Ada Development Environment*
+.. only:: PRO
 
-    .. only:: PRO
+   *GNAT Pro Edition*
 
-       *GNAT Pro Edition*
+   | Version |version|
+   | Date: |today|
 
-       | Version |version|
-       | Date: |today|
+.. only:: GPL
 
-    .. only:: GPL
+   *GNAT GPL Edition*
 
-       *GNAT GPL Edition*
+   | Version |version|
+   | Date: |today|
 
-       | Version |version|
-       | Date: |today|
+.. only:: FSF
 
-    .. only:: FSF
+   .. raw:: texinfo
 
-       .. raw:: texinfo
+      @include gcc-common.texi
+      GCC version @value{version-GCC}@*
 
-          @include gcc-common.texi
-          GCC version @value{version-GCC}@*
+AdaCore
 
-    AdaCore
-
-    Permission is granted to copy, distribute and/or modify this document
-    under the terms of the GNU Free Documentation License, Version 1.3 or
-    any later version published by the Free Software Foundation; with no
-    Invariant Sections, with the Front-Cover Texts being
-    "GNAT User's Guide for Native Platforms",
-    and with no Back-Cover Texts.  A copy of the license is
-    included in the section entitled :ref:`gnu_fdl`.
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover Texts being
+"GNAT User's Guide for Native Platforms",
+and with no Back-Cover Texts.  A copy of the license is
+included in the section entitled :ref:`gnu_fdl`.
 
 .. toctree::
    :maxdepth: 3
@@ -44,6 +42,8 @@ GNAT User's Guide for Native Platforms
    gnat_ugn/getting_started_with_gnat
    gnat_ugn/the_gnat_compilation_model
    gnat_ugn/building_executable_programs_with_gnat
+   gnat_ugn/gnat_project_manager
+   gnat_ugn/tools_supporting_project_files
    gnat_ugn/gnat_utility_programs
    gnat_ugn/gnat_and_program_execution
 

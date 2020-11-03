@@ -12,13 +12,7 @@ void my_terminate ()
 
 struct A {
   A(int) { }
-  ~A()
-#if __cplusplus <= 201402L
-  throw(int)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#else
-  noexcept(false)
-#endif
-  { throw 1; };
+  ~A() { throw 1; };
 };
 struct B {
   B(A) { }

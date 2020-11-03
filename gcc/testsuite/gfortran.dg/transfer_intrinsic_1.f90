@@ -15,3 +15,4 @@ subroutine BytesToString(bytes, string)
     string = transfer(bytes, string)
   end subroutine
 ! { dg-final { scan-tree-dump-times "MIN_EXPR" 1 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

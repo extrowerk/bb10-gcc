@@ -123,11 +123,6 @@ exitok=`
 exec < ${TESTDIR}/LIST
 while read f
 do
-  if [ -n "$MSYSTEM" -o -n "$DJGPP" ]
-  then
-    # On MinGW and DJGPP convert line endings to avoid false positives
-    mv $f $f.dos; tr -d '\r' < $f.dos > $f; rm $f.dos
-  fi
   if [ ! -f ${TESTBASE}/$f ]
   then
     echo "Newly fixed header:  $f" >&2
@@ -146,8 +141,9 @@ echo $exitok`
 
 cd $TESTBASE
 
-find * -type f ! -name .DS_Store ! -name CVS ! -name .svn -print \
-> ${TESTDIR}/LIST
+find * -type f -print | \
+fgrep -v 'CVS/' | \
+fgrep -v '.svn/' > ${TESTDIR}/LIST
 
 exitok=`
 exec < ${TESTDIR}/LIST

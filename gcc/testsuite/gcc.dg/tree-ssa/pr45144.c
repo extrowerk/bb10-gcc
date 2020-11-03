@@ -44,3 +44,4 @@ bar (unsigned orig, unsigned *new)
 }
 
 /* { dg-final { scan-tree-dump-not "unnamed-unsigned:19" "optimized"} } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

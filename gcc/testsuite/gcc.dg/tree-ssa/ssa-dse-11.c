@@ -18,3 +18,4 @@ void bar(int *p)
 }
 
 /* { dg-final { scan-tree-dump-times "Deleted dead store" 2 "dse1" } } */
+/* { dg-final { cleanup-tree-dump "dse1" } } */

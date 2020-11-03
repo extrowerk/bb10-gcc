@@ -38,7 +38,7 @@
    i = 3
  end select
  deallocate(cp)
- if (i /= 1) STOP 1
+ if (i /= 1) call abort()
 
  i = 0
  allocate(t2 :: cp)
@@ -51,7 +51,7 @@
    i = 3
  end select
  deallocate(cp)
- if (i /= 2) STOP 2
+ if (i /= 2) call abort()
 
  i = 0
  allocate(cp, source = x)
@@ -64,7 +64,7 @@
    i = 3
  end select
  deallocate(cp)
- if (i /= 3) STOP 3
+ if (i /= 3) call abort()
 
  i = 0
  allocate(t2 :: cp2)
@@ -81,18 +81,18 @@
  end select
  deallocate(cp)
  deallocate(cp2)
- if (i /= 2) STOP 4
+ if (i /= 2) call abort()
 
 
  ! (2) check initialization (default initialization vs. SOURCE)
 
  allocate(cp)
- if (cp%comp /= 5) STOP 5
+ if (cp%comp /= 5) call abort()
  deallocate(cp)
 
  x%comp = 4
  allocate(cp, source=x)
- if (cp%comp /= 4) STOP 6
+ if (cp%comp /= 4) call abort()
  deallocate(cp)
 
 end

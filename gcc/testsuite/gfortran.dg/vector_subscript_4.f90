@@ -10,3 +10,4 @@
       k = j((/1,1,1/)+i)
       end
 ! { dg-final { scan-tree-dump-times "A\.2\\\[3\\\]" 1 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

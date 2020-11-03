@@ -1,8 +1,33 @@
+// PR c++/65876
 // { dg-do compile { target c++11 } }
 
-struct A { int ar[3]; };
-int main()
+template<int>
+struct duration
 {
-  constexpr A a1 = { 0, a1.ar[0] };
-  constexpr A a2 = { a2.ar[0] };	// { dg-error "uninitialized" }
+    constexpr duration() : r(0) {}
+
+    template<int TPeriod>
+    constexpr duration(duration<TPeriod> x) : r(x.count()) {}
+
+    constexpr int count() { return 0; }
+
+    int r;
+};
+
+struct Config {
+    duration<1> timeout { duration<2>() };
+};
+
+Config make_config()
+{
+    return {};
+}
+
+struct ConfigArray {
+    ConfigArray();
+    Config all_configs[1];
+};
+
+ConfigArray::ConfigArray()
+{
 }

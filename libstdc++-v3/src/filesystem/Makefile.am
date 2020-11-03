@@ -1,6 +1,6 @@
 ## Makefile for the GNU C++ Filesystem library.
 ##
-## Copyright (C) 2014-2018 Free Software Foundation, Inc.
+## Copyright (C) 2014-2015 Free Software Foundation, Inc.
 ##
 ## Process this file with automake to produce Makefile.in.
 ##
@@ -30,10 +30,7 @@ if ENABLE_DUAL_ABI
 cxx11_abi_sources = \
 	cow-dir.cc \
 	cow-ops.cc \
-	cow-path.cc \
-	cow-std-dir.cc \
-	cow-std-ops.cc \
-	cow-std-path.cc
+	cow-path.cc
 else
 cxx11_abi_sources =
 endif
@@ -42,9 +39,6 @@ sources = \
 	dir.cc \
 	ops.cc \
 	path.cc \
-	std-dir.cc \
-	std-ops.cc \
-	std-path.cc \
 	${cxx11_abi_sources}
 
 # vpath % $(top_srcdir)/src/filesystem
@@ -58,7 +52,7 @@ libstdc__fs_la_SOURCES = $(sources)
 # as the occasion call for it.
 AM_CXXFLAGS = \
 	$(glibcxx_lt_pic_flag) $(glibcxx_compiler_shared_flag) \
-	-std=gnu++17 \
+	-std=gnu++14 \
 	$(WARN_CXXFLAGS) $(OPTIMIZE_CXXFLAGS)  $(CONFIG_CXXFLAGS)
 
 AM_MAKEFLAGS = \
@@ -79,7 +73,7 @@ AM_MAKEFLAGS = \
 # correct solution is to add `--tag CXX' to LTCXXCOMPILE and maybe
 # CXXLINK, just after $(LIBTOOL), so that libtool doesn't have to
 # attempt to infer which configuration to use.
-#
+# 
 # The second tag argument, `--tag disable-shared` means that libtool
 # only compiles each source once, for static objects. In actuality,
 # glibcxx_lt_pic_flag and glibcxx_compiler_shared_flag are added to

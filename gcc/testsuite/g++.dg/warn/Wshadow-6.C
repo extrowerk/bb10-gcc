@@ -43,7 +43,7 @@ template <class T>
 void f4(int i) {
  [=]{
    int j = i;			// { dg-message "shadowed declaration" }
-   int i;			// { dg-warning "shadows a " }
+   int i;			// { dg-warning "shadows a lambda capture" }
    i = 1;
  };
 }

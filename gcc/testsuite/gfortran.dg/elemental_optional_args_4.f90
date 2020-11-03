@@ -21,12 +21,12 @@ PROGRAM test
 
   rr=f1(aa,b)
   ! WRITE(*,*) ' rr(1)=', rr(1), '  rr(2)=', rr(2)
-  IF (ANY(rr /= (/ 110, 132 /))) STOP 1
+  IF (ANY(rr /= (/ 110, 132 /))) CALL ABORT
 
   rr=0
   rr=ff(aa,b)
   ! WRITE(*,*) ' rr(1)=', rr(1), '  rr(2)=', rr(2)
-  IF (ANY(rr /= (/ 110, 132 /))) STOP 2
+  IF (ANY(rr /= (/ 110, 132 /))) CALL ABORT
 
 
   DEALLOCATE(b)
@@ -35,12 +35,12 @@ PROGRAM test
   rr=0
   rr=f1(aa, b)
   ! WRITE(*,*) ' rr(1)=', rr(1), '  rr(2)=', rr(2)
-  IF (ANY(rr /= (/ 110, 132 /))) STOP 3
+  IF (ANY(rr /= (/ 110, 132 /))) CALL ABORT
 
   rr = 0
   rr=ff(aa, b)
   ! WRITE(*,*) ' rr(1)=', rr(1), '  rr(2)=', rr(2)
-  IF (ANY(rr /= (/ 110, 132 /))) STOP 4
+  IF (ANY(rr /= (/ 110, 132 /))) CALL ABORT
 
 
 CONTAINS 

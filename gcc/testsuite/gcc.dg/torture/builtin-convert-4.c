@@ -33,3 +33,4 @@ int main()
 /* { dg-final { scan-tree-dump-times "nearbyint " 1 "original" } } */
 /* { dg-final { scan-tree-dump-times "nearbyintf" 1 "original" } } */
 /* { dg-final { scan-tree-dump-times "nearbyintl" 1 "original" } } */
+/* { dg-final { cleanup-tree-dump "original" } } */

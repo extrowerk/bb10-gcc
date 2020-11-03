@@ -9,6 +9,8 @@
 			 a[8]*b[8]   + a[9]*b[9]   + a[10]*b[10] + a[11]*b[11] + \
 			 a[12]*b[12] + a[13]*b[13] + a[14]*b[14] + a[15]*b[15])
 
+volatile int y = 0;
+
 __attribute__ ((noinline))
 int main1 (int ia[][N])
 {
@@ -39,7 +41,9 @@ int main (void)
     for (j = 0; j < N; j++)
       {
         ia[i][j] = i + j + 1;
-	asm volatile ("" ::: "memory");
+	/* Avoid vectorization.  */
+	if (y)
+	  abort ();
       }
 
   check_vect ();
@@ -50,3 +54,4 @@ int main (void)
 /* Needs interleaving support.  */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_strided4 } } } */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 0 "vect" { xfail  vect_strided4 } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

@@ -1,8 +1,9 @@
-// { dg-do run { target c++11 } }
+// { dg-do run }
+// { dg-options "-std=gnu++11" }
 
 // 2008-08-11  Stephen M. Webb  <stephen.webb@bregmasoft.com>
 //
-// Copyright (C) 2010-2018 Free Software Foundation, Inc.
+// Copyright (C) 2010-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,6 +28,7 @@
 // Tests the value() function of the regex_traits<wchar_t> class.
 void test01()
 {
+  bool test __attribute__((unused)) = true;
   std::regex_traits<wchar_t> t;
   VERIFY( t.value(L'7', 8)  == 7 );
   VERIFY( t.value(L'7', 10) == 7 );

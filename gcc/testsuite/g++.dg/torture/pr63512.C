@@ -2,7 +2,7 @@
 
 extern "C" {
 void __assert_fail ();
-__SIZE_TYPE__ strlen (const char *);
+unsigned long strlen (const char *);
 }
 class A
 {
@@ -43,5 +43,4 @@ C::m_fn3 (const int &, int &, int **)
   if (a)
     c.Range.m_fn1 ();
   m_fn2 (semi, 0, b ? "" : a ? "alias declaration" : "using declaration");
-  return 0;
 }

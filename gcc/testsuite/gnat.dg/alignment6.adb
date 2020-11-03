@@ -29,3 +29,4 @@ begin
 end;
 
 -- { dg-final { scan-tree-dump-not "VIEW_CONVERT_EXPR" "gimple" } }
+-- { dg-final { cleanup-tree-dump "gimple" } }

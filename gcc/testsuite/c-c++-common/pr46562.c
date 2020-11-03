@@ -10,3 +10,4 @@ int foo(void)
 }
 
 /* { dg-final { scan-tree-dump "return 0;" "ccp1" } } */
+/* { dg-final { cleanup-tree-dump "ccp1" } } */

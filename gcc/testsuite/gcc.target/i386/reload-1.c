@@ -112,3 +112,4 @@ long foo (job *j )
 }
 
 /* { dg-final { scan-rtl-dump-not "deleted 1 dead insns" "csa" } } */
+/* { dg-final { cleanup-rtl-dump "csa" } } */

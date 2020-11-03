@@ -36,8 +36,7 @@ do {
     }
     StatInc(thr, StatShadowAnotherThread);
     if (HappensBefore(old, thr)) {
-      if (old.IsRWWeakerOrEqual(kAccessIsWrite, kIsAtomic))
-        StoreIfNotYetStored(sp, &store_word);
+      StoreIfNotYetStored(sp, &store_word);
       break;
     }
     if (old.IsBothReadsOrAtomic(kAccessIsWrite, kIsAtomic))

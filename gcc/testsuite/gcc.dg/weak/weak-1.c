@@ -1,9 +1,7 @@
 /* { dg-do compile } */
 /* { dg-require-weak "" } */
 /* { dg-options "-fno-common" } */
-/* { dg-skip-if "" { *-*-mingw* } } */
-/* NVPTX's definition of weak looks different to normal.  */
-/* { dg-skip-if "" { nvptx-*-* } } */
+/* { dg-skip-if "" { *-*-mingw* } { "*" } { "" } } */
 
 /* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]_?a" } } */
 /* { dg-final { scan-assembler "weak\[^ \t\]*\[ \t\]_?b" } } */

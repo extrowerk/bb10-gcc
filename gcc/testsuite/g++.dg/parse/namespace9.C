@@ -1,7 +1,7 @@
 namespace A {
   void f();
 }
-void g()
+int g()
 {
   struct f { };
   using A::f;

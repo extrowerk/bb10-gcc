@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2003-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 2003-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -630,16 +630,17 @@ package body Prepcomp is
          String_To_Name_Buffer (Current_Data.Deffile);
 
          declare
-            N       : constant File_Name_Type    := Name_Find;
-            Deffile : constant Source_File_Index := Load_Definition_File (N);
-            T       : constant Nat               := Total_Errors_Detected;
-
-            Add_Deffile : Boolean := True;
+            N           : constant File_Name_Type    := Name_Find;
+            Deffile     : constant Source_File_Index :=
+                            Load_Definition_File (N);
+            Add_Deffile : Boolean                    := True;
+            T           : constant Nat               := Total_Errors_Detected;
 
          begin
-            if Deffile <= No_Source_File then
-               Fail
-                 ("definition file """ & Get_Name_String (N) & """ not found");
+            if Deffile = No_Source_File then
+               Fail ("definition file """
+                     & Get_Name_String (N)
+                     & """ not found");
             end if;
 
             --  Initialize the preprocessor and set the characteristics of the
@@ -660,7 +661,7 @@ package body Prepcomp is
             Scn.Scanner.Initialize_Scanner (Deffile);
             Prep.Parse_Def_File;
 
-            --  Reset the behavior of the scanner to the default
+            --  Reset the behaviour of the scanner to the default
 
             Scn.Scanner.Set_End_Of_Line_As_Token (False);
 

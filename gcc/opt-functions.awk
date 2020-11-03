@@ -1,4 +1,4 @@
-#  Copyright (C) 2003-2018 Free Software Foundation, Inc.
+#  Copyright (C) 2003-2015 Free Software Foundation, Inc.
 #  Contributed by Kelley Cook, June 2004.
 #  Original code from Neil Booth, May 2003.
 #
@@ -61,10 +61,10 @@ function opt_args(name, flags)
 	if (flags !~ " " name "\\(")
 		return ""
 	sub(".* " name "\\(", "", flags)
-	if (flags ~ "^[{]")
+	if (flags ~ "^{")
 	{
-		sub ("^[{]", "", flags)
-		sub ("}\\).*", "", flags)
+		sub ("^{", "", flags)
+		sub("}\\).*", "", flags)
 	}
 	else
 		sub("\\).*", "", flags)
@@ -105,7 +105,7 @@ function switch_flags (flags)
 	  test_flag("Undocumented", flags,  " | CL_UNDOCUMENTED") \
 	  test_flag("NoDWARFRecord", flags,  " | CL_NO_DWARF_RECORD") \
 	  test_flag("Warning", flags,  " | CL_WARNING") \
-	  test_flag("(Optimization|PerFunction)", flags,  " | CL_OPTIMIZATION")
+	  test_flag("Optimization", flags,  " | CL_OPTIMIZATION")
 	sub( "^0 \\| ", "", result )
 	return result
 }
@@ -275,7 +275,7 @@ function var_ref(name, flags)
 		return "offsetof (struct gcc_options, x_target_flags)"
 	if (opt_args("InverseMask", flags) != "")
 		return "offsetof (struct gcc_options, x_target_flags)"
-	return "(unsigned short) -1"
+	return "-1"
 }
 
 # Given the option called NAME return a sanitized version of its name.
@@ -314,19 +314,6 @@ function search_var_name(name, opt_numbers, opts, flags, n_opts)
     return ""
 }
 
-function integer_range_info(range_option, init, option)
-{
-    if (range_option != "") {
-	start = nth_arg(0, range_option);
-	end = nth_arg(1, range_option);
-	if (init != "" && init != "-1" && (init < start || init > end))
-	  print "#error initial value " init " of '" option "' must be in range [" start "," end "]"
-	return start ", " end
-    }
-    else
-        return "-1, -1"
-}
-
 # Handle LangEnabledBy(ENABLED_BY_LANGS, ENABLEDBY_NAME, ENABLEDBY_POSARG,
 # ENABLEDBY_NEGARG). This function does not return anything.
 function lang_enabled_by(enabledby_langs, enabledby_name, enabledby_posarg, enabledby_negarg)
@@ -337,7 +324,7 @@ function lang_enabled_by(enabledby_langs, enabledby_name, enabledby_posarg, enab
     } else if (enabledby_posarg == "" && enabledby_negarg == "") {
         with_args = ""
     } else {
-        print "#error " opts[i] " LangEnabledBy("enabledby_langs","enabledby_name", " \
+        print "#error LangEnabledBy("enabledby_langs","enabledby_name", " \
             enabledby_posarg", " enabledby_negargs                  \
             ") with three arguments, it should have either 2 or 4"
     }
@@ -346,8 +333,8 @@ function lang_enabled_by(enabledby_langs, enabledby_name, enabledby_posarg, enab
     for (k = 1; k <= n_enabledby_array; k++) {
         enabledby_index = opt_numbers[enabledby_array[k]];
         if (enabledby_index == "") {
-             print "#error " opts[i] " LangEnabledBy("enabledby_langs","enabledby_name", " \
-                 enabledby_posarg", " enabledby_negargs"), unknown option '" enabledby_name "'"
+             print "#error LangEnabledBy("enabledby_langs","enabledby_name", " \
+                 enabledby_posarg", " enabledby_negargs") has invalid ENABLEDBY_NAME"
         } else {
             for (j = 1; j <= n_enabledby_arg_langs; j++) {
                  lang_name = lang_sanitized_name(enabledby_arg_langs[j]);

@@ -16,3 +16,4 @@ int64_t foo () {
 
 /* { dg-final { scan-assembler-not "pdist\t%" } } */
 /* { dg-final { scan-tree-dump "return 475" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

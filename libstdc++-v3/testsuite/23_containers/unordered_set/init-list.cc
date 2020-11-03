@@ -1,4 +1,4 @@
-// Copyright (C) 2008-2018 Free Software Foundation, Inc.
+// Copyright (C) 2008-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -16,15 +16,17 @@
 // <http://www.gnu.org/licenses/>.
 //
 
-// { dg-do run { target c++11 } }
+// { dg-options "-std=gnu++11" }
 
 #include <unordered_set>
 #include <testsuite_hooks.h>
 
 using namespace std;
 
-void test01()
+int test01()
 {
+  bool test __attribute__((unused)) = true;
+
   unordered_set<int> m({ 1, 5, 37 });
   VERIFY(m.size() == 3);
   VERIFY(m.count(1) == 1);
@@ -46,6 +48,8 @@ void test01()
   VERIFY(m.count(102) == 1);
   VERIFY(m.count(42) == 1);
   VERIFY(m.count(1) == 0);
+
+  return test;
 }
 
 int main()

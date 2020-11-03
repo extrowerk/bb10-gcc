@@ -1,5 +1,5 @@
 /* CPP Library - traditional lexical analysis and macro expansion.
-   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Neil Booth, May 2002
 
 This program is free software; you can redistribute it and/or modify it
@@ -119,11 +119,8 @@ check_output_buffer (cpp_reader *pfile, size_t n)
 }
 
 /* Skip a C-style block comment in a macro as a result of -CC.
-   PFILE->buffer->cur points to the initial asterisk of the comment,
-   change it to point to after the '*' and '/' characters that terminate it.
-   Return true if the macro has not been termined, in that case set
-   PFILE->buffer->cur to the end of the buffer.  */
-static bool
+   Buffer->cur points to the initial asterisk of the comment.  */
+static void
 skip_macro_block_comment (cpp_reader *pfile)
 {
   const uchar *cur = pfile->buffer->cur;
@@ -134,15 +131,10 @@ skip_macro_block_comment (cpp_reader *pfile)
 
   /* People like decorating comments with '*', so check for '/'
      instead for efficiency.  */
-  while (! (*cur++ == '/' && cur[-2] == '*'))
-    if (cur[-1] == '\n')
-      {
-	pfile->buffer->cur = cur - 1;
-	return true;
-      }
+  while(! (*cur++ == '/' && cur[-2] == '*') )
+    ;
 
   pfile->buffer->cur = cur;
-  return false;
 }
 
 /* CUR points to the asterisk introducing a comment in the current
@@ -166,7 +158,7 @@ copy_comment (cpp_reader *pfile, const uchar *cur, int in_define)
 
   buffer->cur = cur;
   if (pfile->context->prev)
-    unterminated = skip_macro_block_comment (pfile);
+    unterminated = false, skip_macro_block_comment (pfile);
   else
     unterminated = _cpp_skip_block_comment (pfile);
     

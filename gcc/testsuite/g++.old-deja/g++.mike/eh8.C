@@ -5,7 +5,6 @@ extern "C" int printf(const char *, ...);
 
 int i;
 
-int
 main() {
   try {
     try {

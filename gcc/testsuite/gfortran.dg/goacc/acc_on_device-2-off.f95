@@ -36,3 +36,4 @@ end function f
 ! Without -fopenacc, we're expecting one call.
 ! { dg-final { scan-rtl-dump-times "\\\(call \[^\\n\]* acc_on_device" 1 "expand" } }
 
+! { dg-final { cleanup-rtl-dump "expand" } }

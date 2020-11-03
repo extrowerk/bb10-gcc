@@ -1,5 +1,6 @@
 // PR c++/33894
 // { dg-do run }
+// { dg-options "-O2" }
 
 extern "C" void abort ();
 

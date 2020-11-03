@@ -23,10 +23,10 @@ select type (z)
   class is (foo) 
         r => z
   class default
-     STOP 1
+     call abort()
 end select
 
-if (.not. associated(r)) STOP 2
+if (.not. associated(r)) call abort()
 
 deallocate(r)
 deallocate(p)

@@ -13,4 +13,7 @@
 #define NEED_ARM_ARCH_ISA_THUMB
 #define VALUE_ARM_ARCH_ISA_THUMB 1
 
+#define NEED_ARM_FEATURE_UNALIGNED
+#define VALUE_ARM_FEATURE_UNALIGNED 1
+
 #include "ftest-support.h"

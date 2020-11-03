@@ -1,4 +1,4 @@
-// Copyright (C) 2004-2018 Free Software Foundation, Inc.
+// Copyright (C) 2004-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -23,6 +23,7 @@
 
 void test02()
 {
+  bool test __attribute__((unused)) = true;
   const std::wstring 	str_blank;
   std::wstring 	        str_tmp;
   std::wstringbuf 	strbuf;

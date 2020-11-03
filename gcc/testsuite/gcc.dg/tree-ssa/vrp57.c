@@ -14,3 +14,4 @@ int bar(_Bool b)
 
 /* { dg-final { scan-tree-dump "return 0;" "optimized" } } */
 /* { dg-final { scan-tree-dump "return 1;" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

@@ -1,7 +1,6 @@
 /* { dg-options "-Wno-abi" {target arm_eabi} } */
 /* { dg-do run } */
-/* { dg-skip-if "Stack alignment is too small" { hppa*-*-hpux* } } */
-/* { dg-require-effective-target alloca } */
+/* { dg-skip-if "Stack alignment is too small" { hppa*-*-hpux* } "*" "" } */
 
 #include <stdarg.h>
 #include "check.h"
@@ -30,10 +29,7 @@ struct A : virtual public Base
 struct B {};
 
 void
-test (va_list arg)
-#if __cplusplus <= 201402L
-throw (B,A)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#endif
+test (va_list arg) throw (B,A)
 {
   char *p;
   aligned i;

@@ -1,10 +1,14 @@
-static const int N = 12;
-int nSlip;
+/* { dg-do compile } */
+/* { dg-options "-O2 -fgraphite-identity" } */
 
-int main ()
+#include <stdio.h>
+#include <stdlib.h>
+
+static const int N = 12;
+
+void Crystal_Cholesky (int nSlip, int a[N][N])
 {
   int i, j, k, fdot = 0;
-  int a[N][N];
 
   for ( i = 1; i < nSlip; i++)
     {
@@ -15,8 +19,6 @@ int main ()
           a[i][j] = a[i][j] - fdot;
         }
    }
-
-  return 0;
 }
 
 

@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -floop-nest-optimize" } */
+/* { dg-options "-O2 -floop-interchange" } */
 
 void
 xl(void)

@@ -4,5 +4,6 @@ f()
 {
   bool i = 0;
   i++ = 3; // { dg-error "" }
-  // { dg-warning "deprecated" "" { target { ! c++17 } } .-1 }
 }
+
+

@@ -9,7 +9,7 @@
 int *res[N];
 
 int
-main1 (int *a, int *b, int *c, int *d)
+main1 (int *a, int *b, int *c, int *d, int dummy)
 {
   int i;
 
@@ -19,8 +19,10 @@ main1 (int *a, int *b, int *c, int *d)
       res[i+1] = b + 16;
       res[i+2] = c + 16;
       res[i+3] = d + 16;
-      asm volatile ("" ::: "memory");
+      if (dummy == 32)
+        abort ();
     } 
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */
   

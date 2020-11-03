@@ -20,18 +20,18 @@ program gfcbug61
   ! Read /REPORT/ the first time
   rewind (12)
   call position_nml (12, "REPORT", stat)
-  if (stat.ne.0) STOP 1
+  if (stat.ne.0) call abort()
   if (stat == 0)  call read_report (12, stat)
 
   ! Comment out the following lines to hide the bug
   rewind (12)
   call position_nml (12, "MISSING", stat)
-  if (stat.ne.-1)  STOP 2
+  if (stat.ne.-1)  call abort ()
 
   ! Read /REPORT/ again
   rewind (12)
   call position_nml (12, "REPORT", stat)
-  if (stat.ne.0)  STOP 3
+  if (stat.ne.0)  call abort()
 
 contains
 
@@ -99,7 +99,7 @@ contains
        if (ios /= 0) exit
        iuse = iuse + 1
     end do
-    if (iuse.ne.1) STOP 4
+    if (iuse.ne.1) call abort()
     status = ios
   end subroutine read_report
 

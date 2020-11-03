@@ -11,16 +11,16 @@ program test
   integer :: stat
   stat=99
   allocate(a, stat=stat)
-  if (stat /= 0) STOP 1
+  if (stat /= 0) call abort ()
   allocate(a, stat=stat)
-  if (stat == 0) STOP 2
+  if (stat == 0) call abort ()
 
   allocate (b)
   deallocate (b, stat=stat)
-  if (stat /= 0) STOP 3
+  if (stat /= 0) call abort ()
   deallocate (b, stat=stat)
-  if (stat == 0) STOP 4
+  if (stat == 0) call abort ()
 
   deallocate (c, stat=stat)
-  if (stat == 0) STOP 5
+  if (stat == 0) call abort ()
 end program test

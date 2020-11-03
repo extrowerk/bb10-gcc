@@ -1,5 +1,5 @@
 /* C/ObjC/C++ command line option handling.
-   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -21,16 +21,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "c-target.h"
+#include "options.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
 #include "c-common.h"
-#include "memmodel.h"
-#include "tm_p.h"		/* For C_COMMON_OVERRIDE_OPTIONS.  */
-#include "diagnostic.h"
 #include "c-pragma.h"
 #include "flags.h"
 #include "toplev.h"
 #include "langhooks.h"
+#include "diagnostic.h"
 #include "tree-diagnostic.h" /* for virt_loc_aware_diagnostic_finalizer */
 #include "intl.h"
 #include "cppdefault.h"
@@ -39,8 +46,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "plugin.h"		/* For PLUGIN_INCLUDE_FILE event.  */
 #include "mkdeps.h"
+#include "c-target.h"
+#include "tm.h"			/* For BYTES_BIG_ENDIAN,
+				   DOLLARS_IN_IDENTIFIERS,
+				   STDC_0_IN_SYSTEM_HEADERS,
+				   TARGET_FLT_EVAL_METHOD_NON_DEFAULT and
+				   TARGET_OPTF.  */
+#include "tm_p.h"		/* For C_COMMON_OVERRIDE_OPTIONS.  */
 #include "dumpfile.h"
-#include "file-prefix-map.h"    /* add_*_prefix_map()  */
 
 #ifndef DOLLARS_IN_IDENTIFIERS
 # define DOLLARS_IN_IDENTIFIERS true
@@ -102,7 +115,9 @@ static size_t include_cursor;
 
 /* Dump files/flags to use during parsing.  */
 static FILE *original_dump_file = NULL;
-static dump_flags_t original_dump_flags;
+static int original_dump_flags;
+static FILE *class_dump_file = NULL;
+static int class_dump_flags;
 
 /* Whether any standard preincluded header has been preincluded.  */
 static bool done_preinclude;
@@ -111,18 +126,16 @@ static void handle_OPT_d (const char *);
 static void set_std_cxx98 (int);
 static void set_std_cxx11 (int);
 static void set_std_cxx14 (int);
-static void set_std_cxx17 (int);
-static void set_std_cxx2a (int);
+static void set_std_cxx1z (int);
 static void set_std_c89 (int, int);
 static void set_std_c99 (int);
 static void set_std_c11 (int);
-static void set_std_c17 (int);
 static void check_deps_environment_vars (void);
 static void handle_deferred_opts (void);
 static void sanitize_cpp_opts (void);
-static void add_prefixed_path (const char *, incpath_kind);
+static void add_prefixed_path (const char *, size_t);
 static void push_command_line_include (void);
-static void cb_file_change (cpp_reader *, const line_map_ordinary *);
+static void cb_file_change (cpp_reader *, const struct line_map *);
 static void cb_dir_change (cpp_reader *, const char *);
 static void c_finish_options (void);
 
@@ -166,12 +179,12 @@ static void
 c_diagnostic_finalizer (diagnostic_context *context,
 			diagnostic_info *diagnostic)
 {
-  diagnostic_show_locus (context, diagnostic->richloc, diagnostic->kind);
+  diagnostic_show_locus (context, diagnostic);
   /* By default print macro expansion contexts in the diagnostic
      finalizer -- for tokens resulting from macro expansion.  */
   virt_loc_aware_diagnostic_finalizer (context, diagnostic);
   pp_destroy_prefix (context->printer);
-  pp_flush (context->printer);
+  pp_newline_and_flush (context->printer);
 }
 
 /* Common default settings for diagnostics.  */
@@ -218,9 +231,6 @@ c_common_init_options (unsigned int decoded_options_count,
   unsigned int i;
   struct cpp_callbacks *cb;
 
-  g_string_concat_db
-    = new (ggc_alloc <string_concat_db> ()) string_concat_db ();
-
   parse_in = cpp_create_reader (c_dialect_cxx () ? CLK_GNUCXX: CLK_GNUC89,
 				ident_hash, line_table);
   cb = cpp_get_callbacks (parse_in);
@@ -238,8 +248,8 @@ c_common_init_options (unsigned int decoded_options_count,
 
   if (c_language == clk_c)
     {
-      /* The default for C is gnu17.  */
-      set_std_c17 (false /* ISO */);
+      /* The default for C is gnu11.  */
+      set_std_c11 (false /* ISO */);
 
       /* If preprocessing assembly language, accept any of the C-family
 	 front end options since the driver may pass them through.  */
@@ -250,12 +260,6 @@ c_common_init_options (unsigned int decoded_options_count,
 	    break;
 	  }
     }
-
-  /* Set C++ standard to C++14 if not specified on the command line.  */
-  if (c_dialect_cxx ())
-    set_std_cxx14 (/*ISO*/false);
-
-  global_dc->colorize_source_p = true;
 }
 
 /* Handle switch SCODE with argument ARG.  VALUE is true, unless no-
@@ -318,7 +322,7 @@ c_common_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_I:
       if (strcmp (arg, "-"))
-	add_path (xstrdup (arg), INC_BRACKET, 0, true);
+	add_path (xstrdup (arg), BRACKET, 0, true);
       else
 	{
 	  if (quote_chain_split)
@@ -381,16 +385,6 @@ c_common_handle_option (size_t scode, const char *arg, int value,
       cpp_opts->warn_num_sign_change = value;
       break;
 
-    case OPT_Walloca_larger_than_:
-      if (!value)
-	inform (loc, "-Walloca-larger-than=0 is meaningless");
-      break;
-
-    case OPT_Wvla_larger_than_:
-      if (!value)
-	inform (loc, "-Wvla-larger-than=0 is meaningless");
-      break;
-
     case OPT_Wunknown_pragmas:
       /* Set to greater than 1, so that even unknown pragmas in
 	 system headers will be warned about.  */
@@ -416,7 +410,7 @@ c_common_handle_option (size_t scode, const char *arg, int value,
 	  warning (0, "%<-Wabi=1%> is not supported, using =2");
 	  value = 2;
 	}
-      warn_abi_version = value;
+      flag_abi_compat_version = value;
       break;
 
     case OPT_fcanonical_system_headers:
@@ -447,13 +441,9 @@ c_common_handle_option (size_t scode, const char *arg, int value,
       cpp_opts->dollars_in_ident = value;
       break;
 
-    case OPT_fmacro_prefix_map_:
-      add_macro_prefix_map (arg);
-      break;
-
     case OPT_ffreestanding:
       value = !value;
-      /* Fall through.  */
+      /* Fall through....  */
     case OPT_fhosted:
       flag_hosted = value;
       flag_no_builtin = !value;
@@ -554,7 +544,7 @@ c_common_handle_option (size_t scode, const char *arg, int value,
       break;
 
     case OPT_idirafter:
-      add_path (xstrdup (arg), INC_AFTER, 0, true);
+      add_path (xstrdup (arg), AFTER, 0, true);
       break;
 
     case OPT_imacros:
@@ -571,7 +561,7 @@ c_common_handle_option (size_t scode, const char *arg, int value,
       break;
 
     case OPT_iquote:
-      add_path (xstrdup (arg), INC_QUOTE, 0, true);
+      add_path (xstrdup (arg), QUOTE, 0, true);
       break;
 
     case OPT_isysroot:
@@ -579,15 +569,15 @@ c_common_handle_option (size_t scode, const char *arg, int value,
       break;
 
     case OPT_isystem:
-      add_path (xstrdup (arg), INC_SYSTEM, 0, true);
+      add_path (xstrdup (arg), SYSTEM, 0, true);
       break;
 
     case OPT_iwithprefix:
-      add_prefixed_path (arg, INC_SYSTEM);
+      add_prefixed_path (arg, SYSTEM);
       break;
 
     case OPT_iwithprefixbefore:
-      add_prefixed_path (arg, INC_BRACKET);
+      add_prefixed_path (arg, BRACKET);
       break;
 
     case OPT_lang_asm:
@@ -627,25 +617,31 @@ c_common_handle_option (size_t scode, const char *arg, int value,
     case OPT_std_c__11:
     case OPT_std_gnu__11:
       if (!preprocessing_asm_p)
-	set_std_cxx11 (code == OPT_std_c__11 /* ISO */);
+	{
+	  set_std_cxx11 (code == OPT_std_c__11 /* ISO */);
+	  if (code == OPT_std_c__11)
+	    cpp_opts->ext_numeric_literals = 0;
+	}
       break;
 
     case OPT_std_c__14:
     case OPT_std_gnu__14:
       if (!preprocessing_asm_p)
-	set_std_cxx14 (code == OPT_std_c__14 /* ISO */);
+	{
+	  set_std_cxx14 (code == OPT_std_c__14 /* ISO */);
+	  if (code == OPT_std_c__14)
+	    cpp_opts->ext_numeric_literals = 0;
+	}
       break;
 
-    case OPT_std_c__17:
-    case OPT_std_gnu__17:
+    case OPT_std_c__1z:
+    case OPT_std_gnu__1z:
       if (!preprocessing_asm_p)
-	set_std_cxx17 (code == OPT_std_c__17 /* ISO */);
-      break;
-
-    case OPT_std_c__2a:
-    case OPT_std_gnu__2a:
-      if (!preprocessing_asm_p)
-	set_std_cxx2a (code == OPT_std_c__2a /* ISO */);
+	{
+	  set_std_cxx1z (code == OPT_std_c__1z /* ISO */);
+	  if (code == OPT_std_c__1z)
+	    cpp_opts->ext_numeric_literals = 0;
+	}
       break;
 
     case OPT_std_c90:
@@ -677,16 +673,6 @@ c_common_handle_option (size_t scode, const char *arg, int value,
     case OPT_std_gnu11:
       if (!preprocessing_asm_p)
 	set_std_c11 (false /* ISO */);
-      break;
-
-    case OPT_std_c17:
-      if (!preprocessing_asm_p)
-	set_std_c17 (true /* ISO */);
-      break;
-
-    case OPT_std_gnu17:
-      if (!preprocessing_asm_p)
-	set_std_c17 (false /* ISO */);
       break;
 
     case OPT_trigraphs:
@@ -763,12 +749,7 @@ c_common_post_options (const char **pfilename)
       in_fnames[0] = "";
     }
   else if (strcmp (in_fnames[0], "-") == 0)
-    {
-      if (pch_file)
-	error ("cannot use %<-%> as input filename for a precompiled header");
-
-      in_fnames[0] = "";
-    }
+    in_fnames[0] = "";
 
   if (out_fname == NULL || !strcmp (out_fname, "-"))
     out_fname = "";
@@ -793,7 +774,8 @@ c_common_post_options (const char **pfilename)
      support.  */
   if (c_dialect_cxx ())
     {
-      if (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD)
+      if (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD
+	  && TARGET_FLT_EVAL_METHOD_NON_DEFAULT)
 	sorry ("-fexcess-precision=standard for C++");
       flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
     }
@@ -811,18 +793,6 @@ c_common_post_options (const char **pfilename)
 	  == (enum fp_contract_mode) 0)
       && flag_unsafe_math_optimizations == 0)
     flag_fp_contract_mode = FP_CONTRACT_OFF;
-
-  /* If we are compiling C, and we are outside of a standards mode,
-     we can permit the new values from ISO/IEC TS 18661-3 for
-     FLT_EVAL_METHOD.  Otherwise, we must restrict the possible values to
-     the set specified in ISO C99/C11.  */
-  if (!flag_iso
-      && !c_dialect_cxx ()
-      && (global_options_set.x_flag_permitted_flt_eval_methods
-	  == PERMITTED_FLT_EVAL_METHODS_DEFAULT))
-    flag_permitted_flt_eval_methods = PERMITTED_FLT_EVAL_METHODS_TS_18661;
-  else
-    flag_permitted_flt_eval_methods = PERMITTED_FLT_EVAL_METHODS_C11;
 
   /* By default we use C99 inline semantics in GNU99 or C99 mode.  C99
      inline semantics are not supported in GNU89 or C89 mode.  */
@@ -896,19 +866,6 @@ c_common_post_options (const char **pfilename)
   if (warn_implicit_int == -1)
     warn_implicit_int = flag_isoc99;
 
-  /* -Wshift-overflow is enabled by default in C99 and C++11 modes.  */
-  if (warn_shift_overflow == -1)
-    warn_shift_overflow = cxx_dialect >= cxx11 || flag_isoc99;
-
-  /* -Wshift-negative-value is enabled by -Wextra in C99 and C++11 modes.  */
-  if (warn_shift_negative_value == -1)
-    warn_shift_negative_value = (extra_warnings
-				 && (cxx_dialect >= cxx11 || flag_isoc99));
-
-  /* -Wregister is enabled by default in C++17.  */
-  if (!global_options_set.x_warn_register)
-    warn_register = cxx_dialect >= cxx17;
-
   /* Declone C++ 'structors if -Os.  */
   if (flag_declone_ctor_dtor == -1)
     flag_declone_ctor_dtor = optimize_size;
@@ -918,76 +875,33 @@ c_common_post_options (const char **pfilename)
       warning (0, "%<-fabi-compat-version=1%> is not supported, using =2");
       flag_abi_compat_version = 2;
     }
-
-  /* Change flag_abi_version to be the actual current ABI level, for the
-     benefit of c_cpp_builtins, and to make comparison simpler.  */
-  const int latest_abi_version = 13;
-  /* Generate compatibility aliases for ABI v11 (7.1) by default.  */
-  const int abi_compat_default = 11;
-
-#define clamp(X) if (X == 0 || X > latest_abi_version) X = latest_abi_version
-  clamp (flag_abi_version);
-  clamp (warn_abi_version);
-  clamp (flag_abi_compat_version);
-#undef clamp
-
-  /* Default -Wabi= or -fabi-compat-version= from each other.  */
-  if (warn_abi_version == -1 && flag_abi_compat_version != -1)
-    warn_abi_version = flag_abi_compat_version;
-  else if (flag_abi_compat_version == -1 && warn_abi_version != -1)
-    flag_abi_compat_version = warn_abi_version;
-  else if (warn_abi_version == -1 && flag_abi_compat_version == -1)
+  else if (flag_abi_compat_version == -1)
     {
-      warn_abi_version = latest_abi_version;
-      if (flag_abi_version == latest_abi_version)
-	{
-	  if (warning (OPT_Wabi, "-Wabi won't warn about anything"))
-	    {
-	      inform (input_location, "-Wabi warns about differences "
-		      "from the most up-to-date ABI, which is also used "
-		      "by default");
-	      inform (input_location, "use e.g. -Wabi=11 to warn about "
-		      "changes from GCC 7");
-	    }
-	  flag_abi_compat_version = abi_compat_default;
-	}
-      else
-	flag_abi_compat_version = latest_abi_version;
+      /* Generate compatibility aliases for ABI v2 (3.4-4.9) by default. */
+      flag_abi_compat_version = (flag_abi_version == 0 ? 2 : 0);
+
+      /* But don't warn about backward compatibility unless explicitly
+	 requested with -Wabi=n.  */
+      if (flag_abi_version == 0)
+	warn_abi = false;
     }
 
-  /* By default, enable the new inheriting constructor semantics along with ABI
-     11.  New and old should coexist fine, but it is a change in what
-     artificial symbols are generated.  */
-  if (!global_options_set.x_flag_new_inheriting_ctors)
-    flag_new_inheriting_ctors = abi_version_at_least (11);
-
-  /* For GCC 7, only enable DR150 resolution by default if -std=c++17.  */
-  if (!global_options_set.x_flag_new_ttp)
-    flag_new_ttp = (cxx_dialect >= cxx17);
+  /* Change flag_abi_version to be the actual current ABI level for the
+     benefit of c_cpp_builtins.  */
+  if (flag_abi_version == 0)
+    flag_abi_version = 9;
 
   if (cxx_dialect >= cxx11)
     {
       /* If we're allowing C++0x constructs, don't warn about C++98
 	 identifiers which are keywords in C++0x.  */
-      warn_cxx11_compat = 0;
-      cpp_opts->cpp_warn_cxx11_compat = 0;
+      warn_cxx0x_compat = 0;
 
       if (warn_narrowing == -1)
 	warn_narrowing = 1;
-
-      /* Unless -f{,no-}ext-numeric-literals has been used explicitly,
-	 for -std=c++{11,14,17,2a} default to -fno-ext-numeric-literals.  */
-      if (flag_iso && !global_options_set.x_flag_ext_numeric_literals)
-	cpp_opts->ext_numeric_literals = 0;
     }
   else if (warn_narrowing == -1)
     warn_narrowing = 0;
-
-  /* C++17 has stricter evaluation order requirements; let's use some of them
-     for earlier C++ as well, so chaining works as expected.  */
-  if (c_dialect_cxx ()
-      && flag_strong_eval_order == -1)
-    flag_strong_eval_order = (cxx_dialect >= cxx17 ? 2 : 1);
 
   /* Global sized deallocation is new in C++14.  */
   if (flag_sized_deallocation == -1)
@@ -995,26 +909,17 @@ c_common_post_options (const char **pfilename)
 
   if (flag_extern_tls_init)
     {
-      if (!TARGET_SUPPORTS_ALIASES || !SUPPORTS_WEAK)
-	{
-	  /* Lazy TLS initialization for a variable in another TU requires
-	     alias and weak reference support.  */
-	  if (flag_extern_tls_init > 0)
-	    sorry ("external TLS initialization functions not supported "
-		   "on this target");
-
-	  flag_extern_tls_init = 0;
-	}
-      else
-	flag_extern_tls_init = 1;
+#if !defined (ASM_OUTPUT_DEF) || !SUPPORTS_WEAK
+      /* Lazy TLS initialization for a variable in another TU requires
+	 alias and weak reference support. */
+      if (flag_extern_tls_init > 0)
+	sorry ("external TLS initialization functions not supported "
+	       "on this target");
+      flag_extern_tls_init = 0;
+#else
+      flag_extern_tls_init = 1;
+#endif
     }
-
-  if (warn_return_type == -1)
-    warn_return_type = c_dialect_cxx ();
-
-  if (num_in_fnames > 1)
-    error ("too many filenames given.  Type %s --help for usage",
-	   progname);
 
   if (flag_preprocess_only)
     {
@@ -1031,6 +936,10 @@ c_common_post_options (const char **pfilename)
 	  fatal_error (input_location, "opening output file %s: %m", out_fname);
 	  return false;
 	}
+
+      if (num_in_fnames > 1)
+	error ("too many filenames given.  Type %s --help for usage",
+	       progname);
 
       init_pp_output (out_stream);
     }
@@ -1139,9 +1048,10 @@ c_common_parse_file (void)
   for (;;)
     {
       c_finish_options ();
-      /* Open the dump file to use for the original dump output
+      /* Open the dump files to use for the original and class dump output
          here, to be used during parsing for the current file.  */
       original_dump_file = dump_begin (TDI_original, &original_dump_flags);
+      class_dump_file = dump_begin (TDI_class, &class_dump_flags);
       pch_init ();
       push_file_scope ();
       c_parse_file ();
@@ -1160,24 +1070,33 @@ c_common_parse_file (void)
           dump_end (TDI_original, original_dump_file);
           original_dump_file = NULL;
         }
+      if (class_dump_file)
+        {
+          dump_end (TDI_class, class_dump_file);
+          class_dump_file = NULL;
+        }
       /* If an input file is missing, abandon further compilation.
 	 cpplib has issued a diagnostic.  */
       if (!this_input_filename)
 	break;
     }
-
-  c_parse_final_cleanups ();
 }
 
 /* Returns the appropriate dump file for PHASE to dump with FLAGS.  */
-
 FILE *
-get_dump_info (int phase, dump_flags_t *flags)
+get_dump_info (int phase, int *flags)
 {
-  gcc_assert (phase == TDI_original);
-
-  *flags = original_dump_flags;
-  return original_dump_file;
+  gcc_assert (phase == TDI_original || phase == TDI_class);
+  if (phase == TDI_original)
+    {
+      *flags = original_dump_flags;
+      return original_dump_file;
+    }
+  else
+    {
+      *flags = class_dump_flags;
+      return class_dump_file;
+    }
 }
 
 /* Common finish hook for the C, ObjC and C++ front ends.  */
@@ -1186,18 +1105,13 @@ c_common_finish (void)
 {
   FILE *deps_stream = NULL;
 
-  /* Note that we write the dependencies even if there are errors. This is
-     useful for handling outdated generated headers that now trigger errors
-     (for example, with #error) which would be resolved by re-generating
-     them. In a sense, this complements -MG.  */
-  if (cpp_opts->deps.style != DEPS_NONE)
+  /* Don't write the deps file if there are errors.  */
+  if (cpp_opts->deps.style != DEPS_NONE && !seen_error ())
     {
       /* If -M or -MM was seen without -MF, default output to the
 	 output stream.  */
       if (!deps_file)
 	deps_stream = out_stream;
-      else if (deps_file[0] == '-' && deps_file[1] == '\0')
-	deps_stream = stdout;
       else
 	{
 	  deps_stream = fopen (deps_file, deps_append ? "a": "w");
@@ -1211,7 +1125,7 @@ c_common_finish (void)
      with cpp_destroy ().  */
   cpp_finish (parse_in, deps_stream);
 
-  if (deps_stream && deps_stream != out_stream && deps_stream != stdout
+  if (deps_stream && deps_stream != out_stream
       && (ferror (deps_stream) || fclose (deps_stream)))
     fatal_error (input_location, "closing dependency file %s: %m", deps_file);
 
@@ -1344,11 +1258,6 @@ sanitize_cpp_opts (void)
   if (flag_working_directory == -1)
     flag_working_directory = (debug_info_level != DINFO_LEVEL_NONE);
 
-  if (warn_implicit_fallthrough < 5)
-    cpp_opts->cpp_warn_implicit_fallthrough = warn_implicit_fallthrough;
-  else
-    cpp_opts->cpp_warn_implicit_fallthrough = 0;
-
   if (cpp_opts->directives_only)
     {
       if (cpp_warn_unused_macros)
@@ -1360,7 +1269,7 @@ sanitize_cpp_opts (void)
 
 /* Add include path with a prefix at the front of its name.  */
 static void
-add_prefixed_path (const char *suffix, incpath_kind chain)
+add_prefixed_path (const char *suffix, size_t chain)
 {
   char *path;
   const char *prefix;
@@ -1387,10 +1296,8 @@ c_finish_options (void)
       size_t i;
 
       cb_file_change (parse_in,
-		      linemap_check_ordinary (linemap_add (line_table,
-							   LC_RENAME, 0,
-							   _("<built-in>"),
-							   0)));
+		      linemap_add (line_table, LC_RENAME, 0,
+				   _("<built-in>"), 0));
       /* Make sure all of the builtins about to be declared have
 	 BUILTINS_LOCATION has their source_location.  */
       source_location builtins_loc = BUILTINS_LOCATION;
@@ -1413,8 +1320,8 @@ c_finish_options (void)
       cpp_opts->warn_dollars = (cpp_opts->cpp_pedantic && !cpp_opts->c99);
 
       cb_file_change (parse_in,
-		      linemap_check_ordinary (linemap_add (line_table, LC_RENAME, 0,
-							   _("<command-line>"), 0)));
+		      linemap_add (line_table, LC_RENAME, 0,
+				   _("<command-line>"), 0));
 
       for (i = 0; i < deferred_count; i++)
 	{
@@ -1517,7 +1424,7 @@ push_command_line_include (void)
 /* File change callback.  Has to handle -include files.  */
 static void
 cb_file_change (cpp_reader * ARG_UNUSED (pfile),
-		const line_map_ordinary *new_map)
+		const struct line_map *new_map)
 {
   if (flag_preprocess_only)
     pp_file_change (new_map);
@@ -1593,21 +1500,6 @@ set_std_c11 (int iso)
   lang_hooks.name = "GNU C11";
 }
 
-/* Set the C 17 standard (without GNU extensions if ISO).  */
-static void
-set_std_c17 (int iso)
-{
-  cpp_set_lang (parse_in, iso ? CLK_STDC17: CLK_GNUC17);
-  flag_no_asm = iso;
-  flag_no_nonansi_builtin = iso;
-  flag_iso = iso;
-  flag_isoc11 = 1;
-  flag_isoc99 = 1;
-  flag_isoc94 = 1;
-  lang_hooks.name = "GNU C17";
-}
-
-
 /* Set the C++ 98 standard (without GNU extensions if ISO).  */
 static void
 set_std_cxx98 (int iso)
@@ -1616,8 +1508,6 @@ set_std_cxx98 (int iso)
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
-  flag_isoc94 = 0;
-  flag_isoc99 = 0;
   cxx_dialect = cxx98;
   lang_hooks.name = "GNU C++98";
 }
@@ -1637,7 +1527,7 @@ set_std_cxx11 (int iso)
   lang_hooks.name = "GNU C++11";
 }
 
-/* Set the C++ 2014 standard (without GNU extensions if ISO).  */
+/* Set the C++ 2014 draft standard (without GNU extensions if ISO).  */
 static void
 set_std_cxx14 (int iso)
 {
@@ -1645,43 +1535,27 @@ set_std_cxx14 (int iso)
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
-  /* C++14 includes the C99 standard library.  */
+  /* C++11 includes the C99 standard library.  */
   flag_isoc94 = 1;
   flag_isoc99 = 1;
   cxx_dialect = cxx14;
   lang_hooks.name = "GNU C++14";
 }
 
-/* Set the C++ 2017 standard (without GNU extensions if ISO).  */
+/* Set the C++ 201z draft standard (without GNU extensions if ISO).  */
 static void
-set_std_cxx17 (int iso)
+set_std_cxx1z (int iso)
 {
-  cpp_set_lang (parse_in, iso ? CLK_CXX17: CLK_GNUCXX17);
+  cpp_set_lang (parse_in, iso ? CLK_CXX1Z: CLK_GNUCXX1Z);
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
-  /* C++17 includes the C11 standard library.  */
+  /* C++11 includes the C99 standard library.  */
   flag_isoc94 = 1;
   flag_isoc99 = 1;
   flag_isoc11 = 1;
-  cxx_dialect = cxx17;
-  lang_hooks.name = "GNU C++17";
-}
-
-/* Set the C++ 202a draft standard (without GNU extensions if ISO).  */
-static void
-set_std_cxx2a (int iso)
-{
-  cpp_set_lang (parse_in, iso ? CLK_CXX2A: CLK_GNUCXX2A);
-  flag_no_gnu_keywords = iso;
-  flag_no_nonansi_builtin = iso;
-  flag_iso = iso;
-  /* C++17 includes the C11 standard library.  */
-  flag_isoc94 = 1;
-  flag_isoc99 = 1;
-  flag_isoc11 = 1;
-  cxx_dialect = cxx2a;
-  lang_hooks.name = "GNU C++17"; /* Pretend C++17 until standardization.  */
+  cxx_dialect = cxx1z;
+  lang_hooks.name = "GNU C++14"; /* Pretend C++14 till standarization.  */
 }
 
 /* Args to -d specify what to dump.  Silently ignore

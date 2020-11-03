@@ -1,5 +1,5 @@
 /* Generic partial redundancy elimination with lazy code motion support.
-   Copyright (C) 1998-2018 Free Software Foundation, Inc.
+   Copyright (C) 1998-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -51,9 +51,28 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
+#include "tm.h"
+#include "rtl.h"
+#include "regs.h"
+#include "hard-reg-set.h"
+#include "flags.h"
+#include "insn-config.h"
+#include "recog.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "cfganal.h"
 #include "lcm.h"
+#include "basic-block.h"
+#include "tm_p.h"
+#include "sbitmap.h"
+#include "dumpfile.h"
 
 /* Edge based LCM routines.  */
 static void compute_antinout_edge (sbitmap *, sbitmap *, sbitmap *, sbitmap *);
@@ -170,12 +189,15 @@ compute_earliest (struct edge_list *edge_list, int n_exprs, sbitmap *antin,
 		  sbitmap *antout, sbitmap *avout, sbitmap *kill,
 		  sbitmap *earliest)
 {
+  sbitmap difference, temp_bitmap;
   int x, num_edges;
   basic_block pred, succ;
 
   num_edges = NUM_EDGES (edge_list);
 
-  auto_sbitmap difference (n_exprs), temp_bitmap (n_exprs);
+  difference = sbitmap_alloc (n_exprs);
+  temp_bitmap = sbitmap_alloc (n_exprs);
+
   for (x = 0; x < num_edges; x++)
     {
       pred = INDEX_EDGE_PRED_BB (edge_list, x);
@@ -196,6 +218,9 @@ compute_earliest (struct edge_list *edge_list, int n_exprs, sbitmap *antin,
 	    }
 	}
     }
+
+  sbitmap_free (temp_bitmap);
+  sbitmap_free (difference);
 }
 
 /* later(p,s) is dependent on the calculation of laterin(p).
@@ -270,9 +295,9 @@ compute_laterin (struct edge_list *edge_list, sbitmap *earliest,
 
   /* Add all the blocks to the worklist.  This prevents an early exit from
      the loop given our optimistic initialization of LATER above.  */
-  auto_vec<int, 20> postorder;
-  inverted_post_order_compute (&postorder);
-  for (unsigned int i = 0; i < postorder.length (); ++i)
+  int *postorder = XNEWVEC (int, n_basic_blocks_for_fn (cfun));
+  int postorder_num = inverted_post_order_compute (postorder);
+  for (int i = 0; i < postorder_num; ++i)
     {
       bb = BASIC_BLOCK_FOR_FN (cfun, postorder[i]);
       if (bb == EXIT_BLOCK_PTR_FOR_FN (cfun)
@@ -281,6 +306,7 @@ compute_laterin (struct edge_list *edge_list, sbitmap *earliest,
       *qin++ = bb;
       bb->aux = bb;
     }
+  free (postorder);
 
   /* Note that we do not use the last allocated element for our queue,
      as EXIT_BLOCK is never inserted into it. */
@@ -511,9 +537,9 @@ compute_available (sbitmap *avloc, sbitmap *kill, sbitmap *avout,
   /* Put every block on the worklist; this is necessary because of the
      optimistic initialization of AVOUT above.  Use inverted postorder
      to make the dataflow problem require less iterations.  */
-  auto_vec<int, 20> postorder;
-  inverted_post_order_compute (&postorder);
-  for (unsigned int i = 0; i < postorder.length (); ++i)
+  int *postorder = XNEWVEC (int, n_basic_blocks_for_fn (cfun));
+  int postorder_num = inverted_post_order_compute (postorder);
+  for (int i = 0; i < postorder_num; ++i)
     {
       bb = BASIC_BLOCK_FOR_FN (cfun, postorder[i]);
       if (bb == EXIT_BLOCK_PTR_FOR_FN (cfun)
@@ -522,6 +548,7 @@ compute_available (sbitmap *avloc, sbitmap *kill, sbitmap *avout,
       *qin++ = bb;
       bb->aux = bb;
     }
+  free (postorder);
 
   qin = worklist;
   qend = &worklist[n_basic_blocks_for_fn (cfun) - NUM_FIXED_BLOCKS];
@@ -586,12 +613,15 @@ compute_farthest (struct edge_list *edge_list, int n_exprs,
 		  sbitmap *st_avout, sbitmap *st_avin, sbitmap *st_antin,
 		  sbitmap *kill, sbitmap *farthest)
 {
+  sbitmap difference, temp_bitmap;
   int x, num_edges;
   basic_block pred, succ;
 
   num_edges = NUM_EDGES (edge_list);
 
-  auto_sbitmap difference (n_exprs), temp_bitmap (n_exprs);
+  difference = sbitmap_alloc (n_exprs);
+  temp_bitmap = sbitmap_alloc (n_exprs);
+
   for (x = 0; x < num_edges; x++)
     {
       pred = INDEX_EDGE_PRED_BB (edge_list, x);
@@ -612,6 +642,9 @@ compute_farthest (struct edge_list *edge_list, int n_exprs,
 	    }
 	}
     }
+
+  sbitmap_free (temp_bitmap);
+  sbitmap_free (difference);
 }
 
 /* Compute nearer and nearerout vectors for edge based lcm.

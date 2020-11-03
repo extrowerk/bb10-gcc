@@ -2,12 +2,11 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build aix darwin dragonfly freebsd linux netbsd openbsd solaris
+// +build darwin dragonfly freebsd linux netbsd openbsd solaris
 
 package syscall
 
 import (
-	"internal/race"
 	"runtime"
 	"sync"
 	"unsafe"
@@ -29,7 +28,6 @@ const (
 	darwin64Bit    = runtime.GOOS == "darwin" && sizeofPtr == 8
 	dragonfly64Bit = runtime.GOOS == "dragonfly" && sizeofPtr == 8
 	netbsd32Bit    = runtime.GOOS == "netbsd" && sizeofPtr == 4
-	solaris64Bit   = runtime.GOOS == "solaris" && sizeofPtr == 8
 )
 
 // Do a system call.  We look at the size of uintptr to see how to pass
@@ -174,30 +172,6 @@ func Munmap(b []byte) (err error) {
 	return mapper.Munmap(b)
 }
 
-// Do the interface allocations only once for common
-// Errno values.
-var (
-	errEAGAIN error = EAGAIN
-	errEINVAL error = EINVAL
-	errENOENT error = ENOENT
-)
-
-// errnoErr returns common boxed Errno values, to prevent
-// allocations at runtime.
-func errnoErr(e Errno) error {
-	switch e {
-	case 0:
-		return nil
-	case EAGAIN:
-		return errEAGAIN
-	case EINVAL:
-		return errEINVAL
-	case ENOENT:
-		return errENOENT
-	}
-	return e
-}
-
 // A Signal is a number describing a process signal.
 // It implements the os.Signal interface.
 type Signal int
@@ -212,30 +186,24 @@ func (s Signal) String() string {
 
 func Read(fd int, p []byte) (n int, err error) {
 	n, err = read(fd, p)
-	if race.Enabled {
+	if raceenabled {
 		if n > 0 {
-			race.WriteRange(unsafe.Pointer(&p[0]), n)
+			raceWriteRange(unsafe.Pointer(&p[0]), n)
 		}
 		if err == nil {
-			race.Acquire(unsafe.Pointer(&ioSync))
+			raceAcquire(unsafe.Pointer(&ioSync))
 		}
-	}
-	if msanenabled && n > 0 {
-		msanWrite(unsafe.Pointer(&p[0]), n)
 	}
 	return
 }
 
 func Write(fd int, p []byte) (n int, err error) {
-	if race.Enabled {
-		race.ReleaseMerge(unsafe.Pointer(&ioSync))
+	if raceenabled {
+		raceReleaseMerge(unsafe.Pointer(&ioSync))
 	}
 	n, err = write(fd, p)
-	if race.Enabled && n > 0 {
-		race.ReadRange(unsafe.Pointer(&p[0]), n)
-	}
-	if msanenabled && n > 0 {
-		msanRead(unsafe.Pointer(&p[0]), n)
+	if raceenabled && n > 0 {
+		raceReadRange(unsafe.Pointer(&p[0]), n)
 	}
 	return
 }

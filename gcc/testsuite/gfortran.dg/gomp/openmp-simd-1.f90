@@ -134,3 +134,4 @@ end
 ! { dg-final { scan-tree-dump-times "pragma omp simd" 6 "original" } }
 ! { dg-final { scan-tree-dump-times "pragma omp" 6 "original" } }
 ! { dg-final { scan-tree-dump-times "__builtin_GOMP" 0 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

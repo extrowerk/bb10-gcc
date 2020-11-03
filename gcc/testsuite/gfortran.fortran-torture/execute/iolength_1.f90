@@ -11,6 +11,6 @@ program iolength_1
   allocate(a(alength))
   inquire (iolength = iol) a
   if ( 4*alength /= iol) then
-     STOP 1
+     call abort
   end if
 end program iolength_1

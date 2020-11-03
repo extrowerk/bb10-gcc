@@ -1,5 +1,4 @@
 /* { dg-do compile } */
-// { dg-additional-options "-Wno-return-type" }
 
 template < typename > class basic_stringstream;
 

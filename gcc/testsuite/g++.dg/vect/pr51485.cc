@@ -11,3 +11,4 @@ foo (unsigned int x, double *y, A *z)
     y[i] = bar (z[i]);
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

@@ -22,6 +22,8 @@
 
 int test01(void)
 {
+  bool test __attribute__((unused)) = true;
+
   std::wstring empty;
 
   // data() for size == 0 is non-NULL.

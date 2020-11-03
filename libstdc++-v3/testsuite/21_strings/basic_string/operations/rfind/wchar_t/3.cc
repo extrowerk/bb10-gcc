@@ -1,6 +1,6 @@
 // from tstring.cc, from jason merrill, et. al.
 
-// Copyright (C) 2000-2018 Free Software Foundation, Inc.
+// Copyright (C) 2000-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -21,8 +21,9 @@
 #include <testsuite_hooks.h>
 
 // 21.3.6.6 basic_string::find_last_not_of
-void test03()
+bool test03()
 {
+  bool test __attribute__((unused)) = true;
   typedef std::wstring::size_type csize_type;
   std::wstring::size_type pos;
   csize_type npos = std::wstring::npos;
@@ -54,6 +55,7 @@ void test03()
   VERIFY( pos == 0 );
   pos = z.find_last_not_of(L"Xa");
   VERIFY( pos == 1 );
+  return test;
 }
 int main()
 {

@@ -7,7 +7,7 @@
 
 template<class T> class A
 {
-  void f ();			// { dg-message "private" }
+  void f ();			// { dg-error "private" }
 };
 
 template<class T> class B
@@ -18,5 +18,4 @@ template<class T> class B
 int f ()
 {
   B<int> b;			// { dg-message "required" }
-  return 0;
 }

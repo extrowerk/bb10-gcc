@@ -1,7 +1,7 @@
 // 2000-09-06
 // bkoz 
 
-// Copyright (C) 2000-2018 Free Software Foundation, Inc.
+// Copyright (C) 2000-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -30,8 +30,9 @@ struct A { };
 struct B { };
 
 // http://gcc.gnu.org/ml/libstdc++/2000-09/msg00002.html
-void test01()
+bool test01()
 {
+  bool test __attribute__((unused)) = true;
   std::vector< A<B> > vec01;
   std::vector< A<B> > vec02(5);
   typedef std::vector< A<B> >::size_type size_type;
@@ -50,6 +51,7 @@ void test01()
     {
       VERIFY( false );
     }
+  return test;
 }
 
 int main()

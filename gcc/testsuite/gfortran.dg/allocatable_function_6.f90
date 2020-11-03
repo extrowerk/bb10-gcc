@@ -6,11 +6,11 @@
 !
 implicit none
 CHARACTER(LEN=:),ALLOCATABLE :: str 
-if (s_to_c("ABCdef") /= "ABCdef" .or. len(s_to_c("ABCdef")) /= 6) STOP 1
+if (s_to_c("ABCdef") /= "ABCdef" .or. len(s_to_c("ABCdef")) /= 6) call abort()
 str = s_to_c("ABCdef")
-if (str /= "ABCdef" .or. len(str) /= 6) STOP 2
+if (str /= "ABCdef" .or. len(str) /= 6) call abort()
 str(1:3) = s_to_c("123")
-if (str /= "123def" .or. len(str) /= 6) STOP 3
+if (str /= "123def" .or. len(str) /= 6) call abort()
 
 contains
 

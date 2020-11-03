@@ -14,3 +14,4 @@ int main(int argc, int b)
     }
 }
 /* { dg-final { scan-tree-dump-times "a - i" 0 "optimized"} } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

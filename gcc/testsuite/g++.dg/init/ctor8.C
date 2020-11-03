@@ -2,7 +2,7 @@
 
 typedef struct S { // { dg-error "reference" "" { target c++11 } }
   int &r; 
-}; // { dg-warning "1:'typedef' was ignored" "" { target *-*-* } 3 }
+}; // { dg-warning "'typedef' was ignored" }
 
 
 S f () {

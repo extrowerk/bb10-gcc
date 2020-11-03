@@ -25,7 +25,9 @@ main1 (int dummy)
       *pout++ = *pin++;
       *pout++ = *pin++;
       *pout++ = *pin++;
-      asm volatile ("" ::: "memory");
+      /* Avoid loop vectorization.  */
+      if (dummy == 32)
+        abort ();
     }
 
   /* check results: */ 
@@ -54,5 +56,7 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-not "can't force alignment" "slp1" } } */
 /* { dg-final { scan-tree-dump-times "basic block vectorized" 1 "slp1" } } */
+/* { dg-final { cleanup-tree-dump "slp1" } } */
+/* { dg-final { cleanup-tree-dump "slp2" } } */
+  

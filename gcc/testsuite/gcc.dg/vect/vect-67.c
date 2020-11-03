@@ -3,19 +3,13 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#if VECTOR_BITS > 256
-#define NINTS (VECTOR_BITS / 32)
-#else
-#define NINTS 8
-#endif
-
-#define N (NINTS * 2)
+#define N 16
 
 __attribute__ ((noinline))
 int main1 (int a, int b)
 {
   int i, j;
-  int ia[N][4][N + NINTS];
+  int ia[N][4][N+8];
 
   /* Multidimensional array. Aligned. The "inner" dimensions
      are invariant in the inner loop. Store. 
@@ -24,7 +18,7 @@ int main1 (int a, int b)
     {
       for (j = 0; j < N; j++)
         {
-           ia[i][1][j + NINTS] = (a == b);
+           ia[i][1][j+8] = (a == b);
         }
     }
 
@@ -33,7 +27,7 @@ int main1 (int a, int b)
     {
       for (j = 0; j < N; j++)
         {
-           if (ia[i][1][j + NINTS] != (a == b))
+           if (ia[i][1][j+8] != (a == b))
               abort();
         }
     }
@@ -49,4 +43,5 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  } } */
-/* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" { xfail { ! vect_align_stack_vars } } } } */
+/* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

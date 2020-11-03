@@ -12,9 +12,9 @@ union Test2 {
 const int Test2::kConstant = 10;
 
 union Test3 {
-  int& kConstant;	// { dg-error "may not have reference type" }
+  int& kConstant;
 };
 
 union Test4 {
-  const int& kConstant = 10;	// { dg-error "may not have reference type" }
+  const int& kConstant = 10;
 };

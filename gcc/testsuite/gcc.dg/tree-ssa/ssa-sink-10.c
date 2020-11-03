@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdump-tree-sink-details -fno-tree-pre" } */
+/* { dg-options "-O2 -fdump-tree-sink-details" } */
 
 int x[1024], y[1024], z[1024], w[1024];
 void foo (void)
@@ -17,3 +17,4 @@ void foo (void)
 }
 
 /* { dg-final { scan-tree-dump-times "Sinking # VUSE" 4 "sink" } } */
+/* { dg-final { cleanup-tree-dump "sink" } } */

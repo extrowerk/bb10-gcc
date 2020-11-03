@@ -20,3 +20,4 @@ void f (NT x, NT y)
 }
 
 /* { dg-final { scan-tree-dump "do_not_go_away" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

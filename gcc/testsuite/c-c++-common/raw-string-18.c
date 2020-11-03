@@ -18,3 +18,4 @@ main ()
 
 /* Verify call to foo is on line 15.  */
 /* { dg-final { scan-tree-dump "c:15:\[^\n\r\]*foo" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

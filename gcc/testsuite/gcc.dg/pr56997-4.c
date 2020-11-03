@@ -20,3 +20,4 @@ foo (test_type u)
 /* The C++ memory model forbids data store race conditions outside the
    unaligned data member, therefore only QI or HI access is allowed, no SI.  */
 /* { dg-final { scan-rtl-dump-not "mem/v(/.)*:SI" "final" } } */
+/* { dg-final { cleanup-rtl-dump "final" } } */

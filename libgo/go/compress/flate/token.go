@@ -75,6 +75,9 @@ func matchToken(xlength uint32, xoffset uint32) token {
 	return token(matchType + xlength<<lengthShift + xoffset)
 }
 
+// Returns the type of a token
+func (t token) typ() uint32 { return uint32(t) & typeMask }
+
 // Returns the literal of a literal token
 func (t token) literal() uint32 { return uint32(t - literalType) }
 
@@ -87,11 +90,13 @@ func lengthCode(len uint32) uint32 { return lengthCodes[len] }
 
 // Returns the offset code corresponding to a specific offset
 func offsetCode(off uint32) uint32 {
-	if off < uint32(len(offsetCodes)) {
+	const n = uint32(len(offsetCodes))
+	switch {
+	case off < n:
 		return offsetCodes[off]
-	}
-	if off>>7 < uint32(len(offsetCodes)) {
+	case off>>7 < n:
 		return offsetCodes[off>>7] + 14
+	default:
+		return offsetCodes[off>>14] + 28
 	}
-	return offsetCodes[off>>14] + 28
 }

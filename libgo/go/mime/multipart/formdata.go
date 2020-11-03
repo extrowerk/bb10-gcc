@@ -13,25 +13,14 @@ import (
 	"os"
 )
 
-// ErrMessageTooLarge is returned by ReadForm if the message form
-// data is too large to be processed.
-var ErrMessageTooLarge = errors.New("multipart: message too large")
-
 // TODO(adg,bradfitz): find a way to unify the DoS-prevention strategy here
 // with that of the http package's ParseForm.
 
 // ReadForm parses an entire multipart message whose parts have
 // a Content-Disposition of "form-data".
-// It stores up to maxMemory bytes + 10MB (reserved for non-file parts)
-// in memory. File parts which can't be stored in memory will be stored on
-// disk in temporary files.
-// It returns ErrMessageTooLarge if all non-file parts can't be stored in
-// memory.
-func (r *Reader) ReadForm(maxMemory int64) (*Form, error) {
-	return r.readForm(maxMemory)
-}
-
-func (r *Reader) readForm(maxMemory int64) (_ *Form, err error) {
+// It stores up to maxMemory bytes of the file parts in memory
+// and the remainder on disk in temporary files.
+func (r *Reader) ReadForm(maxMemory int64) (f *Form, err error) {
 	form := &Form{make(map[string][]string), make(map[string][]*FileHeader)}
 	defer func() {
 		if err != nil {
@@ -39,8 +28,7 @@ func (r *Reader) readForm(maxMemory int64) (_ *Form, err error) {
 		}
 	}()
 
-	// Reserve an additional 10 MB for non-file parts.
-	maxValueBytes := maxMemory + int64(10<<20)
+	maxValueBytes := int64(10 << 20) // 10 MB is a lot of text.
 	for {
 		p, err := r.NextPart()
 		if err == io.EOF {
@@ -58,16 +46,15 @@ func (r *Reader) readForm(maxMemory int64) (_ *Form, err error) {
 
 		var b bytes.Buffer
 
-		_, hasContentTypeHeader := p.Header["Content-Type"]
-		if !hasContentTypeHeader && filename == "" {
+		if filename == "" {
 			// value, store as string in memory
-			n, err := io.CopyN(&b, p, maxValueBytes+1)
+			n, err := io.CopyN(&b, p, maxValueBytes)
 			if err != nil && err != io.EOF {
 				return nil, err
 			}
 			maxValueBytes -= n
-			if maxValueBytes < 0 {
-				return nil, ErrMessageTooLarge
+			if maxValueBytes == 0 {
+				return nil, errors.New("multipart: message too large")
 			}
 			form.Value[name] = append(form.Value[name], b.String())
 			continue
@@ -88,21 +75,16 @@ func (r *Reader) readForm(maxMemory int64) (_ *Form, err error) {
 			if err != nil {
 				return nil, err
 			}
-			size, err := io.Copy(file, io.MultiReader(&b, p))
-			if cerr := file.Close(); err == nil {
-				err = cerr
-			}
+			defer file.Close()
+			_, err = io.Copy(file, io.MultiReader(&b, p))
 			if err != nil {
 				os.Remove(file.Name())
 				return nil, err
 			}
 			fh.tmpfile = file.Name()
-			fh.Size = size
 		} else {
 			fh.content = b.Bytes()
-			fh.Size = int64(len(fh.content))
 			maxMemory -= n
-			maxValueBytes -= n
 		}
 		form.File[name] = append(form.File[name], fh)
 	}
@@ -140,7 +122,6 @@ func (f *Form) RemoveAll() error {
 type FileHeader struct {
 	Filename string
 	Header   textproto.MIMEHeader
-	Size     int64
 
 	content []byte
 	tmpfile string

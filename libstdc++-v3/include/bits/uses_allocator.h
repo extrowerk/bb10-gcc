@@ -1,6 +1,6 @@
 // Uses-allocator Construction -*- C++ -*-
 
-// Copyright (C) 2010-2018 Free Software Foundation, Inc.
+// Copyright (C) 2010-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -30,23 +30,15 @@
 #else
 
 #include <type_traits>
-#include <bits/move.h>
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
-  struct __erased_type { };
-
-  template<typename _Alloc, typename _Tp>
-    using __is_erased_or_convertible
-      = __or_<is_same<_Tp, __erased_type>, is_convertible<_Alloc, _Tp>>;
-
   /// [allocator.tag]
-  struct allocator_arg_t { explicit allocator_arg_t() = default; };
+  struct allocator_arg_t { };
 
-  _GLIBCXX17_INLINE constexpr allocator_arg_t allocator_arg =
-    allocator_arg_t();
+  constexpr allocator_arg_t allocator_arg = allocator_arg_t();
 
   template<typename _Tp, typename _Alloc, typename = __void_t<>>
     struct __uses_allocator_helper
@@ -55,7 +47,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _Tp, typename _Alloc>
     struct __uses_allocator_helper<_Tp, _Alloc,
 				   __void_t<typename _Tp::allocator_type>>
-    : __is_erased_or_convertible<_Alloc, typename _Tp::allocator_type>::type
+    : is_convertible<_Alloc, typename _Tp::allocator_type>::type
     { };
 
   /// [allocator.uses.trait]
@@ -86,12 +78,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
         is_constructible<_Tp, allocator_arg_t, _Alloc, _Args...>::value,
         __uses_alloc1<_Alloc>,
        	__uses_alloc2<_Alloc>>::type
-    {
-      static_assert(__or_<
-	  is_constructible<_Tp, allocator_arg_t, _Alloc, _Args...>,
-	  is_constructible<_Tp, _Args..., _Alloc>>::value, "construction with"
-	  " an allocator must be possible if uses_allocator is true");
-    };
+    { };
 
   template<typename _Tp, typename _Alloc, typename... _Args>
     struct __uses_alloc<false, _Tp, _Alloc, _Args...>
@@ -106,77 +93,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     __use_alloc(const _Alloc& __a)
     {
       __uses_alloc_t<_Tp, _Alloc, _Args...> __ret;
-      __ret._M_a = std::__addressof(__a);
+      __ret._M_a = &__a;
       return __ret;
-    }
-
-  template<typename _Tp, typename _Alloc, typename... _Args>
-    void
-    __use_alloc(const _Alloc&&) = delete;
-
-#if __cplusplus > 201402L
-  template <typename _Tp, typename _Alloc>
-    inline constexpr bool uses_allocator_v =
-      uses_allocator<_Tp, _Alloc>::value;
-#endif // C++17
-
-  template<template<typename...> class _Predicate,
-	   typename _Tp, typename _Alloc, typename... _Args>
-    struct __is_uses_allocator_predicate
-    : conditional<uses_allocator<_Tp, _Alloc>::value,
-      __or_<_Predicate<_Tp, allocator_arg_t, _Alloc, _Args...>,
-	    _Predicate<_Tp, _Args..., _Alloc>>,
-      _Predicate<_Tp, _Args...>>::type { };
-
-  template<typename _Tp, typename _Alloc, typename... _Args>
-    struct __is_uses_allocator_constructible
-    : __is_uses_allocator_predicate<is_constructible, _Tp, _Alloc, _Args...>
-    { };
-
-#if __cplusplus >= 201402L
-  template<typename _Tp, typename _Alloc, typename... _Args>
-    _GLIBCXX17_INLINE constexpr bool __is_uses_allocator_constructible_v =
-      __is_uses_allocator_constructible<_Tp, _Alloc, _Args...>::value;
-#endif // C++14
-
-  template<typename _Tp, typename _Alloc, typename... _Args>
-    struct __is_nothrow_uses_allocator_constructible
-    : __is_uses_allocator_predicate<is_nothrow_constructible,
-				    _Tp, _Alloc, _Args...>
-    { };
-
-
-#if __cplusplus >= 201402L
-  template<typename _Tp, typename _Alloc, typename... _Args>
-    _GLIBCXX17_INLINE constexpr bool
-    __is_nothrow_uses_allocator_constructible_v =
-      __is_nothrow_uses_allocator_constructible<_Tp, _Alloc, _Args...>::value;
-#endif // C++14
-
-  template<typename _Tp, typename... _Args>
-    void __uses_allocator_construct_impl(__uses_alloc0 __a, _Tp* __ptr,
-					 _Args&&... __args)
-    { ::new ((void*)__ptr) _Tp(std::forward<_Args>(__args)...); }
-
-  template<typename _Tp, typename _Alloc, typename... _Args>
-    void __uses_allocator_construct_impl(__uses_alloc1<_Alloc> __a, _Tp* __ptr,
-					 _Args&&... __args)
-    {
-      ::new ((void*)__ptr) _Tp(allocator_arg, *__a._M_a,
-			       std::forward<_Args>(__args)...);
-    }
-
-  template<typename _Tp, typename _Alloc, typename... _Args>
-    void __uses_allocator_construct_impl(__uses_alloc2<_Alloc> __a, _Tp* __ptr,
-					 _Args&&... __args)
-    { ::new ((void*)__ptr) _Tp(std::forward<_Args>(__args)..., *__a._M_a); }
-
-  template<typename _Tp, typename _Alloc, typename... _Args>
-    void __uses_allocator_construct(const _Alloc& __a, _Tp* __ptr,
-				    _Args&&... __args)
-    {
-      __uses_allocator_construct_impl(__use_alloc<_Tp, _Alloc, _Args...>(__a),
-				      __ptr, std::forward<_Args>(__args)...);
     }
 
 _GLIBCXX_END_NAMESPACE_VERSION

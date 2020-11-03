@@ -28,10 +28,10 @@ program test
 contains
   subroutine check_r4 (a, b)
     real(kind=4), intent(in) :: a, b
-    if (abs(a - b) > 1.e-5 * abs(b)) STOP 1
+    if (abs(a - b) > 1.e-5 * abs(b)) call abort
   end subroutine
   subroutine check_r8 (a, b)
     real(kind=8), intent(in) :: a, b
-    if (abs(a - b) > 1.e-7 * abs(b)) STOP 2
+    if (abs(a - b) > 1.e-7 * abs(b)) call abort
   end subroutine
 end program test

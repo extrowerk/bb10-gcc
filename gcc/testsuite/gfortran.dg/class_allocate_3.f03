@@ -18,22 +18,22 @@
  select type(m2)
  type is (t2)
    print *, m2%i, m2%r
-   if (m2%i/=54) STOP 1
-   if (abs(m2%r-384.02)>1E-3) STOP 2
+   if (m2%i/=54) call abort()
+   if (abs(m2%r-384.02)>1E-3) call abort()
    m2%i = 42
    m2%r = -4.0
  class default
-   STOP 3
+   call abort()
  end select
 
  allocate(m1, source=m2)
  select type(m1)
  type is (t2)
    print *, m1%i, m1%r
-   if (m1%i/=42) STOP 4
-   if (abs(m1%r+4.0)>1E-3) STOP 5
+   if (m1%i/=42) call abort()
+   if (abs(m1%r+4.0)>1E-3) call abort()
  class default
-   STOP 6
+   call abort()
  end select
 
 end

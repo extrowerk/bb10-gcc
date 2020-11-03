@@ -3,9 +3,9 @@
 
 template<class T> class smart_pointer {
 public:
-    operator T* () const { return 0; }
-    operator bool () const { return true; }
-    operator bool () { return true; }
+    operator T* () const { }
+    operator bool () const { }
+    operator bool () { }
 };
 class Context { };
 typedef smart_pointer<Context> ContextP;

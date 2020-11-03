@@ -9,7 +9,6 @@ struct S
 {
   int f ()
   {
-    return 0;
   }
 };
 

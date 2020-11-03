@@ -7,7 +7,7 @@ public:
   void sort (int (*compare) (T *const&,T *const&));
 };
 
-int shift_compare (int *const &, int *const &) { return 0; }
+int shift_compare (int *const &, int *const &) {}
 
 template<class T> void
 Link_array<T>::sort (int (*compare) (T *const&,T *const&)) 

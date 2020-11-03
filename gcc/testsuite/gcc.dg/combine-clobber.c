@@ -19,3 +19,4 @@ int f(int a, int b) { return -(a == b); }
 
 /* This regexp works for reg parameters as well as mem parameters.  */
 /* { dg-final { scan-rtl-dump {neg:SI[^:]*eq:SI[^:]*:SI} "combine" } } */
+/* { dg-final { cleanup-rtl-dump "combine" } } */

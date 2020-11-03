@@ -47,7 +47,6 @@ using namespace std;
 static float readFloat(ifstream& in) {
       float f;
       in.read((char*) &f, sizeof(float));
-      return f;
   }
 Mat4f readMeshMatrix(ifstream& in, int nBytes) {
       float m00 = readFloat(in);

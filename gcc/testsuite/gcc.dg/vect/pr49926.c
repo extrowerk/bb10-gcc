@@ -20,3 +20,4 @@ foo (unsigned int x, int y, int z, int *w)
   while (1);
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

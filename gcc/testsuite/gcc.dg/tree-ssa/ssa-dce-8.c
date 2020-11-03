@@ -9,3 +9,4 @@ int main()
 }
 
 /* { dg-final { scan-tree-dump-not "malloc" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

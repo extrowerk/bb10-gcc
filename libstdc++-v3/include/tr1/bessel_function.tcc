@@ -1,6 +1,6 @@
 // Special functions -*- C++ -*-
 
-// Copyright (C) 2006-2018 Free Software Foundation, Inc.
+// Copyright (C) 2006-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -50,22 +50,15 @@
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
-_GLIBCXX_BEGIN_NAMESPACE_VERSION
-
-#if _GLIBCXX_USE_STD_SPEC_FUNCS
-# define _GLIBCXX_MATH_NS ::std
-#elif defined(_GLIBCXX_TR1_CMATH)
 namespace tr1
 {
-# define _GLIBCXX_MATH_NS ::std::tr1
-#else
-# error do not include this header directly, use <cmath> or <tr1/cmath>
-#endif
   // [5.2] Special functions
 
   // Implementation-space details.
   namespace __detail
   {
+  _GLIBCXX_BEGIN_NAMESPACE_VERSION
+
     /**
      *   @brief Compute the gamma functions required by the Temme series
      *          expansions of @f$ N_\nu(x) @f$ and @f$ K_\nu(x) @f$.
@@ -97,8 +90,8 @@ namespace tr1
                   _Tp & __gam1, _Tp & __gam2, _Tp & __gampl, _Tp & __gammi)
     {
 #if _GLIBCXX_USE_C99_MATH_TR1
-      __gampl = _Tp(1) / _GLIBCXX_MATH_NS::tgamma(_Tp(1) + __mu);
-      __gammi = _Tp(1) / _GLIBCXX_MATH_NS::tgamma(_Tp(1) - __mu);
+      __gampl = _Tp(1) / std::tr1::tgamma(_Tp(1) + __mu);
+      __gammi = _Tp(1) / std::tr1::tgamma(_Tp(1) - __mu);
 #else
       __gampl = _Tp(1) / __gamma(_Tp(1) + __mu);
       __gammi = _Tp(1) / __gamma(_Tp(1) - __mu);
@@ -313,7 +306,7 @@ namespace tr1
           const _Tp __gam = (__p - __f) / __q;
           __Jmu = std::sqrt(__w / ((__p - __f) * __gam + __q));
 #if _GLIBCXX_USE_C99_MATH_TR1
-          __Jmu = _GLIBCXX_MATH_NS::copysign(__Jmu, __Jnul);
+          __Jmu = std::tr1::copysign(__Jmu, __Jnul);
 #else
           if (__Jmu * __Jnul < _Tp(0))
             __Jmu = -__Jmu;
@@ -421,7 +414,7 @@ namespace tr1
       const _Tp __x2 = __x / _Tp(2);
       _Tp __fact = __nu * std::log(__x2);
 #if _GLIBCXX_USE_C99_MATH_TR1
-      __fact -= _GLIBCXX_MATH_NS::lgamma(__nu + _Tp(1));
+      __fact -= std::tr1::lgamma(__nu + _Tp(1));
 #else
       __fact -= __log_gamma(__nu + _Tp(1));
 #endif
@@ -626,13 +619,10 @@ namespace tr1
           return __n_n;
         }
     }
-  } // namespace __detail
-#undef _GLIBCXX_MATH_NS
-#if ! _GLIBCXX_USE_STD_SPEC_FUNCS && defined(_GLIBCXX_TR1_CMATH)
-} // namespace tr1
-#endif
 
-_GLIBCXX_END_NAMESPACE_VERSION
+  _GLIBCXX_END_NAMESPACE_VERSION
+  } // namespace std::tr1::__detail
+}
 }
 
 #endif // _GLIBCXX_TR1_BESSEL_FUNCTION_TCC

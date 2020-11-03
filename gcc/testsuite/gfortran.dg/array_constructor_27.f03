@@ -8,7 +8,8 @@
 implicit none
 
 type t
-  character (a) :: arr (1) = [ "a" ] ! { dg-error "Scalar INTEGER expression" }
+  character (a) :: arr (1) = [ "a" ]
+  ! { dg-error "specification expression" "" { target *-*-* } 11 }
 end type t
 
 end

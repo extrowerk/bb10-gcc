@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2014-2016 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2014 Intel Corporation.  All Rights Reserved.
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -34,7 +34,7 @@
 // 1. allocate element of CeanReadRanges type
 // 2. initialized it for reading consequently contiguous ranges
 //    described by "ap" argument
-CeanReadRanges * init_read_ranges_arr_desc(const Arr_Desc *ap)
+CeanReadRanges * init_read_ranges_arr_desc(const arr_desc *ap)
 {
     CeanReadRanges * res;
 
@@ -57,8 +57,6 @@ CeanReadRanges * init_read_ranges_arr_desc(const Arr_Desc *ap)
                                   (ap->rank - rank) * sizeof(CeanReadDim));
     if (res == NULL)
       LIBOFFLOAD_ERROR(c_malloc);
-
-    res->arr_desc = const_cast<Arr_Desc*>(ap);
     res->current_number = 0;
     res->range_size = length;
     res->last_noncont_ind = rank;
@@ -84,7 +82,7 @@ CeanReadRanges * init_read_ranges_arr_desc(const Arr_Desc *ap)
     return res;
 }
 
-// check if ranges described by 1 argument could be transferred into ranges
+// check if ranges described by 1 argument could be transfered into ranges
 // described by 2-nd one
 bool cean_ranges_match(
     CeanReadRanges * read_rng1,
@@ -120,7 +118,7 @@ bool get_next_range(
     return true;
 }
 
-bool is_arr_desc_contiguous(const Arr_Desc *ap)
+bool is_arr_desc_contiguous(const arr_desc *ap)
 {
     int64_t rank = ap->rank - 1;
     int64_t length = ap->dim[rank].size;
@@ -148,22 +146,14 @@ int64_t cean_get_transf_size(CeanReadRanges * read_rng)
 }
 
 static uint64_t last_left, last_right;
-
-typedef void (*fpp)(
-    const char *spaces,
-    uint64_t low,
-    uint64_t high,
-    int esize,
-    bool print_values
-);
+typedef void (*fpp)(const char *spaces, uint64_t low, uint64_t high, int esize);
 
 static void generate_one_range(
     const char *spaces,
     uint64_t lrange,
     uint64_t rrange,
     fpp fp,
-    int esize,
-    bool print_values
+    int esize
 )
 {
     OFFLOAD_TRACE(3,
@@ -178,35 +168,20 @@ static void generate_one_range(
             // Extend previous range, don't print
         }
         else {
-            (*fp)(spaces, last_left, last_right, esize, print_values);
+            (*fp)(spaces, last_left, last_right, esize);
             last_left = lrange;
         }
     }
     last_right = rrange;
 }
 
-static bool element_is_contiguous(
-    uint64_t rank,
-    const struct Dim_Desc *ddp
-)
-{    
-    if (rank == 1) {
-        return (ddp[0].lower == ddp[0].upper || ddp[0].stride == 1);
-    }
-    else {
-        return ((ddp[0].size == (ddp[1].upper-ddp[1].lower+1)*ddp[1].size) &&
-                 element_is_contiguous(rank-1, ddp++));
-    }
-}
-
 static void generate_mem_ranges_one_rank(
     const char *spaces,
     uint64_t base,
     uint64_t rank,
-    const struct Dim_Desc *ddp,
+    const struct dim_desc *ddp,
     fpp fp,
-    int esize,
-    bool print_values
+    int esize
 )
 {
     uint64_t lindex = ddp->lindex;
@@ -219,40 +194,35 @@ static void generate_mem_ranges_one_rank(
         "generate_mem_ranges_one_rank(base=%p, rank=%lld, lindex=%lld, "
         "lower=%lld, upper=%lld, stride=%lld, size=%lld, esize=%d)\n",
         spaces, (void*)base, rank, lindex, lower, upper, stride, size, esize);
-
-    if (element_is_contiguous(rank, ddp)) {
+    if (rank == 1) {
         uint64_t lrange, rrange;
-        lrange = base + (lower-lindex)*size;
-        rrange = lrange + (upper-lower+1)*size - 1;
-        generate_one_range(spaces, lrange, rrange, fp, esize, print_values);
-    }
-    else {
-        if (rank == 1) {
-            for (int i=lower-lindex; i<=upper-lindex; i+=stride) {
-                uint64_t lrange, rrange;
-                lrange = base + i*size;
-                rrange = lrange + size - 1;
-                generate_one_range(spaces, lrange, rrange,
-		                   fp, esize, print_values);
-            }
+        if (stride == 1) {
+            lrange = base + (lower-lindex)*size;
+            rrange = lrange + (upper-lower+1)*size - 1;
+            generate_one_range(spaces, lrange, rrange, fp, esize);
         }
         else {
             for (int i=lower-lindex; i<=upper-lindex; i+=stride) {
-                generate_mem_ranges_one_rank(
-                    spaces, base+i*size, rank-1, ddp+1,
-                    fp, esize, print_values);
-
+                lrange = base + i*size;
+                rrange = lrange + size - 1;
+                generate_one_range(spaces, lrange, rrange, fp, esize);
             }
+        }
+    }
+    else {
+        for (int i=lower-lindex; i<=upper-lindex; i+=stride) {
+            generate_mem_ranges_one_rank(
+                spaces, base+i*size, rank-1, ddp+1, fp, esize);
+
         }
     }
 }
 
 static void generate_mem_ranges(
     const char *spaces,
-    const Arr_Desc *adp,
+    const arr_desc *adp,
     bool deref,
-    fpp fp,
-    bool print_values
+    fpp fp
 )
 {
     uint64_t esize;
@@ -271,13 +241,13 @@ static void generate_mem_ranges(
         // For c_cean_var the base addr is the address of the data
         // For c_cean_var_ptr the base addr is dereferenced to get to the data
         spaces, deref ? *((uint64_t*)(adp->base)) : adp->base,
-        adp->rank, &adp->dim[0], fp, esize, print_values);
-    (*fp)(spaces, last_left, last_right, esize, print_values);
+        adp->rank, &adp->dim[0], fp, esize);
+    (*fp)(spaces, last_left, last_right, esize);
 }
 
 // returns offset and length of the data to be transferred
 void __arr_data_offset_and_length(
-    const Arr_Desc *adp,
+    const arr_desc *adp,
     int64_t &offset,
     int64_t &length
 )
@@ -314,12 +284,11 @@ void __arr_data_offset_and_length(
 
 #if OFFLOAD_DEBUG > 0
 
-static void print_range(
+void print_range(
     const char *spaces,
     uint64_t low,
     uint64_t high,
-    int esize,
-    bool print_values
+    int esize
 )
 {
     char buffer[1024];
@@ -328,7 +297,7 @@ static void print_range(
     OFFLOAD_TRACE(3, "%s        print_range(low=%p, high=%p, esize=%d)\n",
         spaces, (void*)low, (void*)high, esize);
 
-    if (console_enabled < 4 || !print_values) {
+    if (console_enabled < 4) {
         return;
     }
     OFFLOAD_TRACE(4, "%s            values:\n", spaces);
@@ -371,9 +340,8 @@ static void print_range(
 void __arr_desc_dump(
     const char *spaces,
     const char *name,
-    const Arr_Desc *adp,
-    bool deref,
-    bool print_values
+    const arr_desc *adp,
+    bool deref
 )
 {
     OFFLOAD_TRACE(2, "%s%s CEAN expression %p\n", spaces, name, adp);
@@ -392,30 +360,7 @@ void __arr_desc_dump(
         }
         // For c_cean_var the base addr is the address of the data
         // For c_cean_var_ptr the base addr is dereferenced to get to the data
-        generate_mem_ranges(spaces, adp, deref, &print_range, print_values);
+        generate_mem_ranges(spaces, adp, deref, &print_range);
     }
 }
-
-void noncont_struct_dump(
-    const char *spaces,
-    const char *name,
-    struct NonContigDesc *desc_p)
-{
-   OFFLOAD_TRACE(2, "%s%s NonCont Struct expression %p\n",
-                 spaces, name, desc_p->base);
-   if (desc_p) {
-       OFFLOAD_TRACE(2, "%s%s    base=%p\n", spaces, name, desc_p->base);
-       for (int i = 0; i < desc_p->interval_cnt; i++) {
-           OFFLOAD_TRACE(2,"%s    dimension %d: lower=%lld, size=%lld\n",
-               spaces, i, desc_p->interval[i].lower, desc_p->interval[i].size);
-       }
-   }
-}
-
-int64_t get_noncont_struct_size(struct NonContigDesc *desc_p)
-{
-    int index = desc_p->interval_cnt - 1;
-    return(desc_p->interval[index].lower + desc_p->interval[index].size);
-}
-
 #endif // OFFLOAD_DEBUG

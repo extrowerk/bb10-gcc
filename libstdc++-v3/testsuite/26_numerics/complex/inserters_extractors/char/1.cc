@@ -1,7 +1,7 @@
 // 2000-02-10
 // Petter Urkedal <petter@matfys.lth.se>
 
-// Copyright (C) 2000-2018 Free Software Foundation, Inc.
+// Copyright (C) 2000-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -37,6 +37,7 @@ template<typename R>
 int
 test_good(std::string str, R x, R y)
 {
+  bool test __attribute__((unused)) = true;
   std::complex<R> z;
   char ch;
   std::istringstream iss(str);
@@ -52,6 +53,7 @@ template<typename R>
 int
 test_fail(std::string str)
 {
+  bool test __attribute__((unused)) = true;
   std::complex<R> z;
   std::istringstream iss(str);
   iss >> z;
@@ -84,6 +86,7 @@ testall()
 void test01()
 {
   using namespace std;
+  bool test __attribute__((unused)) = true;
   
   complex<float> cf01(-1.1, -333.2);
   stringstream ss;
@@ -101,6 +104,8 @@ template class std::basic_string<char, gnu_char_traits, std::allocator<char> >;
 
 void test02()
 {
+  bool test __attribute__((unused)) = true;
+
   // Construct locale with specialized facets.
   typedef gnu_sstream::__num_put_type numput_type;
   typedef gnu_sstream::__num_get_type numget_type;

@@ -16,3 +16,4 @@ void bar()
         foo();
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

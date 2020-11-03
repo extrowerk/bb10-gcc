@@ -6,15 +6,15 @@ extern "C" void abort ();
 
 struct A
 {
-  virtual int a () { return 0; }
+  virtual int a () {}
 };
 struct B : public A
 {
-  virtual int b () { return 1; }
+  virtual int b () {}
 };
 struct C : public A
 {
-  virtual int c () { return 2; }
+  virtual int c () {}
 };
 struct D
 {
@@ -50,8 +50,6 @@ E::c ()
   if (x > 10)
     throw 1;
   x |= 2;
-
-  return x;
 }
 
 int

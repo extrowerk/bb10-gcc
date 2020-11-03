@@ -6,7 +6,7 @@
 @end
 float Foo;  /* { dg-error "parse error|syntax error|expected|redeclaration" } */
 
-double Bar; /* { dg-line Bar_decl } */
+double Bar;
 @interface Bar
 @end  /* { dg-error "redeclared as different kind of symbol" } */
-/* { dg-error "previous declaration of" "" { target *-*-* } Bar_decl } */
+/* { dg-error "previous declaration of" "" { target *-*-* } 9 } */

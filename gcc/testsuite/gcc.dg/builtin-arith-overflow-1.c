@@ -129,3 +129,4 @@ main ()
 /* { dg-final { scan-tree-dump-not "ADD_OVERFLOW" "optimized" } } */
 /* { dg-final { scan-tree-dump-not "SUB_OVERFLOW" "optimized" } } */
 /* { dg-final { scan-tree-dump-not "MUL_OVERFLOW" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

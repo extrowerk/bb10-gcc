@@ -1,7 +1,6 @@
-/* Miscellaneous BPABI functions.  Thumb-1 implementation, suitable for ARMv4T,
-   ARMv6-M and ARMv8-M Baseline like ISA variants.
+/* Miscellaneous BPABI functions.  ARMv6M implementation
 
-   Copyright (C) 2006-2018 Free Software Foundation, Inc.
+   Copyright (C) 2006-2015 Free Software Foundation, Inc.
    Contributed by CodeSourcery.
 
    This file is free software; you can redistribute it and/or modify it

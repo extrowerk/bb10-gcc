@@ -17,3 +17,4 @@ int g(int i, int c, struct f *ff, int g)
 }
 
 /* { dg-final { scan-tree-dump-times "Inserting PHI for result of load" 1 "phiprop" } } */
+/* { dg-final { cleanup-tree-dump "phiprop" } } */

@@ -5,39 +5,39 @@
        character(len=50) :: buffer
 
        WRITE(buffer,"(G0.5,'<')") -10000.
-       if (buffer.ne."-10000.<") STOP 1
+       if (buffer.ne."-10000.<") call abort
        WRITE(buffer,"(G1.5E5,'<')") -10000.
-       if (buffer.ne."*<") STOP 2
+       if (buffer.ne."*<") call abort
        WRITE(buffer,"(G2.5E5,'<')") -10000.
-       if (buffer.ne."**<") STOP 3
+       if (buffer.ne."**<") call abort
        WRITE(buffer,"(G3.5E5,'<')") -10000.
-       if (buffer.ne."***<") STOP 4
+       if (buffer.ne."***<") call abort
        WRITE(buffer,"(G4.5E5,'<')") -10000.
-       if (buffer.ne."****<") STOP 5
+       if (buffer.ne."****<") call abort
        WRITE(buffer,"(G5.5E5,'<')") -10000.
-       if (buffer.ne."*****<") STOP 6
+       if (buffer.ne."*****<") call abort
        WRITE(buffer,"(G6.5E5,'<')") -10000.
-       if (buffer.ne."******<") STOP 7
+       if (buffer.ne."******<") call abort
        WRITE(buffer,"(G7.5E5,'<')") -10000.
-       if (buffer.ne."*******<") STOP 8
+       if (buffer.ne."*******<") call abort
        WRITE(buffer,"(G8.5E5,'<')") -10000.
-       if (buffer.ne."********<") STOP 9
+       if (buffer.ne."********<") call abort
        WRITE(buffer,"(G9.5E5,'<')") -10000.
-       if (buffer.ne."*********<") STOP 10
+       if (buffer.ne."*********<") call abort
        WRITE(buffer,"(G10.5E5,'<')") -10000.
-       if (buffer.ne."**********<") STOP 11
+       if (buffer.ne."**********<") call abort
        WRITE(buffer,"(G11.5E5,'<')") -10000.
-       if (buffer.ne."***********<") STOP 12
+       if (buffer.ne."***********<") call abort
        WRITE(buffer,"(G12.5E5,'<')") -10000.
-       if (buffer.ne."************<") STOP 13
+       if (buffer.ne."************<") call abort
        WRITE(buffer,"(G13.5E5,'<')") -10000.
-       if (buffer.ne."*************<") STOP 14
+       if (buffer.ne."*************<") call abort
        WRITE(buffer,"(G14.5E5,'<')") -10000.
-       if (buffer.ne."-10000.       <") STOP 15
+       if (buffer.ne."-10000.       <") call abort
        WRITE(buffer,"(G15.5E5,'<')") -10000.
-       if (buffer.ne." -10000.       <") STOP 16
+       if (buffer.ne." -10000.       <") call abort
        WRITE(buffer,"(G16.5E5,'<')") -10000.
-       if (buffer.ne."  -10000.       <") STOP 17
+       if (buffer.ne."  -10000.       <") call abort
 
        STOP
        END

@@ -19,3 +19,4 @@ package body Aliasing1 is
 end Aliasing1;
 
 -- { dg-final { scan-tree-dump-not "gnat_rcheck" "optimized" } }
+-- { dg-final { cleanup-tree-dump "optimized" } }

@@ -1,7 +1,6 @@
 /* PR69569 */
 /* { dg-do compile } */
 /* { dg-options "-O3" } */
-/* { dg-require-effective-target indirect_jumps } */
 
 #include <setjmp.h>
 

@@ -48,6 +48,6 @@ PROGRAM main
   IF (ANY (arr2 /= 2 * arr) .OR. &
       ANY (arr3 /= 2 * arr) .OR. &
       ANY (arr4 /= 2 * arr)) THEN
-    STOP 1
+    CALL abort ()
   END IF
 END PROGRAM main

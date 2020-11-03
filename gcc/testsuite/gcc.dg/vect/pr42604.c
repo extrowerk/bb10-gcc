@@ -1,6 +1,6 @@
 /* PR debug/42604 */
 /* { dg-do compile } */
-/* { dg-additional-options "-O3 -g -ffast-math" } */
+/* { dg-options "-O3 -ftree-vectorize -g -ffast-math" } */
 
 unsigned *d;
 unsigned short e;
@@ -32,3 +32,4 @@ test (unsigned short *b)
     }
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

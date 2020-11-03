@@ -46,3 +46,4 @@ void test3 (int param1, int param2)
 }
 
 /* { dg-final { scan-tree-dump-times "link_error" 2 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

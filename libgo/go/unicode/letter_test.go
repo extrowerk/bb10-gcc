@@ -24,7 +24,6 @@ var upperTest = []rune{
 	0x181,
 	0x376,
 	0x3cf,
-	0x13bd,
 	0x1f2a,
 	0x2102,
 	0x2c00,
@@ -47,7 +46,6 @@ var notupperTest = []rune{
 	0x377,
 	0x387,
 	0x2150,
-	0xab7d,
 	0xffff,
 	0x10000,
 }
@@ -73,6 +71,7 @@ var letterTest = []rune{
 	0x1200,
 	0x1312,
 	0x1401,
+	0x1885,
 	0x2c00,
 	0xa800,
 	0xf900,
@@ -93,7 +92,6 @@ var notletterTest = []rune{
 	0x375,
 	0x619,
 	0x700,
-	0x1885,
 	0xfffe,
 	0x1ffff,
 	0x10ffff,
@@ -195,15 +193,6 @@ var caseTest = []caseT{
 	{UpperCase, 0x0148, 0x0147},
 	{LowerCase, 0x0148, 0x0148},
 	{TitleCase, 0x0148, 0x0147},
-
-	// Lowercase lower than uppercase.
-	// AB78;CHEROKEE SMALL LETTER GE;Ll;0;L;;;;;N;;;13A8;;13A8
-	{UpperCase, 0xab78, 0x13a8},
-	{LowerCase, 0xab78, 0xab78},
-	{TitleCase, 0xab78, 0x13a8},
-	{UpperCase, 0x13a8, 0x13a8},
-	{LowerCase, 0x13a8, 0xab78},
-	{TitleCase, 0x13a8, 0x13a8},
 
 	// Last block in the 5.1.0 table
 	// 10400;DESERET CAPITAL LETTER LONG I;Lu;0;L;;;;;N;;;;10428;
@@ -416,9 +405,6 @@ var simpleFoldTests = []string{
 	// Extra special cases: has lower/upper but no case fold.
 	"İ",
 	"ı",
-
-	// Upper comes before lower (Cherokee).
-	"\u13b0\uab80",
 }
 
 func TestSimpleFold(t *testing.T) {
@@ -431,10 +417,6 @@ func TestSimpleFold(t *testing.T) {
 			}
 			r = out
 		}
-	}
-
-	if r := SimpleFold(-42); r != -42 {
-		t.Errorf("SimpleFold(-42) = %v, want -42", r)
 	}
 }
 

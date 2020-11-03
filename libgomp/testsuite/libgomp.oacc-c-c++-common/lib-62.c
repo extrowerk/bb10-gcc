@@ -1,6 +1,5 @@
-/* { dg-do run { target openacc_nvidia_accel_selected } } */
+/* { dg-do run } */
 
-#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <openacc.h>
@@ -12,6 +11,8 @@ main (int argc, char **argv)
   int i;
   unsigned char *h;
   void *d;
+
+  acc_init (acc_device_nvidia);
 
   h = (unsigned char *) malloc (N);
 
@@ -26,7 +27,6 @@ main (int argc, char **argv)
 
   memset (&h[0], 0, N);
 
-  fprintf (stderr, "CheCKpOInT\n");
   acc_memcpy_to_device (d, h, N << 1);
 
   acc_memcpy_from_device (h, d, N);
@@ -41,9 +41,9 @@ main (int argc, char **argv)
 
   free (h);
 
+  acc_shutdown (acc_device_nvidia);
+
   return 0;
 }
 
-/* { dg-output "CheCKpOInT(\n|\r\n|\r).*" } */
-/* { dg-output "invalid size" } */
-/* { dg-shouldfail "" } */
+/* { dg-shouldfail "libgomp: invalid size" } */

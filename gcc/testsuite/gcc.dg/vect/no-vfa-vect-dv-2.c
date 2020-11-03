@@ -1,6 +1,7 @@
 /* { dg-require-effective-target vect_int } */
 
 #include <stdarg.h>
+#include <signal.h>
 #include "tree-vect.h"
 
 #define N 64
@@ -75,3 +76,4 @@ int main ()
 /* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "accesses have the same alignment." 2 "vect" { target { { vect_aligned_arrays } && {! vect_sizes_32B_16B} } } } } */
 /* { dg-final { scan-tree-dump-times "accesses have the same alignment." 1 "vect" { target { {! vect_aligned_arrays } && {vect_sizes_32B_16B} } } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

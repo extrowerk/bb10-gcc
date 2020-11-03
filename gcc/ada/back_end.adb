@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -272,24 +272,6 @@ package body Back_End is
             elsif Switch_Chars (First .. Last) = "fdump-scos" then
                Opt.Generate_SCO := True;
                Opt.Generate_SCO_Instance_Table := True;
-
-            elsif Switch_Chars (First) = 'g' then
-               Debugger_Level := 2;
-
-               if First < Last then
-                  case Switch_Chars (First + 1) is
-                     when '0' =>
-                        Debugger_Level := 0;
-                     when '1' =>
-                        Debugger_Level := 1;
-                     when '2' =>
-                        Debugger_Level := 2;
-                     when '3' =>
-                        Debugger_Level := 3;
-                     when others =>
-                        null;
-                  end case;
-               end if;
             end if;
          end if;
       end Scan_Back_End_Switches;

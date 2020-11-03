@@ -10,10 +10,9 @@
 
 # Makes egrep,grep work better in general if we put them
 # in ordinary C mode instead of what the current language is.
-LANG=C
-LC_ALL=C
-LC_CTYPE=C
-export LANG LC_ALL LC_CTYPE
+unset LANG
+export LC_ALL=C
+export LC_CTYPE=C
 
 GC=${GC:-gccgo}
 GL=${GL:-${GC-gccgo}}
@@ -27,15 +26,14 @@ NM=${NM:-nm}
 # gofiles are the test files.  pkgfiles are the source files.
 srcdir=.
 basedir=.
-goarch=""
 gofiles=""
-goos=""
 pkgfiles=""
 loop=true
 keep=false
 pkgpath=
 prefix=
 dejagnu=no
+GOARCH=""
 timeout=240
 testname=""
 bench=""
@@ -58,24 +56,6 @@ while $loop; do
 		;;
 	x--basedir=*)
 		basedir=`echo $1 | sed -e 's/^--basedir=//'`
-		shift
-		;;
-	x--goarch)
-		goarch=$2
-		shift
-		shift
-		;;
-	x--goarch=*)
-		goarch=`echo $1 | sed -e 's/^--goarch=//'`
-		shift
-		;;
-	x--goos)
-		goos=$2
-		shift
-		shift
-		;;
-	x--goos=*)
-		goos=`echo $1 | sed -e 's/^--goos=//'`
 		shift
 		;;
 	x--pkgpath)
@@ -116,6 +96,15 @@ while $loop; do
 		;;
 	x--dejagnu=*)
 		dejagnu=`echo $1 | sed -e 's/^--dejagnu=//'`
+		shift
+		;;
+	x--goarch)
+		GOARCH=$2
+		shift
+		shift
+		;;
+	x--goarch=*)
+		GOARCH=`echo $1 | sed -e 's/^--goarch=//'`
 		shift
 		;;
 	x--timeout)
@@ -218,27 +207,18 @@ x)
 		;;
 	*)
 		for f in $pkgfiles; do
-                    case $f in
-                    /*)
-                        b=`basename $f`
-                        rm -f $b
-                        cp $f $b
-                        ;;
-                    *)
-		        if test -f $basedir/$f; then
-			  b=`basename $f`
-			  rm -f $b
-			  cp $basedir/$f $b
-		        elif test -f ../../$f; then
-			  b=`basename $f`
-			  rm -f $b
-			  cp ../../$f $b
-		        else
-			  echo "file $f not found" 1>&2
-			  exit 1
-		        fi
-                        ;;
-                    esac
+		    if test -f $basedir/$f; then
+			b=`basename $f`
+			rm -f $b
+			cp $basedir/$f $b
+		    elif test -f ../../$f; then
+			b=`basename $f`
+			rm -f $b
+			cp ../../$f $b
+		    else
+			echo "file $f not found" 1>&2
+			exit 1
+		    fi
 		done
 		for f in `cd $srcdir; ls *_test.go`; do
 		    rm -f $f
@@ -262,27 +242,18 @@ x)
 		;;
 	*)
 		for f in $pkgfiles; do
-                    case $f in
-                    /*)
-                        b=`basename $f`
-                        rm -f $b
-                        cp $f $b
-                        ;;
-                    *)
-		        if test -f $basedir/$f; then
-			  b=`basename $f`
-			  rm -f $b
-			  cp $basedir/$f $b
-		        elif test -f ../../$f; then
-			  b=`basename $f`
-			  rm -f $b
-			  cp ../../$f $b
-		        else
-			  echo "file $f not found" 1>&2
-			  exit 1
-		        fi
-                        ;;
-                    esac
+		    if test -f $basedir/$f; then
+			b=`basename $f`
+			rm -f $b
+			cp $basedir/$f $b
+		    elif test -f ../../$f; then
+			b=`basename $f`
+			rm -f $b
+			cp ../../$f $b
+		    else
+			echo "file $f not found" 1>&2
+			exit 1
+		    fi
 		done
 		;;
 	esac
@@ -297,97 +268,7 @@ mkdir _test
 
 case "x$gofiles" in
 x)
-	for f in `ls *_test.go`; do
-	    tag1=`echo $f | sed -e 's/^.*_\([^_]*\)_test.go$/\1/'`
-	    tag2=`echo $f | sed -e 's/^.*_\([^_]*\)_[^_]*_test.go$/\1/'`
-	    if test x$tag1 = x$f; then
-		tag1=
-	    fi
-	    if test x$tag2 = x$f; then
-		tag2=
-	    fi
-
-	    case "$tag1" in
-	    "") ;;
-	    $goarch) ;;
-	    $goos) ;;
-	    aix | android | darwin | dragonfly | freebsd | linux | nacl | netbsd | openbsd | plan9 | solaris | windows)
-		tag1=nonmatchingtag
-		;;
-	    386 | amd64 | amd64p32 | arm | armbe | arm64 | arm64be | alpha | ia64 | m68k | ppc64 | ppc64le | mips | mipsle | mips64 | mips64le | mips64p32 | mips64p32le | ppc | riscv64 | s390 | s390x | sh | shbe | sparc | sparc64)
-		tag1=nonmatchingtag
-		;;
-	    esac
-
-	    case "$tag2" in
-	    "") ;;
-	    $goarch) ;;
-	    $goos) ;;
-	    aix | android | darwin | dragonfly | freebsd | linux | nacl | netbsd | openbsd | plan9 | solaris | windows)
-		tag2=nonmatchingtag
-		;;
-	    386 | amd64 | amd64p32 | arm | armbe | arm64 | arm64be | alpha | ia64 | m68k | ppc64 | ppc64le | mips | mipsle | mips64 | mips64le | mips64p32 | mips64p32le | ppc | riscv64 | s390 | s390x | sh | shbe | sparc | sparc64)
-		tag2=nonmatchingtag
-		;;
-	    esac
-
-	    if test x$tag1 != xnonmatchingtag -a x$tag2 != xnonmatchingtag; then
-		tags=`sed '/^package /q' < $f | grep '^// +build '`
-		omatch=true
-		first=true
-		match=false
-		for tag in $tags; do
-		    case $tag in
-		    "//")
-			;;
-		    "+build")
-			if test "$first" = "true"; then
-			    first=false
-			elif test "$match" = "false"; then
-			    omatch=false
-			fi
-			match=false
-			;;
-		    $goos | $goarch | cgo | gccgo | go1.[0-9])
-			match=true
-			;;
-		    "!"$goos | "!"$goarch | "!cgo" | "!gccgo" | "!"go1.[0-9])
-			;;
-		    *,*)
-			cmatch=true
-			for ctag in `echo $tag | sed -e 's/,/ /g'`; do
-			    case $ctag in
-			    $goos | $goarch | cgo | gccgo | go1.[0-9])
-				;;
-			    "!"$goos | "!"$goarch | "!cgo" | "!gccgo" | "!"go1.[0-9])
-				cmatch=false
-				;;
-			    "!"*)
-			        ;;
-			    *)
-				cmatch=false
-				;;
-			    esac
-			done
-			if test "$cmatch" = "true"; then
-			    match=true
-			fi
-			;;
-		    "!"*)
-			match=true
-			;;
-		    esac
-		done
-
-		if test "$match" = "false" -a "$first" = "false"; then
-		    omatch=false
-		fi
-
-		if test "$omatch" = "true"; then
-		    gofiles="$gofiles $f"
-		fi
-	    fi
-	done
+	gofiles=`ls *_test.go 2>/dev/null`
 	;;
 *)
 	xgofiles=$gofiles
@@ -506,15 +387,11 @@ localname() {
 
 {
 	text="T"
+	case "$GOARCH" in
+	ppc64*) text="[TD]" ;;
+	esac
 
-	# On systems using PPC64 ELF ABI v1 function symbols show up
-	# as descriptors in the data section.  We assume that $goarch
-	# distinguishes v1 (ppc64) from v2 (ppc64le).
-	if test "$goos" != "aix" && test "$goarch" = "ppc64"; then
-	    text="[TD]"
-	fi
-
-	symtogo='sed -e s/_test\([^A-Za-z0-9]\)/XXXtest\1/ -e s/.*_\([^_]*\.\)/\1/ -e s/XXXtest/_test/'
+	symtogo='sed -e s/_test/XXXtest/ -e s/.*_\([^_]*\.\)/\1/ -e s/XXXtest/_test/'
 
 	# test functions are named TestFoo
 	# the grep -v eliminates methods and other special names
@@ -522,18 +399,18 @@ localname() {
 	pattern='Test([^a-z].*)?'
 	# The -p option tells GNU nm not to sort.
 	# The -v option tells Solaris nm to sort by value.
-	tests=$($NM -p -v _gotest_.o $xofile | egrep " $text .*\."$pattern'$' | grep -v '[^ ]\..*\.' | fgrep -v ' __go_' | sed 's/.* //' | $symtogo)
+	tests=$($NM -p -v _gotest_.o $xofile | egrep " $text .*\."$pattern'$' | grep -v '\..*\..*\.' | fgrep -v '$' | fgrep -v ' __go_' | sed 's/.* //' | $symtogo)
 	if [ "x$tests" = x ]; then
 		echo 'gotest: warning: no tests matching '$pattern in _gotest_.o $xofile 1>&2
 		exit 2
 	fi
 	# benchmarks are named BenchmarkFoo.
 	pattern='Benchmark([^a-z].*)?'
-	benchmarks=$($NM -p -v _gotest_.o $xofile | egrep " $text .*\."$pattern'$' | grep -v '[^ ]\..*\.' | fgrep -v ' __go_' | sed 's/.* //' | $symtogo)
+	benchmarks=$($NM -p -v _gotest_.o $xofile | egrep " $text .*\."$pattern'$' | grep -v '\..*\..*\.' | fgrep -v '$' | fgrep -v ' __go_' | sed 's/.* //' | $symtogo)
 
 	# examples are named ExampleFoo
 	pattern='Example([^a-z].*)?'
-	examples=$($NM -p -v _gotest_.o $xofile | egrep " $text .*\."$pattern'$' | grep -v '[^ ]\..*\.' | fgrep -v ' __go_' | sed 's/.* //' | $symtogo)
+	examples=$($NM -p -v _gotest_.o $xofile | egrep " $text .*\."$pattern'$' | grep -v '\..*\..*\.' | fgrep -v '$' | fgrep -v ' __go_' | sed 's/.* //' | $symtogo)
 
 	# package spec
 	echo 'package main'
@@ -546,7 +423,7 @@ localname() {
 		echo 'import "./_xtest_"'
 	fi
 	echo 'import "testing"'
-	echo 'import "testing/internal/testdeps"'
+	echo 'import __regexp__ "regexp"' # rename in case tested package is called regexp
 	if ! test -n "$testmain"; then
 		echo 'import __os__ "os"'
 	fi
@@ -589,8 +466,22 @@ localname() {
 	# body
 	echo \
 '
+var matchPat string
+var matchRe *__regexp__.Regexp
+
+func matchString(pat, str string) (result bool, err error) {
+	if matchRe == nil || matchPat != pat {
+		matchPat = pat
+		matchRe, err = __regexp__.Compile(matchPat)
+		if err != nil {
+			return
+		}
+	}
+	return matchRe.MatchString(str), nil
+}
+
 func main() {
-	m := testing.MainStart(testdeps.TestDeps{}, tests, benchmarks, examples)
+	m := testing.MainStart(matchString, tests, benchmarks, examples)
 '
 	if test -n "$testmain"; then
 		echo "	${testmain}(m)"
@@ -613,7 +504,6 @@ xno)
 	fi
 	${GL} *.o ${GOLIBS}
 
-	set +e
 	if test "$bench" = ""; then
 		if test "$trace" = "true"; then
 		    echo ./a.out -test.short -test.timeout=${timeout}s "$@"
@@ -628,12 +518,7 @@ xno)
 		wait $pid
 		status=$?
 		if ! test -f gotest-timeout; then
-		    sleeppid=`ps -o pid,ppid,comm | grep " $alarmpid " | grep sleep | sed -e 's/ *\([0-9]*\) .*$/\1/'`
 		    kill $alarmpid
-		    wait $alarmpid
-		    if test "$sleeppid" != ""; then
-			kill $sleeppid
-		    fi
 		fi
 	else
 		if test "$trace" = "true"; then

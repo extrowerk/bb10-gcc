@@ -85,3 +85,4 @@ int main (int argc, char *argv[])
 }
 
 /* { dg-final { scan-ipa-dump "Discovered a virtual call to a known target.*B::foo"  "cp"  } } */
+/* { dg-final { cleanup-ipa-dump "cp" } } */

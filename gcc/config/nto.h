@@ -22,14 +22,11 @@ Boston, MA 02110-1301, USA.  */
 #undef TARGET_NEUTRINO
 #define TARGET_NEUTRINO 1
 
-/**
-    tooldir_base_prefix = concat (qnx_host, "/usr/", NULL); \
-**/
 #undef GCC_DRIVER_HOST_INITIALIZATION
 #define GCC_DRIVER_HOST_INITIALIZATION \
 do { \
-    const char *qnx_host = env.get ("QNX_HOST"); \
-    const char *qnx_target = env.get ("QNX_TARGET"); \
+    char *qnx_host = getenv ("QNX_HOST"); \
+    char *qnx_target = getenv ("QNX_TARGET"); \
     if (qnx_host == NULL && qnx_target == NULL) \
       fatal_error (input_location, "error: environment variables QNX_HOST and QNX_TARGET not defined"); \
     if (qnx_host == NULL) \
@@ -40,6 +37,7 @@ do { \
     standard_exec_prefix = concat (qnx_host, "/usr/lib/gcc/", NULL); \
     standard_startfile_prefix = concat (qnx_host, "/usr/lib/", NULL); \
     standard_bindir_prefix = concat (qnx_host, "/usr/bin/", NULL); \
+    tooldir_base_prefix = concat (qnx_host, "/usr/", NULL); \
     add_prefix (&exec_prefixes, standard_bindir_prefix, NULL, PREFIX_PRIORITY_LAST, 0, 0); \
 } while (0)
 
@@ -157,10 +155,11 @@ do {                                            \
 #undef GOMP_SELF_SPECS
 #define GOMP_SELF_SPECS ""
 
+#undef LINK_GCC_C_SEQUENCE_SPEC
+#define LINK_GCC_C_SEQUENCE_SPEC \
+  "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
+
 #if defined(HAVE_LD_EH_FRAME_HDR)
-#  if defined LINK_EH_SPEC
-#    undef LINK_EH_SPEC
-#  endif
 #define LINK_EH_SPEC "%{!static:--eh-frame-hdr} "
 #endif
 
@@ -169,15 +168,16 @@ do {                                            \
 #undef GPLUSPLUS_TOOL_INCLUDE_DIR
 #undef GPLUSPLUS_BACKWARD_INCLUDE_DIR
 
-/* Define LIBSTDCXX so we can select the implementation based on -stdlib */
-struct cl_decoded_option;
-extern const char *nto_select_libstdcxx(struct cl_decoded_option* options, unsigned int options_count);
-#define LIBSTDCXX nto_select_libstdcxx(new_decoded_options, j)
+/* Define LIBSTDCXX so we can select the implementation baded on -stdlib */
+extern const char *nto_select_libstdcxx(void);
+#define LIBSTDCXX nto_select_libstdcxx()
 #define LIBSTDCXX_PROFILE LIBSTDCXX
 extern const char *nto_select_libstdcxx_static(void);
 #define LIBSTDCXX_STATIC nto_select_libstdcxx_static()
 
+extern void nto_handle_cxx_option (size_t code, const char *arg);
+#define TARGET_HANDLE_CXX_OPTION nto_handle_cxx_option
+
 #undef LIB_SPEC
 #define LIB_SPEC \
-  "%{!symbolic: -lc %{shared:-lcS} %{" PIE_SPEC ":-lcS} %{no-pie:-lc}}"
-
+  "%{!symbolic: -lc -Bstatic %{shared:-lcS} %{" PIE_SPEC ":-lcS} %{" NO_PIE_SPEC ":-lc}}"

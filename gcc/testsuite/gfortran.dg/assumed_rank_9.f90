@@ -35,7 +35,7 @@ program main
   call fc(null())
   call fc(y)
   call fc(yac)
-  if (j /= 2) STOP 1
+  if (j /= 2) call abort ()
 
   j = 0
   call gc(null())
@@ -43,21 +43,21 @@ program main
   call gc(yac)
   deallocate (yac)
   call gc(yac)
-  if (j /= 2) STOP 2
+  if (j /= 2) call abort ()
 
   j = 0
   call hc(yac)
   allocate (yac)
   yac%i = 489
   call hc(yac)
-  if (j /= 1) STOP 3
+  if (j /= 1) call abort ()
 
   j = 0
   call ft()
   call ft(null())
   call ft(y)
   call ft(yac)
-  if (j /= 2) STOP 4
+  if (j /= 2) call abort ()
 
   j = 0
   call gt(null())
@@ -65,14 +65,14 @@ program main
   call gt(yac)
   deallocate (yac)
   call gt(yac)
-  if (j /= 2) STOP 5
+  if (j /= 2) call abort ()
 
   j = 0
   call ht(yac)
   allocate (yac)
   yac%i = 489
   call ht(yac)
-  if (j /= 1) STOP 6
+  if (j /= 1) call abort ()
 
 contains
 
@@ -80,8 +80,8 @@ contains
     class(t), optional :: x(..)
 
     if (.not. present (x)) return
-    if (.not. SAME_TYPE_AS (x, yac)) STOP 7
-    if (rank (x) /= 0) STOP 1
+    if (.not. SAME_TYPE_AS (x, yac)) call abort ()
+    if (rank (x) /= 0) call abort
     call check2 (x)
     j = j + 1
   end subroutine
@@ -90,8 +90,8 @@ contains
     class(t), pointer, intent(in) :: x(..)
 
     if (.not. associated (x)) return
-    if (.not. SAME_TYPE_AS (x, yac)) STOP 8
-    if (rank (x) /= 0) STOP 9
+    if (.not. SAME_TYPE_AS (x, yac)) call abort ()
+    if (rank (x) /= 0) call abort ()
     call check2 (x)
     j = j + 1
   end subroutine
@@ -100,8 +100,8 @@ contains
     class(t), allocatable :: x(..)
 
     if (.not. allocated (x)) return
-    if (.not. SAME_TYPE_AS (x, yac)) STOP 10
-    if (rank (x) /= 0) STOP 2
+    if (.not. SAME_TYPE_AS (x, yac)) call abort ()
+    if (rank (x) /= 0) call abort
     call check2 (x)
     j = j + 1
   end subroutine
@@ -110,8 +110,8 @@ contains
     type(t), optional :: x(..)
 
     if (.not. present (x)) return
-    if (.not. SAME_TYPE_AS (x, yac)) STOP 11
-    if (rank (x) /= 0) STOP 3
+    if (.not. SAME_TYPE_AS (x, yac)) call abort ()
+    if (rank (x) /= 0) call abort
     call check2 (x)
     j = j + 1
   end subroutine
@@ -120,8 +120,8 @@ contains
     type(t), pointer, intent(in) :: x(..)
 
     if (.not. associated (x)) return
-    if (.not. SAME_TYPE_AS (x, yac)) STOP 12
-    if (rank (x) /= 0) STOP 13
+    if (.not. SAME_TYPE_AS (x, yac)) call abort ()
+    if (rank (x) /= 0) call abort ()
     call check2 (x)
     j = j + 1
   end subroutine
@@ -130,8 +130,8 @@ contains
     type(t), allocatable :: x(..)
 
     if (.not. allocated (x)) return
-    if (.not. SAME_TYPE_AS (x, yac)) STOP 14
-    if (rank (x) /= 0) STOP 4
+    if (.not. SAME_TYPE_AS (x, yac)) call abort ()
+    if (rank (x) /= 0) call abort
     call check2 (x)
     j = j + 1
   end subroutine

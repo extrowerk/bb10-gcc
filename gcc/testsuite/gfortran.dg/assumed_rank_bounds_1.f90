@@ -1,6 +1,6 @@
 ! { dg-do run }
 !
-! Test the behavior of lbound, ubound of shape with assumed rank arguments
+! Test the behaviour of lbound, ubound of shape with assumed rank arguments
 ! in an array context (without DIM argument).
 !
 
@@ -27,36 +27,36 @@ contains
 
     !print *, lbound(arg)
     !print *, id(lbound(arg))
-    if (any(lbound(arg) /= [1, 1])) STOP 1
-    if (any(id(lbound(arg)) /= [1, 1])) STOP 2
+    if (any(lbound(arg) /= [1, 1])) call abort
+    if (any(id(lbound(arg)) /= [1, 1])) call abort
     buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     write(buffer,*) lbound(arg)
-    if (buffer /= '           1           1') STOP 3
+    if (buffer /= '           1           1') call abort
     buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     write(buffer,*) id(lbound(arg))
-    if (buffer /= '           1           1') STOP 4
+    if (buffer /= '           1           1') call abort
 
     !print *, ubound(arg)
     !print *, id(ubound(arg))
-    if (any(ubound(arg) /= [3, 8])) STOP 5
-    if (any(id(ubound(arg)) /= [3, 8])) STOP 6
+    if (any(ubound(arg) /= [3, 8])) call abort
+    if (any(id(ubound(arg)) /= [3, 8])) call abort
     buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     write(buffer,*) ubound(arg)
-    if (buffer /= '           3           8') STOP 7
+    if (buffer /= '           3           8') call abort
     buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     write(buffer,*) id(ubound(arg))
-    if (buffer /= '           3           8') STOP 8
+    if (buffer /= '           3           8') call abort
 
     !print *, shape(arg)
     !print *, id(shape(arg))
-    if (any(shape(arg) /= [3, 8])) STOP 9
-    if (any(id(shape(arg)) /= [3, 8])) STOP 10
+    if (any(shape(arg) /= [3, 8])) call abort
+    if (any(id(shape(arg)) /= [3, 8])) call abort
     buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     write(buffer,*) shape(arg)
-    if (buffer /= '           3           8') STOP 11
+    if (buffer /= '           3           8') call abort
     buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     write(buffer,*) id(shape(arg))
-    if (buffer /= '           3           8') STOP 12
+    if (buffer /= '           3           8') call abort
 
   end subroutine foo
   subroutine bar(arg)
@@ -64,36 +64,36 @@ contains
 
     !print *, lbound(arg)
     !print *, id(lbound(arg))
-    if (any(lbound(arg) /= [2, -2])) STOP 13
-    if (any(id(lbound(arg)) /= [2, -2])) STOP 14
+    if (any(lbound(arg) /= [2, -2])) call abort
+    if (any(id(lbound(arg)) /= [2, -2])) call abort
     buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     write(buffer,*) lbound(arg)
-    if (buffer /= '           2          -2') STOP 15
+    if (buffer /= '           2          -2') call abort
     buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     write(buffer,*) id(lbound(arg))
-    if (buffer /= '           2          -2') STOP 16
+    if (buffer /= '           2          -2') call abort
 
     !print *, ubound(arg)
     !print *, id(ubound(arg))
-    if (any(ubound(arg) /= [4, 5])) STOP 17
-    if (any(id(ubound(arg)) /= [4, 5])) STOP 18
+    if (any(ubound(arg) /= [4, 5])) call abort
+    if (any(id(ubound(arg)) /= [4, 5])) call abort
     buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     write(buffer,*) ubound(arg)
-    if (buffer /= '           4           5') STOP 19
+    if (buffer /= '           4           5') call abort
     buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     write(buffer,*) id(ubound(arg))
-    if (buffer /= '           4           5') STOP 20
+    if (buffer /= '           4           5') call abort
 
     !print *, shape(arg)
     !print *, id(shape(arg))
-    if (any(shape(arg) /= [3, 8])) STOP 21
-    if (any(id(shape(arg)) /= [3, 8])) STOP 22
+    if (any(shape(arg) /= [3, 8])) call abort
+    if (any(id(shape(arg)) /= [3, 8])) call abort
     buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     write(buffer,*) shape(arg)
-    if (buffer /= '           3           8') STOP 23
+    if (buffer /= '           3           8') call abort
     buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     write(buffer,*) id(shape(arg))
-    if (buffer /= '           3           8') STOP 24
+    if (buffer /= '           3           8') call abort
 
   end subroutine bar
   subroutine baz(arg)
@@ -101,36 +101,36 @@ contains
 
     !print *, lbound(arg)
     !print *, id(lbound(arg))
-    if (any(lbound(arg) /= [2, -2])) STOP 25
-    if (any(id(lbound(arg)) /= [2, -2])) STOP 26
+    if (any(lbound(arg) /= [2, -2])) call abort
+    if (any(id(lbound(arg)) /= [2, -2])) call abort
     buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     write(buffer,*) lbound(arg)
-    if (buffer /= '           2          -2') STOP 27
+    if (buffer /= '           2          -2') call abort
     buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     write(buffer,*) id(lbound(arg))
-    if (buffer /= '           2          -2') STOP 28
+    if (buffer /= '           2          -2') call abort
 
     !print *, ubound(arg)
     !print *, id(ubound(arg))
-    if (any(ubound(arg) /= [4, 5])) STOP 29
-    if (any(id(ubound(arg)) /= [4, 5])) STOP 30
+    if (any(ubound(arg) /= [4, 5])) call abort
+    if (any(id(ubound(arg)) /= [4, 5])) call abort
     buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     write(buffer,*) ubound(arg)
-    if (buffer /= '           4           5') STOP 31
+    if (buffer /= '           4           5') call abort
     buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     write(buffer,*) id(ubound(arg))
-    if (buffer /= '           4           5') STOP 32
+    if (buffer /= '           4           5') call abort
 
     !print *, shape(arg)
     !print *, id(shape(arg))
-    if (any(shape(arg) /= [3, 8])) STOP 33
-    if (any(id(shape(arg)) /= [3, 8])) STOP 34
+    if (any(shape(arg) /= [3, 8])) call abort
+    if (any(id(shape(arg)) /= [3, 8])) call abort
     buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     write(buffer,*) shape(arg)
-    if (buffer /= '           3           8') STOP 35
+    if (buffer /= '           3           8') call abort
     buffer = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     write(buffer,*) id(shape(arg))
-    if (buffer /= '           3           8') STOP 36
+    if (buffer /= '           3           8') call abort
 
   end subroutine baz
   elemental function id(arg)

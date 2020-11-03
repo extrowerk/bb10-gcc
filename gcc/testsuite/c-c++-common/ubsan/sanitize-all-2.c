@@ -38,3 +38,4 @@ main ()
 
 /* { dg-final { scan-tree-dump-not "__ubsan_" "optimized" } } */
 /* { dg-final { scan-tree-dump-not "UBSAN_CHECK_" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

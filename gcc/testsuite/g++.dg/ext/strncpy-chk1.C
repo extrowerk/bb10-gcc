@@ -1,7 +1,7 @@
-// PR c++/40502 - [4.5 Regression] crash in cp_diagnostic_starter
+// PR c++/40502
 // { dg-do compile }
 // { dg-options "-O2" }
-// { dg-skip-if "packed attribute missing for struct A" { "epiphany-*-*" } }
+// { dg-skip-if "packed attribute missing for struct A" { "epiphany-*-*" } { "*" } { "" } }
 
 struct A { char x[12], y[35]; };
 struct B { char z[50]; };
@@ -9,8 +9,7 @@ struct B { char z[50]; };
 inline void
 foo (char *dest, const char *__restrict src, __SIZE_TYPE__ n)
 {
-  // This triggers a -Wstringop-overflow warning (pruned below).
-  __builtin___strncpy_chk (dest, src, n, __builtin_object_size (dest, 0));
+  __builtin___strncpy_chk (dest, src, n, __builtin_object_size (dest, 0));	// { dg-warning "will always overflow" }
 }
 
 void bar (const char *, int);
@@ -31,5 +30,3 @@ test ()
 {
   baz (0);
 }
-
-// { dg-prune-output "\\\[-Wstringop-overflow=]" }

@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-O -ffast-math -fdump-tree-optimized" } */
+/* { dg-options "-O -ffast-math -fdump-tree-gimple" } */
 
 extern double sqrt (double);
 extern double pow (double, double);
@@ -15,5 +15,6 @@ int main ()
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "sqrt" 0 "optimized" } } */
-/* { dg-final { scan-tree-dump-times "pow" 0 "optimized" } } */
+/* { dg-final { scan-tree-dump-times "sqrt" 0 "gimple" } } */
+/* { dg-final { scan-tree-dump-times "pow" 0 "gimple" } } */
+/* { dg-final { cleanup-tree-dump "gimple" } } */

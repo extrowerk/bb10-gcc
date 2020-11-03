@@ -1,6 +1,6 @@
 // The template and inlines for the -*- C++ -*- internal _Meta class.
 
-// Copyright (C) 1997-2018 Free Software Foundation, Inc.
+// Copyright (C) 1997-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -439,6 +439,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return _Expr<_Closure, _Tp>(_Closure(__v));                        \
     }
 
+#undef cos
+#undef cosh
+#undef sin
+#undef atan
+#undef exp
+#undef log
+
+/*
     _DEFINE_EXPR_UNARY_FUNCTION(abs, _Abs)
     _DEFINE_EXPR_UNARY_FUNCTION(cos, _Cos)
     _DEFINE_EXPR_UNARY_FUNCTION(acos, _Acos)
@@ -453,7 +461,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     _DEFINE_EXPR_UNARY_FUNCTION(log, _Log)
     _DEFINE_EXPR_UNARY_FUNCTION(log10, _Log10)
     _DEFINE_EXPR_UNARY_FUNCTION(sqrt, _Sqrt)
-
+*/
 #undef _DEFINE_EXPR_UNARY_FUNCTION
 
 #define _DEFINE_EXPR_BINARY_FUNCTION(_Fun, _UFun)		       \

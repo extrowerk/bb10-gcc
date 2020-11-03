@@ -1,9 +1,8 @@
-/* { dg-require-effective-target label_values } */
-
 int tab[9];
 execute(oip, ip)
      unsigned short *oip, *ip;
 {
+#ifndef NO_LABEL_VALUES
   int x = 0;
   int *xp = tab;
 base:
@@ -15,6 +14,12 @@ base:
     }
   *xp++ = ip - oip;
   goto *(&&base + *ip++);
+#else
+  tab[0] = 0;
+  tab[1] = 1;
+  tab[2] = 2;
+  tab[3] = 0;
+#endif
 }
 
 main()

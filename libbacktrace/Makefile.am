@@ -1,17 +1,17 @@
 # Makefile.am -- Backtrace Makefile.
-# Copyright (C) 2012-2018 Free Software Foundation, Inc.
+# Copyright (C) 2012-2015 Free Software Foundation, Inc.
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
 # met:
 
 #     (1) Redistributions of source code must retain the above copyright
-#     notice, this list of conditions and the following disclaimer.
+#     notice, this list of conditions and the following disclaimer. 
 
 #     (2) Redistributions in binary form must reproduce the above copyright
 #     notice, this list of conditions and the following disclaimer in
 #     the documentation and/or other materials provided with the
-#     distribution.
+#     distribution.  
 
 #     (3) The name of the author may not be used to
 #     endorse or promote products derived from this software without
@@ -56,9 +56,7 @@ BACKTRACE_FILES = \
 
 FORMAT_FILES = \
 	elf.c \
-	pecoff.c \
-	unknown.c \
-	xcoff.c
+	unknown.c
 
 VIEW_FILES = \
 	read.c \
@@ -90,7 +88,7 @@ TESTS = $(check_PROGRAMS)
 
 if NATIVE
 
-btest_SOURCES = btest.c testlib.c
+btest_SOURCES = btest.c
 btest_CFLAGS = $(AM_CFLAGS) -g -O
 btest_LDADD = libbacktrace.la
 
@@ -100,64 +98,6 @@ stest_SOURCES = stest.c
 stest_LDADD = libbacktrace.la
 
 check_PROGRAMS += stest
-
-ztest_SOURCES = ztest.c testlib.c
-ztest_CFLAGS = -DSRCDIR=\"$(srcdir)\"
-ztest_LDADD = libbacktrace.la
-
-if HAVE_ZLIB
-ztest_LDADD += -lz
-endif
-ztest_LDADD += $(CLOCK_GETTIME_LINK)
-
-check_PROGRAMS += ztest
-
-edtest_SOURCES = edtest.c edtest2_build.c testlib.c
-edtest_LDADD = libbacktrace.la
-
-check_PROGRAMS += edtest
-
-edtest2_build.c: gen_edtest2_build; @true
-gen_edtest2_build: $(srcdir)/edtest2.c
-	cat $(srcdir)/edtest2.c > tmp-edtest2_build.c
-	$(SHELL) $(srcdir)/../move-if-change tmp-edtest2_build.c edtest2_build.c
-	echo timestamp > $@
-
-if HAVE_PTHREAD
-
-check_PROGRAMS += ttest
-
-ttest_SOURCES = ttest.c testlib.c
-ttest_CFLAGS = $(AM_CFLAGS) -pthread
-ttest_LDADD = libbacktrace.la
-
-endif HAVE_PTHREAD
-
-if HAVE_OBJCOPY_DEBUGLINK
-
-TESTS += dtest
-
-dtest: btest
-	$(OBJCOPY) --only-keep-debug btest btest.debug
-	$(OBJCOPY) --strip-debug --add-gnu-debuglink=btest.debug btest dtest
-
-endif HAVE_OBJCOPY_DEBUGLINK
-
-if HAVE_COMPRESSED_DEBUG
-
-ctestg_SOURCES = btest.c testlib.c
-ctestg_CFLAGS = $(AM_CFLAGS) -g
-ctestg_LDFLAGS = -Wl,--compress-debug-sections=zlib-gnu
-ctestg_LDADD = libbacktrace.la
-
-ctesta_SOURCES = btest.c testlib.c
-ctesta_CFLAGS = $(AM_CFLAGS) -g
-ctesta_LDFLAGS = -Wl,--compress-debug-sections=zlib-gabi
-ctesta_LDADD = libbacktrace.la
-
-check_PROGRAMS += ctestg ctesta
-
-endif
 
 endif NATIVE
 
@@ -175,7 +115,7 @@ endif NATIVE
 
 INCDIR = $(top_srcdir)/../include
 alloc.lo: config.h backtrace.h internal.h
-backtrace.lo: config.h backtrace.h internal.h
+backtrace.lo: config.h backtrace.h
 btest.lo: (INCDIR)/filenames.h backtrace.h backtrace-supported.h
 dwarf.lo: config.h $(INCDIR)/dwarf2.h $(INCDIR)/dwarf2.def \
 	$(INCDIR)/filenames.h backtrace.h internal.h
@@ -184,14 +124,9 @@ fileline.lo: config.h backtrace.h internal.h
 mmap.lo: config.h backtrace.h internal.h
 mmapio.lo: config.h backtrace.h internal.h
 nounwind.lo: config.h internal.h
-pecoff.lo: config.h backtrace.h internal.h
 posix.lo: config.h backtrace.h internal.h
 print.lo: config.h backtrace.h internal.h
 read.lo: config.h backtrace.h internal.h
 simple.lo: config.h backtrace.h internal.h
-sort.lo: config.h backtrace.h internal.h
-stest.lo: config.h backtrace.h internal.h
 state.lo: config.h backtrace.h backtrace-supported.h internal.h
 unknown.lo: config.h backtrace.h internal.h
-xcoff.lo: config.h backtrace.h internal.h
-

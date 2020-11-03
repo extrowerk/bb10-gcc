@@ -1,5 +1,5 @@
 /* Specific flags and argument handling of the C++ front end.
-   Copyright (C) 1996-2018 Free Software Foundation, Inc.
+   Copyright (C) 1996-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "gcc.h"
 #include "opts.h"
 
 /* This bit is set if we saw a `-xfoo' language specification.  */
@@ -53,6 +54,10 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 #ifndef LIBSTDCXX_STATIC
 #define LIBSTDCXX_STATIC NULL
+#endif
+
+#ifndef TARGET_HANDLE_CXX_OPTION
+#define TARGET_HANDLE_CXX_OPTION(c,v)
 #endif
 
 void
@@ -206,7 +211,6 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 	  library = library >= 0 ? 2 : library;
 	  args[i] |= SKIPOPT;
 	  break;
-
 	case OPT_SPECIAL_input_file:
 	  {
 	    int len;
@@ -253,6 +257,7 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 	  }
 	  break;
 	}
+      TARGET_HANDLE_CXX_OPTION(decoded_options[i].opt_index, arg);
     }
 
   /* There's no point adding -shared-libgcc if we don't have a shared
@@ -343,8 +348,8 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 	}
 #endif
       generate_option (OPT_l,
-		       saw_profile_flag ? LIBSTDCXX_PROFILE : LIBSTDCXX, 1,
-		       CL_DRIVER, &new_decoded_options[j]);
+		       saw_profile_flag ? LIBSTDCXX_PROFILE : LIBSTDCXX,
+		       1, CL_DRIVER, &new_decoded_options[j]);
       added_libraries++;
       j++;
       /* Add target-dependent static library, if necessary.  */

@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -ffast-math -ftree-vectorize -mavx -mtune=generic -mfpmath=sse -mrecip --param max-completely-peel-times=1" } */
+/* { dg-options "-O2 -ffast-math -ftree-vectorize -mavx -mtune=generic -mfpmath=sse -mrecip" } */
 
 float a[32];
 float b[32];

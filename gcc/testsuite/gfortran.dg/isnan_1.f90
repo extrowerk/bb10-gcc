@@ -2,20 +2,20 @@
 !
 ! { dg-do run }
 ! { dg-add-options ieee }
-! { dg-skip-if "NaN not supported" { spu-*-* } }
+! { dg-skip-if "NaN not supported" { spu-*-* } { "*" } { "" } }
 !
   implicit none
   real :: x
   x = -1.0
   x = sqrt(x)
-  if (.not. isnan(x)) STOP 1
+  if (.not. isnan(x)) call abort
   x = 0.0
   x = x / x
-  if (.not. isnan(x)) STOP 2
+  if (.not. isnan(x)) call abort
 
   x = 5.0
-  if (isnan(x)) STOP 3
+  if (isnan(x)) call abort
   x = huge(x)
   x = 2*x
-  if (isnan(x)) STOP 4
+  if (isnan(x)) call abort
 end

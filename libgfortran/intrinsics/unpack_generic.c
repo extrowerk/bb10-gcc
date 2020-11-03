@@ -1,5 +1,5 @@
 /* Generic implementation of the UNPACK intrinsic
-   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran runtime library (libgfortran).
@@ -24,6 +24,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
 #include "libgfortran.h"
+#include <stdlib.h>
 #include <assert.h>
 #include <string.h>
 
@@ -222,6 +223,7 @@ unpack1 (gfc_array_char *ret, const gfc_array_char *vector,
     {
     case GFC_DTYPE_LOGICAL_1:
     case GFC_DTYPE_INTEGER_1:
+    case GFC_DTYPE_DERIVED_1:
       unpack1_i1 ((gfc_array_i1 *) ret, (gfc_array_i1 *) vector,
 		  mask, (gfc_array_i1 *) field);
       return;
@@ -316,16 +318,7 @@ unpack1 (gfc_array_char *ret, const gfc_array_char *vector,
 # endif
 #endif
 
-    }
-
-  switch (GFC_DESCRIPTOR_SIZE(ret))
-    {
-    case 1:
-      unpack1_i1 ((gfc_array_i1 *) ret, (gfc_array_i1 *) vector,
-		  mask, (gfc_array_i1 *) field);
-      return;
-
-    case 2:
+    case GFC_DTYPE_DERIVED_2:
       if (GFC_UNALIGNED_2(ret->base_addr) || GFC_UNALIGNED_2(vector->base_addr)
 	  || GFC_UNALIGNED_2(field->base_addr))
 	break;
@@ -336,7 +329,7 @@ unpack1 (gfc_array_char *ret, const gfc_array_char *vector,
 	  return;
 	}
 
-    case 4:
+    case GFC_DTYPE_DERIVED_4:
       if (GFC_UNALIGNED_4(ret->base_addr) || GFC_UNALIGNED_4(vector->base_addr)
 	  || GFC_UNALIGNED_4(field->base_addr))
 	break;
@@ -347,7 +340,7 @@ unpack1 (gfc_array_char *ret, const gfc_array_char *vector,
 	  return;
 	}
 
-    case 8:
+    case GFC_DTYPE_DERIVED_8:
       if (GFC_UNALIGNED_8(ret->base_addr) || GFC_UNALIGNED_8(vector->base_addr)
 	  || GFC_UNALIGNED_8(field->base_addr))
 	break;
@@ -359,7 +352,7 @@ unpack1 (gfc_array_char *ret, const gfc_array_char *vector,
 	}
 
 #ifdef HAVE_GFC_INTEGER_16
-    case 16:
+    case GFC_DTYPE_DERIVED_16:
       if (GFC_UNALIGNED_16(ret->base_addr)
 	  || GFC_UNALIGNED_16(vector->base_addr)
 	  || GFC_UNALIGNED_16(field->base_addr))
@@ -371,8 +364,6 @@ unpack1 (gfc_array_char *ret, const gfc_array_char *vector,
 	  return;
 	}
 #endif
-    default:
-      break;
     }
 
   unpack_internal (ret, vector, mask, field, size);
@@ -443,6 +434,7 @@ unpack0 (gfc_array_char *ret, const gfc_array_char *vector,
     {
     case GFC_DTYPE_LOGICAL_1:
     case GFC_DTYPE_INTEGER_1:
+    case GFC_DTYPE_DERIVED_1:
       unpack0_i1 ((gfc_array_i1 *) ret, (gfc_array_i1 *) vector,
 		  mask, (GFC_INTEGER_1 *) field);
       return;
@@ -537,16 +529,7 @@ unpack0 (gfc_array_char *ret, const gfc_array_char *vector,
 # endif
 #endif
 
-    }
-
-  switch (GFC_DESCRIPTOR_SIZE(ret))
-    {
-    case 1:
-      unpack0_i1 ((gfc_array_i1 *) ret, (gfc_array_i1 *) vector,
-		  mask, (GFC_INTEGER_1 *) field);
-      return;
-
-    case 2:
+    case GFC_DTYPE_DERIVED_2:
       if (GFC_UNALIGNED_2(ret->base_addr) || GFC_UNALIGNED_2(vector->base_addr)
 	  || GFC_UNALIGNED_2(field))
 	break;
@@ -557,7 +540,7 @@ unpack0 (gfc_array_char *ret, const gfc_array_char *vector,
 	  return;
 	}
 
-    case 4:
+    case GFC_DTYPE_DERIVED_4:
       if (GFC_UNALIGNED_4(ret->base_addr) || GFC_UNALIGNED_4(vector->base_addr)
 	  || GFC_UNALIGNED_4(field))
 	break;
@@ -568,7 +551,7 @@ unpack0 (gfc_array_char *ret, const gfc_array_char *vector,
 	  return;
 	}
 
-    case 8:
+    case GFC_DTYPE_DERIVED_8:
       if (GFC_UNALIGNED_8(ret->base_addr) || GFC_UNALIGNED_8(vector->base_addr)
 	  || GFC_UNALIGNED_8(field))
 	break;
@@ -580,7 +563,7 @@ unpack0 (gfc_array_char *ret, const gfc_array_char *vector,
 	}
 
 #ifdef HAVE_GFC_INTEGER_16
-    case 16:
+    case GFC_DTYPE_DERIVED_16:
       if (GFC_UNALIGNED_16(ret->base_addr)
 	  || GFC_UNALIGNED_16(vector->base_addr)
 	  || GFC_UNALIGNED_16(field))
@@ -592,10 +575,11 @@ unpack0 (gfc_array_char *ret, const gfc_array_char *vector,
 	  return;
 	}
 #endif
+
     }
 
   memset (&tmp, 0, sizeof (tmp));
-  GFC_DTYPE_CLEAR(&tmp);
+  tmp.dtype = 0;
   tmp.base_addr = field;
   unpack_internal (ret, vector, mask, &tmp, GFC_DESCRIPTOR_SIZE (vector));
 }
@@ -619,7 +603,7 @@ unpack0_char (gfc_array_char *ret,
     unpack_bounds (ret, vector, mask, NULL);
 
   memset (&tmp, 0, sizeof (tmp));
-  GFC_DTYPE_CLEAR(&tmp);
+  tmp.dtype = 0;
   tmp.base_addr = field;
   unpack_internal (ret, vector, mask, &tmp, vector_length);
 }
@@ -643,7 +627,7 @@ unpack0_char4 (gfc_array_char *ret,
     unpack_bounds (ret, vector, mask, NULL);
 
   memset (&tmp, 0, sizeof (tmp));
-  GFC_DTYPE_CLEAR(&tmp);
+  tmp.dtype = 0;
   tmp.base_addr = field;
   unpack_internal (ret, vector, mask, &tmp,
 		   vector_length * sizeof (gfc_char4_t));

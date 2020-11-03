@@ -1,4 +1,4 @@
-/* Copyright (C) 1992-2018 Free Software Foundation, Inc.
+/* Copyright (C) 1992-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -30,6 +30,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 /* We use _GCC_LIMITS_H_ because we want this not to match
    any macros that the system's limits.h uses for its own purposes.  */
+
 #ifndef _GCC_LIMITS_H_  /* Terminated in limity.h.  */
 #define _GCC_LIMITS_H_
 

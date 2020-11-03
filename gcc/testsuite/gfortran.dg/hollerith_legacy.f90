@@ -24,31 +24,31 @@ i = 4hHell
 l = 4Ho wo	! { dg-warning "has undefined result" }
 r = 4Hrld! 
 write (line, '(3A4)') i, l, r
-if (line .ne. 'Hello world!') STOP 1
+if (line .ne. 'Hello world!') call abort
 i = 2Hab
 r = 2Hab
 l = 2Hab	! { dg-warning "has undefined result" }
 c = 2Hab
 write (line, '(3A4, 8A)') i, l, r, c
-if (line .ne. 'ab  ab  ab  ab      ') STOP 2
+if (line .ne. 'ab  ab  ab  ab      ') call abort
 
 write(line, '(4A8, "!")' ) x
-if (line .ne. 'abcdefghijklmnopqrstuvwxyz012345!') STOP 3
+if (line .ne. 'abcdefghijklmnopqrstuvwxyz012345!') call abort
 
 write (line, a) 3
-if (line .ne. '  3') STOP 4
+if (line .ne. '  3') call abort
 write (line, a (1,2)) 4
-if (line .ne. '   4') STOP 5
+if (line .ne. '   4') call abort
 write (line, z) 5
-if (line .ne. '    5') STOP 6
+if (line .ne. '    5') call abort
 write (line, z1) 6
-if (line .ne. '     6') STOP 7
+if (line .ne. '     6') call abort
 write (line, z2) 7
-if (line .ne. '      7') STOP 8
+if (line .ne. '      7') call abort
 write (line, z2 (1,2)) 8
-if (line .ne. '       8') STOP 9
+if (line .ne. '       8') call abort
 write (line, '(16A)') z2
-if (line .ne. '(i7)xxxx(i8)xxxx') STOP 10
+if (line .ne. '(i7)xxxx(i8)xxxx') call abort
 call test (8h   hello)
 end
 
@@ -57,5 +57,5 @@ integer(kind=8) h
 character*80 line
 
 write (line, '(8a)') h
-if (line .ne. '   hello') STOP 11
+if (line .ne. '   hello') call abort
 end subroutine

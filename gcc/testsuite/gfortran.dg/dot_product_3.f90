@@ -12,3 +12,4 @@ program main
    stop
 end program main
 ! { dg-final { scan-tree-dump-times "8\\.0e\\+0" 1 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

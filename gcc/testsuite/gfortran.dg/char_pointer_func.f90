@@ -12,18 +12,18 @@ program char_pointer_func
   allocate (c1, c2(1))
 ! Check that we have not broken non-pointer characters.
   c0 = foo ()
-  if (c0 /= "abcd") STOP 1
+  if (c0 /= "abcd") call abort ()
 ! Value assignments
   c1 = sfoo ()
-  if (c1 /= "abcd") STOP 2
+  if (c1 /= "abcd") call abort ()
   c2 = afoo (c0)
-  if (c2(1) /= "abcd") STOP 3
+  if (c2(1) /= "abcd") call abort ()
   deallocate (c1, c2)
 ! Pointer assignments
   c1 => sfoo ()
-  if (c1 /= "abcd") STOP 4
+  if (c1 /= "abcd") call abort ()
   c2 => afoo (c0)
-  if (c2(1) /= "abcd") STOP 5
+  if (c2(1) /= "abcd") call abort ()
   deallocate (c1, c2)
 contains
   function foo () result (cc1)

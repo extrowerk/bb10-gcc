@@ -13,3 +13,4 @@ pvslockprocess(float *fout, float *fin, int framesize)
   return mag;
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

@@ -1,6 +1,6 @@
 // 1999-09-20 bkoz
 
-// Copyright (C) 1999-2018 Free Software Foundation, Inc.
+// Copyright (C) 1999-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -17,6 +17,9 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
+// The library still throws the original definition of std::ios::failure
+// { dg-options "-D_GLIBCXX_USE_CXX11_ABI=0" }
+
 // 27.4.4.2 basic_ios member functions
 
 // NB: Don't include any other headers in this file.
@@ -25,6 +28,8 @@
 
 void test01()
 {
+  bool test __attribute__((unused)) = true;
+
   typedef std::ios_base::fmtflags fmtflags;
   typedef std::ios_base::iostate iostate;
   using std::ios_base;
@@ -41,7 +46,7 @@ void test01()
     std::ios ios_01(0);
     try {
       ios_01.exceptions(std::ios_base::eofbit);
-    }
+    }		 
     catch(...) {
       VERIFY( false );
     }
@@ -55,8 +60,8 @@ void test01()
     try {
       ios_01.exceptions(std::ios_base::eofbit);
       VERIFY( false );
-    }
-    catch(std::ios_base::failure&) {
+    }		 
+    catch(std::ios_base::failure& fail) {
       iostate02 = ios_01.exceptions();
       VERIFY( static_cast<bool>(iostate02 & std::ios_base::eofbit) );
     }
@@ -66,7 +71,7 @@ void test01()
   }
 }
 
-int main()
+int main() 
 {
   test01();
   return 0;

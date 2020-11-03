@@ -1,8 +1,7 @@
-// { dg-do run { target c++14 } }
-// { dg-options "-g -O0" }
-// { dg-skip-if "" { *-*-* } { "-D_GLIBCXX_PROFILE" } }
+// { dg-do run }
+// { dg-options "-g -O0 -std=gnu++14" }
 
-// Copyright (C) 2014-2018 Free Software Foundation, Inc.
+// Copyright (C) 2014-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,7 +26,6 @@
 #include <experimental/string_view>
 #include <string>
 #include <map>
-#include <iostream>
 
 using std::experimental::any;
 using std::experimental::optional;
@@ -68,7 +66,6 @@ main()
   any am = *om;
 // { dg-final { note-test am {std::experimental::any containing std::map with 3 elements = {[1] = 2, [3] = 4, [5] = 6}} } }
 
-  std::cout << "\n";
   return 0;			// Mark SPOT
 }
 

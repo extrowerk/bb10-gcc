@@ -9,3 +9,4 @@ int foo (int x)
 }
 
 /* { dg-final { scan-tree-dump-times "\\+" 1 "ccp1" } } */
+/* { dg-final { cleanup-tree-dump "ccp1" } } */

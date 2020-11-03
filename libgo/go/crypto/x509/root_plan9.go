@@ -6,10 +6,7 @@
 
 package x509
 
-import (
-	"io/ioutil"
-	"os"
-)
+import "io/ioutil"
 
 // Possible certificate files; stop after finding one.
 var certFiles = []string{
@@ -20,18 +17,17 @@ func (c *Certificate) systemVerify(opts *VerifyOptions) (chains [][]*Certificate
 	return nil, nil
 }
 
-func loadSystemRoots() (*CertPool, error) {
+func initSystemRoots() {
 	roots := NewCertPool()
-	var bestErr error
 	for _, file := range certFiles {
 		data, err := ioutil.ReadFile(file)
 		if err == nil {
 			roots.AppendCertsFromPEM(data)
-			return roots, nil
-		}
-		if bestErr == nil || (os.IsNotExist(bestErr) && !os.IsNotExist(err)) {
-			bestErr = err
+			systemRoots = roots
+			return
 		}
 	}
-	return nil, bestErr
+
+	// All of the files failed to load. systemRoots will be nil which will
+	// trigger a specific error at verification time.
 }

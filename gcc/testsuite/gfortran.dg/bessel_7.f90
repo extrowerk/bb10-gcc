@@ -49,9 +49,9 @@ do i = 0, Nmax
 !        rec(i) == lib(i) .or. abs((rec(i)-lib(i))/rec(i)) < myeps
 if (.not. (i > nit .or. rec(i) == lib(i) &
                    .or. abs((rec(i)-lib(i))/rec(i)) < myeps2)) &
-  STOP 1
+  call abort ()
 if (.not. (rec(i) == lib(i) .or. abs((rec(i)-lib(i))/rec(i)) < myeps)) &
-  STOP 2
+  call abort ()
 end do
 
 end

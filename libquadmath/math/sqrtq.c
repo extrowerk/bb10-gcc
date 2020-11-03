@@ -32,17 +32,14 @@ sqrtq (const __float128 x)
   }
 
 #ifdef HAVE_SQRTL
+  if (x <= LDBL_MAX && x >= LDBL_MIN)
   {
-    long double xl = (long double) x;
-    if (xl <= LDBL_MAX && xl >= LDBL_MIN)
-      {
-	/* Use long double result as starting point.  */
-	y = (__float128) sqrtl (xl);
+    /* Use long double result as starting point.  */
+    y = sqrtl ((long double) x);
 
-	/* One Newton iteration.  */
-	y -= 0.5q * (y - x / y);
-	return y;
-      }
+    /* One Newton iteration.  */
+    y -= 0.5q * (y - x / y);
+    return y;
   }
 #endif
 

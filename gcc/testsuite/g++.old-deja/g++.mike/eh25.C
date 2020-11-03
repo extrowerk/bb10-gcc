@@ -10,19 +10,12 @@ void my_terminate() {
 
 struct A {
   A() { }
-  ~A()
-#if __cplusplus <= 201402L
-  throw(int)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#else
-  noexcept(false)
-#endif
-  {
+  ~A() {
     std::set_terminate (my_terminate);
     throw 1;		// This throws from EH dtor, should call my_terminate
   }
 };
 
-int
 main() {
   try {
     try {

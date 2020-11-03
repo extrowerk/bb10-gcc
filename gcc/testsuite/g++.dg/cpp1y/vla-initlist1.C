@@ -1,5 +1,4 @@
 // { dg-do run { target c++11 } }
-// { dg-skip-if "power overwrites two slots of array i" { "power*-*-*" } }
 // { dg-options "-Wno-vla" }
 
 #include <initializer_list>

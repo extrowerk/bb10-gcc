@@ -26,3 +26,4 @@ c
   130 continue
       return
       end
+c { dg-final { cleanup-tree-dump "vect" } }

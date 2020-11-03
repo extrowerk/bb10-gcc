@@ -43,8 +43,7 @@ protected:
 class F
 {
 public:
-  int nelems;
-  int elems[];   // { dg-error "not at end" }
+  int elems[];
   int *
   m_fn1 ()
   {
@@ -88,7 +87,7 @@ public:
       m_impl->~any_incrementable_iterator_interface ();
   }
   G m_buffer;
-  any_incrementable_iterator_interface *m_impl;   // { dg-message "next member" }
+  any_incrementable_iterator_interface *m_impl;
 };
 template <class Reference> class K : public I<any_iterator<Reference> >
 {

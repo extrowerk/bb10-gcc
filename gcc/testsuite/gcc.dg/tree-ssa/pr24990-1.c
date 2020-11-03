@@ -17,4 +17,5 @@ int f1(int x)
 /* { dg-final { scan-tree-dump-times "== 0" 0 "optimized"} } */
 /* { dg-final { scan-tree-dump-times "== -1" 1 "optimized"} } */
 
+/* { dg-final { cleanup-tree-dump "optimized" } } */
 

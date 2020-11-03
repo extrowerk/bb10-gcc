@@ -13,7 +13,7 @@ test (struct A *a)
     __builtin_abort ();
 }
 
-int main()
+main()
 {
   struct B a;
   dostuff (&a);
@@ -28,3 +28,4 @@ int main()
    and from callstack we can tell that is is not in construction/destruction.  */
 /* { dg-final { scan-ipa-dump "Second type is base of first" "inline"  } } */
 /* { dg-final { scan-ipa-dump-times "Discovered a virtual call to a known target" 1 "inline"  } } */
+/* { dg-final { cleanup-ipa-dump "inline" } } */

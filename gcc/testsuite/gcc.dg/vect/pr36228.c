@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-additional-options "-O3" } */
+/* { dg-options "-O3 -fdump-tree-vect-details" } */
 
 #define COLS         8
 #define ROWS         8
@@ -28,3 +28,4 @@ t_run_test()
 }
 
 /* { dg-final { scan-tree-dump-times "versioning for alias required" 0 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

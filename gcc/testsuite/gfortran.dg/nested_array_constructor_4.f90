@@ -12,6 +12,6 @@ PROGRAM test
   length = LEN ( (/ TRIM(x), 'a' /) // 'c')
 
   IF (length /= 2) THEN
-    STOP 1
+    CALL abort ()
   END IF
 END PROGRAM

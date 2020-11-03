@@ -5,3 +5,4 @@ void f (unsigned int *d, unsigned int *s, int w)
   for (i = 0; i < w; ++i)
     d [i] = s [i] * (unsigned short) (~d [i] >> 24);
 }
+/* { dg-final { cleanup-tree-dump "vect" } } */

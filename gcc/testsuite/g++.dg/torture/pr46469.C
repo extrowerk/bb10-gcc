@@ -1,6 +1,5 @@
 extern "C"  __inline __attribute__ ((__gnu_inline__)) int pthread_equal ()
   {
-    return 0;
   }
 
 static
@@ -11,5 +10,4 @@ static
 int identifierByPthreadHandle ()
 {
   pthread_equal ();
-  return 0;
 }

@@ -17,7 +17,6 @@ public:
   }
 };
 
-int
 main() {
   try {
     A a[5];

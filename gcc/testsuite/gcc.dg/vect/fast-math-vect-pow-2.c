@@ -29,4 +29,5 @@ main (void)
 {
   d_type tmp = main1 ();
 }
+/* { dg-final { cleanup-tree-dump "vect" } } */
 

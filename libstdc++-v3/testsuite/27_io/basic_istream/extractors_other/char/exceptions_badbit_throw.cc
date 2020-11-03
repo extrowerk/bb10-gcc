@@ -1,4 +1,4 @@
-// Copyright (C) 2003-2018 Free Software Foundation, Inc.
+// Copyright (C) 2003-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -26,6 +26,7 @@ using namespace std;
 
 void test14()
 {
+  bool test __attribute__((unused)) = true;
   __gnu_test::fail_streambuf bib;
   istream stream(&bib);
   stream.exceptions(ios_base::badbit);
@@ -44,6 +45,7 @@ void test14()
 
 void test16()
 {
+  bool test __attribute__((unused)) = true;
   istringstream stream("foo, bar, qux");
   stream.exceptions(ios_base::badbit);
   __gnu_test::fail_streambuf bob;

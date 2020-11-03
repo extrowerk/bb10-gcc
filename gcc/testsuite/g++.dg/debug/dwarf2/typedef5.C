@@ -1,5 +1,5 @@
 // Origin: PR debug/46101
-// { dg-options "-gdwarf-2" }
+// { dg-options "-g -feliminate-dwarf2-dups" }
 // { dg-do compile }
 
 typedef struct
@@ -9,3 +9,4 @@ typedef struct
 
 A a;
 
+/* { dg-bogus "-feliminate-dwarf2-dups is broken for C\\+\\+, ignoring" "broken -feliminate-dwarf2-dups" { xfail *-*-* } 1 } */

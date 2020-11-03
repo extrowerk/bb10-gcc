@@ -22,3 +22,4 @@ main()
 }
 /* { dg-final { scan-tree-dump-times "q \\(15\\)" 1 "optimized" } } */
 /* { dg-final { scan-tree-dump-times "t \\(20\\)" 1 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

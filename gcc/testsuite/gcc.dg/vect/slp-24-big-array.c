@@ -15,6 +15,7 @@ typedef struct {
 unsigned char ub[N*2];
 unsigned char uc[N];
 
+volatile int y = 0;
 unsigned char check_diff = 2;
 
 void
@@ -68,11 +69,13 @@ int main (void)
     ub[i] = (i%5 == 0)?i*3:i;
     uc[i] = i;
     check_diff += (unsigned char) (ub[i] - uc[i]);
-    asm volatile ("" ::: "memory");
+    if (y) /* Avoid vectorization.  */
+      abort ();
   }
   for (; i < 2*N; i++) {
     ub[i] = 0;
-    asm volatile ("" ::: "memory");
+    if (y) /* Avoid vectorization.  */
+      abort ();
   }
 
   for (i = 0; i < N; i++)
@@ -81,7 +84,8 @@ int main (void)
       arr[i].b = i * 2 + 10;
       arr[i].c = 17;
       arr[i].d = i+34;
-      asm volatile ("" ::: "memory");
+      if (y) /* Avoid vectorization.  */
+        abort ();
     }
   check_vect ();
 
@@ -92,3 +96,4 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail { vect_no_align && ilp32 } } } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 2 "vect" { xfail { vect_no_align && ilp32 } } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

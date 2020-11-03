@@ -1,4 +1,4 @@
-/* Copyright (C) 2006-2018 Free Software Foundation, Inc.
+/* Copyright (C) 2006-2015 Free Software Foundation, Inc.
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
@@ -96,6 +96,7 @@ extern GTY(()) int spu_tune;
    on the stack.  (Except a bug (?) allows some stack objects to be
    unaligned.)  */
 #define DATA_ALIGNMENT(TYPE,ALIGN) ((ALIGN) > 128 ? (ALIGN) : 128)
+#define CONSTANT_ALIGNMENT(TYPE,ALIGN) ((ALIGN) > 128 ? (ALIGN) : 128)
 #define LOCAL_ALIGNMENT(TYPE,ALIGN) ((ALIGN) > 128 ? (ALIGN) : 128)
 
 #define EMPTY_FIELD_BOUNDARY 32
@@ -170,6 +171,18 @@ extern GTY(()) int spu_tune;
 }
 
 
+/* Values in Registers */
+
+#define HARD_REGNO_NREGS(REGNO, MODE)   \
+    ((GET_MODE_BITSIZE(MODE)+MAX_FIXED_MODE_SIZE-1)/MAX_FIXED_MODE_SIZE)
+
+#define HARD_REGNO_MODE_OK(REGNO, MODE) 1
+
+#define MODES_TIEABLE_P(MODE1, MODE2) \
+  (GET_MODE_BITSIZE (MODE1) <= MAX_FIXED_MODE_SIZE \
+   && GET_MODE_BITSIZE (MODE2) <= MAX_FIXED_MODE_SIZE)
+
+
 /* Register Classes */
 
 enum reg_class { 
@@ -192,8 +205,7 @@ enum reg_class {
     {0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x3}, /* general regs */ \
     {0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x3}} /* all regs */
 
-#define REGNO_REG_CLASS(REGNO) ((void)(REGNO), GENERAL_REGS)
-
+#define REGNO_REG_CLASS(REGNO) (GENERAL_REGS)
 
 #define BASE_REG_CLASS GENERAL_REGS
 
@@ -210,17 +222,26 @@ enum reg_class {
 #define INT_REG_OK_FOR_BASE_P(X,STRICT) \
 	((!(STRICT) || REGNO_OK_FOR_BASE_P (REGNO (X))))
 
+/* GCC assumes that modes are in the lowpart of a register, which is
+   only true for SPU. */
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) \
+        ((GET_MODE_SIZE (FROM) > 4 || GET_MODE_SIZE (TO) > 4) \
+	 && (GET_MODE_SIZE (FROM) < 16 || GET_MODE_SIZE (TO) < 16) \
+	 && GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO))
+
 #define REGISTER_TARGET_PRAGMAS() do {					\
 c_register_addr_space ("__ea", ADDR_SPACE_EA);				\
 targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
-}while (0)
+}while (0);
 
 
 /* Frame Layout */
 
-#define STACK_GROWS_DOWNWARD 1
+#define STACK_GROWS_DOWNWARD
 
 #define FRAME_GROWS_DOWNWARD 1
+
+#define STARTING_FRAME_OFFSET (0)
 
 #define STACK_POINTER_OFFSET 32
 
@@ -306,6 +327,15 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 #define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,FNDECL,N_NAMED_ARGS) \
 		((CUM) = 0)
 
+/* The SPU ABI wants 32/64-bit types at offset 0 in the quad-word on the
+   stack.  8/16-bit types should be at offsets 3/2 respectively.  */
+#define FUNCTION_ARG_OFFSET(MODE, TYPE)					\
+(((TYPE) && INTEGRAL_TYPE_P (TYPE) && GET_MODE_SIZE (MODE) < 4)		\
+ ? (4 - GET_MODE_SIZE (MODE))						\
+ : 0)
+
+#define FUNCTION_ARG_PADDING(MODE,TYPE) upward
+
 #define PAD_VARARGS_DOWN 0
 
 #define FUNCTION_ARG_REGNO_P(N) ((N) >= (FIRST_ARG_REGNUM) && (N) <= (LAST_ARG_REGNUM))
@@ -377,7 +407,7 @@ do {									\
 
 #define MOVE_RATIO(speed) ((speed)? 32 : 4)
 
-#define NO_FUNCTION_CSE 1
+#define NO_FUNCTION_CSE
 
 
 /* Sections */
@@ -476,6 +506,8 @@ do {									\
 #define CASE_VECTOR_MODE SImode
 
 #define MOVE_MAX 16 
+
+#define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) ((INPREC) <= 32 && (OUTPREC) <= (INPREC))
 
 #define STORE_FLAG_VALUE -1
 

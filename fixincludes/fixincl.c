@@ -74,11 +74,8 @@ int altered_ct = 0;
 #endif /* DO_STATS */
 
 const char incl_quote_pat[] = "^[ \t]*#[ \t]*include[ \t]*\"[^/]";
-regex_t incl_quote_re;
-
-#ifndef SEPARATE_FIX_PROC
 tSCC z_fork_err[] = "Error %d (%s) starting filter process for %s\n";
-#endif
+regex_t incl_quote_re;
 
 static void do_version (void) ATTRIBUTE_NORETURN;
 char *load_file (const char *);
@@ -191,7 +188,7 @@ do_version (void)
   puts (zBuf + 5);
   exit (strcmp (run_shell (zBuf), program_id));
 #else
-  exit (system_with_shell (zBuf));
+  exit (system (zBuf));
 #endif
 }
 
@@ -278,11 +275,6 @@ initialize ( int argc, char** argv )
   /* NULL as the first argument to `tempnam' causes it to DTRT
      wrt the temporary directory where the file will be created.  */
   pz_temp_file = tempnam( NULL, "fxinc" );
-
-#if defined(__MINGW32__)
-  fix_path_separators (pz_temp_file);
-#endif
-
 # endif
 
   signal (SIGQUIT, SIG_IGN);
@@ -573,26 +565,6 @@ fi";
 
   free ((void *) pz_res);
   return res;
-}
-#elif defined(__MINGW32__) || defined(__DJGPP__)
-static int
-test_test (tTestDesc* p_test, char* pz_test_file)
-{
-  tSCC cmd_fmt[] =
-#if defined(__DJGPP__)
-    "file=%s; test %s >/dev/null 2>/dev/null";
-#else
-    "file=%s; test %s > /dev/null 2>&1";
-#endif
-  int res;
-
-  char *cmd_buf = XNEWVEC (char, strlen(cmd_fmt) + strlen(pz_test_file) + strlen(p_test->pz_test_text));
-
-  sprintf (cmd_buf, cmd_fmt, pz_test_file, p_test->pz_test_text);
-  res = system_with_shell (cmd_buf);
-
-  free (cmd_buf);
-  return res ? SKIP_FIX : APPLY_FIX;
 }
 #else
 /*
@@ -915,7 +887,7 @@ fix_with_system (tFixDesc* p_fixd,
   else /* NOT an "internal" fix: */
     {
       size_t parg_size;
-#if defined(__MSDOS__) && !defined(__DJGPP__)
+#ifdef __MSDOS__
       /* Don't use the "src > dstX; rm -f dst; mv -f dstX dst" trick:
          dst is a temporary file anyway, so we know there's no other
          file by that name; and DOS's system(3) doesn't mind to
@@ -934,18 +906,12 @@ fix_with_system (tFixDesc* p_fixd,
          implementations cannot cope  :-(.  */
       tSCC   z_cmd_fmt[] = " %s > %sX ; rm -f %s; mv -f %sX %s";
 #endif
-      tSCC   z_subshell_start[] = "( ";
-      tSCC   z_subshell_end[] = " ) < ";
       tCC**  ppArgs = p_fixd->patch_args;
 
       argsize = sizeof( z_cmd_fmt ) + strlen( pz_temp_file )
               + strlen( pz_file_source );
       parg_size = argsize;
       
-      if (p_fixd->fd_flags & FD_SHELL_SCRIPT)
-        {
-          argsize += strlen( z_subshell_start ) + strlen ( z_subshell_end );
-        }
 
       /*
        *  Compute the size of the command line.  Add lotsa extra space
@@ -969,16 +935,6 @@ fix_with_system (tFixDesc* p_fixd,
       parg_size = argsize - parg_size;
 
       ppArgs = p_fixd->patch_args;
-
-      /*
-       * If it's shell script, enclose it in parentheses and skip "sh -c".
-       */
-      if (p_fixd->fd_flags & FD_SHELL_SCRIPT)
-        {
-          strcpy (pz_scan, z_subshell_start);
-          pz_scan += strlen (z_subshell_start);
-          ppArgs += 2;
-        }
 
       /*
        *  Copy the program name, unquoted
@@ -1022,26 +978,17 @@ fix_with_system (tFixDesc* p_fixd,
         }
 
       /*
-       * Close parenthesis if it's shell script.
-       */
-      if (p_fixd->fd_flags & FD_SHELL_SCRIPT)
-        {
-          strcpy (pz_scan, z_subshell_end);
-          pz_scan += strlen (z_subshell_end);
-        }
-
-      /*
        *  add the file machinations.
        */
-#if defined(__MSDOS__) && !defined(__DJGPP__)
+#ifdef __MSDOS__
       sprintf (pz_scan, z_cmd_fmt, pz_file_source, pz_temp_file );
 #else
       sprintf (pz_scan, z_cmd_fmt, pz_file_source, pz_temp_file,
                pz_temp_file, pz_temp_file, pz_temp_file);
 #endif
     }
-  system_with_shell (pz_cmd);
-  free (pz_cmd);
+  system( pz_cmd );
+  free( (void*)pz_cmd );
 }
 
 /* * * * * * * * * * * * *
@@ -1143,7 +1090,7 @@ fix_applies (tFixDesc* p_fixd)
   t_bool saw_sum_test   = BOOL_FALSE;
   t_bool one_sum_passed = BOOL_FALSE;
 
-#if defined(__MSDOS__) && !defined(__DJGPP__)
+#ifdef SEPARATE_FIX_PROC
   /*
    *  There is only one fix that uses a shell script as of this writing.
    *  I hope to nuke it anyway, it does not apply to DOS and it would

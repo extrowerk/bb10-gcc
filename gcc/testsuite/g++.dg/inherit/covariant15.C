@@ -5,7 +5,7 @@ struct A {};
 
 class B : A
 {
-    virtual A* foo(); /* { dg-message "overridden" } */
+    virtual A* foo(); /* { dg-error "overriding" } */
 };
 
 struct C : virtual B

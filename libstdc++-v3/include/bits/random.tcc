@@ -1,6 +1,6 @@
 // random number generation (out of line) -*- C++ -*-
 
-// Copyright (C) 2009-2018 Free Software Foundation, Inc.
+// Copyright (C) 2009-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -34,13 +34,13 @@
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
-_GLIBCXX_BEGIN_NAMESPACE_VERSION
-
   /*
    * (Further) implementation-space details.
    */
   namespace __detail
   {
+  _GLIBCXX_BEGIN_NAMESPACE_VERSION
+
     // General case for x = (ax + c) mod m -- use Schrage's algorithm
     // to avoid integer overflow.
     //
@@ -89,7 +89,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	return __result;
       }
 
+  _GLIBCXX_END_NAMESPACE_VERSION
   } // namespace __detail
+
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   template<typename _UIntType, _UIntType __a, _UIntType __c, _UIntType __m>
     constexpr _UIntType
@@ -1250,7 +1253,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  const double __pi_4 = 0.7853981633974483096156608458198757L;
 	  const double __dx = std::sqrt(2 * __m * std::log(32 * __m
 							      / __pi_4));
-	  _M_d = std::round(std::max<double>(6.0, std::min(__m, __dx)));
+	  _M_d = std::round(std::max(6.0, std::min(__m, __dx)));
 	  const double __cx = 2 * __m + _M_d;
 	  _M_scx = std::sqrt(__cx / 2);
 	  _M_1cx = 1 / __cx;
@@ -1301,8 +1304,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    const double __c2 = __param._M_c2b + __c1;
 	    const double __c3 = __c2 + 1;
 	    const double __c4 = __c3 + 1;
-	    // 1 / 78
-	    const double __178 = 0.0128205128205128205128205128205128L;
 	    // e^(1 / 78)
 	    const double __e178 = 1.0129030479320018583185514777512983L;
 	    const double __c5 = __c4 + __e178;
@@ -1342,11 +1343,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		else if (__u <= __c4)
 		  __x = 0;
 		else if (__u <= __c5)
-		  {
-		    __x = 1;
-		    // Only in the Errata, see libstdc++/83237.
-		    __w = __178;
-		  }
+		  __x = 1;
 		else
 		  {
 		    const double __v = -std::log(1.0 - __aurng());
@@ -1464,11 +1461,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  const double __d1x =
 	    std::sqrt(__np * __1p * std::log(32 * __np
 					     / (81 * __pi_4 * __1p)));
-	  _M_d1 = std::round(std::max<double>(1.0, __d1x));
+	  _M_d1 = std::round(std::max(1.0, __d1x));
 	  const double __d2x =
 	    std::sqrt(__np * __1p * std::log(32 * _M_t * __1p
 					     / (__pi_4 * __pa)));
-	  _M_d2 = std::round(std::max<double>(1.0, __d2x));
+	  _M_d2 = std::round(std::max(1.0, __d2x));
 
 	  // sqrt(pi / 2)
 	  const double __spi_2 = 1.2533141373155002512078826424055226L;
@@ -2359,7 +2356,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    __v = __v * __v * __v;
 	    __u = __aurng();
 	  }
-	while (__u > result_type(1.0) - 0.0331 * __n * __n * __n * __n
+	while (__u > result_type(1.0) - 0.331 * __n * __n * __n * __n
 	       && (std::log(__u) > (0.5 * __n * __n + __a1
 				    * (1.0 - __v + std::log(__v)))));
 
@@ -2408,7 +2405,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		  __v = __v * __v * __v;
 		  __u = __aurng();
 		}
-	      while (__u > result_type(1.0) - 0.0331 * __n * __n * __n * __n
+	      while (__u > result_type(1.0) - 0.331 * __n * __n * __n * __n
 		     && (std::log(__u) > (0.5 * __n * __n + __a1
 					  * (1.0 - __v + std::log(__v)))));
 
@@ -2429,7 +2426,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		  __v = __v * __v * __v;
 		  __u = __aurng();
 		}
-	      while (__u > result_type(1.0) - 0.0331 * __n * __n * __n * __n
+	      while (__u > result_type(1.0) - 0.331 * __n * __n * __n * __n
 		     && (std::log(__u) > (0.5 * __n * __n + __a1
 					  * (1.0 - __v + std::log(__v)))));
 
@@ -3315,7 +3312,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     generate_canonical(_UniformRandomNumberGenerator& __urng)
     {
       static_assert(std::is_floating_point<_RealType>::value,
-		    "template argument must be a floating point type");
+		    "template argument not a floating point type");
 
       const size_t __b
 	= std::min(static_cast<size_t>(std::numeric_limits<_RealType>::digits),
@@ -3323,27 +3320,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       const long double __r = static_cast<long double>(__urng.max())
 			    - static_cast<long double>(__urng.min()) + 1.0L;
       const size_t __log2r = std::log(__r) / std::log(2.0L);
-      const size_t __m = std::max<size_t>(1UL,
-					  (__b + __log2r - 1UL) / __log2r);
-      _RealType __ret;
+      size_t __k = std::max<size_t>(1UL, (__b + __log2r - 1UL) / __log2r);
       _RealType __sum = _RealType(0);
       _RealType __tmp = _RealType(1);
-      for (size_t __k = __m; __k != 0; --__k)
+      for (; __k != 0; --__k)
 	{
 	  __sum += _RealType(__urng() - __urng.min()) * __tmp;
 	  __tmp *= __r;
 	}
-      __ret = __sum / __tmp;
-      if (__builtin_expect(__ret >= _RealType(1), 0))
-	{
-#if _GLIBCXX_USE_C99_MATH_TR1
-	  __ret = std::nextafter(_RealType(1), _RealType(0));
-#else
-	  __ret = _RealType(1)
-	    - std::numeric_limits<_RealType>::epsilon() / _RealType(2);
-#endif
-	}
-      return __ret;
+      return __sum / __tmp;
     }
 
 _GLIBCXX_END_NAMESPACE_VERSION

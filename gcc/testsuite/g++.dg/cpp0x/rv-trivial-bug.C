@@ -24,7 +24,6 @@ int test2()
     assert(move_assign == 0);
     b = static_cast<base2&&>(b2);
     assert(move_assign == 1);
-    return 0;
 }
 
 int main()

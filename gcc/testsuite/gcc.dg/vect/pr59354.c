@@ -1,3 +1,4 @@
+/* { dg-do run } */
 /* { dg-additional-options "-O3" } */
 
 #include "tree-vect.h"
@@ -37,3 +38,4 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump "vectorized 1 loop" "vect" { target { vect_pack_trunc } } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

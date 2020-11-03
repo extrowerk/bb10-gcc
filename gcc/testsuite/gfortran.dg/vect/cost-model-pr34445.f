@@ -6,3 +6,4 @@ c { dg-do compile }
         Alpha = 1.2
       End Do
       End
+c { dg-final { cleanup-tree-dump "vect" } }

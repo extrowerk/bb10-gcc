@@ -1,4 +1,5 @@
-! { dg-additional-options "-fdump-tree-original -fdump-tree-gimple -std=f2008" } 
+! { dg-do compile } 
+! { dg-additional-options "-fdump-tree-original -std=f2008" } 
 
 ! test for tree-dump-original and spaces-commas
 
@@ -16,7 +17,7 @@ program test
 
   !$acc loop independent gang (3)
   DO i = 1,10
-    !$acc loop worker(3)
+    !$acc loop worker(3) ! { dg-error "work-sharing region may not be closely nested inside of work-sharing, critical, ordered, master or explicit task region" }
     DO j = 1,10
       !$acc loop vector(5)
       DO k = 1,10
@@ -44,4 +45,4 @@ end program test
 
 ! { dg-final { scan-tree-dump-times "private\\(m\\)" 1 "original" } } 
 ! { dg-final { scan-tree-dump-times "reduction\\(\\+:sum\\)" 1 "original" } } 
-! { dg-final { scan-tree-dump-times "map\\(tofrom:sum \\\[len: \[0-9\]+\\\]\\)" 1 "gimple" } }
+! { dg-final { cleanup-tree-dump "original" } } 

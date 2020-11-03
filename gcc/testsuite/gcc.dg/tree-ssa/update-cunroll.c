@@ -10,3 +10,4 @@ int t()
 	return i;
 }
 /* { dg-final { scan-tree-dump-times "Invalid sum" 0 "optimized"} } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

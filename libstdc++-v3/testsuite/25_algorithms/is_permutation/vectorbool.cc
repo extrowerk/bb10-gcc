@@ -1,6 +1,6 @@
-// { dg-do run { target c++14 } }
+// { dg-options "-std=gnu++14" }
 
-// Copyright (C) 2013-2018 Free Software Foundation, Inc.
+// Copyright (C) 2013-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -25,6 +25,8 @@
 
 void test01()
 {
+  bool test __attribute__((unused)) = true;
+
   std::vector<bool> v1 = { true, false, true, false, true };
   std::vector<bool> v2 = { false, true, false, true, true };
   VERIFY( std::is_permutation(v1.begin(), v1.end(), v2.begin()) );
@@ -33,6 +35,8 @@ void test01()
 
 void test02()
 {
+  bool test __attribute__((unused)) = true;
+
   std::vector<bool> v1 = { true, false, true, false, true };
   std::vector<bool> v2 = { false, true, false, true, true };
   VERIFY( std::is_permutation(v1.begin(), v1.end(), v2.begin(), v2.end()) );

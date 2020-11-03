@@ -12,6 +12,5 @@ All_Torus_Intersections(void)
   VECTOR D;
   VLength(len, D);
   VLength(len, D);
-  return 0;
 }
 

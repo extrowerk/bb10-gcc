@@ -9,6 +9,8 @@ int in[2*K][K] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
 int out[K];
 int check_result[K];
 
+volatile int y = 0;
+
 __attribute__ ((noinline)) void
 foo ()
 {
@@ -22,7 +24,9 @@ foo ()
         for (i = 0; i < K; i++)
 	{
           sum *= in[i+k][j];
-	  asm volatile ("" ::: "memory");
+	  /* Avoid vectorization.  */
+	  if (y)
+	    abort ();
 	}
       check_result[k] = sum;
     }
@@ -57,4 +61,5 @@ int main ()
 }
 
 /* { dg-final { scan-tree-dump-times "OUTER LOOP VECTORIZED" 1 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */
 

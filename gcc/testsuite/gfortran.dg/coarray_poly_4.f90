@@ -20,3 +20,4 @@ call sub(var%x)
 end subroutine test
 
 ! { dg-final { scan-tree-dump-times "sub \\(\\(real\\(kind=4\\) \\*\\) var.x.data, var.x.token, 0\\);" 1 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

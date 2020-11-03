@@ -8,7 +8,7 @@
 @end	
 
 @implementation  Person
-@dynamic firstName;    /* { dg-line firstName_first } */
+@dynamic firstName;
 @synthesize firstName; /* { dg-error "property .firstName. already specified in .@dynamic." } */
-                       /* { dg-message "originally specified here" "" { target *-*-* } firstName_first } */
+                       /* { dg-message "originally specified here" "" { target *-*-* } 11 } */
 @end

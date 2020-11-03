@@ -19,4 +19,5 @@ int foo(int i, int j, int k)
 }
 
 /* { dg-final { scan-tree-dump "Replaced f.doms\\\[0\\\].dom with i_" "fre1" } } */
+/* { dg-final { cleanup-tree-dump "fre1" } } */
 

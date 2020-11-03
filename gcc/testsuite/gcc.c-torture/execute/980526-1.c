@@ -1,5 +1,5 @@
-/* { dg-require-effective-target label_values } */
-
+/* { dg-skip-if "requires indirect jumps" { ! indirect_jumps } { "-O0" } { "" } } */
+/* { dg-skip-if "requires label values" { ! label_values } { "-O0" } { "" } } */
 int expect_do1 = 1, expect_do2 = 2;
  
 static int doit(int x){
@@ -31,5 +31,9 @@ static void do2(void){
 }
  
 int main(void){
+#ifndef NO_LABEL_VALUES
+  do1();
+  do2();
+#endif
   exit(0);
 }

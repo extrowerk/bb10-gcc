@@ -1,3 +1,6 @@
+/* { dg-do run } */
+/* { dg-options "-O2 -fgraphite-identity" } */
+
 int n = 50;
 static int __attribute__((noinline))
 foo ()

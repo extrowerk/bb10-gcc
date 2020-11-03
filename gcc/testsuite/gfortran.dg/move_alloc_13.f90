@@ -16,9 +16,9 @@ call func2(y,z)
 
 select type(z)
   type is(t2)
-    if (any (z(:)%a /= [2, 3])) STOP 1
+    if (any (z(:)%a /= [2, 3])) call abort()
   class default
-    STOP 2
+    call abort()
 end select
 
 contains

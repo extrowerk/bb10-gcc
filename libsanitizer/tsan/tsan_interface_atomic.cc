@@ -21,15 +21,38 @@
 #include "sanitizer_common/sanitizer_stacktrace.h"
 #include "sanitizer_common/sanitizer_mutex.h"
 #include "tsan_flags.h"
-#include "tsan_interface.h"
 #include "tsan_rtl.h"
 
 using namespace __tsan;  // NOLINT
 
-#if !SANITIZER_GO && __TSAN_HAS_INT128
+// These should match declarations from public tsan_interface_atomic.h header.
+typedef unsigned char      a8;
+typedef unsigned short     a16;  // NOLINT
+typedef unsigned int       a32;
+typedef unsigned long long a64;  // NOLINT
+#if !defined(TSAN_GO) && (defined(__SIZEOF_INT128__) \
+    || (__clang_major__ * 100 + __clang_minor__ >= 302))
+__extension__ typedef __int128 a128;
+# define __TSAN_HAS_INT128 1
+#else
+# define __TSAN_HAS_INT128 0
+#endif
+
+#ifndef TSAN_GO
 // Protects emulation of 128-bit atomic operations.
 static StaticSpinMutex mutex128;
 #endif
+
+// Part of ABI, do not change.
+// http://llvm.org/viewvc/llvm-project/libcxx/trunk/include/atomic?view=markup
+typedef enum {
+  mo_relaxed,
+  mo_consume,
+  mo_acquire,
+  mo_release,
+  mo_acq_rel,
+  mo_seq_cst
+} morder;
 
 static bool IsLoadOrder(morder mo) {
   return mo == mo_relaxed || mo == mo_consume
@@ -100,8 +123,7 @@ template<typename T> T func_cas(volatile T *v, T cmp, T xch) {
 // Atomic ops are executed under tsan internal mutex,
 // here we assume that the atomic variables are not accessed
 // from non-instrumented code.
-#if !defined(__GCC_HAVE_SYNC_COMPARE_AND_SWAP_16) && !SANITIZER_GO \
-    && __TSAN_HAS_INT128
+#if !defined(__GCC_HAVE_SYNC_COMPARE_AND_SWAP_16) && !defined(TSAN_GO)
 a128 func_xchg(volatile a128 *v, a128 op) {
   SpinMutexLock lock(&mutex128);
   a128 cmp = *v;
@@ -174,22 +196,22 @@ static int SizeLog() {
   // this leads to false negatives only in very obscure cases.
 }
 
-#if !SANITIZER_GO
+#ifndef TSAN_GO
 static atomic_uint8_t *to_atomic(const volatile a8 *a) {
-  return reinterpret_cast<atomic_uint8_t *>(const_cast<a8 *>(a));
+  return (atomic_uint8_t*)a;
 }
 
 static atomic_uint16_t *to_atomic(const volatile a16 *a) {
-  return reinterpret_cast<atomic_uint16_t *>(const_cast<a16 *>(a));
+  return (atomic_uint16_t*)a;
 }
 #endif
 
 static atomic_uint32_t *to_atomic(const volatile a32 *a) {
-  return reinterpret_cast<atomic_uint32_t *>(const_cast<a32 *>(a));
+  return (atomic_uint32_t*)a;
 }
 
 static atomic_uint64_t *to_atomic(const volatile a64 *a) {
-  return reinterpret_cast<atomic_uint64_t *>(const_cast<a64 *>(a));
+  return (atomic_uint64_t*)a;
 }
 
 static memory_order to_mo(morder mo) {
@@ -210,7 +232,7 @@ static T NoTsanAtomicLoad(const volatile T *a, morder mo) {
   return atomic_load(to_atomic(a), to_mo(mo));
 }
 
-#if __TSAN_HAS_INT128 && !SANITIZER_GO
+#if __TSAN_HAS_INT128 && !defined(TSAN_GO)
 static a128 NoTsanAtomicLoad(const volatile a128 *a, morder mo) {
   SpinMutexLock lock(&mutex128);
   return *a;
@@ -218,7 +240,8 @@ static a128 NoTsanAtomicLoad(const volatile a128 *a, morder mo) {
 #endif
 
 template<typename T>
-static T AtomicLoad(ThreadState *thr, uptr pc, const volatile T *a, morder mo) {
+static T AtomicLoad(ThreadState *thr, uptr pc, const volatile T *a,
+    morder mo) {
   CHECK(IsLoadOrder(mo));
   // This fast-path is critical for performance.
   // Assume the access is atomic.
@@ -226,17 +249,10 @@ static T AtomicLoad(ThreadState *thr, uptr pc, const volatile T *a, morder mo) {
     MemoryReadAtomic(thr, pc, (uptr)a, SizeLog<T>());
     return NoTsanAtomicLoad(a, mo);
   }
-  // Don't create sync object if it does not exist yet. For example, an atomic
-  // pointer is initialized to nullptr and then periodically acquire-loaded.
+  SyncVar *s = ctx->metamap.GetOrCreateAndLock(thr, pc, (uptr)a, false);
+  AcquireImpl(thr, pc, &s->clock);
   T v = NoTsanAtomicLoad(a, mo);
-  SyncVar *s = ctx->metamap.GetIfExistsAndLock((uptr)a, false);
-  if (s) {
-    AcquireImpl(thr, pc, &s->clock);
-    // Re-read under sync mutex because we need a consistent snapshot
-    // of the value and the clock we acquire.
-    v = NoTsanAtomicLoad(a, mo);
-    s->mtx.ReadUnlock();
-  }
+  s->mtx.ReadUnlock();
   MemoryReadAtomic(thr, pc, (uptr)a, SizeLog<T>());
   return v;
 }
@@ -246,7 +262,7 @@ static void NoTsanAtomicStore(volatile T *a, T v, morder mo) {
   atomic_store(to_atomic(a), v, to_mo(mo));
 }
 
-#if __TSAN_HAS_INT128 && !SANITIZER_GO
+#if __TSAN_HAS_INT128 && !defined(TSAN_GO)
 static void NoTsanAtomicStore(volatile a128 *a, a128 v, morder mo) {
   SpinMutexLock lock(&mutex128);
   *a = v;
@@ -271,7 +287,7 @@ static void AtomicStore(ThreadState *thr, uptr pc, volatile T *a, T v,
   thr->fast_state.IncrementEpoch();
   // Can't increment epoch w/o writing to the trace as well.
   TraceAddEvent(thr, thr->fast_state, EventTypeMop, 0);
-  ReleaseStoreImpl(thr, pc, &s->clock);
+  ReleaseImpl(thr, pc, &s->clock);
   NoTsanAtomicStore(a, v, mo);
   s->mtx.Unlock();
 }
@@ -438,7 +454,7 @@ static T AtomicCAS(ThreadState *thr, uptr pc,
   return c;
 }
 
-#if !SANITIZER_GO
+#ifndef TSAN_GO
 static void NoTsanAtomicFence(morder mo) {
   __sync_synchronize();
 }
@@ -450,36 +466,17 @@ static void AtomicFence(ThreadState *thr, uptr pc, morder mo) {
 #endif
 
 // Interface functions follow.
-#if !SANITIZER_GO
+#ifndef TSAN_GO
 
 // C/C++
 
-static morder convert_morder(morder mo) {
-  if (flags()->force_seq_cst_atomics)
-    return (morder)mo_seq_cst;
-
-  // Filter out additional memory order flags:
-  // MEMMODEL_SYNC        = 1 << 15
-  // __ATOMIC_HLE_ACQUIRE = 1 << 16
-  // __ATOMIC_HLE_RELEASE = 1 << 17
-  //
-  // HLE is an optimization, and we pretend that elision always fails.
-  // MEMMODEL_SYNC is used when lowering __sync_ atomics,
-  // since we use __sync_ atomics for actual atomic operations,
-  // we can safely ignore it as well. It also subtly affects semantics,
-  // but we don't model the difference.
-  return (morder)(mo & 0x7fff);
-}
-
 #define SCOPED_ATOMIC(func, ...) \
-    ThreadState *const thr = cur_thread(); \
-    if (thr->ignore_sync || thr->ignore_interceptors) { \
-      ProcessPendingSignals(thr); \
-      return NoTsanAtomic##func(__VA_ARGS__); \
-    } \
     const uptr callpc = (uptr)__builtin_return_address(0); \
     uptr pc = StackTrace::GetCurrentPc(); \
-    mo = convert_morder(mo); \
+    mo = flags()->force_seq_cst_atomics ? (morder)mo_seq_cst : mo; \
+    ThreadState *const thr = cur_thread(); \
+    if (thr->ignore_interceptors) \
+      return NoTsanAtomic##func(__VA_ARGS__); \
     AtomicStatInc(thr, sizeof(*a), mo, StatAtomic##func); \
     ScopedAtomic sa(thr, callpc, a, mo, __func__); \
     return Atomic##func(thr, pc, __VA_ARGS__); \
@@ -868,7 +865,7 @@ void __tsan_atomic_signal_fence(morder mo) {
 }
 }  // extern "C"
 
-#else  // #if !SANITIZER_GO
+#else  // #ifndef TSAN_GO
 
 // Go
 
@@ -951,4 +948,4 @@ void __tsan_go_atomic64_compare_exchange(
   *(bool*)(a+24) = (cur == cmp);
 }
 }  // extern "C"
-#endif  // #if !SANITIZER_GO
+#endif  // #ifndef TSAN_GO

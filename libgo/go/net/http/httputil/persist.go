@@ -15,27 +15,26 @@ import (
 )
 
 var (
-	// Deprecated: No longer used.
 	ErrPersistEOF = &http.ProtocolError{ErrorString: "persistent connection closed"}
-
-	// Deprecated: No longer used.
-	ErrClosed = &http.ProtocolError{ErrorString: "connection closed by user"}
-
-	// Deprecated: No longer used.
-	ErrPipeline = &http.ProtocolError{ErrorString: "pipeline error"}
+	ErrClosed     = &http.ProtocolError{ErrorString: "connection closed by user"}
+	ErrPipeline   = &http.ProtocolError{ErrorString: "pipeline error"}
 )
 
 // This is an API usage error - the local side is closed.
 // ErrPersistEOF (above) reports that the remote side is closed.
 var errClosed = errors.New("i/o operation on closed connection")
 
-// ServerConn is an artifact of Go's early HTTP implementation.
-// It is low-level, old, and unused by Go's current HTTP stack.
-// We should have deleted it before Go 1.
+// A ServerConn reads requests and sends responses over an underlying
+// connection, until the HTTP keepalive logic commands an end. ServerConn
+// also allows hijacking the underlying connection by calling Hijack
+// to regain control over the connection. ServerConn supports pipe-lining,
+// i.e. requests can be read out of sync (but in the same order) while the
+// respective responses are sent.
 //
-// Deprecated: Use the Server in package net/http instead.
+// ServerConn is low-level and old. Applications should instead use Server
+// in the net/http package.
 type ServerConn struct {
-	mu              sync.Mutex // read-write protects the following fields
+	lk              sync.Mutex // read-write protects the following fields
 	c               net.Conn
 	r               *bufio.Reader
 	re, we          error // read/write errors
@@ -46,11 +45,11 @@ type ServerConn struct {
 	pipe textproto.Pipeline
 }
 
-// NewServerConn is an artifact of Go's early HTTP implementation.
-// It is low-level, old, and unused by Go's current HTTP stack.
-// We should have deleted it before Go 1.
+// NewServerConn returns a new ServerConn reading and writing c. If r is not
+// nil, it is the buffer to use when reading c.
 //
-// Deprecated: Use the Server in package net/http instead.
+// ServerConn is low-level and old. Applications should instead use Server
+// in the net/http package.
 func NewServerConn(c net.Conn, r *bufio.Reader) *ServerConn {
 	if r == nil {
 		r = bufio.NewReader(c)
@@ -62,17 +61,17 @@ func NewServerConn(c net.Conn, r *bufio.Reader) *ServerConn {
 // as the read-side bufio which may have some left over data. Hijack may be
 // called before Read has signaled the end of the keep-alive logic. The user
 // should not call Hijack while Read or Write is in progress.
-func (sc *ServerConn) Hijack() (net.Conn, *bufio.Reader) {
-	sc.mu.Lock()
-	defer sc.mu.Unlock()
-	c := sc.c
-	r := sc.r
+func (sc *ServerConn) Hijack() (c net.Conn, r *bufio.Reader) {
+	sc.lk.Lock()
+	defer sc.lk.Unlock()
+	c = sc.c
+	r = sc.r
 	sc.c = nil
 	sc.r = nil
-	return c, r
+	return
 }
 
-// Close calls Hijack and then also closes the underlying connection.
+// Close calls Hijack and then also closes the underlying connection
 func (sc *ServerConn) Close() error {
 	c, _ := sc.Hijack()
 	if c != nil {
@@ -85,9 +84,7 @@ func (sc *ServerConn) Close() error {
 // it is gracefully determined that there are no more requests (e.g. after the
 // first request on an HTTP/1.0 connection, or after a Connection:close on a
 // HTTP/1.1 connection).
-func (sc *ServerConn) Read() (*http.Request, error) {
-	var req *http.Request
-	var err error
+func (sc *ServerConn) Read() (req *http.Request, err error) {
 
 	// Ensure ordered execution of Reads and Writes
 	id := sc.pipe.Next()
@@ -99,29 +96,29 @@ func (sc *ServerConn) Read() (*http.Request, error) {
 			sc.pipe.EndResponse(id)
 		} else {
 			// Remember the pipeline id of this request
-			sc.mu.Lock()
+			sc.lk.Lock()
 			sc.pipereq[req] = id
-			sc.mu.Unlock()
+			sc.lk.Unlock()
 		}
 	}()
 
-	sc.mu.Lock()
+	sc.lk.Lock()
 	if sc.we != nil { // no point receiving if write-side broken or closed
-		defer sc.mu.Unlock()
+		defer sc.lk.Unlock()
 		return nil, sc.we
 	}
 	if sc.re != nil {
-		defer sc.mu.Unlock()
+		defer sc.lk.Unlock()
 		return nil, sc.re
 	}
 	if sc.r == nil { // connection closed by user in the meantime
-		defer sc.mu.Unlock()
+		defer sc.lk.Unlock()
 		return nil, errClosed
 	}
 	r := sc.r
 	lastbody := sc.lastbody
 	sc.lastbody = nil
-	sc.mu.Unlock()
+	sc.lk.Unlock()
 
 	// Make sure body is fully consumed, even if user does not call body.Close
 	if lastbody != nil {
@@ -130,16 +127,16 @@ func (sc *ServerConn) Read() (*http.Request, error) {
 		// returned.
 		err = lastbody.Close()
 		if err != nil {
-			sc.mu.Lock()
-			defer sc.mu.Unlock()
+			sc.lk.Lock()
+			defer sc.lk.Unlock()
 			sc.re = err
 			return nil, err
 		}
 	}
 
 	req, err = http.ReadRequest(r)
-	sc.mu.Lock()
-	defer sc.mu.Unlock()
+	sc.lk.Lock()
+	defer sc.lk.Unlock()
 	if err != nil {
 		if err == io.ErrUnexpectedEOF {
 			// A close from the opposing client is treated as a
@@ -164,8 +161,8 @@ func (sc *ServerConn) Read() (*http.Request, error) {
 // Pending returns the number of unanswered requests
 // that have been received on the connection.
 func (sc *ServerConn) Pending() int {
-	sc.mu.Lock()
-	defer sc.mu.Unlock()
+	sc.lk.Lock()
+	defer sc.lk.Unlock()
 	return sc.nread - sc.nwritten
 }
 
@@ -175,31 +172,31 @@ func (sc *ServerConn) Pending() int {
 func (sc *ServerConn) Write(req *http.Request, resp *http.Response) error {
 
 	// Retrieve the pipeline ID of this request/response pair
-	sc.mu.Lock()
+	sc.lk.Lock()
 	id, ok := sc.pipereq[req]
 	delete(sc.pipereq, req)
 	if !ok {
-		sc.mu.Unlock()
+		sc.lk.Unlock()
 		return ErrPipeline
 	}
-	sc.mu.Unlock()
+	sc.lk.Unlock()
 
 	// Ensure pipeline order
 	sc.pipe.StartResponse(id)
 	defer sc.pipe.EndResponse(id)
 
-	sc.mu.Lock()
+	sc.lk.Lock()
 	if sc.we != nil {
-		defer sc.mu.Unlock()
+		defer sc.lk.Unlock()
 		return sc.we
 	}
 	if sc.c == nil { // connection closed by user in the meantime
-		defer sc.mu.Unlock()
+		defer sc.lk.Unlock()
 		return ErrClosed
 	}
 	c := sc.c
 	if sc.nread <= sc.nwritten {
-		defer sc.mu.Unlock()
+		defer sc.lk.Unlock()
 		return errors.New("persist server pipe count")
 	}
 	if resp.Close {
@@ -208,11 +205,11 @@ func (sc *ServerConn) Write(req *http.Request, resp *http.Response) error {
 		// before signaling.
 		sc.re = ErrPersistEOF
 	}
-	sc.mu.Unlock()
+	sc.lk.Unlock()
 
 	err := resp.Write(c)
-	sc.mu.Lock()
-	defer sc.mu.Unlock()
+	sc.lk.Lock()
+	defer sc.lk.Unlock()
 	if err != nil {
 		sc.we = err
 		return err
@@ -222,13 +219,15 @@ func (sc *ServerConn) Write(req *http.Request, resp *http.Response) error {
 	return nil
 }
 
-// ClientConn is an artifact of Go's early HTTP implementation.
-// It is low-level, old, and unused by Go's current HTTP stack.
-// We should have deleted it before Go 1.
+// A ClientConn sends request and receives headers over an underlying
+// connection, while respecting the HTTP keepalive logic. ClientConn
+// supports hijacking the connection calling Hijack to
+// regain control of the underlying net.Conn and deal with it as desired.
 //
-// Deprecated: Use Client or Transport in package net/http instead.
+// ClientConn is low-level and old. Applications should instead use
+// Client or Transport in the net/http package.
 type ClientConn struct {
-	mu              sync.Mutex // read-write protects the following fields
+	lk              sync.Mutex // read-write protects the following fields
 	c               net.Conn
 	r               *bufio.Reader
 	re, we          error // read/write errors
@@ -240,11 +239,11 @@ type ClientConn struct {
 	writeReq func(*http.Request, io.Writer) error
 }
 
-// NewClientConn is an artifact of Go's early HTTP implementation.
-// It is low-level, old, and unused by Go's current HTTP stack.
-// We should have deleted it before Go 1.
+// NewClientConn returns a new ClientConn reading and writing c.  If r is not
+// nil, it is the buffer to use when reading c.
 //
-// Deprecated: Use the Client or Transport in package net/http instead.
+// ClientConn is low-level and old. Applications should use Client or
+// Transport in the net/http package.
 func NewClientConn(c net.Conn, r *bufio.Reader) *ClientConn {
 	if r == nil {
 		r = bufio.NewReader(c)
@@ -257,11 +256,11 @@ func NewClientConn(c net.Conn, r *bufio.Reader) *ClientConn {
 	}
 }
 
-// NewProxyClientConn is an artifact of Go's early HTTP implementation.
-// It is low-level, old, and unused by Go's current HTTP stack.
-// We should have deleted it before Go 1.
+// NewProxyClientConn works like NewClientConn but writes Requests
+// using Request's WriteProxy method.
 //
-// Deprecated: Use the Client or Transport in package net/http instead.
+// New code should not use NewProxyClientConn. See Client or
+// Transport in the net/http package instead.
 func NewProxyClientConn(c net.Conn, r *bufio.Reader) *ClientConn {
 	cc := NewClientConn(c, r)
 	cc.writeReq = (*http.Request).WriteProxy
@@ -273,8 +272,8 @@ func NewProxyClientConn(c net.Conn, r *bufio.Reader) *ClientConn {
 // called before the user or Read have signaled the end of the keep-alive
 // logic. The user should not call Hijack while Read or Write is in progress.
 func (cc *ClientConn) Hijack() (c net.Conn, r *bufio.Reader) {
-	cc.mu.Lock()
-	defer cc.mu.Unlock()
+	cc.lk.Lock()
+	defer cc.lk.Unlock()
 	c = cc.c
 	r = cc.r
 	cc.c = nil
@@ -282,7 +281,7 @@ func (cc *ClientConn) Hijack() (c net.Conn, r *bufio.Reader) {
 	return
 }
 
-// Close calls Hijack and then also closes the underlying connection.
+// Close calls Hijack and then also closes the underlying connection
 func (cc *ClientConn) Close() error {
 	c, _ := cc.Hijack()
 	if c != nil {
@@ -296,8 +295,7 @@ func (cc *ClientConn) Close() error {
 // keepalive connection is logically closed after this request and the opposing
 // server is informed. An ErrUnexpectedEOF indicates the remote closed the
 // underlying TCP connection, which is usually considered as graceful close.
-func (cc *ClientConn) Write(req *http.Request) error {
-	var err error
+func (cc *ClientConn) Write(req *http.Request) (err error) {
 
 	// Ensure ordered execution of Writes
 	id := cc.pipe.Next()
@@ -309,23 +307,23 @@ func (cc *ClientConn) Write(req *http.Request) error {
 			cc.pipe.EndResponse(id)
 		} else {
 			// Remember the pipeline id of this request
-			cc.mu.Lock()
+			cc.lk.Lock()
 			cc.pipereq[req] = id
-			cc.mu.Unlock()
+			cc.lk.Unlock()
 		}
 	}()
 
-	cc.mu.Lock()
+	cc.lk.Lock()
 	if cc.re != nil { // no point sending if read-side closed or broken
-		defer cc.mu.Unlock()
+		defer cc.lk.Unlock()
 		return cc.re
 	}
 	if cc.we != nil {
-		defer cc.mu.Unlock()
+		defer cc.lk.Unlock()
 		return cc.we
 	}
 	if cc.c == nil { // connection closed by user in the meantime
-		defer cc.mu.Unlock()
+		defer cc.lk.Unlock()
 		return errClosed
 	}
 	c := cc.c
@@ -334,11 +332,11 @@ func (cc *ClientConn) Write(req *http.Request) error {
 		// still might be some pipelined reads
 		cc.we = ErrPersistEOF
 	}
-	cc.mu.Unlock()
+	cc.lk.Unlock()
 
 	err = cc.writeReq(req, c)
-	cc.mu.Lock()
-	defer cc.mu.Unlock()
+	cc.lk.Lock()
+	defer cc.lk.Unlock()
 	if err != nil {
 		cc.we = err
 		return err
@@ -351,8 +349,8 @@ func (cc *ClientConn) Write(req *http.Request) error {
 // Pending returns the number of unanswered requests
 // that have been sent on the connection.
 func (cc *ClientConn) Pending() int {
-	cc.mu.Lock()
-	defer cc.mu.Unlock()
+	cc.lk.Lock()
+	defer cc.lk.Unlock()
 	return cc.nwritten - cc.nread
 }
 
@@ -362,32 +360,32 @@ func (cc *ClientConn) Pending() int {
 // concurrently with Write, but not with another Read.
 func (cc *ClientConn) Read(req *http.Request) (resp *http.Response, err error) {
 	// Retrieve the pipeline ID of this request/response pair
-	cc.mu.Lock()
+	cc.lk.Lock()
 	id, ok := cc.pipereq[req]
 	delete(cc.pipereq, req)
 	if !ok {
-		cc.mu.Unlock()
+		cc.lk.Unlock()
 		return nil, ErrPipeline
 	}
-	cc.mu.Unlock()
+	cc.lk.Unlock()
 
 	// Ensure pipeline order
 	cc.pipe.StartResponse(id)
 	defer cc.pipe.EndResponse(id)
 
-	cc.mu.Lock()
+	cc.lk.Lock()
 	if cc.re != nil {
-		defer cc.mu.Unlock()
+		defer cc.lk.Unlock()
 		return nil, cc.re
 	}
 	if cc.r == nil { // connection closed by user in the meantime
-		defer cc.mu.Unlock()
+		defer cc.lk.Unlock()
 		return nil, errClosed
 	}
 	r := cc.r
 	lastbody := cc.lastbody
 	cc.lastbody = nil
-	cc.mu.Unlock()
+	cc.lk.Unlock()
 
 	// Make sure body is fully consumed, even if user does not call body.Close
 	if lastbody != nil {
@@ -396,16 +394,16 @@ func (cc *ClientConn) Read(req *http.Request) (resp *http.Response, err error) {
 		// returned.
 		err = lastbody.Close()
 		if err != nil {
-			cc.mu.Lock()
-			defer cc.mu.Unlock()
+			cc.lk.Lock()
+			defer cc.lk.Unlock()
 			cc.re = err
 			return nil, err
 		}
 	}
 
 	resp, err = http.ReadResponse(r, req)
-	cc.mu.Lock()
-	defer cc.mu.Unlock()
+	cc.lk.Lock()
+	defer cc.lk.Unlock()
 	if err != nil {
 		cc.re = err
 		return resp, err
@@ -422,10 +420,10 @@ func (cc *ClientConn) Read(req *http.Request) (resp *http.Response, err error) {
 }
 
 // Do is convenience method that writes a request and reads a response.
-func (cc *ClientConn) Do(req *http.Request) (*http.Response, error) {
-	err := cc.Write(req)
+func (cc *ClientConn) Do(req *http.Request) (resp *http.Response, err error) {
+	err = cc.Write(req)
 	if err != nil {
-		return nil, err
+		return
 	}
 	return cc.Read(req)
 }

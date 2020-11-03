@@ -13,10 +13,10 @@ program gfcbug33
 contains
   subroutine foo (chr)
     character(7) :: chr(:)
-    if (chr(1)//chr(2) .ne. "rstuvwxfghijkl") STOP 1
+    if (chr(1)//chr(2) .ne. "rstuvwxfghijkl") call abort ()
   end subroutine foo
   subroutine bar (chr)
     character(*) :: chr(:)
-    if (trim(chr(1))//trim(chr(2)) .ne. "ghijkstuvw") STOP 2
+    if (trim(chr(1))//trim(chr(2)) .ne. "ghijkstuvw") call abort ()
   end subroutine bar
 end program gfcbug33

@@ -5,14 +5,14 @@ struct A {
 };
 struct B:A {
    virtual int foo(){return 2;}
-   void callfoo(){foo();}
+   int callfoo(){foo();}
 };
 struct C:A {
    virtual int foo(){return 3;}
 };
 struct D:B {
    virtual int foo(){return 4;}
-   void callfoo(){foo();}
+   int callfoo(){foo();}
 };
 static void
 test (struct A *a)
@@ -29,3 +29,4 @@ m()
 }
 
 /* { dg-final { scan-ipa-dump-times "Discovered a virtual call to a known target\[^\\n\]*__builtin_unreachable" 1 "inline"  } } */
+/* { dg-final { cleanup-ipa-dump "inline" } } */

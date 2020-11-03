@@ -1,4 +1,3 @@
-/* { dg-do compile } */
 /* { dg-options "-masm=intel" } */
 /* { dg-require-effective-target masm_intel } */
 

@@ -1,5 +1,5 @@
 // { dg-do compile }
-// { dg-options "-std=c++14" }
+// { dg-options "-std=c++1y" }
 
 struct arr {
     constexpr arr() : elem() { }

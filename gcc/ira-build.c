@@ -1,5 +1,5 @@
 /* Building internal representation for IRA.
-   Copyright (C) 2006-2018 Free Software Foundation, Inc.
+   Copyright (C) 2006-2015 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -21,19 +21,32 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
-#include "target.h"
+#include "tm.h"
 #include "rtl.h"
-#include "predict.h"
-#include "df.h"
-#include "insn-config.h"
+#include "tm_p.h"
+#include "target.h"
 #include "regs.h"
-#include "memmodel.h"
-#include "ira.h"
-#include "ira-int.h"
+#include "flags.h"
+#include "hard-reg-set.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "basic-block.h"
+#include "insn-config.h"
+#include "recog.h"
+#include "diagnostic-core.h"
 #include "params.h"
+#include "df.h"
+#include "reload.h"
 #include "sparseset.h"
-#include "cfgloop.h"
+#include "ira-int.h"
+#include "emit-rtl.h"  /* FIXME: Can go away once crtl is moved to rtl.h.  */
 
 static ira_copy_t find_allocno_copy (ira_allocno_t, ira_allocno_t, rtx_insn *,
 				     ira_loop_tree_node_t);
@@ -415,9 +428,7 @@ rebuild_regno_allocno_maps (void)
 
 
 /* Pools for allocnos, allocno live ranges and objects.  */
-static object_allocator<live_range> live_range_pool ("live ranges");
-static object_allocator<ira_allocno> allocno_pool ("allocnos");
-static object_allocator<ira_object> object_pool ("objects");
+static alloc_pool allocno_pool, live_range_pool, object_pool;
 
 /* Vec containing references to all created allocnos.  It is a
    container of array allocnos.  */
@@ -431,6 +442,13 @@ static vec<ira_object_t> ira_object_id_map_vec;
 static void
 initiate_allocnos (void)
 {
+  live_range_pool
+    = create_alloc_pool ("live ranges",
+			 sizeof (struct live_range), 100);
+  allocno_pool
+    = create_alloc_pool ("allocnos", sizeof (struct ira_allocno), 100);
+  object_pool
+    = create_alloc_pool ("objects", sizeof (struct ira_object), 100);
   allocno_vec.create (max_reg_num () * 2);
   ira_allocnos = NULL;
   ira_allocnos_num = 0;
@@ -448,7 +466,7 @@ static ira_object_t
 ira_create_object (ira_allocno_t a, int subword)
 {
   enum reg_class aclass = ALLOCNO_CLASS (a);
-  ira_object_t obj = object_pool.allocate ();
+  ira_object_t obj = (ira_object_t) pool_alloc (object_pool);
 
   OBJECT_ALLOCNO (obj) = a;
   OBJECT_SUBWORD (obj) = subword;
@@ -483,7 +501,7 @@ ira_create_allocno (int regno, bool cap_p,
 {
   ira_allocno_t a;
 
-  a = allocno_pool.allocate ();
+  a = (ira_allocno_t) pool_alloc (allocno_pool);
   ALLOCNO_REGNO (a) = regno;
   ALLOCNO_LOOP_TREE_NODE (a) = loop_tree_node;
   if (! cap_p)
@@ -566,7 +584,7 @@ ira_create_allocno_objects (ira_allocno_t a)
   int n = ira_reg_class_max_nregs[aclass][mode];
   int i;
 
-  if (n != 2 || maybe_ne (GET_MODE_SIZE (mode), n * UNITS_PER_WORD))
+  if (GET_MODE_SIZE (mode) != 2 * UNITS_PER_WORD || n != 2)
     n = 1;
 
   ALLOCNO_NUM_OBJECTS (a) = n;
@@ -925,7 +943,7 @@ ira_create_live_range (ira_object_t obj, int start, int finish,
 {
   live_range_t p;
 
-  p = live_range_pool.allocate ();
+  p = (live_range_t) pool_alloc (live_range_pool);
   p->object = obj;
   p->start = start;
   p->finish = finish;
@@ -950,7 +968,7 @@ copy_live_range (live_range_t r)
 {
   live_range_t p;
 
-  p = live_range_pool.allocate ();
+  p = (live_range_t) pool_alloc (live_range_pool);
   *p = *r;
   return p;
 }
@@ -982,7 +1000,7 @@ ira_copy_live_range_list (live_range_t r)
 live_range_t
 ira_merge_live_ranges (live_range_t r1, live_range_t r2)
 {
-  live_range_t first, last;
+  live_range_t first, last, temp;
 
   if (r1 == NULL)
     return r2;
@@ -991,14 +1009,18 @@ ira_merge_live_ranges (live_range_t r1, live_range_t r2)
   for (first = last = NULL; r1 != NULL && r2 != NULL;)
     {
       if (r1->start < r2->start)
-	std::swap (r1, r2);
+	{
+	  temp = r1;
+	  r1 = r2;
+	  r2 = temp;
+	}
       if (r1->start <= r2->finish + 1)
 	{
 	  /* Intersected ranges: merge r1 and r2 into r1.  */
 	  r1->start = r2->start;
 	  if (r1->finish < r2->finish)
 	    r1->finish = r2->finish;
-	  live_range_t temp = r2;
+	  temp = r2;
 	  r2 = r2->next;
 	  ira_finish_live_range (temp);
 	  if (r2 == NULL)
@@ -1071,7 +1093,7 @@ ira_live_ranges_intersect_p (live_range_t r1, live_range_t r2)
 void
 ira_finish_live_range (live_range_t r)
 {
-  live_range_pool.remove (r);
+  pool_free (live_range_pool, r);
 }
 
 /* Free list of allocno live ranges starting with R.  */
@@ -1118,7 +1140,7 @@ ira_free_allocno_costs (ira_allocno_t a)
       ira_object_id_map[OBJECT_CONFLICT_ID (obj)] = NULL;
       if (OBJECT_CONFLICT_ARRAY (obj) != NULL)
 	ira_free (OBJECT_CONFLICT_ARRAY (obj));
-      object_pool.remove (obj);
+      pool_free (object_pool, obj);
     }
 
   ira_allocnos[ALLOCNO_NUM (a)] = NULL;
@@ -1142,7 +1164,7 @@ static void
 finish_allocno (ira_allocno_t a)
 {
   ira_free_allocno_costs (a);
-  allocno_pool.remove (a);
+  pool_free (allocno_pool, a);
 }
 
 /* Free the memory allocated for all allocnos.  */
@@ -1157,15 +1179,15 @@ finish_allocnos (void)
   ira_free (ira_regno_allocno_map);
   ira_object_id_map_vec.release ();
   allocno_vec.release ();
-  allocno_pool.release ();
-  object_pool.release ();
-  live_range_pool.release ();
+  free_alloc_pool (allocno_pool);
+  free_alloc_pool (object_pool);
+  free_alloc_pool (live_range_pool);
 }
 
 
 
 /* Pools for allocno preferences.  */
-static object_allocator <ira_allocno_pref> pref_pool ("prefs");
+static alloc_pool pref_pool;
 
 /* Vec containing references to all created preferences.  It is a
    container of array ira_prefs.  */
@@ -1175,6 +1197,8 @@ static vec<ira_pref_t> pref_vec;
 static void
 initiate_prefs (void)
 {
+  pref_pool
+    = create_alloc_pool ("prefs", sizeof (struct ira_allocno_pref), 100);
   pref_vec.create (get_max_uid ());
   ira_prefs = NULL;
   ira_prefs_num = 0;
@@ -1198,7 +1222,7 @@ ira_create_pref (ira_allocno_t a, int hard_regno, int freq)
 {
   ira_pref_t pref;
 
-  pref = pref_pool.allocate ();
+  pref = (ira_pref_t) pool_alloc (pref_pool);
   pref->num = ira_prefs_num;
   pref->allocno = a;
   pref->hard_regno = hard_regno;
@@ -1296,7 +1320,7 @@ static void
 finish_pref (ira_pref_t pref)
 {
   ira_prefs[pref->num] = NULL;
-  pref_pool.remove (pref);
+  pool_free (pref_pool, pref);
 }
 
 /* Remove PREF from the list of allocno prefs and free memory for
@@ -1346,13 +1370,13 @@ finish_prefs (void)
   FOR_EACH_PREF (pref, pi)
     finish_pref (pref);
   pref_vec.release ();
-  pref_pool.release ();
+  free_alloc_pool (pref_pool);
 }
 
 
 
 /* Pools for copies.  */
-static object_allocator<ira_allocno_copy> copy_pool ("copies");
+static alloc_pool copy_pool;
 
 /* Vec containing references to all created copies.  It is a
    container of array ira_copies.  */
@@ -1362,6 +1386,8 @@ static vec<ira_copy_t> copy_vec;
 static void
 initiate_copies (void)
 {
+  copy_pool
+    = create_alloc_pool ("copies", sizeof (struct ira_allocno_copy), 100);
   copy_vec.create (get_max_uid ());
   ira_copies = NULL;
   ira_copies_num = 0;
@@ -1406,7 +1432,7 @@ ira_create_copy (ira_allocno_t first, ira_allocno_t second, int freq,
 {
   ira_copy_t cp;
 
-  cp = copy_pool.allocate ();
+  cp = (ira_copy_t) pool_alloc (copy_pool);
   cp->num = ira_copies_num;
   cp->first = first;
   cp->second = second;
@@ -1453,12 +1479,23 @@ add_allocno_copy_to_list (ira_copy_t cp)
 static void
 swap_allocno_copy_ends_if_necessary (ira_copy_t cp)
 {
+  ira_allocno_t temp;
+  ira_copy_t temp_cp;
+
   if (ALLOCNO_NUM (cp->first) <= ALLOCNO_NUM (cp->second))
     return;
 
-  std::swap (cp->first, cp->second);
-  std::swap (cp->prev_first_allocno_copy, cp->prev_second_allocno_copy);
-  std::swap (cp->next_first_allocno_copy, cp->next_second_allocno_copy);
+  temp = cp->first;
+  cp->first = cp->second;
+  cp->second = temp;
+
+  temp_cp = cp->prev_first_allocno_copy;
+  cp->prev_first_allocno_copy = cp->prev_second_allocno_copy;
+  cp->prev_second_allocno_copy = temp_cp;
+
+  temp_cp = cp->next_first_allocno_copy;
+  cp->next_first_allocno_copy = cp->next_second_allocno_copy;
+  cp->next_second_allocno_copy = temp_cp;
 }
 
 /* Create (or update frequency if the copy already exists) and return
@@ -1591,7 +1628,7 @@ ira_debug_allocno_copies (ira_allocno_t a)
 static void
 finish_copy (ira_copy_t cp)
 {
-  copy_pool.remove (cp);
+  pool_free (copy_pool, cp);
 }
 
 
@@ -1605,13 +1642,13 @@ finish_copies (void)
   FOR_EACH_COPY (cp, ci)
     finish_copy (cp);
   copy_vec.release ();
-  copy_pool.release ();
+  free_alloc_pool (copy_pool);
 }
 
 
 
 /* Pools for cost vectors.  It is defined only for allocno classes.  */
-static pool_allocator *cost_vector_pool[N_REG_CLASSES];
+static alloc_pool cost_vector_pool[N_REG_CLASSES];
 
 /* The function initiates work with hard register cost vectors.  It
    creates allocation pool for each allocno class.  */
@@ -1624,8 +1661,10 @@ initiate_cost_vectors (void)
   for (i = 0; i < ira_allocno_classes_num; i++)
     {
       aclass = ira_allocno_classes[i];
-      cost_vector_pool[aclass] = new pool_allocator
-	("cost vectors", sizeof (int) * (ira_class_hard_regs_num[aclass]));
+      cost_vector_pool[aclass]
+	= create_alloc_pool ("cost vectors",
+			     sizeof (int) * ira_class_hard_regs_num[aclass],
+			     100);
     }
 }
 
@@ -1633,7 +1672,7 @@ initiate_cost_vectors (void)
 int *
 ira_allocate_cost_vector (reg_class_t aclass)
 {
-  return (int*) cost_vector_pool[(int) aclass]->allocate ();
+  return (int *) pool_alloc (cost_vector_pool[(int) aclass]);
 }
 
 /* Free a cost vector VEC for ACLASS.  */
@@ -1641,7 +1680,7 @@ void
 ira_free_cost_vector (int *vec, reg_class_t aclass)
 {
   ira_assert (vec != NULL);
-  cost_vector_pool[(int) aclass]->remove (vec);
+  pool_free (cost_vector_pool[(int) aclass], vec);
 }
 
 /* Finish work with hard register cost vectors.  Release allocation
@@ -1655,7 +1694,7 @@ finish_cost_vectors (void)
   for (i = 0; i < ira_allocno_classes_num; i++)
     {
       aclass = ira_allocno_classes[i];
-      delete cost_vector_pool[aclass];
+      free_alloc_pool (cost_vector_pool[aclass]);
     }
 }
 
@@ -1673,7 +1712,7 @@ finish_cost_vectors (void)
    minimizes the number of chain elements per allocno live range.  If the
    blocks would be visited in a different order, we would still compute a
    correct post-ordering but it would be less likely that two nodes
-   connected by an edge in the CFG are neighbors in the topsort.  */
+   connected by an edge in the CFG are neighbours in the topsort.  */
 
 static vec<ira_loop_tree_node_t>
 ira_loop_tree_body_rev_postorder (ira_loop_tree_node_t loop_node ATTRIBUTE_UNUSED,
@@ -1853,7 +1892,7 @@ create_insn_allocnos (rtx x, rtx outer, bool output_p)
 	      if (outer != NULL && GET_CODE (outer) == SUBREG)
 		{
 		  machine_mode wmode = GET_MODE (outer);
-		  if (partial_subreg_p (ALLOCNO_WMODE (a), wmode))
+		  if (GET_MODE_SIZE (wmode) > GET_MODE_SIZE (ALLOCNO_WMODE (a)))
 		    ALLOCNO_WMODE (a) = wmode;
 		}
 	    }
@@ -2202,8 +2241,7 @@ loop_compare_func (const void *v1p, const void *v2p)
     return -1;
   if (! l1->to_remove_p && l2->to_remove_p)
     return 1;
-  if ((diff = l1->loop->header->count.to_frequency (cfun)
-	      - l2->loop->header->count.to_frequency (cfun)) != 0)
+  if ((diff = l1->loop->header->frequency - l2->loop->header->frequency) != 0)
     return diff;
   if ((diff = (int) loop_depth (l1->loop) - (int) loop_depth (l2->loop)) != 0)
     return diff;
@@ -2253,7 +2291,7 @@ mark_loops_for_removal (void)
 	     );
       }
   qsort (sorted_loops, n, sizeof (ira_loop_tree_node_t), loop_compare_func);
-  for (i = 0; i < n - IRA_MAX_LOOPS_NUM; i++)
+  for (i = 0; n - i + 1 > IRA_MAX_LOOPS_NUM; i++)
     {
       sorted_loops[i]->to_remove_p = true;
       if (internal_flag_ira_verbose > 1 && ira_dump_file != NULL)
@@ -2261,7 +2299,7 @@ mark_loops_for_removal (void)
 	  (ira_dump_file,
 	   "  Mark loop %d (header %d, freq %d, depth %d) for removal (%s)\n",
 	   sorted_loops[i]->loop_num, sorted_loops[i]->loop->header->index,
-	   sorted_loops[i]->loop->header->count.to_frequency (cfun),
+	   sorted_loops[i]->loop->header->frequency,
 	   loop_depth (sorted_loops[i]->loop),
 	   low_pressure_loop_node_p (sorted_loops[i]->parent)
 	   && low_pressure_loop_node_p (sorted_loops[i])
@@ -2294,7 +2332,7 @@ mark_all_loops_for_removal (void)
 	     "  Mark loop %d (header %d, freq %d, depth %d) for removal\n",
 	     ira_loop_nodes[i].loop_num,
 	     ira_loop_nodes[i].loop->header->index,
-	     ira_loop_nodes[i].loop->header->count.to_frequency (cfun),
+	     ira_loop_nodes[i].loop->header->frequency,
 	     loop_depth (ira_loop_nodes[i].loop));
       }
 }
@@ -2728,13 +2766,7 @@ setup_min_max_allocno_live_range_point (void)
 	    ira_object_t parent_obj;
 
 	    if (OBJECT_MAX (obj) < 0)
-	      {
-		/* The object is not used and hence does not live.  */
-		ira_assert (OBJECT_LIVE_RANGES (obj) == NULL);
-		OBJECT_MAX (obj) = 0;
-		OBJECT_MIN (obj) = 1;
-		continue;
-	      }
+	      continue;
 	    ira_assert (ALLOCNO_CAP_MEMBER (a) == NULL);
 	    /* Accumulation of range info.  */
 	    if (ALLOCNO_CAP (a) != NULL)
@@ -2762,8 +2794,8 @@ setup_min_max_allocno_live_range_point (void)
 #ifdef ENABLE_IRA_CHECKING
   FOR_EACH_OBJECT (obj, oi)
     {
-      if ((OBJECT_MIN (obj) >= 0 && OBJECT_MIN (obj) <= ira_max_point)
-	  && (OBJECT_MAX (obj) >= 0 && OBJECT_MAX (obj) <= ira_max_point))
+      if ((0 <= OBJECT_MIN (obj) && OBJECT_MIN (obj) <= ira_max_point)
+	  && (0 <= OBJECT_MAX (obj) && OBJECT_MAX (obj) <= ira_max_point))
 	continue;
       gcc_unreachable ();
     }

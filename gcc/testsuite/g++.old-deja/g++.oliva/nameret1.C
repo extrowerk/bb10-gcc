@@ -1,5 +1,5 @@
 // { dg-do assemble  }
-// { dg-options "-Wno-deprecated -Wno-return-type" }
+// { dg-options "-Wno-deprecated" }
 // Copyright (C) 1999, 2000, 2002 Free Software Foundation
 
 // by Alexandre Oliva <oliva@lsd.ic.unicamp.br>

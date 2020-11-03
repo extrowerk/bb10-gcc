@@ -1,5 +1,5 @@
 /* Help friends in C++.
-   Copyright (C) 1997-2018 Free Software Foundation, Inc.
+   Copyright (C) 1997-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,49 +20,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
 #include "cp-tree.h"
+#include "flags.h"
 
 /* Friend data structures are described in cp-tree.h.  */
-
-
-/* The GLOBAL_FRIEND scope (functions, classes, or templates) is
-   regarded as a friend of every class.  This is only used by libcc1,
-   to enable GDB's code snippets to access private members without
-   disabling access control in general, which could cause different
-   template overload resolution results when accessibility matters
-   (e.g. tests for an accessible member).  */
-
-static GTY(()) tree global_friend;
-
-/* Set the GLOBAL_FRIEND for this compilation session.  It might be
-   set multiple times, but always to the same scope.  */
-
-void
-set_global_friend (tree scope)
-{
-  gcc_checking_assert (scope != NULL_TREE);
-  gcc_assert (!global_friend || global_friend == scope);
-  global_friend = scope;
-}
-
-/* Return TRUE if SCOPE is the global friend.  */
-
-bool
-is_global_friend (tree scope)
-{
-  gcc_checking_assert (scope != NULL_TREE);
-
-  if (global_friend == scope)
-    return true;
-
-  if (!global_friend)
-    return false;
-
-  if (is_specialization_of_friend (global_friend, scope))
-    return true;
-
-  return false;
-}
 
 /* Returns nonzero if SUPPLICANT is a friend of TYPE.  */
 
@@ -75,9 +47,6 @@ is_friend (tree type, tree supplicant)
 
   if (supplicant == NULL_TREE || type == NULL_TREE)
     return 0;
-
-  if (is_global_friend (supplicant))
-    return 1;
 
   declp = DECL_P (supplicant);
 
@@ -195,9 +164,11 @@ add_friend (tree type, tree decl, bool complain)
 		}
 	    }
 
+	  maybe_add_class_template_decl_list (type, decl, /*friend_p=*/1);
+
 	  TREE_VALUE (list) = tree_cons (NULL_TREE, decl,
 					 TREE_VALUE (list));
-	  break;
+	  return;
 	}
       list = TREE_CHAIN (list);
     }
@@ -209,10 +180,9 @@ add_friend (tree type, tree decl, bool complain)
 
   maybe_add_class_template_decl_list (type, decl, /*friend_p=*/1);
 
-  if (!list)
-    DECL_FRIENDLIST (typedecl)
-      = tree_cons (DECL_NAME (decl), build_tree_list (NULL_TREE, decl),
-		   DECL_FRIENDLIST (typedecl));
+  DECL_FRIENDLIST (typedecl)
+    = tree_cons (DECL_NAME (decl), build_tree_list (NULL_TREE, decl),
+		 DECL_FRIENDLIST (typedecl));
   if (!uses_template_parms (type))
     DECL_BEFRIENDING_CLASSES (decl)
       = tree_cons (NULL_TREE, type,
@@ -283,36 +253,23 @@ make_friend_class (tree type, tree friend_type, bool complain)
     return;
 
   if (friend_depth)
+    /* If the TYPE is a template then it makes sense for it to be
+       friends with itself; this means that each instantiation is
+       friends with all other instantiations.  */
     {
-      /* [temp.friend] Friend declarations shall not declare partial
-	 specializations.  */
       if (CLASS_TYPE_P (friend_type)
 	  && CLASSTYPE_TEMPLATE_SPECIALIZATION (friend_type)
 	  && uses_template_parms (friend_type))
 	{
+	  /* [temp.friend]
+	     Friend declarations shall not declare partial
+	     specializations.  */
 	  error ("partial specialization %qT declared %<friend%>",
 		 friend_type);
 	  return;
 	}
-
-      if (TYPE_TEMPLATE_INFO (friend_type)
-	  && !PRIMARY_TEMPLATE_P (TYPE_TI_TEMPLATE (friend_type)))
-	{
-	  error ("%qT is not a template", friend_type);
-	  inform (location_of (friend_type), "previous declaration here");
-	  if (TYPE_CLASS_SCOPE_P (friend_type)
-	      && CLASSTYPE_TEMPLATE_INFO (TYPE_CONTEXT (friend_type))
-	      && currently_open_class (TYPE_CONTEXT (friend_type)))
-	    inform (input_location, "perhaps you need explicit template "
-		    "arguments in your nested-name-specifier");
-	  return;
-	}
     }
-
-  /* It makes sense for a template class to be friends with itself,
-     that means the instantiations can be friendly.  Other cases are
-     not so meaningful.  */
-  if (!friend_depth && same_type_p (type, friend_type))
+  else if (same_type_p (type, friend_type))
     {
       if (complain)
 	warning (0, "class %qT is implicitly friends with itself",
@@ -380,8 +337,7 @@ make_friend_class (tree type, tree friend_type, bool complain)
 		{
 		  error ("%qT is not a member class template of %qT",
 			 name, ctype);
-		  inform (DECL_SOURCE_LOCATION (decl),
-			  "%qD declared here", decl);
+		  inform (input_location, "%q+D declared here", decl);
 		  return;
 		}
 	      if (!template_member_p && (TREE_CODE (decl) != TYPE_DECL
@@ -389,8 +345,7 @@ make_friend_class (tree type, tree friend_type, bool complain)
 		{
 		  error ("%qT is not a nested class of %qT",
 			 name, ctype);
-		  inform (DECL_SOURCE_LOCATION (decl),
-			  "%qD declared here", decl);
+		  inform (input_location, "%q+D declared here", decl);
 		  return;
 		}
 
@@ -495,8 +450,8 @@ do_friend (tree ctype, tree declarator, tree decl,
   if (TREE_CODE (declarator) == TEMPLATE_ID_EXPR)
     {
       declarator = TREE_OPERAND (declarator, 0);
-      if (!identifier_p (declarator))
-	declarator = OVL_NAME (declarator);
+      if (is_overloaded_fn (declarator))
+	declarator = DECL_NAME (get_first_fn (declarator));
     }
 
   if (ctype)
@@ -531,7 +486,7 @@ do_friend (tree ctype, tree declarator, tree decl,
 
       /* A method friend.  */
       if (flags == NO_SPECIAL && declarator == cname)
-	DECL_CXX_CONSTRUCTOR_P (decl) = 1;
+	DECL_CONSTRUCTOR_P (decl) = 1;
 
       grokclassfn (ctype, decl, flags);
 
@@ -610,8 +565,25 @@ do_friend (tree ctype, tree declarator, tree decl,
 	       is instantiated.  */
 	    decl = push_template_decl_real (decl, /*is_friend=*/true);
 	  else if (current_function_decl)
-	    /* pushdecl will check there's a local decl already.  */
-	    decl = pushdecl (decl, /*is_friend=*/true);
+	    {
+	      /* This must be a local class.  11.5p11:
+
+		 If a friend declaration appears in a local class (9.8) and
+		 the name specified is an unqualified name, a prior
+		 declaration is looked up without considering scopes that
+		 are outside the innermost enclosing non-class scope. For a
+		 friend function declaration, if there is no prior
+		 declaration, the program is ill-formed.  */
+	      tree t = lookup_name_innermost_nonclass_level (DECL_NAME (decl));
+	      if (t)
+		decl = pushdecl_maybe_friend (decl, /*is_friend=*/true);
+	      else
+		{
+		  error ("friend declaration %qD in local class without "
+			 "prior declaration", decl);
+		  return error_mark_node;
+		}
+	    }
 	  else
 	    {
 	      /* We can't use pushdecl, as we might be in a template
@@ -653,5 +625,3 @@ do_friend (tree ctype, tree declarator, tree decl,
 
   return decl;
 }
-
-#include "gt-cp-friend.h"

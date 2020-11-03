@@ -300,11 +300,7 @@ f2 (struct C *x)
 	  else
 	    {
 	      o = f2 (x);
-#if __SIZEOF_POINTER__ == __SIZEOF_LONG__
 	      if (((unsigned long) o > (unsigned long) -4000L))
-#elif __SIZEOF_POINTER__ == __SIZEOF_INT__
-	  if (((__UINTPTR_TYPE__) o > (__UINTPTR_TYPE__) -4000U))
-#endif
 		{
 		  e = 5;
 		  goto out;
@@ -388,11 +384,7 @@ f2 (struct C *x)
 	  break;
 	case 19:
 	  o = f2 (x);
-#if __SIZEOF_POINTER__ == __SIZEOF_LONG__
 	  if (((unsigned long) o > (unsigned long) -4000L))
-#elif __SIZEOF_POINTER__ == __SIZEOF_INT__
-	  if (((__UINTPTR_TYPE__) o > (__UINTPTR_TYPE__) -4000U))
-#endif
 	    {
 	      e = 6;
 	      goto out;

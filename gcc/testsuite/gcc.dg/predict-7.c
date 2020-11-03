@@ -13,4 +13,5 @@ void foo (int base)
       bar (i);
 }
 
-/* { dg-final { scan-tree-dump-times "loop branch heuristics of edge\[^:\]*" 0 "profile_estimate"} } */
+/* { dg-final { scan-tree-dump-times "loop branch heuristics" 0 "profile_estimate"} } */
+/* { dg-final { cleanup-tree-dump "profile_estimate" } } */

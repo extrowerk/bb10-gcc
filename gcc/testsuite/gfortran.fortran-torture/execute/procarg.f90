@@ -3,7 +3,7 @@ subroutine myp (a)
    implicit none
    integer a
 
-   if (a .ne. 42) STOP 1
+   if (a .ne. 42) call abort
 end subroutine
 
 subroutine test2 (p)

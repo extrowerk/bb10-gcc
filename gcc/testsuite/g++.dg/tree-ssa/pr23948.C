@@ -6,7 +6,7 @@ struct MIOFILE {
 };
 double potentially_runnable_resource_share();
 void f1(double);
-void make_scheduler_request(double a, double b)
+int make_scheduler_request(double a, double b)
 {
   MIOFILE mf;
   double prrs = potentially_runnable_resource_share();
@@ -16,3 +16,4 @@ void make_scheduler_request(double a, double b)
 }
 
 /* { dg-final { scan-tree-dump-times " / " 1 "recip" } } */
+/* { dg-final { cleanup-tree-dump "recip" } } */

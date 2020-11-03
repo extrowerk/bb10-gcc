@@ -1,7 +1,6 @@
 /* { dg-do run } */
-/* { dg-options "" } */
-/* { dg-additional-options "-msse" { target i?86-*-* x86_64-*-* } } */
-/* { dg-require-effective-target sse_runtime { target { i?86-*-* x86_64-*-* } } } */
+/* { dg-options "-msse" { target { { i?86-*-* x86_64-*-* } && ilp32 } } } */
+/* { dg-require-effective-target sse_runtime { target { { i?86-*-* x86_64-*-* } && ilp32 } } } */
 
 typedef float v2sf __attribute__ ((vector_size (2 * sizeof(float))));
 

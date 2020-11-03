@@ -1,9 +1,9 @@
-## Process this file with automake to produce Makefile.in.
+# Makefile.am is used by automake 1.11 to generate Makefile.in.
 
 ACLOCAL_AMFLAGS = -I .. -I ../config
 AUTOMAKE_OPTIONS = no-dependencies
 
-gcc_version := $(shell @get_gcc_base_ver@ $(top_srcdir)/../gcc/BASE-VER)
+gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 target_noncanonical := @target_noncanonical@
 libexecsubdir := $(libexecdir)/gcc/$(real_target_noncanonical)/$(gcc_version)$(accel_dir_suffix)
 
@@ -12,7 +12,7 @@ AM_CFLAGS = @ac_lto_plugin_warn_cflags@
 AM_LDFLAGS = @ac_lto_plugin_ldflags@
 AM_LIBTOOLFLAGS = --tag=disable-static
 override CFLAGS := $(filter-out -fsanitize=address,$(CFLAGS))
-override LDFLAGS := $(filter-out -static,$(filter-out -fsanitize=address,$(LDFLAGS)))
+override LDFLAGS := $(filter-out -fsanitize=address,$(LDFLAGS))
 
 libexecsub_LTLIBRARIES = liblto_plugin.la
 gcc_build_dir = @gcc_build_dir@

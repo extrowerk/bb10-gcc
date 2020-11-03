@@ -3,7 +3,6 @@
 
 /* { dg-do compile } */
 /* { dg-options "-O -Wclobbered -Wextra -Wall" } */
-/* { dg-skip-if "" { ! nonlocal_goto } } */
 
 #include <setjmp.h>
 

@@ -3,7 +3,6 @@
    to add back the label.   */
 
 /* { dg-options "" } */
-/* { dg-require-effective-target label_values } */
 
 void
 f (void)

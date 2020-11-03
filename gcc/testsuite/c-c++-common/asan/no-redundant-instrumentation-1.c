@@ -57,3 +57,4 @@ main ()
 
 /* { dg-final { scan-tree-dump-times "__builtin___asan_report_store1" 3 "sanopt" } } */
 /* { dg-final { scan-tree-dump-not "__builtin___asan_report_load1" "sanopt" } } */
+/* { dg-final { cleanup-tree-dump "sanopt" } } */

@@ -12,7 +12,6 @@ namespace N1 {
   { 
     X x; 
     f(x);     // { dg-error "matching" "matching" }
-    return 0;
   }
 }
 
@@ -31,7 +30,6 @@ namespace N2 {
   { 
     X<T> x; 
     N2::f(x);   // { dg-error "matching" "matching" }
-    return 0;
   }
 
   template int foo<float>();  // { dg-message "required from here" }

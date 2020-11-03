@@ -1,6 +1,5 @@
 ! { dg-do compile }
-! { dg-options -std=f2003 }
-! Check that we don't allow IO of NAMELISTs with types with allocatable
+! Check that we don't allow IO or NAMELISTs with types with allocatable
 ! components (PR 20541)
 program main
 
@@ -14,8 +13,8 @@ program main
 
     type(foo) :: a
     type(bar) :: b
-    namelist /blah/ a  ! This is allowed under F2003, but not F95
-    ! The following require User Defined Derived Type I/O procedures.
+    namelist /blah/ a ! { dg-error "has ALLOCATABLE or POINTER components and thus requires a defined input/output" }
+
     write (*, *) a  ! { dg-error "cannot have ALLOCATABLE components" }
 
     read (*, *) b  ! { dg-error "cannot have ALLOCATABLE components" }

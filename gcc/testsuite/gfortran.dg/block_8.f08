@@ -1,5 +1,5 @@
 ! { dg-do run }
-! { dg-options "-std=f2008 " }
+! { dg-options "-std=f2008 -fall-intrinsics" }
 
 ! Check BLOCK with SAVE'ed variables.
 
@@ -11,7 +11,7 @@ PROGRAM main
     BLOCK
       INTEGER, SAVE :: summed = 0
       summed = summed + i
-      IF (i == 100 .AND. summed /= 5050) STOP 1
+      IF (i == 100 .AND. summed /= 5050) CALL abort ()
     END BLOCK
   END DO
 END PROGRAM main

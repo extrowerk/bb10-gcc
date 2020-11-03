@@ -1,5 +1,5 @@
 /* internal.h -- Internal header file for stack backtrace library.
-   Copyright (C) 2012-2018 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Google.
 
 Redistribution and use in source and binary forms, with or without
@@ -7,13 +7,13 @@ modification, are permitted provided that the following conditions are
 met:
 
     (1) Redistributions of source code must retain the above copyright
-    notice, this list of conditions and the following disclaimer.
+    notice, this list of conditions and the following disclaimer. 
 
     (2) Redistributions in binary form must reproduce the above copyright
     notice, this list of conditions and the following disclaimer in
     the documentation and/or other materials provided with the
-    distribution.
-
+    distribution.  
+    
     (3) The name of the author may not be used to
     endorse or promote products derived from this software without
     specific prior written permission.
@@ -201,15 +201,13 @@ extern int backtrace_close (int descriptor,
 extern void backtrace_qsort (void *base, size_t count, size_t size,
 			     int (*compar) (const void *, const void *));
 
-/* Allocate memory.  This is like malloc.  If ERROR_CALLBACK is NULL,
-   this does not report an error, it just returns NULL.  */
+/* Allocate memory.  This is like malloc.  */
 
 extern void *backtrace_alloc (struct backtrace_state *state, size_t size,
 			      backtrace_error_callback error_callback,
 			      void *data) ATTRIBUTE_MALLOC;
 
-/* Free memory allocated by backtrace_alloc.  If ERROR_CALLBACK is
-   NULL, this does not report an error.  */
+/* Free memory allocated by backtrace_alloc.  */
 
 extern void backtrace_free (struct backtrace_state *state, void *mem,
 			    size_t size,
@@ -268,7 +266,6 @@ extern int backtrace_vector_release (struct backtrace_state *state,
    appropriate one.  */
 
 extern int backtrace_initialize (struct backtrace_state *state,
-				 const char *filename,
 				 int descriptor,
 				 backtrace_error_callback error_callback,
 				 void *data,
@@ -291,14 +288,5 @@ extern int backtrace_dwarf_add (struct backtrace_state *state,
 				int is_bigendian,
 				backtrace_error_callback error_callback,
 				void *data, fileline *fileline_fn);
-
-/* A test-only hook for elf_uncompress_zdebug.  */
-
-extern int backtrace_uncompress_zdebug (struct backtrace_state *,
-					const unsigned char *compressed,
-					size_t compressed_size,
-					backtrace_error_callback, void *data,
-					unsigned char **uncompressed,
-					size_t *uncompressed_size);
 
 #endif

@@ -6,6 +6,7 @@ package http
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"net"
 	"strconv"
@@ -13,18 +14,19 @@ import (
 	"time"
 )
 
+// This implementation is done according to RFC 6265:
+//
+//    http://tools.ietf.org/html/rfc6265
+
 // A Cookie represents an HTTP cookie as sent in the Set-Cookie header of an
 // HTTP response or the Cookie header of an HTTP request.
-//
-// See http://tools.ietf.org/html/rfc6265 for details.
 type Cookie struct {
-	Name  string
-	Value string
-
-	Path       string    // optional
-	Domain     string    // optional
-	Expires    time.Time // optional
-	RawExpires string    // for reading cookies only
+	Name       string
+	Value      string
+	Path       string
+	Domain     string
+	Expires    time.Time
+	RawExpires string
 
 	// MaxAge=0 means no 'Max-Age' attribute specified.
 	// MaxAge<0 means delete cookie now, equivalently 'Max-Age: 0'
@@ -39,11 +41,7 @@ type Cookie struct {
 // readSetCookies parses all "Set-Cookie" values from
 // the header h and returns the successfully parsed Cookies.
 func readSetCookies(h Header) []*Cookie {
-	cookieCount := len(h["Set-Cookie"])
-	if cookieCount == 0 {
-		return []*Cookie{}
-	}
-	cookies := make([]*Cookie, 0, cookieCount)
+	cookies := []*Cookie{}
 	for _, line := range h["Set-Cookie"] {
 		parts := strings.Split(strings.TrimSpace(line), ";")
 		if len(parts) == 1 && parts[0] == "" {
@@ -58,8 +56,8 @@ func readSetCookies(h Header) []*Cookie {
 		if !isCookieNameValid(name) {
 			continue
 		}
-		value, ok := parseCookieValue(value, true)
-		if !ok {
+		value, success := parseCookieValue(value, true)
+		if !success {
 			continue
 		}
 		c := &Cookie{
@@ -78,8 +76,8 @@ func readSetCookies(h Header) []*Cookie {
 				attr, val = attr[:j], attr[j+1:]
 			}
 			lowerAttr := strings.ToLower(attr)
-			val, ok = parseCookieValue(val, false)
-			if !ok {
+			val, success = parseCookieValue(val, false)
+			if !success {
 				c.Unparsed = append(c.Unparsed, parts[i])
 				continue
 			}
@@ -99,9 +97,10 @@ func readSetCookies(h Header) []*Cookie {
 					break
 				}
 				if secs <= 0 {
-					secs = -1
+					c.MaxAge = -1
+				} else {
+					c.MaxAge = secs
 				}
-				c.MaxAge = secs
 				continue
 			case "expires":
 				c.RawExpires = val
@@ -127,30 +126,18 @@ func readSetCookies(h Header) []*Cookie {
 }
 
 // SetCookie adds a Set-Cookie header to the provided ResponseWriter's headers.
-// The provided cookie must have a valid Name. Invalid cookies may be
-// silently dropped.
 func SetCookie(w ResponseWriter, cookie *Cookie) {
-	if v := cookie.String(); v != "" {
-		w.Header().Add("Set-Cookie", v)
-	}
+	w.Header().Add("Set-Cookie", cookie.String())
 }
 
 // String returns the serialization of the cookie for use in a Cookie
 // header (if only Name and Value are set) or a Set-Cookie response
 // header (if other fields are set).
-// If c is nil or c.Name is invalid, the empty string is returned.
 func (c *Cookie) String() string {
-	if c == nil || !isCookieNameValid(c.Name) {
-		return ""
-	}
 	var b bytes.Buffer
-	b.WriteString(sanitizeCookieName(c.Name))
-	b.WriteRune('=')
-	b.WriteString(sanitizeCookieValue(c.Value))
-
+	fmt.Fprintf(&b, "%s=%s", sanitizeCookieName(c.Name), sanitizeCookieValue(c.Value))
 	if len(c.Path) > 0 {
-		b.WriteString("; Path=")
-		b.WriteString(sanitizeCookiePath(c.Path))
+		fmt.Fprintf(&b, "; Path=%s", sanitizeCookiePath(c.Path))
 	}
 	if len(c.Domain) > 0 {
 		if validCookieDomain(c.Domain) {
@@ -162,31 +149,25 @@ func (c *Cookie) String() string {
 			if d[0] == '.' {
 				d = d[1:]
 			}
-			b.WriteString("; Domain=")
-			b.WriteString(d)
+			fmt.Fprintf(&b, "; Domain=%s", d)
 		} else {
-			log.Printf("net/http: invalid Cookie.Domain %q; dropping domain attribute", c.Domain)
+			log.Printf("net/http: invalid Cookie.Domain %q; dropping domain attribute",
+				c.Domain)
 		}
 	}
-	if validCookieExpires(c.Expires) {
-		b.WriteString("; Expires=")
-		b2 := b.Bytes()
-		b.Reset()
-		b.Write(c.Expires.UTC().AppendFormat(b2, TimeFormat))
+	if c.Expires.Unix() > 0 {
+		fmt.Fprintf(&b, "; Expires=%s", c.Expires.UTC().Format(time.RFC1123))
 	}
 	if c.MaxAge > 0 {
-		b.WriteString("; Max-Age=")
-		b2 := b.Bytes()
-		b.Reset()
-		b.Write(strconv.AppendInt(b2, int64(c.MaxAge), 10))
+		fmt.Fprintf(&b, "; Max-Age=%d", c.MaxAge)
 	} else if c.MaxAge < 0 {
-		b.WriteString("; Max-Age=0")
+		fmt.Fprintf(&b, "; Max-Age=0")
 	}
 	if c.HttpOnly {
-		b.WriteString("; HttpOnly")
+		fmt.Fprintf(&b, "; HttpOnly")
 	}
 	if c.Secure {
-		b.WriteString("; Secure")
+		fmt.Fprintf(&b, "; Secure")
 	}
 	return b.String()
 }
@@ -196,18 +177,19 @@ func (c *Cookie) String() string {
 //
 // if filter isn't empty, only cookies of that name are returned
 func readCookies(h Header, filter string) []*Cookie {
+	cookies := []*Cookie{}
 	lines, ok := h["Cookie"]
 	if !ok {
-		return []*Cookie{}
+		return cookies
 	}
 
-	cookies := []*Cookie{}
 	for _, line := range lines {
 		parts := strings.Split(strings.TrimSpace(line), ";")
 		if len(parts) == 1 && parts[0] == "" {
 			continue
 		}
 		// Per-line attributes
+		parsedPairs := 0
 		for i := 0; i < len(parts); i++ {
 			parts[i] = strings.TrimSpace(parts[i])
 			if len(parts[i]) == 0 {
@@ -223,17 +205,18 @@ func readCookies(h Header, filter string) []*Cookie {
 			if filter != "" && filter != name {
 				continue
 			}
-			val, ok := parseCookieValue(val, true)
-			if !ok {
+			val, success := parseCookieValue(val, true)
+			if !success {
 				continue
 			}
 			cookies = append(cookies, &Cookie{Name: name, Value: val})
+			parsedPairs++
 		}
 	}
 	return cookies
 }
 
-// validCookieDomain returns whether v is a valid cookie domain-value.
+// validCookieDomain returns wheter v is a valid cookie domain-value.
 func validCookieDomain(v string) bool {
 	if isCookieDomainName(v) {
 		return true
@@ -242,12 +225,6 @@ func validCookieDomain(v string) bool {
 		return true
 	}
 	return false
-}
-
-// validCookieExpires returns whether v is a valid cookie expires-value.
-func validCookieExpires(t time.Time) bool {
-	// IETF RFC 6265 Section 5.1.1.5, the year must not be less than 1601
-	return t.Year() >= 1601
 }
 
 // isCookieDomainName returns whether s is a valid domain name or a valid
@@ -320,13 +297,13 @@ func sanitizeCookieName(n string) string {
 // We loosen this as spaces and commas are common in cookie values
 // but we produce a quoted cookie-value in when value starts or ends
 // with a comma or space.
-// See https://golang.org/issue/7243 for the discussion.
+// See http://golang.org/issue/7243 for the discussion.
 func sanitizeCookieValue(v string) string {
 	v = sanitizeOrWarn("Cookie.Value", validCookieValueByte, v)
 	if len(v) == 0 {
 		return v
 	}
-	if strings.IndexByte(v, ' ') >= 0 || strings.IndexByte(v, ',') >= 0 {
+	if v[0] == ' ' || v[0] == ',' || v[len(v)-1] == ' ' || v[len(v)-1] == ',' {
 		return `"` + v + `"`
 	}
 	return v
@@ -382,8 +359,5 @@ func parseCookieValue(raw string, allowDoubleQuote bool) (string, bool) {
 }
 
 func isCookieNameValid(raw string) bool {
-	if raw == "" {
-		return false
-	}
 	return strings.IndexFunc(raw, isNotToken) < 0
 }

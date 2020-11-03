@@ -1,5 +1,4 @@
 ! { dg-do run }
-! { dg-require-visibility "" }
 !
 ! PROCEDURE POINTERS without the PROCEDURE statement
 !
@@ -41,12 +40,12 @@ real :: c = 1.2
 
 fp => e1
 
-if (abs(fp(2.5)-7.5)>0.01) STOP 1
+if (abs(fp(2.5)-7.5)>0.01) call abort()
 
 sp => e2
 
 call sp(c,3.4)
 
-if (abs(c-4.6)>0.01) STOP 2
+if (abs(c-4.6)>0.01) call abort()
 
 end

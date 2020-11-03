@@ -1,5 +1,5 @@
 // PR c++/14432
-// { dg-options "-Wno-builtin-declaration-mismatch" }
+// { dg-options "" }
 
 struct Y {}; 
 Y y1; 

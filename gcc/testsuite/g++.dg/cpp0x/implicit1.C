@@ -5,9 +5,9 @@
 
 class C
 {
-  void operator delete (void *); // { dg-message "private" }
+  void operator delete (void *); // { dg-error "private" }
 public:
-  virtual ~C();			// { dg-message "overridden" }
+  virtual ~C();			// { dg-error "overriding" }
 };
 
 struct D: C { };		// { dg-error "deleted" }
@@ -20,7 +20,7 @@ struct E
 
 struct F
 {
-  virtual ~F();			// { dg-message "overridden" }
+  virtual ~F();			// { dg-error "overriding" }
 };
 
 struct G: E, F { };		// { dg-error "deleted" }

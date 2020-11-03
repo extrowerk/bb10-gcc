@@ -1,7 +1,7 @@
 /* Dependency checks for instruction scheduling, shared between ARM and
    AARCH64.
 
-   Copyright (C) 1991-2018 Free Software Foundation, Inc.
+   Copyright (C) 1991-2015 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GCC.
@@ -21,12 +21,23 @@
    <http://www.gnu.org/licenses/>.  */
 
 
-#define IN_TARGET_CODE 1
-
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "tm_p.h"
+#include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "c-family/c-common.h"
 #include "rtl.h"
 #include "rtl-iter.h"
 
@@ -60,11 +71,8 @@ aarch_crypto_can_dual_issue (rtx_insn *producer_insn, rtx_insn *consumer_insn)
   {
     unsigned int regno = REGNO (SET_DEST (producer_set));
 
-    /* Before reload the registers are virtual, so the destination of
-       consumer_set doesn't need to match.  */
-
-    return (REGNO (SET_DEST (consumer_set)) == regno || !reload_completed)
-	    && REGNO (XVECEXP (consumer_src, 0, 0)) == regno;
+    return REGNO (SET_DEST (consumer_set)) == regno
+           && REGNO (XVECEXP (consumer_src, 0, 0)) == regno;
   }
 
   return 0;
@@ -243,24 +251,6 @@ arm_early_load_addr_dep (rtx producer, rtx consumer)
   return reg_overlap_mentioned_p (value, addr);
 }
 
-/* Return nonzero if the CONSUMER instruction (a load) does need
-   a Pmode PRODUCER's value to calculate the address.  */
-
-int
-arm_early_load_addr_dep_ptr (rtx producer, rtx consumer)
-{
-  rtx value = arm_find_sub_rtx_with_code (PATTERN (producer), SET, false);
-  rtx addr = arm_find_sub_rtx_with_code (PATTERN (consumer), SET, false);
-
-  if (!value || !addr || !MEM_P (SET_SRC (value)))
-    return 0;
-
-  value = SET_DEST (value);
-  addr = SET_SRC (addr);
-
-  return GET_MODE (value) == Pmode && reg_overlap_mentioned_p (value, addr);
-}
-
 /* Return nonzero if the CONSUMER instruction (an ALU op) does not
    have an early register shift value or amount dependency on the
    result of PRODUCER.  */
@@ -274,7 +264,12 @@ arm_no_early_alu_shift_dep (rtx producer, rtx consumer)
     return 0;
 
   if ((early_op = arm_find_shift_sub_rtx (op)))
-    return !reg_overlap_mentioned_p (value, early_op);
+    {
+      if (REG_P (early_op))
+	early_op = op;
+
+      return !reg_overlap_mentioned_p (value, early_op);
+    }
 
   return 0;
 }
@@ -351,24 +346,6 @@ arm_early_store_addr_dep (rtx producer, rtx consumer)
   return !arm_no_early_store_addr_dep (producer, consumer);
 }
 
-/* Return nonzero if the CONSUMER instruction (a store) does need
-   a Pmode PRODUCER's value to calculate the address.  */
-
-int
-arm_early_store_addr_dep_ptr (rtx producer, rtx consumer)
-{
-  rtx value = arm_find_sub_rtx_with_code (PATTERN (producer), SET, false);
-  rtx addr = arm_find_sub_rtx_with_code (PATTERN (consumer), SET, false);
-
-  if (!value || !addr || !MEM_P (SET_SRC (value)))
-    return 0;
-
-  value = SET_DEST (value);
-  addr = SET_DEST (addr);
-
-  return GET_MODE (value) == Pmode && reg_overlap_mentioned_p (value, addr);
-}
-
 /* Return non-zero iff the consumer (a multiply-accumulate or a
    multiple-subtract instruction) has an accumulator dependency on the
    result of the producer and no other dependency on that result.  It
@@ -423,86 +400,6 @@ arm_mac_accumulator_is_result (rtx producer, rtx consumer)
   return (reg_overlap_mentioned_p (result, acc)
           && !reg_overlap_mentioned_p (result, op0)
           && !reg_overlap_mentioned_p (result, op1));
-}
-
-/* Return non-zero if the destination of PRODUCER feeds the accumulator
-   operand of an MLA-like operation.  */
-
-int
-aarch_accumulator_forwarding (rtx_insn *producer, rtx_insn *consumer)
-{
-  rtx producer_set = single_set (producer);
-  rtx consumer_set = single_set (consumer);
-
-  /* We are looking for a SET feeding a SET.  */
-  if (!producer_set || !consumer_set)
-    return 0;
-
-  rtx dest = SET_DEST (producer_set);
-  rtx mla = SET_SRC (consumer_set);
-
-  /* We're looking for a register SET.  */
-  if (!REG_P (dest))
-    return 0;
-
-  rtx accumulator;
-
-  /* Strip a zero_extend.  */
-  if (GET_CODE (mla) == ZERO_EXTEND)
-    mla = XEXP (mla, 0);
-
-  switch (GET_CODE (mla))
-    {
-    case PLUS:
-      /* Possibly an MADD.  */
-      if (GET_CODE (XEXP (mla, 0)) == MULT)
-	accumulator = XEXP (mla, 1);
-      else
-	return 0;
-      break;
-    case MINUS:
-      /* Possibly an MSUB.  */
-      if (GET_CODE (XEXP (mla, 1)) == MULT)
-	accumulator = XEXP (mla, 0);
-      else
-	return 0;
-      break;
-    case FMA:
-	{
-	  /* Possibly an FMADD/FMSUB/FNMADD/FNMSUB.  */
-	  if (REG_P (XEXP (mla, 1))
-	      && REG_P (XEXP (mla, 2))
-	      && (REG_P (XEXP (mla, 0))
-		  || GET_CODE (XEXP (mla, 0)) == NEG))
-
-	    {
-	      /* FMADD/FMSUB.  */
-	      accumulator = XEXP (mla, 2);
-	    }
-	  else if (REG_P (XEXP (mla, 1))
-		   && GET_CODE (XEXP (mla, 2)) == NEG
-		   && (REG_P (XEXP (mla, 0))
-		       || GET_CODE (XEXP (mla, 0)) == NEG))
-	    {
-	      /* FNMADD/FNMSUB.  */
-	      accumulator = XEXP (XEXP (mla, 2), 0);
-	    }
-	  else
-	    return 0;
-	  break;
-	}
-      default:
-	/* Not an MLA-like operation.  */
-	return 0;
-    }
-
-  if (GET_CODE (accumulator) == SUBREG)
-    accumulator = SUBREG_REG (accumulator);
-
-  if (!REG_P (accumulator))
-    return 0;
-
-  return (REGNO (dest) == REGNO (accumulator));
 }
 
 /* Return non-zero if the consumer (a multiply-accumulate instruction)

@@ -1,4 +1,4 @@
-// { dg-do compile  }
+// { dg-do run  }
 // { dg-options "-w -fpermissive" }
 //This uses GNU extensions, so disable -ansi
 #include <stdio.h>
@@ -13,5 +13,5 @@ public:
 main() {
         A* a;
 
-        a = new A[2](1,false); // { dg-error "parenthesized" }
+        a = new A[2](1,false);
 }

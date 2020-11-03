@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-Os -fno-tree-fre -fdump-tree-dom2-details" } */
+/* { dg-options "-Os -fno-tree-fre -fdump-tree-dom1-details" } */
 
 void foo(int *);
 void f2(int dst[3], int R)
@@ -19,4 +19,5 @@ void f2(int dst[3], int R)
   foo(inter);
 }
 
-/* { dg-final { scan-tree-dump "Threaded jump" "dom2" } } */
+/* { dg-final { scan-tree-dump "Threaded jump" "dom1" } } */
+/* { dg-final { cleanup-tree-dump "dom1" } } */

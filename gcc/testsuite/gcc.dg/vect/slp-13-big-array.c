@@ -4,6 +4,7 @@
 #include "tree-vect.h"
 
 #define N 64
+volatile int y = 0;
 
 int
 main1 ()
@@ -17,10 +18,11 @@ main1 ()
   for (i = 0; i < N*8; i++)
     {
       in[i] = in2[i] = i;
-      asm volatile ("" ::: "memory");
+      if (y) /* Avoid vectorization.  */
+	abort ();
     }
 
-  /* Induction is SLPable.  */
+  /* Induction is not SLPable yet.  */
   for (i = 0; i < N; i++)
     {
       out[i*8] = in[i*8] + i;
@@ -47,7 +49,8 @@ main1 ()
 	abort ();
     }
 
-  /* Induction is SLPable.  */
+  /* Induction is not SLPable yet and strided group size must be a power of 2
+     to get vectorized.  */
   for (i = 0; i < N/2; i++)
     {
       out2[i*12] = in2[i*12] + i;
@@ -131,7 +134,8 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" { target { { vect_interleave && vect_extract_even_odd } && { ! vect_pack_trunc } } } } } */
-/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 2 "vect" { target { ! vect_pack_trunc } } } } */
-/* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect" { target { { vect_interleave && vect_extract_even_odd } && vect_pack_trunc } } } } */
-/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 3 "vect" { target vect_pack_trunc xfail vect_variable_length } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" { target { vect_interleave && vect_extract_even_odd } } } } */
+/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 3 "vect" { xfail *-*-* }  } } */
+/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 1 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */
+

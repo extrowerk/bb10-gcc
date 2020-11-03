@@ -1,5 +1,4 @@
 ! { dg-do run }
-! { dg-require-visibility "" }
 !
 ! Tests the fix for PR64952.
 !
@@ -47,7 +46,7 @@ PROGRAM Main
     INTEGER :: i, index(5) = (/ (i, i = 1,5) /)
     
     array%f = array%tbp(index)
-    if (any (array%f .ne. array(1)%f)) STOP 1
+    if (any (array%f .ne. array(1)%f)) call abort
 
     array%f = index
     call Jack(array)
@@ -56,7 +55,7 @@ PROGRAM Main
         CLASS(t) :: dummy(:)
         dummy%f = dummy%tbp(index)
         !print *, dummy%f
-        if (any (dummy%f .ne. 15.0)) STOP 2
+        if (any (dummy%f .ne. 15.0)) call abort
     END SUBROUTINE
 END PROGRAM Main
 

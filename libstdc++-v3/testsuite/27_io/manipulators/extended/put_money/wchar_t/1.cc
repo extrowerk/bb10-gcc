@@ -1,9 +1,9 @@
-// { dg-do run { target c++11 } }
-// { dg-require-namedlocale "de_DE.ISO8859-15" }
+// { dg-options "-std=gnu++11" }
+// { dg-require-namedlocale "de_DE@euro" }
 
 // 2010-03-01  Paolo Carlini  <paolo.carlini@oracle.com>
 
-// Copyright (C) 2010-2018 Free Software Foundation, Inc.
+// Copyright (C) 2010-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -26,7 +26,9 @@
 
 void test01()
 {
-  std::locale loc_de = std::locale(ISO_8859(15,de_DE));
+  bool test __attribute__((unused)) = true;
+
+  std::locale loc_de = std::locale("de_DE@euro");
 
   std::wostringstream oss;
   oss.imbue(loc_de);

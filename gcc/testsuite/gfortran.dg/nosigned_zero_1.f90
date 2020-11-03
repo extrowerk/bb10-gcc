@@ -13,12 +13,12 @@
 program s
    x = sign(1.,0.)
    y = sign(1.,-0.)
-   if (x /=  1.) STOP 1
-   if (y /= -1.) STOP 2
+   if (x /=  1.) call abort()
+   if (y /= -1.) call abort()
    x = 1.
    y = 0.
    x = sign(x, y)
    y = sign(x, -y)
-   if (x /=  1.) STOP 3
-   if (y /= -1.) STOP 4
+   if (x /=  1.) call abort()
+   if (y /= -1.) call abort()
 end program s

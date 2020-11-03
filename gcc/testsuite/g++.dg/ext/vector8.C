@@ -9,7 +9,7 @@ vector int a1;
 vector float b;
 vector int b1;
 
-void f(void)
+int f(void)
 {
  a =  a | b; /* { dg-error "" } */
  a =  a & b; /* { dg-error "" } */

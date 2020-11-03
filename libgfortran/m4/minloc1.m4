@@ -1,5 +1,5 @@
 `/* Implementation of the MINLOC intrinsic
-   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran runtime library (libgfortran).
@@ -24,14 +24,14 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
 #include "libgfortran.h"
-#include <assert.h>'
+#include <stdlib.h>
+#include <assert.h>
+#include <limits.h>'
 
 include(iparm.m4)dnl
 include(ifunction.m4)dnl
 
 `#if defined (HAVE_'atype_name`) && defined (HAVE_'rtype_name`)'
-
-#define HAVE_BACK_ARG 1
 
 ARRAY_FUNCTION(0,
 `	atype_name minval;

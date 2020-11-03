@@ -1,6 +1,7 @@
 /* PR middle-end/36106 */
-/* { dg-additional-options "-mieee" { target alpha*-*-* } } */
-/* { dg-additional-options "-march=i586" { target { { i?86-*-* x86_64-*-* } && ia32 } } } */
+/* { dg-options "-O2" } */
+/* { dg-options "-O2 -mieee" { target alpha*-*-* } } */
+/* { dg-options "-O2 -march=i586" { target { { i?86-*-* x86_64-*-* } && ia32 } } } */
 
 #ifdef __i386__
 # include "cpuid.h"

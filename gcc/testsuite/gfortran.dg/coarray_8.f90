@@ -145,15 +145,15 @@ end module mmm4
 
 subroutine tfgh()
   integer :: i(2)
-  DATA i/(i, i=1,2)/ ! { dg-error "Syntax error in DATA" }
-  do i = 1, 5 ! { dg-error "cannot be an array" }
+  DATA i/(i, i=1,2)/ ! { dg-error "Expected PARAMETER symbol" }
+  do i = 1, 5 ! { dg-error "cannot be a sub-component" }
   end do ! { dg-error "Expecting END SUBROUTINE" }
 end subroutine tfgh
 
 subroutine tfgh2()
   integer, save :: x[*]
   integer :: i(2)
-  DATA i/(x, x=1,2)/ ! { dg-error "Syntax error in DATA" }
+  DATA i/(x, x=1,2)/ ! { dg-error "Expected PARAMETER symbol" }
   do x = 1, 5 ! { dg-error "cannot be a coarray" }
   end do ! { dg-error "Expecting END SUBROUTINE" }
 end subroutine tfgh2

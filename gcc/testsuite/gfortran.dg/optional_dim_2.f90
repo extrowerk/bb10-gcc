@@ -14,11 +14,11 @@ contains
    lotto = .false.
    lotto = cshift((/.true.,.false.,.true.,.false./),1,dim=dimmy)
    write(testbuf,*) lotto
-   if (trim(testbuf).ne." F T F T") STOP 1
+   if (trim(testbuf).ne." F T F T") call abort
    lotto = .false.
    lotto = eoshift((/.true.,.true.,.true.,.true./),1,boundary=bound,dim=dimmy)
    lotto = eoshift(lotto,1,dim=dimmy)
    write(testbuf,*) lotto
-   if (trim(testbuf).ne." T T F F") STOP 2
+   if (trim(testbuf).ne." T T F F") call abort
  end subroutine
 end program test

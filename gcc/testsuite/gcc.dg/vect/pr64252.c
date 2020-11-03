@@ -1,5 +1,6 @@
 /* PR target/64252 */
 /* Test correctness of size 3 store groups permutation.  */
+/* { dg-do run } */
 /* { dg-additional-options "-O3" } */
 /* { dg-additional-options "-mavx" { target avx_runtime } } */
 
@@ -62,3 +63,4 @@ int main()
       abort ();
   return 0;
 }
+/* { dg-final { cleanup-tree-dump "vect" } } */

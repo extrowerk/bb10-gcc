@@ -1,6 +1,6 @@
 /* PR c/14649 */
 /* { dg-do compile } */
-/* { dg-options "-O2 -Wpedantic" } */
+/* { dg-options "-O2" } */
 
 double atan(double);
 

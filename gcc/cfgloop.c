@@ -1,5 +1,5 @@
 /* Natural loop discovery code for GNU compiler.
-   Copyright (C) 2000-2018 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,16 +20,34 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
+#include "tm.h"
 #include "rtl.h"
-#include "tree.h"
-#include "gimple.h"
-#include "cfghooks.h"
-#include "gimple-ssa.h"
-#include "diagnostic-core.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "symtab.h"
+#include "inchash.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "cfganal.h"
+#include "basic-block.h"
 #include "cfgloop.h"
+#include "diagnostic-core.h"
+#include "flags.h"
+#include "tree.h"
+#include "fold-const.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
 #include "gimple-iterator.h"
+#include "gimple-ssa.h"
 #include "dumpfile.h"
 
 static void flow_loops_cfg_dump (FILE *);
@@ -135,15 +153,6 @@ flow_loop_dump (const struct loop *loop, FILE *file,
   fprintf (file, ";;  depth %d, outer %ld\n",
 	   loop_depth (loop), (long) (loop_outer (loop)
 				      ? loop_outer (loop)->num : -1));
-
-  if (loop->latch)
-    {
-      bool read_profile_p;
-      gcov_type nit = expected_loop_iterations_unbounded (loop, &read_profile_p);
-      if (read_profile_p && !loop->any_estimate)
-	fprintf (file, ";;  profile-based iteration count: %" PRIu64 "\n",
-		 (uint64_t) nit);
-    }
 
   fprintf (file, ";;  nodes:");
   bbs = get_loop_body (loop);
@@ -296,25 +305,13 @@ establish_preds (struct loop *loop, struct loop *father)
 
 /* Add LOOP to the loop hierarchy tree where FATHER is father of the
    added loop.  If LOOP has some children, take care of that their
-   pred field will be initialized correctly.  If AFTER is non-null
-   then it's expected it's a pointer into FATHERs inner sibling
-   list and LOOP is added behind AFTER, otherwise it's added in front
-   of FATHERs siblings.  */
+   pred field will be initialized correctly.  */
 
 void
-flow_loop_tree_node_add (struct loop *father, struct loop *loop,
-			 struct loop *after)
+flow_loop_tree_node_add (struct loop *father, struct loop *loop)
 {
-  if (after)
-    {
-      loop->next = after->next;
-      after->next = loop;
-    }
-  else
-    {
-      loop->next = father->inner;
-      father->inner = loop;
-    }
+  loop->next = father->inner;
+  father->inner = loop;
 
   establish_preds (loop, father);
 }
@@ -351,9 +348,7 @@ alloc_loop (void)
   loop->exits = ggc_cleared_alloc<loop_exit> ();
   loop->exits->next = loop->exits->prev = loop->exits;
   loop->can_be_parallel = false;
-  loop->constraints = 0;
   loop->nb_iterations_upper_bound = 0;
-  loop->nb_iterations_likely_upper_bound = 0;
   loop->nb_iterations_estimate = 0;
   return loop;
 }
@@ -533,58 +528,6 @@ flow_loops_find (struct loops *loops)
   return loops;
 }
 
-/* qsort helper for sort_sibling_loops.  */
-
-static int *sort_sibling_loops_cmp_rpo;
-static int
-sort_sibling_loops_cmp (const void *la_, const void *lb_)
-{
-  const struct loop *la = *(const struct loop * const *)la_;
-  const struct loop *lb = *(const struct loop * const *)lb_;
-  return (sort_sibling_loops_cmp_rpo[la->header->index]
-	  - sort_sibling_loops_cmp_rpo[lb->header->index]);
-}
-
-/* Sort sibling loops in RPO order.  */
-
-void
-sort_sibling_loops (function *fn)
-{
-  /* Match flow_loops_find in the order we sort sibling loops.  */
-  sort_sibling_loops_cmp_rpo = XNEWVEC (int, last_basic_block_for_fn (cfun));
-  int *rc_order = XNEWVEC (int, n_basic_blocks_for_fn (cfun));
-  pre_and_rev_post_order_compute_fn (fn, NULL, rc_order, false);
-  for (int i = 0; i < n_basic_blocks_for_fn (cfun) - NUM_FIXED_BLOCKS; ++i)
-    sort_sibling_loops_cmp_rpo[rc_order[i]] = i;
-  free (rc_order);
-
-  auto_vec<loop_p, 3> siblings;
-  loop_p loop;
-  FOR_EACH_LOOP_FN (fn, loop, LI_INCLUDE_ROOT)
-    if (loop->inner && loop->inner->next)
-      {
-	loop_p sibling = loop->inner;
-	do
-	  {
-	    siblings.safe_push (sibling);
-	    sibling = sibling->next;
-	  }
-	while (sibling);
-	siblings.qsort (sort_sibling_loops_cmp);
-	loop_p *siblingp = &loop->inner;
-	for (unsigned i = 0; i < siblings.length (); ++i)
-	  {
-	    *siblingp = siblings[i];
-	    siblingp = &(*siblingp)->next;
-	  }
-	*siblingp = NULL;
-	siblings.truncate (0);
-      }
-
-  free (sort_sibling_loops_cmp_rpo);
-  sort_sibling_loops_cmp_rpo = NULL;
-}
-
 /* Ratio of frequencies of edges so that one of more latch edges is
    considered to belong to inner loop with same header.  */
 #define HEAVY_EDGE_RATIO 8
@@ -607,20 +550,20 @@ find_subloop_latch_edge_by_profile (vec<edge> latches)
 {
   unsigned i;
   edge e, me = NULL;
-  profile_count mcount = profile_count::zero (), tcount = profile_count::zero ();
+  gcov_type mcount = 0, tcount = 0;
 
   FOR_EACH_VEC_ELT (latches, i, e)
     {
-      if (e->count ()> mcount)
+      if (e->count > mcount)
 	{
 	  me = e;
-	  mcount = e->count();
+	  mcount = e->count;
 	}
-      tcount += e->count();
+      tcount += e->count;
     }
 
-  if (!tcount.initialized_p () || !(tcount.ipa () > HEAVY_EDGE_MIN_SAMPLES)
-      || (tcount - mcount).apply_scale (HEAVY_EDGE_RATIO, 1) > tcount)
+  if (tcount < HEAVY_EDGE_MIN_SAMPLES
+      || (tcount - mcount) * HEAVY_EDGE_RATIO > tcount)
     return NULL;
 
   if (dump_file)
@@ -987,34 +930,41 @@ get_loop_body_in_bfs_order (const struct loop *loop)
 {
   basic_block *blocks;
   basic_block bb;
-  unsigned int i = 1;
-  unsigned int vc = 0;
+  bitmap visited;
+  unsigned int i = 0;
+  unsigned int vc = 1;
 
   gcc_assert (loop->num_nodes);
   gcc_assert (loop->latch != EXIT_BLOCK_PTR_FOR_FN (cfun));
 
   blocks = XNEWVEC (basic_block, loop->num_nodes);
-  auto_bitmap visited;
-  blocks[0] = loop->header;
-  bitmap_set_bit (visited, loop->header->index);
+  visited = BITMAP_ALLOC (NULL);
+
+  bb = loop->header;
   while (i < loop->num_nodes)
     {
       edge e;
       edge_iterator ei;
-      gcc_assert (i > vc);
-      bb = blocks[vc++];
+
+      if (bitmap_set_bit (visited, bb->index))
+	/* This basic block is now visited */
+	blocks[i++] = bb;
 
       FOR_EACH_EDGE (e, ei, bb->succs)
 	{
 	  if (flow_bb_inside_loop_p (loop, e->dest))
 	    {
-	      /* This bb is now visited.  */
 	      if (bitmap_set_bit (visited, e->dest->index))
 		blocks[i++] = e->dest;
 	    }
 	}
+
+      gcc_assert (i >= vc);
+
+      bb = blocks[vc++];
     }
 
+  BITMAP_FREE (visited);
   return blocks;
 }
 
@@ -1179,12 +1129,12 @@ dump_recorded_exits (FILE *file)
 /* Releases lists of loop exits.  */
 
 void
-release_recorded_exits (function *fn)
+release_recorded_exits (void)
 {
-  gcc_assert (loops_state_satisfies_p (fn, LOOPS_HAVE_RECORDED_EXITS));
-  loops_for_fn (fn)->exits->empty ();
-  loops_for_fn (fn)->exits = NULL;
-  loops_state_clear (fn, LOOPS_HAVE_RECORDED_EXITS);
+  gcc_assert (loops_state_satisfies_p (LOOPS_HAVE_RECORDED_EXITS));
+  current_loops->exits->empty ();
+  current_loops->exits = NULL;
+  loops_state_clear (LOOPS_HAVE_RECORDED_EXITS);
 }
 
 /* Returns the list of the exit edges of a LOOP.  */
@@ -1375,6 +1325,7 @@ DEBUG_FUNCTION void
 verify_loop_structure (void)
 {
   unsigned *sizes, i, j;
+  sbitmap irreds;
   basic_block bb, *bbs;
   struct loop *loop;
   int err = 0;
@@ -1382,6 +1333,7 @@ verify_loop_structure (void)
   unsigned num = number_of_loops (cfun);
   struct loop_exit *exit, *mexit;
   bool dom_available = dom_info_available_p (CDI_DOMINATORS);
+  sbitmap visited;
 
   if (loops_state_satisfies_p (LOOPS_NEED_FIXUP))
     {
@@ -1394,16 +1346,6 @@ verify_loop_structure (void)
     calculate_dominance_info (CDI_DOMINATORS);
   else
     verify_dominators (CDI_DOMINATORS);
-
-  /* Check the loop tree root.  */
-  if (current_loops->tree_root->header != ENTRY_BLOCK_PTR_FOR_FN (cfun)
-      || current_loops->tree_root->latch != EXIT_BLOCK_PTR_FOR_FN (cfun)
-      || (current_loops->tree_root->num_nodes
-	  != (unsigned) n_basic_blocks_for_fn (cfun)))
-    {
-      error ("corrupt loop tree root");
-      err = 1;
-    }
 
   /* Check the headers.  */
   FOR_EACH_BB_FN (bb, cfun)
@@ -1427,7 +1369,7 @@ verify_loop_structure (void)
       }
 
   /* Check the recorded loop father and sizes of loops.  */
-  auto_sbitmap visited (last_basic_block_for_fn (cfun));
+  visited = sbitmap_alloc (last_basic_block_for_fn (cfun));
   bitmap_clear (visited);
   bbs = XNEWVEC (basic_block, n_basic_blocks_for_fn (cfun));
   FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
@@ -1474,6 +1416,7 @@ verify_loop_structure (void)
 	}
     }
   free (bbs);
+  sbitmap_free (visited);
 
   /* Check headers and latches.  */
   FOR_EACH_LOOP (loop, 0)
@@ -1540,7 +1483,7 @@ verify_loop_structure (void)
   if (loops_state_satisfies_p (LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS))
     {
       /* Record old info.  */
-      auto_sbitmap irreds (last_basic_block_for_fn (cfun));
+      irreds = sbitmap_alloc (last_basic_block_for_fn (cfun));
       FOR_EACH_BB_FN (bb, cfun)
 	{
 	  edge_iterator ei;
@@ -1592,6 +1535,7 @@ verify_loop_structure (void)
 	      e->flags &= ~(EDGE_ALL_FLAGS + 1);
 	    }
 	}
+      free (irreds);
     }
 
   /* Check the recorded loop exits.  */
@@ -1725,18 +1669,11 @@ loop_preheader_edge (const struct loop *loop)
   edge e;
   edge_iterator ei;
 
-  gcc_assert (loops_state_satisfies_p (LOOPS_HAVE_PREHEADERS)
-	      && ! loops_state_satisfies_p (LOOPS_MAY_HAVE_MULTIPLE_LATCHES));
+  gcc_assert (loops_state_satisfies_p (LOOPS_HAVE_PREHEADERS));
 
   FOR_EACH_EDGE (e, ei, loop->header->preds)
     if (e->src != loop->latch)
       break;
-
-  if (! e)
-    {
-      gcc_assert (! loop_outer (loop));
-      return single_succ_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun));
-    }
 
   return e;
 }
@@ -1866,11 +1803,6 @@ record_niter_bound (struct loop *loop, const widest_int &i_bound,
     {
       loop->any_upper_bound = true;
       loop->nb_iterations_upper_bound = i_bound;
-      if (!loop->any_likely_upper_bound)
-	{
-	  loop->any_likely_upper_bound = true;
-	  loop->nb_iterations_likely_upper_bound = i_bound;
-	}
     }
   if (realistic
       && (!loop->any_estimate
@@ -1878,13 +1810,6 @@ record_niter_bound (struct loop *loop, const widest_int &i_bound,
     {
       loop->any_estimate = true;
       loop->nb_iterations_estimate = i_bound;
-    }
-  if (!realistic
-      && (!loop->any_likely_upper_bound
-          || wi::ltu_p (i_bound, loop->nb_iterations_likely_upper_bound)))
-    {
-      loop->any_likely_upper_bound = true;
-      loop->nb_iterations_likely_upper_bound = i_bound;
     }
 
   /* If an upper bound is smaller than the realistic estimate of the
@@ -1894,11 +1819,6 @@ record_niter_bound (struct loop *loop, const widest_int &i_bound,
       && wi::ltu_p (loop->nb_iterations_upper_bound,
 		    loop->nb_iterations_estimate))
     loop->nb_iterations_estimate = loop->nb_iterations_upper_bound;
-  if (loop->any_upper_bound
-      && loop->any_likely_upper_bound
-      && wi::ltu_p (loop->nb_iterations_upper_bound,
-		    loop->nb_iterations_likely_upper_bound))
-    loop->nb_iterations_likely_upper_bound = loop->nb_iterations_upper_bound;
 }
 
 /* Similar to get_estimated_loop_iterations, but returns the estimate only
@@ -1940,25 +1860,6 @@ max_stmt_executions_int (struct loop *loop)
   return snit < 0 ? -1 : snit;
 }
 
-/* Returns an likely upper bound on the number of executions of statements
-   in the LOOP.  For statements before the loop exit, this exceeds
-   the number of execution of the latch by one.  */
-
-HOST_WIDE_INT
-likely_max_stmt_executions_int (struct loop *loop)
-{
-  HOST_WIDE_INT nit = get_likely_max_loop_iterations_int (loop);
-  HOST_WIDE_INT snit;
-
-  if (nit == -1)
-    return -1;
-
-  snit = (HOST_WIDE_INT) ((unsigned HOST_WIDE_INT) nit + 1);
-
-  /* If the computation overflows, return -1.  */
-  return snit < 0 ? -1 : snit;
-}
-
 /* Sets NIT to the estimated number of executions of the latch of the
    LOOP.  If we have no reliable estimate, the function returns false, otherwise
    returns true.  */
@@ -1970,7 +1871,7 @@ get_estimated_loop_iterations (struct loop *loop, widest_int *nit)
      profile.  */
   if (!loop->any_estimate)
     {
-      if (loop->header->count.reliable_p ())
+      if (loop->header->count)
 	{
           *nit = gcov_type_to_wide_int
 		   (expected_loop_iterations_unbounded (loop) + 1);
@@ -1988,7 +1889,7 @@ get_estimated_loop_iterations (struct loop *loop, widest_int *nit)
    false, otherwise returns true.  */
 
 bool
-get_max_loop_iterations (const struct loop *loop, widest_int *nit)
+get_max_loop_iterations (struct loop *loop, widest_int *nit)
 {
   if (!loop->any_upper_bound)
     return false;
@@ -2002,46 +1903,12 @@ get_max_loop_iterations (const struct loop *loop, widest_int *nit)
    on the number of iterations of LOOP could not be derived, returns -1.  */
 
 HOST_WIDE_INT
-get_max_loop_iterations_int (const struct loop *loop)
+get_max_loop_iterations_int (struct loop *loop)
 {
   widest_int nit;
   HOST_WIDE_INT hwi_nit;
 
   if (!get_max_loop_iterations (loop, &nit))
-    return -1;
-
-  if (!wi::fits_shwi_p (nit))
-    return -1;
-  hwi_nit = nit.to_shwi ();
-
-  return hwi_nit < 0 ? -1 : hwi_nit;
-}
-
-/* Sets NIT to an upper bound for the maximum number of executions of the
-   latch of the LOOP.  If we have no reliable estimate, the function returns
-   false, otherwise returns true.  */
-
-bool
-get_likely_max_loop_iterations (struct loop *loop, widest_int *nit)
-{
-  if (!loop->any_likely_upper_bound)
-    return false;
-
-  *nit = loop->nb_iterations_likely_upper_bound;
-  return true;
-}
-
-/* Similar to get_max_loop_iterations, but returns the estimate only
-   if it fits to HOST_WIDE_INT.  If this is not the case, or the estimate
-   on the number of iterations of LOOP could not be derived, returns -1.  */
-
-HOST_WIDE_INT
-get_likely_max_loop_iterations_int (struct loop *loop)
-{
-  widest_int nit;
-  HOST_WIDE_INT hwi_nit;
-
-  if (!get_likely_max_loop_iterations (loop, &nit))
     return -1;
 
   if (!wi::fits_shwi_p (nit))

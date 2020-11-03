@@ -1,5 +1,4 @@
 /* { dg-require-effective-target vect_cond_mixed } */
-/* { dg-require-effective-target vect_float } */
 
 #include "tree-vect.h"
 
@@ -120,3 +119,4 @@ main ()
 }
 
 /* { dg-final { scan-tree-dump-times "note: vectorized 1 loops" 5 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

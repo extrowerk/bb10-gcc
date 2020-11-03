@@ -1,5 +1,5 @@
 /* GCC backend definitions for the TI MSP430 Processor
-   Copyright (C) 2012-2018 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -56,50 +56,23 @@ extern bool msp430x;
   "%{mrelax=-mQ} " /* Pass the relax option on to the assembler.  */ \
   "%{mlarge:-ml} " /* Tell the assembler if we are building for the LARGE pointer model.  */ \
   "%{!msim:-md} %{msim:%{mlarge:-md}} " /* Copy data from ROM to RAM if necessary.  */ \
-  "%{msilicon-errata=*:-msilicon-errata=%*} " /* Pass on -msilicon-errata.  */ \
-  "%{msilicon-errata-warn=*:-msilicon-errata-warn=%*} " /* Pass on -msilicon-errata-warn.  */ \
-  "%{ffunction-sections:-gdwarf-sections} " /* If function sections are being created then create DWARF line number sections as well.  */ \
-  "%{mdata-region=*:-mdata-region=%*} " /* Pass on -mdata-region.  */
+  "%{ffunction-sections:-gdwarf-sections} " /* If function sections are being created then create DWARF line number sections as well.  */
 
 /* Enable linker section garbage collection by default, unless we
    are creating a relocatable binary (gc does not work) or debugging
    is enabled  (the GDB testsuite relies upon unused entities not being deleted).  */
-#define LINK_SPEC "%{mrelax:--relax} %{mlarge:%{!r:%{!g:--gc-sections}}} " \
-  "%{mcode-region=*:--code-region=%*} %{mdata-region=*:--data-region=%*}"
+#define LINK_SPEC "%{mrelax:--relax} %{mlarge:%{!r:%{!g:--gc-sections}}}"
 
-extern const char * msp430_select_hwmult_lib (int, const char **);
-# define EXTRA_SPEC_FUNCTIONS				\
-  { "msp430_hwmult_lib", msp430_select_hwmult_lib },
-
-/* Specify the libraries to include on the linker command line.
-
-   Selecting the hardware multiply library to use is quite complex.
-   If the user has specified -mhwmult=FOO then the mapping is quite
-   easy (and could be handled here in the SPEC string), unless FOO
-   is set to AUTO.  In this case the -mmcu= option must be consulted
-   instead.  If the -mhwmult= option is not specified then the -mmcu=
-   option must then be examined.  If neither -mhwmult= nor -mmcu= are
-   specified then a default hardware multiply library is used.
-
-   Examining the -mmcu=FOO option is difficult, and it is so this
-   reason that a spec function is used.  There are so many possible
-   values of FOO that a table is used to look up the name and map
-   it to a hardware multiply library.  This table (in device-msp430.c)
-   must be kept in sync with the same table in msp430.c.  */
 #undef  LIB_SPEC
 #define LIB_SPEC "					\
 --start-group						\
-%{mhwmult=auto:%{mmcu=*:%:msp430_hwmult_lib(mcu %{mmcu=*:%*});:%:msp430_hwmult_lib(default)}; \
-  mhwmult=*:%:msp430_hwmult_lib(hwmult %{mhwmult=*:%*}); \
-  mmcu=*:%:msp430_hwmult_lib(mcu %{mmcu=*:%*});		\
-  :%:msp430_hwmult_lib(default)}			\
 -lc							\
 -lgcc							\
 -lcrt							\
 %{msim:-lsim}						\
-%{!msim:-lnosys}					\
 --end-group					   	\
 %{!T*:%{!msim:%{mmcu=*:--script=%*.ld}}}		\
+%{!T*:%{!msim:%{!mmcu=*:%Tmsp430.ld}}}			\
 %{!T*:%{msim:%{mlarge:%Tmsp430xl-sim.ld}%{!mlarge:%Tmsp430-sim.ld}}} \
 "
 
@@ -193,15 +166,18 @@ extern const char * msp430_select_hwmult_lib (int, const char **);
 #define HAS_LONG_UNCOND_BRANCH		0
 
 #define LOAD_EXTEND_OP(M)		ZERO_EXTEND
-#define WORD_REGISTER_OPERATIONS	1
+/*#define WORD_REGISTER_OPERATIONS	1*/
 
 #define MOVE_MAX 			8
+#define STARTING_FRAME_OFFSET		0
 
 #define INCOMING_RETURN_ADDR_RTX \
   msp430_incoming_return_addr_rtx ()
 
 #define RETURN_ADDR_RTX(COUNT, FA)		\
   msp430_return_addr_rtx (COUNT)
+
+#define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC)   1
 
 #define SLOW_BYTE_ACCESS		0
 
@@ -329,6 +305,15 @@ typedef struct
 #define FUNCTION_PROFILER(FILE, LABELNO)	\
     fprintf (FILE, "\tcall\t__mcount\n");
 
+#define HARD_REGNO_NREGS(REGNO, MODE)            \
+  msp430_hard_regno_nregs (REGNO, MODE)
+
+#define HARD_REGNO_MODE_OK(REGNO, MODE) 			\
+  msp430_hard_regno_mode_ok (REGNO, MODE)
+
+#define MODES_TIEABLE_P(MODE1, MODE2)				\
+  msp430_modes_tieable_p (MODE1, MODE2)
+
 /* Exception Handling */
 
 /* R12,R13,R14 - EH data
@@ -404,6 +389,14 @@ typedef struct
 #define HARD_REGNO_CALLER_SAVE_MODE(REGNO,NREGS,MODE) \
   ((TARGET_LARGE && ((NREGS) <= 2)) ? PSImode : choose_hard_reg_mode ((REGNO), (NREGS), false))
 
+/* Also stop GCC from thinking that it can eliminate (SUBREG:PSI (SI)).  */
+#define CANNOT_CHANGE_MODE_CLASS(FROM,TO,CLASS) \
+  (   ((TO) == PSImode && (FROM) == SImode)	\
+   || ((TO) == SImode  && (FROM) == PSImode)    \
+   || ((TO) == DImode  && (FROM) == PSImode)    \
+   || ((TO) == PSImode && (FROM) == DImode)     \
+      )
+
 #define ACCUMULATE_OUTGOING_ARGS 1
 
 #undef  ASM_DECLARE_FUNCTION_NAME
@@ -411,9 +404,3 @@ typedef struct
   msp430_start_function ((FILE), (NAME), (DECL))
 
 #define TARGET_HAS_NO_HW_DIVIDE (! TARGET_HWMULT)
-
-#undef  USE_SELECT_SECTION_FOR_FUNCTIONS
-#define USE_SELECT_SECTION_FOR_FUNCTIONS 1
-
-#define ASM_OUTPUT_ALIGNED_DECL_COMMON(FILE, DECL, NAME, SIZE, ALIGN)	\
-  msp430_output_aligned_decl_common ((FILE), (DECL), (NAME), (SIZE), (ALIGN))

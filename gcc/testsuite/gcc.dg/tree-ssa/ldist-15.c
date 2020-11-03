@@ -20,3 +20,4 @@ void foo (int n)
 
 /* { dg-final { scan-tree-dump-not "distributed: split to" "ldist" } } */
 /* { dg-final { scan-tree-dump-not "__builtin_memset" "ldist" } } */
+/* { dg-final { cleanup-tree-dump "ldist" } } */

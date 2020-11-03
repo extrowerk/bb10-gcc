@@ -1,9 +1,8 @@
-// Copyright 2013 The Go Authors. All rights reserved.
+// Copyright 2013 The Go Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build ignore
-// +build amd64p32 arm 386 s390x
+// +build amd64 amd64p32 arm 386
 
 package sha1
 

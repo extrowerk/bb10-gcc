@@ -8,20 +8,20 @@
        open(10,delim='quote',status='SCRATCH')
        inquire(10,delim=delim)
        close(10)
-       if (delim .ne. 'QUOTE') STOP 1
+       if (delim .ne. 'QUOTE') call abort
 ! apostrophe
        open(10,delim='apostrophe',status='SCRATCH')
        inquire(10,delim=delim)
        close(10)
-       if (delim .ne. 'APOSTROPHE') STOP 2
+       if (delim .ne. 'APOSTROPHE') call abort
 ! none
        open(10,status='SCRATCH')
        inquire(10,delim=delim)
        close(10)
-       if (delim .ne. 'NONE') STOP 3
+       if (delim .ne. 'NONE') call abort
 ! undefined
        open(10,form='UNFORMATTED',status='SCRATCH')
        inquire(10,delim=delim)
        close(10)
-       if (delim .ne. 'UNDEFINED') STOP 4
+       if (delim .ne. 'UNDEFINED') call abort
        end program main

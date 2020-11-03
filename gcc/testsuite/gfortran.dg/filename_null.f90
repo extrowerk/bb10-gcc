@@ -10,8 +10,8 @@ program filename_null
   logical :: l
   open(10, file=s)
   inquire(unit=10, name=r)
-  if (r /= s2) STOP 1
+  if (r /= s2) call abort()
   inquire(file=s2, exist=l)
-  if (.not. l) STOP 2
+  if (.not. l) call abort()
   close(10, status="delete")
 end program filename_null

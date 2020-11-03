@@ -1,5 +1,6 @@
 /* { dg-require-effective-target vect_int } */
 
+#include <stdlib.h>
 #include "tree-vect.h"
 
 int ca[100];
@@ -29,3 +30,4 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

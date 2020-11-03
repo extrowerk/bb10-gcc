@@ -27,3 +27,5 @@ contains
   end function
 
 end module
+
+! { dg-final { cleanup-modules "ObjectLists" } }

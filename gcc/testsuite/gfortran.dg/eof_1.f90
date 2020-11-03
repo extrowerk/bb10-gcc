@@ -9,9 +9,9 @@ program eof_1
   write (11, '(a)') "Hello"
   rewind(11)
   read(11, *) s
-  if (s .ne. "Hello") STOP 1
+  if (s .ne. "Hello") call abort
   read(11, '(a5)', end=10) s
-  STOP 2
+  call abort
 10 continue
   close (11)
 end

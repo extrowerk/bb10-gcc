@@ -23,3 +23,4 @@ foo (int p1, char p2, int p3, double p4)
 }
 
 /* { dg-final { scan-ipa-dump "Equal symbols: 1" "icf"  } } */
+/* { dg-final { cleanup-ipa-dump "icf" } } */

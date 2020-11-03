@@ -11,3 +11,4 @@ int foo (double xx, double xy)
 }
 
 /* { dg-final { scan-tree-dump "if \\\(x" "forwprop1" } } */
+/* { dg-final { cleanup-tree-dump "forwprop1" } } */

@@ -2,7 +2,6 @@
    with any system <inttypes.h> header.  */
 /* { dg-do compile { target inttypes_types } } */
 /* { dg-options "-std=iso9899:1999 -pedantic-errors" } */
-/* { dg-additional-options "-DSIGNAL_SUPPRESS" { target { ! signal } } } */
 
 #include <inttypes.h>
 #ifndef SIGNAL_SUPPRESS

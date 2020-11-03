@@ -13,3 +13,4 @@ int g()
 }
 
 /* { dg-final { scan-tree-dump "= MEM\\\[\\\(int \\\*\\\)&a\\\];" "ccp1" } } */
+/* { dg-final { cleanup-tree-dump "ccp1" } } */

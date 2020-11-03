@@ -10,7 +10,7 @@ struct function
 
 template<typename T> struct C
 {
-  static T test(function f = [](int i){return i;}) { return T(); }
+  static T test(function f = [](int i){return i;}) { }
 };
 
 int main()

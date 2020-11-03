@@ -10,7 +10,7 @@
 
 namespace foo __attribute ((visibility ("hidden")))
 {
-  int f() { return 0; }
+  int f() { }
   void g();
   template <typename T> void t() { }
   class A

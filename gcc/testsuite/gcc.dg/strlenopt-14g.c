@@ -114,3 +114,4 @@ main ()
 /* { dg-final { scan-tree-dump-times "strcat \\(" 0 "strlen" } } */
 /* { dg-final { scan-tree-dump-times "strchr \\(" 0 "strlen" } } */
 /* { dg-final { scan-tree-dump-times "stpcpy \\(" 2 "strlen" } } */
+/* { dg-final { cleanup-tree-dump "strlen" } } */

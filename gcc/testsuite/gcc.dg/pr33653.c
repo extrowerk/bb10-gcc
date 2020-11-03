@@ -7,3 +7,4 @@ void f (volatile char *p)
 }
 
 /* { dg-final { scan-rtl-dump "mem/v" "shorten" } } */
+/* { dg-final { cleanup-rtl-dump "shorten" } } */

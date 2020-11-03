@@ -1,5 +1,5 @@
 ! { dg-do run }
-! { dg-options "-std=f2008 " }
+! { dg-options "-std=f2008 -fall-intrinsics" }
 
 ! PR fortran/34162
 ! Internal procedures as actual arguments (like restricted closures).
@@ -25,17 +25,17 @@ CONTAINS
     PROCEDURE(returnValue), OPTIONAL :: previous, current
 
     IF (PRESENT (current)) THEN
-      IF (current () /= level - 1) STOP 1
+      IF (current () /= level - 1) CALL abort ()
     END IF
 
     IF (PRESENT (previous)) THEN
-      IF (previous () /= level - 2) STOP 2
+      IF (previous () /= level - 2) CALL abort ()
     END IF
 
     IF (level == 1) THEN
       first => myLevel
     END IF
-    IF (first () /= 1) STOP 3
+    IF (first () /= 1) CALL abort ()
 
     IF (level == 10) RETURN
 

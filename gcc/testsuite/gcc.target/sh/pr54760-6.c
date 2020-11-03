@@ -3,6 +3,7 @@
    are.  */
 /* { dg-do compile }  */
 /* { dg-options "-O1" } */
+/* { dg-skip-if "" { "sh*-*-*" } { "-m5*"} { "" } }  */
 /* { dg-final { scan-assembler-not "stc\tgbr" } } */
 
 typedef struct

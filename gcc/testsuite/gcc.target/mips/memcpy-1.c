@@ -1,4 +1,4 @@
-/* { dg-options "-fno-common (REQUIRES_STDLIB)" } */
+/* { dg-options "-fno-common" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler-not "\tlbu\t" } } */
 

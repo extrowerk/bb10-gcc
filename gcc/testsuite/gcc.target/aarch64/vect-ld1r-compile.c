@@ -1,8 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O3 -fno-vect-cost-model" } */
 
-#pragma GCC target "+nosve"
-
 #include "stdint.h"
 #include "vect-ld1r.x"
 

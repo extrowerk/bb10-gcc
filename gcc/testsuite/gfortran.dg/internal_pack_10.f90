@@ -19,15 +19,15 @@ contains
   subroutine get_rule (c)
     type(t_set) :: c (:)
     ru(1)%c(:)%use = 99
-    if (any (c(:)%use .ne. 42)) STOP 1
+    if (any (c(:)%use .ne. 42)) call abort
     call set_set_v (ru(1)%c, c)
-    if (any (c(:)%use .ne. 99)) STOP 2
+    if (any (c(:)%use .ne. 99)) call abort
   contains
     subroutine set_set_v (src, dst)
       type(t_set), intent(in)    :: src(1)
       type(t_set), intent(inout) :: dst(1)
-    if (any (src%use .ne. 99)) STOP 3
-    if (any (dst%use .ne. 42)) STOP 4
+    if (any (src%use .ne. 99)) call abort
+    if (any (dst%use .ne. 42)) call abort
       dst = src
     end subroutine set_set_v
   end subroutine get_rule

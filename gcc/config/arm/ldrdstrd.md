@@ -1,6 +1,6 @@
 ;; ARM ldrd/strd peephole optimizations.
 ;;
-;; Copyright (C) 2013-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2013-2015 Free Software Foundation, Inc.
 ;;
 ;; Written by Greta Yorsh <greta.yorsh@arm.com>
 
@@ -29,7 +29,9 @@
         (match_operand:SI 2 "memory_operand" ""))
    (set (match_operand:SI 1 "arm_general_register_operand" "")
         (match_operand:SI 3 "memory_operand" ""))]
-  "TARGET_LDRD"
+  "TARGET_LDRD
+     && current_tune->prefer_ldrd_strd
+     && !optimize_function_for_size_p (cfun)"
   [(const_int 0)]
 {
   if (!gen_operands_ldrd_strd (operands, true, false, false))
@@ -41,7 +43,7 @@
     operands[0] = gen_rtx_REG (DImode, REGNO (operands[0]));
     operands[2] = adjust_address (operands[2], DImode, 0);
     /* Emit [(set (match_dup 0) (match_dup 2))] */
-    emit_insn (gen_rtx_SET (operands[0], operands[2]));
+    emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[2]));
     DONE;
   }
   else if (TARGET_THUMB2)
@@ -49,8 +51,8 @@
     /* Emit the pattern:
        [(parallel [(set (match_dup 0) (match_dup 2))
                    (set (match_dup 1) (match_dup 3))])] */
-    rtx t1 = gen_rtx_SET (operands[0], operands[2]);
-    rtx t2 = gen_rtx_SET (operands[1], operands[3]);
+    rtx t1 = gen_rtx_SET (VOIDmode, operands[0], operands[2]);
+    rtx t2 = gen_rtx_SET (VOIDmode, operands[1], operands[3]);
     emit_insn (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, t1, t2)));
     DONE;
   }
@@ -61,7 +63,9 @@
 	(match_operand:SI 0 "arm_general_register_operand" ""))
    (set (match_operand:SI 3 "memory_operand" "")
 	(match_operand:SI 1 "arm_general_register_operand" ""))]
-  "TARGET_LDRD"
+  "TARGET_LDRD
+     && current_tune->prefer_ldrd_strd
+     && !optimize_function_for_size_p (cfun)"
   [(const_int 0)]
 {
   if (!gen_operands_ldrd_strd (operands, false, false, false))
@@ -73,7 +77,7 @@
     operands[0] = gen_rtx_REG (DImode, REGNO (operands[0]));
     operands[2] = adjust_address (operands[2], DImode, 0);
     /* Emit [(set (match_dup 2) (match_dup 0))]  */
-    emit_insn (gen_rtx_SET (operands[2], operands[0]));
+    emit_insn (gen_rtx_SET (VOIDmode, operands[2], operands[0]));
     DONE;
   }
   else if (TARGET_THUMB2)
@@ -81,8 +85,8 @@
     /* Emit the pattern:
        [(parallel [(set (match_dup 2) (match_dup 0))
                    (set (match_dup 3) (match_dup 1))])]  */
-    rtx t1 = gen_rtx_SET (operands[2], operands[0]);
-    rtx t2 = gen_rtx_SET (operands[3], operands[1]);
+    rtx t1 = gen_rtx_SET (VOIDmode, operands[2], operands[0]);
+    rtx t2 = gen_rtx_SET (VOIDmode, operands[3], operands[1]);
     emit_insn (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, t1, t2)));
     DONE;
   }
@@ -98,7 +102,9 @@
         (match_operand:SI 5 "const_int_operand" ""))
    (set (match_operand:SI 3 "memory_operand" "")
         (match_dup 1))]
-  "TARGET_LDRD"
+ "TARGET_LDRD
+  && current_tune->prefer_ldrd_strd
+  && !optimize_function_for_size_p (cfun)"
   [(const_int 0)]
 {
   if (!gen_operands_ldrd_strd (operands, false, true, false))
@@ -111,9 +117,9 @@
       [(set (match_dup 0) (match_dup 4))
       (set (match_dup 1) (match_dup 5))
       (set (match_dup 2) tmp)]  */
-   emit_insn (gen_rtx_SET (operands[0], operands[4]));
-   emit_insn (gen_rtx_SET (operands[1], operands[5]));
-   emit_insn (gen_rtx_SET (operands[2], tmp));
+   emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[4]));
+   emit_insn (gen_rtx_SET (VOIDmode, operands[1], operands[5]));
+   emit_insn (gen_rtx_SET (VOIDmode, operands[2], tmp));
    DONE;
   }
   else if (TARGET_THUMB2)
@@ -123,10 +129,10 @@
         (set (match_dup 1) (match_dup 5))
         (parallel [(set (match_dup 2) (match_dup 0))
                    (set (match_dup 3) (match_dup 1))])]  */
-    emit_insn (gen_rtx_SET (operands[0], operands[4]));
-    emit_insn (gen_rtx_SET (operands[1], operands[5]));
-    rtx t1 = gen_rtx_SET (operands[2], operands[0]);
-    rtx t2 = gen_rtx_SET (operands[3], operands[1]);
+    emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[4]));
+    emit_insn (gen_rtx_SET (VOIDmode, operands[1], operands[5]));
+    rtx t1 = gen_rtx_SET (VOIDmode, operands[2], operands[0]);
+    rtx t2 = gen_rtx_SET (VOIDmode, operands[3], operands[1]);
     emit_insn (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, t1, t2)));
     DONE;
   }
@@ -141,8 +147,10 @@
         (match_dup 0))
    (set (match_operand:SI 3 "memory_operand" "")
         (match_dup 1))]
-  "TARGET_LDRD"
-  [(const_int 0)]
+ "TARGET_LDRD
+  && current_tune->prefer_ldrd_strd
+  && !optimize_function_for_size_p (cfun)"
+   [(const_int 0)]
 {
   if (!gen_operands_ldrd_strd (operands, false, true, false))
      FAIL;
@@ -154,9 +162,9 @@
       [(set (match_dup 0) (match_dup 4))
        (set (match_dup 1) (match_dup 5))
        (set (match_dup 2) tmp)]  */
-   emit_insn (gen_rtx_SET (operands[0], operands[4]));
-   emit_insn (gen_rtx_SET (operands[1], operands[5]));
-   emit_insn (gen_rtx_SET (operands[2], tmp));
+   emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[4]));
+   emit_insn (gen_rtx_SET (VOIDmode, operands[1], operands[5]));
+   emit_insn (gen_rtx_SET (VOIDmode, operands[2], tmp));
    DONE;
   }
   else if (TARGET_THUMB2)
@@ -166,10 +174,10 @@
          (set (match_dup 1) (match_dup 5))
          (parallel [(set (match_dup 2) (match_dup 0))
                     (set (match_dup 3) (match_dup 1))])]  */
-    emit_insn (gen_rtx_SET (operands[0], operands[4]));
-    emit_insn (gen_rtx_SET (operands[1], operands[5]));
-    rtx t1 = gen_rtx_SET (operands[2], operands[0]);
-    rtx t2 = gen_rtx_SET (operands[3], operands[1]);
+    emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[4]));
+    emit_insn (gen_rtx_SET (VOIDmode, operands[1], operands[5]));
+    rtx t1 = gen_rtx_SET (VOIDmode, operands[2], operands[0]);
+    rtx t2 = gen_rtx_SET (VOIDmode, operands[3], operands[1]);
     emit_insn (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, t1, t2)));
     DONE;
   }
@@ -189,6 +197,8 @@
 			   [(match_operand 6 "arm_general_register_operand" "")
 			    (match_operand 7 "arm_general_register_operand" "") ]))]
   "TARGET_LDRD && TARGET_ARM
+   && current_tune->prefer_ldrd_strd
+   && !optimize_function_for_size_p (cfun)
    && (  ((rtx_equal_p(operands[0], operands[6])) && (rtx_equal_p(operands[1], operands[7])))
         ||((rtx_equal_p(operands[0], operands[7])) && (rtx_equal_p(operands[1], operands[6]))))
    && (peep2_reg_dead_p (3, operands[0]) || rtx_equal_p (operands[0], operands[4]))
@@ -221,6 +231,8 @@
 				(match_operand 7 "arm_general_register_operand" "") ]))
        (clobber (reg:CC CC_REGNUM))])]
   "TARGET_LDRD && TARGET_ARM
+   && current_tune->prefer_ldrd_strd
+   && !optimize_function_for_size_p (cfun)
    && (  ((rtx_equal_p(operands[0], operands[6])) && (rtx_equal_p(operands[1], operands[7])))
        ||((rtx_equal_p(operands[0], operands[7])) && (rtx_equal_p(operands[1], operands[6]))))
    && (peep2_reg_dead_p (3, operands[0]) || rtx_equal_p (operands[0], operands[4]))

@@ -35,3 +35,4 @@ simplify_condition (cond_p)
 
 /* There should be exactly one IF conditional.  */
 /* { dg-final { scan-tree-dump-times "if " 1 "vrp1" } } */
+/* { dg-final { cleanup-tree-dump "vrp1" } } */

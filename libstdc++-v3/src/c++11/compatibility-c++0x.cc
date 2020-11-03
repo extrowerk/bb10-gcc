@@ -1,6 +1,6 @@
 // Compatibility symbols for previous versions, C++0x bits -*- C++ -*-
 
-// Copyright (C) 2009-2018 Free Software Foundation, Inc.
+// Copyright (C) 2009-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -40,12 +40,10 @@
 # error "compatibility-c++0x.cc must be compiled with -std=gnu++0x"
 #endif
 
-#ifdef _GLIBCXX_SHARED
+#ifdef PIC
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
-_GLIBCXX_BEGIN_NAMESPACE_VERSION
-
   // gcc-4.4.0
   // <mutex> exported std::lock_error
 #if defined(_GLIBCXX_HAS_GTHREADS) && defined(_GLIBCXX_USE_C99_STDINT_TR1)
@@ -88,7 +86,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 #ifdef _GLIBCXX_USE_WCHAR_T
   template<>
     struct hash<wstring>
-    {
+    { 
       size_t operator()(wstring) const;
     };
 
@@ -132,6 +130,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     constexpr bool system_clock::is_monotonic;
   } // namespace chrono
 
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
   // gcc-5 replaces this with _V2::error_category
   class error_category
   {
@@ -170,6 +169,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     operator!=(const error_category& __other) const noexcept
     { return this != &__other; }
   };
+_GLIBCXX_END_NAMESPACE_VERSION
 
   // gcc-4.9.0
   // LWG 2145 changes this constructor to constexpr i.e. inline
@@ -215,6 +215,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     const system_error_category system_category_instance{};
   }
 
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
   const error_category&
   system_category() noexcept { return system_category_instance; }
 
@@ -226,6 +227,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     _GLIBCXX_CONST const error_categoryxx& system_category() noexcept;
     _GLIBCXX_CONST const error_categoryxx& generic_category() noexcept;
   }
+_GLIBCXX_END_NAMESPACE_VERSION
 
   error_condition
   error_category::default_error_condition(int __i) const noexcept
@@ -252,6 +254,5 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     return false;
   }
 
-_GLIBCXX_END_NAMESPACE_VERSION
 }
 #endif

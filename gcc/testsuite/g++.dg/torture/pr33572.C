@@ -1,6 +1,4 @@
 // { dg-do run }
-// { dg-options "-std=c++98" }
-
 #include <vector>
 #include <memory>
 

@@ -17,3 +17,4 @@ vector float foo( vector float v )
 }
 
 /* { dg-final { scan-tree-dump-times "disappear" 0 "optimized"} } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

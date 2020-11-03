@@ -24,9 +24,9 @@ CONTAINS
   SUBROUTINE S3
     integer :: check = 0
     CALL putaline()
-    if (check .ne. 1) STOP 1
+    if (check .ne. 1) call abort
     CALL putaline("xx")
-    if (check .ne. 2) STOP 2
+    if (check .ne. 2) call abort
 !  CALL putaline(1.0) ! => this now causes an error, as it should 
   CONTAINS
     SUBROUTINE putaline(x)
@@ -42,9 +42,9 @@ CONTAINS
     integer :: check = 0
     REAL :: rcheck = 0.0
     call putaline(check)
-    if (check .ne. 3) STOP 3
+    if (check .ne. 3) call abort
     call putaline(rcheck)
-    if (rcheck .ne. 4.0) STOP 4
+    if (rcheck .ne. 4.0) call abort
   end subroutine s4
 END MODULE
 

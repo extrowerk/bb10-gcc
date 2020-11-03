@@ -67,3 +67,4 @@ get_alias_set (t,z)
 /* There should be one load of alias.  */
 /* { dg-final { scan-tree-dump-times "->alias" 1 "dom2"} } */
 
+/* { dg-final { cleanup-tree-dump "dom2" } } */

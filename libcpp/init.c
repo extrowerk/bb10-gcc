@@ -1,5 +1,5 @@
 /* CPP Library.
-   Copyright (C) 1986-2018 Free Software Foundation, Inc.
+   Copyright (C) 1986-2015 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -90,32 +90,26 @@ struct lang_flags
   char binary_constants;
   char digit_separators;
   char trigraphs;
-  char utf8_char_literals;
-  char va_opt;
 };
 
 static const struct lang_flags lang_defaults[] =
-{ /*              c99 c++ xnum xid c11 std digr ulit rlit udlit bincst digsep trig u8chlit vaopt */
-  /* GNUC89   */  { 0,  0,  1,  0,  0,  0,  1,   0,   0,   0,    0,     0,     0,   0,      1 },
-  /* GNUC99   */  { 1,  0,  1,  1,  0,  0,  1,   1,   1,   0,    0,     0,     0,   0,      1 },
-  /* GNUC11   */  { 1,  0,  1,  1,  1,  0,  1,   1,   1,   0,    0,     0,     0,   0,      1 },
-  /* GNUC17   */  { 1,  0,  1,  1,  1,  0,  1,   1,   1,   0,    0,     0,     0,   0,      1 },
-  /* STDC89   */  { 0,  0,  0,  0,  0,  1,  0,   0,   0,   0,    0,     0,     1,   0,      0 },
-  /* STDC94   */  { 0,  0,  0,  0,  0,  1,  1,   0,   0,   0,    0,     0,     1,   0,      0 },
-  /* STDC99   */  { 1,  0,  1,  1,  0,  1,  1,   0,   0,   0,    0,     0,     1,   0,      0 },
-  /* STDC11   */  { 1,  0,  1,  1,  1,  1,  1,   1,   0,   0,    0,     0,     1,   0,      0 },
-  /* STDC17   */  { 1,  0,  1,  1,  1,  1,  1,   1,   0,   0,    0,     0,     1,   0,      0 },
-  /* GNUCXX   */  { 0,  1,  1,  1,  0,  0,  1,   0,   0,   0,    0,     0,     0,   0,      1 },
-  /* CXX98    */  { 0,  1,  0,  1,  0,  1,  1,   0,   0,   0,    0,     0,     1,   0,      0 },
-  /* GNUCXX11 */  { 1,  1,  1,  1,  1,  0,  1,   1,   1,   1,    0,     0,     0,   0,      1 },
-  /* CXX11    */  { 1,  1,  0,  1,  1,  1,  1,   1,   1,   1,    0,     0,     1,   0,      0 },
-  /* GNUCXX14 */  { 1,  1,  1,  1,  1,  0,  1,   1,   1,   1,    1,     1,     0,   0,      1 },
-  /* CXX14    */  { 1,  1,  0,  1,  1,  1,  1,   1,   1,   1,    1,     1,     1,   0,      0 },
-  /* GNUCXX17 */  { 1,  1,  1,  1,  1,  0,  1,   1,   1,   1,    1,     1,     0,   1,      1 },
-  /* CXX17    */  { 1,  1,  1,  1,  1,  1,  1,   1,   1,   1,    1,     1,     0,   1,      0 },
-  /* GNUCXX2A */  { 1,  1,  1,  1,  1,  0,  1,   1,   1,   1,    1,     1,     0,   1,      1 },
-  /* CXX2A    */  { 1,  1,  1,  1,  1,  1,  1,   1,   1,   1,    1,     1,     0,   1,      1 },
-  /* ASM      */  { 0,  0,  1,  0,  0,  0,  0,   0,   0,   0,    0,     0,     0,   0,      0 }
+{ /*              c99 c++ xnum xid c11 std digr ulit rlit udlit bincst digsep trig */
+  /* GNUC89   */  { 0,  0,  1,  0,  0,  0,  1,   0,   0,   0,    0,     0,     0 },
+  /* GNUC99   */  { 1,  0,  1,  1,  0,  0,  1,   1,   1,   0,    0,     0,     0 },
+  /* GNUC11   */  { 1,  0,  1,  1,  1,  0,  1,   1,   1,   0,    0,     0,     0 },
+  /* STDC89   */  { 0,  0,  0,  0,  0,  1,  0,   0,   0,   0,    0,     0,     1 },
+  /* STDC94   */  { 0,  0,  0,  0,  0,  1,  1,   0,   0,   0,    0,     0,     1 },
+  /* STDC99   */  { 1,  0,  1,  1,  0,  1,  1,   0,   0,   0,    0,     0,     1 },
+  /* STDC11   */  { 1,  0,  1,  1,  1,  1,  1,   1,   0,   0,    0,     0,     1 },
+  /* GNUCXX   */  { 0,  1,  1,  1,  0,  0,  1,   0,   0,   0,    0,     0,     0 },
+  /* CXX98    */  { 0,  1,  0,  1,  0,  1,  1,   0,   0,   0,    0,     0,     1 },
+  /* GNUCXX11 */  { 1,  1,  1,  1,  1,  0,  1,   1,   1,   1,    0,     0,     0 },
+  /* CXX11    */  { 1,  1,  1,  1,  1,  1,  1,   1,   1,   1,    0,     0,     1 },
+  /* GNUCXX14 */  { 1,  1,  1,  1,  1,  0,  1,   1,   1,   1,    1,     1,     0 },
+  /* CXX14    */  { 1,  1,  1,  1,  1,  1,  1,   1,   1,   1,    1,     1,     1 },
+  /* GNUCXX1Z */  { 1,  1,  1,  1,  1,  0,  1,   1,   1,   1,    1,     1,     0 },
+  /* CXX1Z    */  { 1,  1,  1,  1,  1,  1,  1,   1,   1,   1,    1,     1,     0 },
+  /* ASM      */  { 0,  0,  1,  0,  0,  0,  0,   0,   0,   0,    0,     0,     0 }
 };
 
 /* Sets internal flags correctly for a given language.  */
@@ -139,8 +133,6 @@ cpp_set_lang (cpp_reader *pfile, enum c_lang lang)
   CPP_OPTION (pfile, binary_constants)		 = l->binary_constants;
   CPP_OPTION (pfile, digit_separators)		 = l->digit_separators;
   CPP_OPTION (pfile, trigraphs)			 = l->trigraphs;
-  CPP_OPTION (pfile, utf8_char_literals)	 = l->utf8_char_literals;
-  CPP_OPTION (pfile, va_opt)			 = l->va_opt;
 }
 
 /* Initialize library global state.  */
@@ -188,14 +180,12 @@ cpp_create_reader (enum c_lang lang, cpp_hash_table *table,
   CPP_OPTION (pfile, warn_trigraphs) = 2;
   CPP_OPTION (pfile, warn_endif_labels) = 1;
   CPP_OPTION (pfile, cpp_warn_c90_c99_compat) = -1;
-  CPP_OPTION (pfile, cpp_warn_cxx11_compat) = 0;
   CPP_OPTION (pfile, cpp_warn_deprecated) = 1;
   CPP_OPTION (pfile, cpp_warn_long_long) = 0;
   CPP_OPTION (pfile, dollars_in_ident) = 1;
   CPP_OPTION (pfile, warn_dollars) = 1;
   CPP_OPTION (pfile, warn_variadic_macros) = 1;
   CPP_OPTION (pfile, warn_builtin_macro_redefined) = 1;
-  CPP_OPTION (pfile, cpp_warn_implicit_fallthrough) = 0;
   /* By default, track locations of tokens resulting from macro
      expansion.  The '2' means, track the locations with the highest
      accuracy.  Read the comments for struct
@@ -263,9 +253,6 @@ cpp_create_reader (enum c_lang lang, cpp_hash_table *table,
 
   /* Do not force token locations by default.  */
   pfile->forced_token_location_p = NULL;
-
-  /* Initialize source_date_epoch to -2 (not yet set).  */
-  pfile->source_date_epoch = (time_t) -2;
 
   /* The expression parser stack.  */
   _cpp_expand_op_stack (pfile);
@@ -503,12 +490,9 @@ cpp_init_builtins (cpp_reader *pfile, int hosted)
 
   if (CPP_OPTION (pfile, cplusplus))
     {
-      if (CPP_OPTION (pfile, lang) == CLK_CXX2A
-	  || CPP_OPTION (pfile, lang) == CLK_GNUCXX2A)
-	_cpp_define_builtin (pfile, "__cplusplus 201709L");
-      else if (CPP_OPTION (pfile, lang) == CLK_CXX17
-	  || CPP_OPTION (pfile, lang) == CLK_GNUCXX17)
-	_cpp_define_builtin (pfile, "__cplusplus 201703L");
+      if (CPP_OPTION (pfile, lang) == CLK_CXX1Z
+	  || CPP_OPTION (pfile, lang) == CLK_GNUCXX1Z)
+	_cpp_define_builtin (pfile, "__cplusplus 201500L");
       else if (CPP_OPTION (pfile, lang) == CLK_CXX14
 	  || CPP_OPTION (pfile, lang) == CLK_GNUCXX14)
 	_cpp_define_builtin (pfile, "__cplusplus 201402L");
@@ -522,9 +506,6 @@ cpp_init_builtins (cpp_reader *pfile, int hosted)
     _cpp_define_builtin (pfile, "__ASSEMBLER__ 1");
   else if (CPP_OPTION (pfile, lang) == CLK_STDC94)
     _cpp_define_builtin (pfile, "__STDC_VERSION__ 199409L");
-  else if (CPP_OPTION (pfile, lang) == CLK_STDC17
-	   || CPP_OPTION (pfile, lang) == CLK_GNUC17)
-    _cpp_define_builtin (pfile, "__STDC_VERSION__ 201710L");
   else if (CPP_OPTION (pfile, lang) == CLK_STDC11
 	   || CPP_OPTION (pfile, lang) == CLK_GNUC11)
     _cpp_define_builtin (pfile, "__STDC_VERSION__ 201112L");
@@ -550,8 +531,8 @@ cpp_init_builtins (cpp_reader *pfile, int hosted)
 }
 
 /* Sanity-checks are dependent on command-line options, so it is
-   called as a subroutine of cpp_read_main_file.  */
-#if CHECKING_P
+   called as a subroutine of cpp_read_main_file ().  */
+#if ENABLE_CHECKING
 static void sanity_checks (cpp_reader *);
 static void sanity_checks (cpp_reader *pfile)
 {
@@ -629,8 +610,6 @@ cpp_post_options (cpp_reader *pfile)
 const char *
 cpp_read_main_file (cpp_reader *pfile, const char *fname)
 {
-  const source_location loc = 0;
-
   if (CPP_OPTION (pfile, deps.style) != DEPS_NONE)
     {
       if (!pfile->deps)
@@ -641,12 +620,11 @@ cpp_read_main_file (cpp_reader *pfile, const char *fname)
     }
 
   pfile->main_file
-    = _cpp_find_file (pfile, fname, &pfile->no_search_path, false, 0, false,
-		      loc);
+    = _cpp_find_file (pfile, fname, &pfile->no_search_path, false, 0, false);
   if (_cpp_find_failed (pfile->main_file))
     return NULL;
 
-  _cpp_stack_file (pfile, pfile->main_file, false, loc);
+  _cpp_stack_file (pfile, pfile->main_file, false);
 
   /* For foo.i, read the original filename foo.c now, for the benefit
      of the front ends.  */

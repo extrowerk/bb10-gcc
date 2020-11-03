@@ -22,5 +22,6 @@ int bar (int b)
   return *foo (&q);
 }
 
-/* { dg-final { scan-tree-dump "CALLUSED\\(\[0-9\]+\\) = { ESCAPED NONLOCAL f.* i q }" "alias" } } */
+/* { dg-final { scan-tree-dump "CALLUSED = { ESCAPED NONLOCAL f.* i q }" "alias" } } */
+/* { dg-final { cleanup-tree-dump "alias" } } */
 

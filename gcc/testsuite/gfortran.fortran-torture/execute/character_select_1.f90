@@ -2,11 +2,11 @@ CHARACTER(LEN=6) :: C = "STEVEN"
 
 SELECT CASE (C)
    CASE ("AAA":"EEE")
-      STOP 1
+      CALL abort
    CASE ("R":"T")
       CONTINUE
    CASE DEFAULT
-      STOP 2
+      CALL abort
 END SELECT
 END
 

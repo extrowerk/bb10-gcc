@@ -23,7 +23,7 @@ contains
     allocate (cm)
     cm%i = 77
     tm = cm
-    if (tm%i .ne. cm%i) STOP 1
+    if (tm%i .ne. cm%i) call abort
   end subroutine
 
   subroutine comment2
@@ -36,6 +36,6 @@ contains
        type is (child)
          cm2%mother=cm
     end select
-    if (cm2%i .ne. cm%i) STOP 2
+    if (cm2%i .ne. cm%i) call abort
   end subroutine
 end program

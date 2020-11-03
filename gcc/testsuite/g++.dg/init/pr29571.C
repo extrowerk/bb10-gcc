@@ -3,7 +3,7 @@
 struct A
 {
   static const int i = 0/0 + ""; // { dg-warning "division by zero" }
-  // { dg-error "constant|conversion|initializ" "" { target *-*-* } .-1 }
+  // { dg-error "constant|conversion|initializ" "" { target *-*-* } 5 }
   static const int j = int(i);
 };
 

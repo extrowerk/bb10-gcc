@@ -10,7 +10,7 @@ foo (unsigned int i)
 {
   switch (i)
   {
-    case 123456123456ULL: /* { dg-warning "conversion from .long long unsigned int. to .unsigned int. changes value" } */
+    case 123456123456ULL: /* { dg-warning "large integer implicitly truncated to unsigned type" } */
       return 0;
     default:
       return 3;

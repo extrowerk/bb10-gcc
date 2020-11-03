@@ -15,13 +15,13 @@ program intrinsic_unpack
    ak = reshape ((/1, 0, 0, 0, 1, 0, 0, 0, 1/), (/3, 3/));
    bk = unpack ((/2_k, 3_k, 4_k/), mask, ak)
    if (any (bk .ne. reshape ((/1, 2, 0, 3, 1, 0, 0, 0, 4/), (/3, 3/)))) &
-      STOP 1
+      call abort
    write (line1,'(10I4)') bk
    write (line2,'(10I4)') unpack((/2_k, 3_k, 4_k/), mask, ak)
-   if (line1 .ne. line2) STOP 2
+   if (line1 .ne. line2) call abort
    bk = -1
    bk = unpack ((/2_k, 3_k, 4_k/), mask, 0_k)
    if (any (bk .ne. reshape ((/0, 2, 0, 3, 0, 0, 0, 0, 4/), (/3, 3/)))) &
-      STOP 3
+      call abort
 
 end program

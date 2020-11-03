@@ -14,3 +14,4 @@ unsigned bar (unsigned c, unsigned d)
 
 /* { dg-final { scan-tree-dump-times "a \\^ b" 1 "original" } } */
 /* { dg-final { scan-tree-dump-times "c \\^ d" 1 "original" } } */
+/* { dg-final { cleanup-tree-dump "original" } } */

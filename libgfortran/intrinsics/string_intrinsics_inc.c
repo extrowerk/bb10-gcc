@@ -1,5 +1,5 @@
 /* String intrinsics helper functions.
-   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
 
 This file is part of the GNU Fortran runtime library (libgfortran).
 
@@ -177,25 +177,23 @@ string_trim (gfc_charlen_type *len, CHARTYPE **dest, gfc_charlen_type slen,
 gfc_charlen_type
 string_len_trim (gfc_charlen_type len, const CHARTYPE *s)
 {
-  if (len <= 0)
-    return 0;
+  const gfc_charlen_type long_len = (gfc_charlen_type) sizeof (unsigned long);
+  gfc_charlen_type i;
 
-  const size_t long_len = sizeof (unsigned long);
-
-  size_t i = len - 1;
+  i = len - 1;
 
   /* If we've got the standard (KIND=1) character type, we scan the string in
      long word chunks to speed it up (until a long word is hit that does not
      consist of ' 's).  */
   if (sizeof (CHARTYPE) == 1 && i >= long_len)
     {
-      size_t starting;
+      int starting;
       unsigned long blank_longword;
 
       /* Handle the first characters until we're aligned on a long word
 	 boundary.  Actually, s + i + 1 must be properly aligned, because
 	 s + i will be the last byte of a long word read.  */
-      starting = (
+      starting = ((unsigned long)
 #ifdef __INTPTR_TYPE__
 		  (__INTPTR_TYPE__)
 #endif
@@ -226,15 +224,14 @@ string_len_trim (gfc_charlen_type len, const CHARTYPE *s)
 	      break;
 	    }
 	}
+
+      /* Now continue for the last characters with naive approach below.  */
+      assert (i >= 0);
     }
 
   /* Simply look for the first non-blank character.  */
-  while (s[i] == ' ')
-    {
-      if (i == 0)
-	return 0;
-      --i;
-    }
+  while (i >= 0 && s[i] == ' ')
+    --i;
   return i + 1;
 }
 
@@ -330,12 +327,12 @@ string_scan (gfc_charlen_type slen, const CHARTYPE *str,
 
   if (back)
     {
-      for (i = slen; i != 0; i--)
+      for (i = slen - 1; i >= 0; i--)
 	{
 	  for (j = 0; j < setlen; j++)
 	    {
-	      if (str[i - 1] == set[j])
-		return i;
+	      if (str[i] == set[j])
+		return (i + 1);
 	    }
 	}
     }

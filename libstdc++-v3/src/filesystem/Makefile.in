@@ -59,7 +59,6 @@ ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
 	$(top_srcdir)/../config/enable.m4 \
 	$(top_srcdir)/../config/futex.m4 \
-	$(top_srcdir)/../config/hwcaps.m4 \
 	$(top_srcdir)/../config/iconv.m4 \
 	$(top_srcdir)/../config/lead-dot.m4 \
 	$(top_srcdir)/../config/lib-ld.m4 \
@@ -77,7 +76,7 @@ am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
 	$(top_srcdir)/linkage.m4 $(top_srcdir)/acinclude.m4 \
 	$(top_srcdir)/../config/gc++filt.m4 \
 	$(top_srcdir)/../config/tls.m4 $(top_srcdir)/../config/gthr.m4 \
-	$(top_srcdir)/../config/cet.m4 $(top_srcdir)/configure.ac
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 CONFIG_HEADER = $(top_builddir)/config.h
@@ -114,10 +113,8 @@ am__installdirs = "$(DESTDIR)$(toolexeclibdir)"
 LTLIBRARIES = $(toolexeclib_LTLIBRARIES)
 libstdc__fs_la_LIBADD =
 @ENABLE_DUAL_ABI_TRUE@am__objects_1 = cow-dir.lo cow-ops.lo \
-@ENABLE_DUAL_ABI_TRUE@	cow-path.lo cow-std-dir.lo \
-@ENABLE_DUAL_ABI_TRUE@	cow-std-ops.lo cow-std-path.lo
-am__objects_2 = dir.lo ops.lo path.lo std-dir.lo std-ops.lo \
-	std-path.lo $(am__objects_1)
+@ENABLE_DUAL_ABI_TRUE@	cow-path.lo
+am__objects_2 = dir.lo ops.lo path.lo $(am__objects_1)
 am_libstdc__fs_la_OBJECTS = $(am__objects_2)
 libstdc__fs_la_OBJECTS = $(am_libstdc__fs_la_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
@@ -189,13 +186,12 @@ ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 ERROR_CONSTANTS_SRCDIR = @ERROR_CONSTANTS_SRCDIR@
 EXEEXT = @EXEEXT@
-EXTRA_CFLAGS = @EXTRA_CFLAGS@
 EXTRA_CXX_FLAGS = @EXTRA_CXX_FLAGS@
 FGREP = @FGREP@
 GLIBCXX_INCLUDES = @GLIBCXX_INCLUDES@
 GLIBCXX_LIBS = @GLIBCXX_LIBS@
 GREP = @GREP@
-HWCAP_CFLAGS = @HWCAP_CFLAGS@
+HWCAP_FLAGS = @HWCAP_FLAGS@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -209,7 +205,6 @@ LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
 LIPO = @LIPO@
 LN_S = @LN_S@
-LONG_DOUBLE_COMPAT_FLAGS = @LONG_DOUBLE_COMPAT_FLAGS@
 LTLIBICONV = @LTLIBICONV@
 LTLIBOBJS = @LTLIBOBJS@
 MAINT = @MAINT@
@@ -279,7 +274,6 @@ dvidir = @dvidir@
 enable_shared = @enable_shared@
 enable_static = @enable_static@
 exec_prefix = @exec_prefix@
-get_gcc_base_ver = @get_gcc_base_ver@
 glibcxx_MOFILES = @glibcxx_MOFILES@
 glibcxx_PCHFLAGS = @glibcxx_PCHFLAGS@
 glibcxx_POFILES = @glibcxx_POFILES@
@@ -336,7 +330,7 @@ toplevel_builddir = @toplevel_builddir@
 toplevel_srcdir = @toplevel_srcdir@
 
 # May be used by various substitution variables.
-gcc_version := $(shell @get_gcc_base_ver@ $(top_srcdir)/../gcc/BASE-VER)
+gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 MAINT_CHARSET = latin1
 mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
 PWD_COMMAND = $${PWDCMD-pwd}
@@ -351,7 +345,7 @@ toolexeclibdir = $(glibcxx_toolexeclibdir)
 # These bits are all figured out from configure.  Look in acinclude.m4
 # or configure.ac to see how they are set.  See GLIBCXX_EXPORT_FLAGS.
 CONFIG_CXXFLAGS = \
-	$(SECTION_FLAGS) $(HWCAP_CFLAGS) -frandom-seed=$@
+	$(SECTION_FLAGS) $(HWCAP_FLAGS) -frandom-seed=$@
 
 WARN_CXXFLAGS = \
 	$(WARN_FLAGS) $(WERROR_FLAG) -fdiagnostics-show-location=once 
@@ -365,18 +359,12 @@ headers =
 @ENABLE_DUAL_ABI_TRUE@cxx11_abi_sources = \
 @ENABLE_DUAL_ABI_TRUE@	cow-dir.cc \
 @ENABLE_DUAL_ABI_TRUE@	cow-ops.cc \
-@ENABLE_DUAL_ABI_TRUE@	cow-path.cc \
-@ENABLE_DUAL_ABI_TRUE@	cow-std-dir.cc \
-@ENABLE_DUAL_ABI_TRUE@	cow-std-ops.cc \
-@ENABLE_DUAL_ABI_TRUE@	cow-std-path.cc
+@ENABLE_DUAL_ABI_TRUE@	cow-path.cc
 
 sources = \
 	dir.cc \
 	ops.cc \
 	path.cc \
-	std-dir.cc \
-	std-ops.cc \
-	std-path.cc \
 	${cxx11_abi_sources}
 
 
@@ -390,7 +378,7 @@ libstdc__fs_la_SOURCES = $(sources)
 # as the occasion call for it.
 AM_CXXFLAGS = \
 	$(glibcxx_lt_pic_flag) $(glibcxx_compiler_shared_flag) \
-	-std=gnu++17 \
+	-std=gnu++14 \
 	$(WARN_CXXFLAGS) $(OPTIMIZE_CXXFLAGS)  $(CONFIG_CXXFLAGS)
 
 AM_MAKEFLAGS = \
@@ -411,7 +399,7 @@ AM_MAKEFLAGS = \
 # correct solution is to add `--tag CXX' to LTCXXCOMPILE and maybe
 # CXXLINK, just after $(LIBTOOL), so that libtool doesn't have to
 # attempt to infer which configuration to use.
-#
+# 
 # The second tag argument, `--tag disable-shared` means that libtool
 # only compiles each source once, for static objects. In actuality,
 # glibcxx_lt_pic_flag and glibcxx_compiler_shared_flag are added to

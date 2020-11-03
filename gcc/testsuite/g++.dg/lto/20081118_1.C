@@ -18,5 +18,4 @@ bar*
 bar::method (void)
 {
  quxx::method();
- return 0;
 }

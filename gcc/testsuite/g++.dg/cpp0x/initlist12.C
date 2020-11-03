@@ -1,5 +1,6 @@
 // PR c++/38698
 // { dg-do compile { target c++11 } }
+// { dg-prune-output "note" }
 
 struct A
 {

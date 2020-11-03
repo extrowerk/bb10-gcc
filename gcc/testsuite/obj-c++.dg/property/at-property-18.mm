@@ -13,34 +13,34 @@
 {
   Class isa;
 }
-@property (assign) id a;     /* { dg-line MyRootClass_a } */
-@property (retain) id b;     /* { dg-line MyRootClass_b } */
-@property int c;             /* { dg-line MyRootClass_c } */
-@property (nonatomic) int d; /* { dg-line MyRootClass_d } */
-@property int e;             /* { dg-line MyRootClass_e } */
-@property int f;             /* { dg-line MyRootClass_f } */
-@property int g;             /* { dg-line MyRootClass_g } */
+@property (assign) id a;
+@property (retain) id b;
+@property int c;
+@property (nonatomic) int d;
+@property int e;
+@property int f;
+@property int g;
 @property (readonly) int h;
-@property (readonly,getter=getMe) int i; /* { dg-line MyRootClass_i } */
+@property (readonly,getter=getMe) int i;
 @property (nonatomic) float j;
 @end
 @interface MyRootClass (Category)
 @property (retain) id a;         /* { dg-warning "assign semantics attributes of property .a. conflict with previous declaration" } */
-                                 /* { dg-message "originally specified here" "" { target *-*-* } MyRootClass_a } */
+                                 /* { dg-message "originally specified here" "" { target *-*-* } 16 } */
 @property (assign) id b;         /* { dg-warning "assign semantics attributes of property .b. conflict with previous declaration" } */
-                                 /* { dg-message "originally specified here" "" { target *-*-* } MyRootClass_b } */
+                                 /* { dg-message "originally specified here" "" { target *-*-* } 17 } */
 @property (nonatomic) int c;     /* { dg-warning ".nonatomic. attribute of property .c. conflicts with previous declaration" } */
-                                 /* { dg-message "originally specified here" "" { target *-*-* } MyRootClass_c } */
+                                 /* { dg-message "originally specified here" "" { target *-*-* } 18 } */
 @property int d;                 /* { dg-warning ".nonatomic. attribute of property .d. conflicts with previous declaration" } */
-                                 /* { dg-message "originally specified here" "" { target *-*-* } MyRootClass_d } */
+                                 /* { dg-message "originally specified here" "" { target *-*-* } 19 } */
 @property (setter=setX:) int e;  /* { dg-warning ".setter. attribute of property .e. conflicts with previous declaration" } */
-                                 /* { dg-message "originally specified here" "" { target *-*-* } MyRootClass_e } */
+                                 /* { dg-message "originally specified here" "" { target *-*-* } 20 } */
 @property (getter=x) int f;      /* { dg-warning ".getter. attribute of property .f. conflicts with previous declaration" } */
-                                 /* { dg-message "originally specified here" "" { target *-*-* } MyRootClass_f } */
+                                 /* { dg-message "originally specified here" "" { target *-*-* } 21 } */
 @property (readonly) int g;      /* { dg-warning ".readonly. attribute of property .g. conflicts with previous declaration" } */
-                                 /* { dg-message "originally specified here" "" { target *-*-* } MyRootClass_g } */
+                                 /* { dg-message "originally specified here" "" { target *-*-* } 22 } */
 @property (readwrite) int h;     /* Ok */
 @property (readonly) int i;      /* { dg-warning ".getter. attribute of property .i. conflicts with previous declaration" } */
-                                 /* { dg-message "originally specified here" "" { target *-*-* } MyRootClass_i } */
+                                 /* { dg-message "originally specified here" "" { target *-*-* } 24 } */
 @property (nonatomic) float j;   /* Ok */
 @end

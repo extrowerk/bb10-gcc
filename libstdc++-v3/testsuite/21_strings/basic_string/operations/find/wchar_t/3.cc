@@ -1,6 +1,6 @@
 // 2003-05-04  Paolo Carlini  <pcarlini@unitus.it>
 
-// Copyright (C) 2003-2018 Free Software Foundation, Inc.
+// Copyright (C) 2003-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -22,8 +22,9 @@
 #include <string>
 #include <testsuite_hooks.h>
 
-void test03(void)
+bool test03(void)
 {
+  bool test __attribute__((unused)) = true;
   typedef std::wstring::size_type csize_type;
   csize_type npos = std::wstring::npos;
   csize_type csz01;
@@ -81,6 +82,7 @@ void test03(void)
   VERIFY( csz01 == 0 );
   csz01 = str04.find_first_not_of(L'S');
   VERIFY( csz01 == npos );
+  return test;
 }
 
 int main()

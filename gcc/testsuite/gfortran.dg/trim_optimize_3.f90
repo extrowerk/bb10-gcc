@@ -7,9 +7,10 @@ program main
   character(len=100) :: line
   a = 'bcd'
   b = trim(a) // 'x'
-  if (b /= 'bcdx') STOP 1
+  if (b /= 'bcdx') call abort
   a4 = 4_"bcd"
   b4 = trim(a4) // 4_'x'
-  if (b4 /= 4_'bcdx') STOP 2
+  if (b4 /= 4_'bcdx') call abort
 end
 ! { dg-final { scan-tree-dump-times "string_len_trim" 2 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

@@ -1,10 +1,9 @@
-/* { dg-require-effective-target label_values } */
-
 short optab[5];
 char buf[10];
 execute (ip)
      register short *ip;
 {
+#ifndef NO_LABEL_VALUES
   register void *base = &&x;
   char *bp = buf;
   static void *tab[] = {&&x, &&y, &&z};
@@ -22,6 +21,9 @@ y:  *bp++='y';
 z:  *bp++='z';
     *bp=0;
     return;
+#else
+    strcpy (buf, "xyxyz");
+#endif
 }
 
 short p[5];

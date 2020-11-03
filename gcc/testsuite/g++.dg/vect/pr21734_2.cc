@@ -13,3 +13,4 @@ void foo(A a1, A &a2)
     a2.a[i]=0;
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

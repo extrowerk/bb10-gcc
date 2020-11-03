@@ -1,5 +1,5 @@
 /* Common subexpression elimination library for GNU compiler.
-   Copyright (C) 1987-2018 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,24 +20,45 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
-#include "target.h"
+#include "tm.h"
 #include "rtl.h"
-#include "tree.h"
-#include "df.h"
-#include "memmodel.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"/* FIXME: For hashing DEBUG_EXPR & friends.  */
 #include "tm_p.h"
 #include "regs.h"
+#include "hard-reg-set.h"
+#include "flags.h"
+#include "insn-config.h"
+#include "recog.h"
+#include "hashtab.h"
+#include "input.h"
+#include "function.h"
 #include "emit-rtl.h"
+#include "diagnostic-core.h"
+#include "ggc.h"
+#include "hash-table.h"
 #include "dumpfile.h"
 #include "cselib.h"
+#include "predict.h"
+#include "basic-block.h"
+#include "valtrack.h"
 #include "params.h"
+#include "alloc-pool.h"
+#include "target.h"
+#include "bitmap.h"
 
 /* A list of cselib_val structures.  */
-struct elt_list
-{
-  struct elt_list *next;
-  cselib_val *elt;
+struct elt_list {
+    struct elt_list *next;
+    cselib_val *elt;
 };
 
 static bool cselib_record_memory;
@@ -50,6 +71,7 @@ static void unchain_one_value (cselib_val *);
 static void unchain_one_elt_list (struct elt_list **);
 static void unchain_one_elt_loc_list (struct elt_loc_list **);
 static void remove_useless_values (void);
+static int rtx_equal_for_cselib_1 (rtx, rtx, machine_mode);
 static unsigned int cselib_hash_rtx (rtx, int, machine_mode);
 static cselib_val *new_cselib_val (unsigned int, machine_mode, rtx);
 static void add_mem_for_addr (cselib_val *, cselib_val *, rtx);
@@ -78,9 +100,10 @@ static rtx cselib_expand_value_rtx_1 (rtx, struct expand_value_data *, int);
      this involves walking the table entries for a given value and comparing
      the locations of the entries with the rtx we are looking up.  */
 
-struct cselib_hasher : nofree_ptr_hash <cselib_val>
+struct cselib_hasher : typed_noop_remove <cselib_val>
 {
-  struct key {
+  typedef cselib_val value_type;
+  struct compare_type {
     /* The rtx value and its mode (needed separately for constant
        integers).  */
     machine_mode mode;
@@ -88,9 +111,8 @@ struct cselib_hasher : nofree_ptr_hash <cselib_val>
     /* The mode of the contaning MEM, if any, otherwise VOIDmode.  */
     machine_mode memmode;
   };
-  typedef key *compare_type;
-  static inline hashval_t hash (const cselib_val *);
-  static inline bool equal (const cselib_val *, const key *);
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
 };
 
 /* The hash function for our hash table.  The value is always computed with
@@ -98,7 +120,7 @@ struct cselib_hasher : nofree_ptr_hash <cselib_val>
    hash value from a cselib_val structure.  */
 
 inline hashval_t
-cselib_hasher::hash (const cselib_val *v)
+cselib_hasher::hash (const value_type *v)
 {
   return v->hash;
 }
@@ -109,7 +131,7 @@ cselib_hasher::hash (const cselib_val *v)
    CONST of an appropriate mode.  */
 
 inline bool
-cselib_hasher::equal (const cselib_val *v, const key *x_arg)
+cselib_hasher::equal (const value_type *v, const compare_type *x_arg)
 {
   struct elt_loc_list *l;
   rtx x = x_arg->x;
@@ -125,7 +147,7 @@ cselib_hasher::equal (const cselib_val *v, const key *x_arg)
   /* We don't guarantee that distinct rtx's have different hash values,
      so we need to do a comparison.  */
   for (l = v->locs; l; l = l->next)
-    if (rtx_equal_for_cselib_1 (l->loc, x, memmode, 0))
+    if (rtx_equal_for_cselib_1 (l->loc, x, memmode))
       {
 	promote_debug_loc (l);
 	return true;
@@ -237,12 +259,7 @@ static unsigned int cfa_base_preserved_regno = INVALID_REGNUM;
    May or may not contain the useless values - the list is compacted
    each time memory is invalidated.  */
 static cselib_val *first_containing_mem = &dummy_val;
-
-static object_allocator<elt_list> elt_list_pool ("elt_list");
-static object_allocator<elt_loc_list> elt_loc_list_pool ("elt_loc_list");
-static object_allocator<cselib_val> cselib_val_pool ("cselib_val_list");
-
-static pool_allocator value_pool ("value", RTX_CODE_SIZE (VALUE));
+static alloc_pool elt_loc_list_pool, elt_list_pool, cselib_val_pool, value_pool;
 
 /* If nonnull, cselib will call this function before freeing useless
    VALUEs.  A VALUE is deemed useless if its "locs" field is null.  */
@@ -270,7 +287,8 @@ void (*cselib_record_sets_hook) (rtx_insn *insn, struct cselib_set *sets,
 static inline struct elt_list *
 new_elt_list (struct elt_list *next, cselib_val *elt)
 {
-  elt_list *el = elt_list_pool.allocate ();
+  struct elt_list *el;
+  el = (struct elt_list *) pool_alloc (elt_list_pool);
   el->next = next;
   el->elt = elt;
   return el;
@@ -354,14 +372,14 @@ new_elt_loc_list (cselib_val *val, rtx loc)
 	}
 
       /* Chain LOC back to VAL.  */
-      el = elt_loc_list_pool.allocate ();
+      el = (struct elt_loc_list *) pool_alloc (elt_loc_list_pool);
       el->loc = val->val_rtx;
       el->setting_insn = cselib_current_insn;
       el->next = NULL;
       CSELIB_VAL_PTR (loc)->locs = el;
     }
 
-  el = elt_loc_list_pool.allocate ();
+  el = (struct elt_loc_list *) pool_alloc (elt_loc_list_pool);
   el->loc = loc;
   el->setting_insn = cselib_current_insn;
   el->next = next;
@@ -401,7 +419,7 @@ unchain_one_elt_list (struct elt_list **pl)
   struct elt_list *l = *pl;
 
   *pl = l->next;
-  elt_list_pool.remove (l);
+  pool_free (elt_list_pool, l);
 }
 
 /* Likewise for elt_loc_lists.  */
@@ -412,7 +430,7 @@ unchain_one_elt_loc_list (struct elt_loc_list **pl)
   struct elt_loc_list *l = *pl;
 
   *pl = l->next;
-  elt_loc_list_pool.remove (l);
+  pool_free (elt_loc_list_pool, l);
 }
 
 /* Likewise for cselib_vals.  This also frees the addr_list associated with
@@ -424,7 +442,7 @@ unchain_one_value (cselib_val *v)
   while (v->addr_list)
     unchain_one_elt_list (&v->addr_list);
 
-  cselib_val_pool.remove (v);
+  pool_free (cselib_val_pool, v);
 }
 
 /* Remove all entries from the hash table.  Also used during
@@ -489,7 +507,7 @@ preserve_constants_and_equivs (cselib_val **x, void *info ATTRIBUTE_UNUSED)
 
   if (invariant_or_equiv_p (v))
     {
-      cselib_hasher::key lookup = {
+      cselib_hasher::compare_type lookup = {
 	GET_MODE (v->val_rtx), v->val_rtx, VOIDmode
       };
       cselib_val **slot
@@ -530,8 +548,7 @@ cselib_reset_table (unsigned int num)
       n_used_regs = new_used_regs;
       used_regs[0] = regno;
       max_value_regs
-	= hard_regno_nregs (regno,
-			    GET_MODE (cfa_base_preserved_val->locs->loc));
+	= hard_regno_nregs[regno][GET_MODE (cfa_base_preserved_val->locs->loc)];
     }
   else
     {
@@ -575,7 +592,7 @@ cselib_find_slot (machine_mode mode, rtx x, hashval_t hash,
 		  enum insert_option insert, machine_mode memmode)
 {
   cselib_val **slot = NULL;
-  cselib_hasher::key lookup = { mode, x, memmode };
+  cselib_hasher::compare_type lookup = { mode, x, memmode };
   if (cselib_preserve_constants)
     slot = cselib_preserved_hash_table->find_slot_with_hash (&lookup, hash,
 							     NO_INSERT);
@@ -624,7 +641,7 @@ discard_useless_locs (cselib_val **x, void *info ATTRIBUTE_UNUSED)
   cselib_val *v = *x;
   struct elt_loc_list **p = &v->locs;
   bool had_locs = v->locs != NULL;
-  rtx_insn *setting_insn = v->locs ? v->locs->setting_insn : NULL;
+  rtx setting_insn = v->locs ? v->locs->setting_insn : NULL;
 
   while (*p)
     {
@@ -789,6 +806,15 @@ cselib_reg_set_mode (const_rtx x)
   return GET_MODE (REG_VALUES (REGNO (x))->elt->val_rtx);
 }
 
+/* Return nonzero if we can prove that X and Y contain the same value, taking
+   our gathered information into account.  */
+
+int
+rtx_equal_for_cselib_p (rtx x, rtx y)
+{
+  return rtx_equal_for_cselib_1 (x, y, VOIDmode);
+}
+
 /* If x is a PLUS or an autoinc operation, expand the operation,
    storing the offset, if any, in *OFF.  */
 
@@ -805,14 +831,15 @@ autoinc_split (rtx x, rtx *off, machine_mode memmode)
       if (memmode == VOIDmode)
 	return x;
 
-      *off = gen_int_mode (-GET_MODE_SIZE (memmode), GET_MODE (x));
+      *off = GEN_INT (-GET_MODE_SIZE (memmode));
       return XEXP (x, 0);
+      break;
 
     case PRE_INC:
       if (memmode == VOIDmode)
 	return x;
 
-      *off = gen_int_mode (GET_MODE_SIZE (memmode), GET_MODE (x));
+      *off = GEN_INT (GET_MODE_SIZE (memmode));
       return XEXP (x, 0);
 
     case PRE_MODIFY:
@@ -834,8 +861,8 @@ autoinc_split (rtx x, rtx *off, machine_mode memmode)
    addressing modes.  If X and Y are not (known to be) part of
    addresses, MEMMODE should be VOIDmode.  */
 
-int
-rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode, int depth)
+static int
+rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode)
 {
   enum rtx_code code;
   const char *fmt;
@@ -868,9 +895,6 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode, int depth)
       if (GET_CODE (y) == VALUE)
 	return e == canonical_cselib_val (CSELIB_VAL_PTR (y));
 
-      if (depth == 128)
-	return 0;
-
       for (l = e->locs; l; l = l->next)
 	{
 	  rtx t = l->loc;
@@ -880,7 +904,7 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode, int depth)
 	     list.  */
 	  if (REG_P (t) || MEM_P (t) || GET_CODE (t) == VALUE)
 	    continue;
-	  else if (rtx_equal_for_cselib_1 (t, y, memmode, depth + 1))
+	  else if (rtx_equal_for_cselib_1 (t, y, memmode))
 	    return 1;
 	}
 
@@ -891,16 +915,13 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode, int depth)
       cselib_val *e = canonical_cselib_val (CSELIB_VAL_PTR (y));
       struct elt_loc_list *l;
 
-      if (depth == 128)
-	return 0;
-
       for (l = e->locs; l; l = l->next)
 	{
 	  rtx t = l->loc;
 
 	  if (REG_P (t) || MEM_P (t) || GET_CODE (t) == VALUE)
 	    continue;
-	  else if (rtx_equal_for_cselib_1 (x, t, memmode, depth + 1))
+	  else if (rtx_equal_for_cselib_1 (x, t, memmode))
 	    return 1;
 	}
 
@@ -921,12 +942,12 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode, int depth)
       if (!xoff != !yoff)
 	return 0;
 
-      if (xoff && !rtx_equal_for_cselib_1 (xoff, yoff, memmode, depth))
+      if (xoff && !rtx_equal_for_cselib_1 (xoff, yoff, memmode))
 	return 0;
 
       /* Don't recurse if nothing changed.  */
       if (x != xorig || y != yorig)
-	return rtx_equal_for_cselib_1 (x, y, memmode, depth);
+	return rtx_equal_for_cselib_1 (x, y, memmode);
 
       return 0;
     }
@@ -952,16 +973,12 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode, int depth)
       return rtx_equal_p (ENTRY_VALUE_EXP (x), ENTRY_VALUE_EXP (y));
 
     case LABEL_REF:
-      return label_ref_label (x) == label_ref_label (y);
-
-    case REG:
-      return REGNO (x) == REGNO (y);
+      return LABEL_REF_LABEL (x) == LABEL_REF_LABEL (y);
 
     case MEM:
       /* We have to compare any autoinc operations in the addresses
 	 using this MEM's mode.  */
-      return rtx_equal_for_cselib_1 (XEXP (x, 0), XEXP (y, 0), GET_MODE (x),
-				     depth);
+      return rtx_equal_for_cselib_1 (XEXP (x, 0), XEXP (y, 0), GET_MODE (x));
 
     default:
       break;
@@ -987,11 +1004,6 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode, int depth)
 	    return 0;
 	  break;
 
-	case 'p':
-	  if (maybe_ne (SUBREG_BYTE (x), SUBREG_BYTE (y)))
-	    return 0;
-	  break;
-
 	case 'V':
 	case 'E':
 	  /* Two vectors must have the same length.  */
@@ -1001,20 +1013,17 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode, int depth)
 	  /* And the corresponding elements must match.  */
 	  for (j = 0; j < XVECLEN (x, i); j++)
 	    if (! rtx_equal_for_cselib_1 (XVECEXP (x, i, j),
-					  XVECEXP (y, i, j), memmode, depth))
+					  XVECEXP (y, i, j), memmode))
 	      return 0;
 	  break;
 
 	case 'e':
 	  if (i == 1
 	      && targetm.commutative_p (x, UNKNOWN)
-	      && rtx_equal_for_cselib_1 (XEXP (x, 1), XEXP (y, 0), memmode,
-					 depth)
-	      && rtx_equal_for_cselib_1 (XEXP (x, 0), XEXP (y, 1), memmode,
-					 depth))
+	      && rtx_equal_for_cselib_1 (XEXP (x, 1), XEXP (y, 0), memmode)
+	      && rtx_equal_for_cselib_1 (XEXP (x, 0), XEXP (y, 1), memmode))
 	    return 1;
-	  if (! rtx_equal_for_cselib_1 (XEXP (x, i), XEXP (y, i), memmode,
-					depth))
+	  if (! rtx_equal_for_cselib_1 (XEXP (x, i), XEXP (y, i), memmode))
 	    return 0;
 	  break;
 
@@ -1068,7 +1077,6 @@ static unsigned int
 cselib_hash_rtx (rtx x, int create, machine_mode memmode)
 {
   cselib_val *e;
-  poly_int64 offset;
   int i, j;
   enum rtx_code code;
   const char *fmt;
@@ -1134,15 +1142,6 @@ cselib_hash_rtx (rtx x, int create, machine_mode memmode)
 	hash += CONST_WIDE_INT_ELT (x, i);
       return hash;
 
-    case CONST_POLY_INT:
-      {
-	inchash::hash h;
-	h.add_int (hash);
-	for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
-	  h.add_wide_int (CONST_POLY_INT_COEFFS (x)[i]);
-	return h.end ();
-      }
-
     case CONST_DOUBLE:
       /* This is like the general case, except that it only counts
 	 the integers representing the constant.  */
@@ -1164,11 +1163,11 @@ cselib_hash_rtx (rtx x, int create, machine_mode memmode)
 	int units;
 	rtx elt;
 
-	units = const_vector_encoded_nelts (x);
+	units = CONST_VECTOR_NUNITS (x);
 
 	for (i = 0; i < units; ++i)
 	  {
-	    elt = CONST_VECTOR_ENCODED_ELT (x, i);
+	    elt = CONST_VECTOR_ELT (x, i);
 	    hash += cselib_hash_rtx (elt, 0, memmode);
 	  }
 
@@ -1180,7 +1179,7 @@ cselib_hash_rtx (rtx x, int create, machine_mode memmode)
       /* We don't hash on the address of the CODE_LABEL to avoid bootstrap
 	 differences and differences between each stage's debugging dumps.  */
       hash += (((unsigned int) LABEL_REF << 7)
-	       + CODE_LABEL_NUMBER (label_ref_label (x)));
+	       + CODE_LABEL_NUMBER (LABEL_REF_LABEL (x)));
       return hash ? hash : (unsigned int) LABEL_REF;
 
     case SYMBOL_REF:
@@ -1204,15 +1203,14 @@ cselib_hash_rtx (rtx x, int create, machine_mode memmode)
     case PRE_INC:
       /* We can't compute these without knowing the MEM mode.  */
       gcc_assert (memmode != VOIDmode);
-      offset = GET_MODE_SIZE (memmode);
+      i = GET_MODE_SIZE (memmode);
       if (code == PRE_DEC)
-	offset = -offset;
+	i = -i;
       /* Adjust the hash so that (mem:MEMMODE (pre_* (reg))) hashes
 	 like (mem:MEMMODE (plus (reg) (const_int I))).  */
       hash += (unsigned) PLUS - (unsigned)code
 	+ cselib_hash_rtx (XEXP (x, 0), create, memmode)
-	+ cselib_hash_rtx (gen_int_mode (offset, GET_MODE (x)),
-			   create, memmode);
+	+ cselib_hash_rtx (GEN_INT (i), create, memmode);
       return hash ? hash : 1 + (unsigned) PLUS;
 
     case PRE_MODIFY:
@@ -1285,10 +1283,6 @@ cselib_hash_rtx (rtx x, int create, machine_mode memmode)
 	  hash += XINT (x, i);
 	  break;
 
-	case 'p':
-	  hash += constant_lower_bound (SUBREG_BYTE (x));
-	  break;
-
 	case '0':
 	case 't':
 	  /* unused */
@@ -1308,7 +1302,7 @@ cselib_hash_rtx (rtx x, int create, machine_mode memmode)
 static inline cselib_val *
 new_cselib_val (unsigned int hash, machine_mode mode, rtx x)
 {
-  cselib_val *e = cselib_val_pool.allocate ();
+  cselib_val *e = (cselib_val *) pool_alloc (cselib_val_pool);
 
   gcc_assert (hash);
   gcc_assert (next_uid);
@@ -1320,7 +1314,7 @@ new_cselib_val (unsigned int hash, machine_mode mode, rtx x)
      precisely when we can have VALUE RTXen (when cselib is active)
      so we don't need to put them in garbage collected memory.
      ??? Why should a VALUE be an RTX in the first place?  */
-  e->val_rtx = (rtx_def*) value_pool.allocate ();
+  e->val_rtx = (rtx) pool_alloc (value_pool);
   memset (e->val_rtx, 0, RTX_HDR_SIZE);
   PUT_CODE (e->val_rtx, VALUE);
   PUT_MODE (e->val_rtx, mode);
@@ -1350,15 +1344,15 @@ new_cselib_val (unsigned int hash, machine_mode mode, rtx x)
 static void
 add_mem_for_addr (cselib_val *addr_elt, cselib_val *mem_elt, rtx x)
 {
+  struct elt_loc_list *l;
+
   addr_elt = canonical_cselib_val (addr_elt);
   mem_elt = canonical_cselib_val (mem_elt);
 
   /* Avoid duplicates.  */
-  addr_space_t as = MEM_ADDR_SPACE (x);
-  for (elt_loc_list *l = mem_elt->locs; l; l = l->next)
+  for (l = mem_elt->locs; l; l = l->next)
     if (MEM_P (l->loc)
-	&& CSELIB_VAL_PTR (XEXP (l->loc, 0)) == addr_elt
-        && MEM_ADDR_SPACE (l->loc) == as)
+	&& CSELIB_VAL_PTR (XEXP (l->loc, 0)) == addr_elt)
       {
 	promote_debug_loc (l);
 	return;
@@ -1385,6 +1379,7 @@ cselib_lookup_mem (rtx x, int create)
   cselib_val **slot;
   cselib_val *addr;
   cselib_val *mem_elt;
+  struct elt_list *l;
 
   if (MEM_VOLATILE_P (x) || mode == BLKmode
       || !cselib_record_memory
@@ -1399,19 +1394,14 @@ cselib_lookup_mem (rtx x, int create)
   addr = cselib_lookup (XEXP (x, 0), addr_mode, create, mode);
   if (! addr)
     return 0;
-  addr = canonical_cselib_val (addr);
 
+  addr = canonical_cselib_val (addr);
   /* Find a value that describes a value of our mode at that address.  */
-  addr_space_t as = MEM_ADDR_SPACE (x);
-  for (elt_list *l = addr->addr_list; l; l = l->next)
+  for (l = addr->addr_list; l; l = l->next)
     if (GET_MODE (l->elt->val_rtx) == mode)
       {
-	for (elt_loc_list *l2 = l->elt->locs; l2; l2 = l2->next)
-	  if (MEM_P (l2->loc) && MEM_ADDR_SPACE (l2->loc) == as)
-	    {
-	      promote_debug_loc (l->elt->locs);
-	      return l->elt;
-	    }
+	promote_debug_loc (l->elt->locs);
+	return l->elt;
       }
 
   if (! create)
@@ -1649,7 +1639,6 @@ cselib_expand_value_rtx_1 (rtx orig, struct expand_value_data *evd,
 	      else
 		return orig;
 	    }
-	return orig;
       }
 
     CASE_CONST_ANY:
@@ -1873,7 +1862,6 @@ cselib_subst_to_values (rtx x, machine_mode memmode)
   struct elt_list *l;
   rtx copy = x;
   int i;
-  poly_int64 offset;
 
   switch (code)
     {
@@ -1910,11 +1898,11 @@ cselib_subst_to_values (rtx x, machine_mode memmode)
     case PRE_DEC:
     case PRE_INC:
       gcc_assert (memmode != VOIDmode);
-      offset = GET_MODE_SIZE (memmode);
+      i = GET_MODE_SIZE (memmode);
       if (code == PRE_DEC)
-	offset = -offset;
+	i = -i;
       return cselib_subst_to_values (plus_constant (GET_MODE (x),
-						    XEXP (x, 0), offset),
+						    XEXP (x, 0), i),
 				     memmode);
 
     case PRE_MODIFY:
@@ -2023,7 +2011,7 @@ cselib_lookup_1 (rtx x, machine_mode mode,
 
       if (i < FIRST_PSEUDO_REGISTER)
 	{
-	  unsigned int n = hard_regno_nregs (i, mode);
+	  unsigned int n = hard_regno_nregs[i][mode];
 
 	  if (n > max_value_regs)
 	    max_value_regs = n;
@@ -2031,8 +2019,6 @@ cselib_lookup_1 (rtx x, machine_mode mode,
 
       e = new_cselib_val (next_uid, GET_MODE (x), x);
       new_elt_loc_list (e, x);
-
-      scalar_int_mode int_mode;
       if (REG_VALUES (i) == 0)
 	{
 	  /* Maintain the invariant that the first entry of
@@ -2042,27 +2028,27 @@ cselib_lookup_1 (rtx x, machine_mode mode,
 	  REG_VALUES (i) = new_elt_list (REG_VALUES (i), NULL);
 	}
       else if (cselib_preserve_constants
-	       && is_int_mode (mode, &int_mode))
+	       && GET_MODE_CLASS (mode) == MODE_INT)
 	{
 	  /* During var-tracking, try harder to find equivalences
 	     for SUBREGs.  If a setter sets say a DImode register
 	     and user uses that register only in SImode, add a lowpart
 	     subreg location.  */
 	  struct elt_list *lwider = NULL;
-	  scalar_int_mode lmode;
 	  l = REG_VALUES (i);
 	  if (l && l->elt == NULL)
 	    l = l->next;
 	  for (; l; l = l->next)
-	    if (is_int_mode (GET_MODE (l->elt->val_rtx), &lmode)
-		&& GET_MODE_SIZE (lmode) > GET_MODE_SIZE (int_mode)
+	    if (GET_MODE_CLASS (GET_MODE (l->elt->val_rtx)) == MODE_INT
+		&& GET_MODE_SIZE (GET_MODE (l->elt->val_rtx))
+		   > GET_MODE_SIZE (mode)
 		&& (lwider == NULL
-		    || partial_subreg_p (lmode,
-					 GET_MODE (lwider->elt->val_rtx))))
+		    || GET_MODE_SIZE (GET_MODE (l->elt->val_rtx))
+		       < GET_MODE_SIZE (GET_MODE (lwider->elt->val_rtx))))
 	      {
 		struct elt_loc_list *el;
 		if (i < FIRST_PSEUDO_REGISTER
-		    && hard_regno_nregs (i, lmode) != 1)
+		    && hard_regno_nregs[i][GET_MODE (l->elt->val_rtx)] != 1)
 		  continue;
 		for (el = l->elt->locs; el; el = el->next)
 		  if (!REG_P (el->loc))
@@ -2072,7 +2058,7 @@ cselib_lookup_1 (rtx x, machine_mode mode,
 	      }
 	  if (lwider)
 	    {
-	      rtx sub = lowpart_subreg (int_mode, lwider->elt->val_rtx,
+	      rtx sub = lowpart_subreg (mode, lwider->elt->val_rtx,
 					GET_MODE (lwider->elt->val_rtx));
 	      if (sub)
 		new_elt_loc_list (e, sub);
@@ -2203,7 +2189,7 @@ cselib_invalidate_regno (unsigned int regno, machine_mode mode)
 	{
 	  cselib_val *v = (*l)->elt;
 	  bool had_locs;
-	  rtx_insn *setting_insn;
+	  rtx setting_insn;
 	  struct elt_loc_list **p;
 	  unsigned int this_last = i;
 
@@ -2281,7 +2267,7 @@ cselib_invalidate_mem (rtx mem_rtx)
       bool has_mem = false;
       struct elt_loc_list **p = &v->locs;
       bool had_locs = v->locs != NULL;
-      rtx_insn *setting_insn = v->locs ? v->locs->setting_insn : NULL;
+      rtx setting_insn = v->locs ? v->locs->setting_insn : NULL;
 
       while (*p)
 	{
@@ -2384,15 +2370,16 @@ cselib_invalidate_rtx_note_stores (rtx dest, const_rtx ignore ATTRIBUTE_UNUSED,
 static void
 cselib_record_set (rtx dest, cselib_val *src_elt, cselib_val *dest_addr_elt)
 {
+  int dreg = REG_P (dest) ? (int) REGNO (dest) : -1;
+
   if (src_elt == 0 || side_effects_p (dest))
     return;
 
-  if (REG_P (dest))
+  if (dreg >= 0)
     {
-      unsigned int dreg = REGNO (dest);
       if (dreg < FIRST_PSEUDO_REGISTER)
 	{
-	  unsigned int n = REG_NREGS (dest);
+	  unsigned int n = hard_regno_nregs[dreg][GET_MODE (dest)];
 
 	  if (n > max_value_regs)
 	    max_value_regs = n;
@@ -2502,7 +2489,6 @@ cselib_record_sets (rtx_insn *insn)
   rtx body = PATTERN (insn);
   rtx cond = 0;
   int n_sets_before_autoinc;
-  int n_strict_low_parts = 0;
   struct cselib_record_autoinc_data data;
 
   body = PATTERN (insn);
@@ -2557,7 +2543,6 @@ cselib_record_sets (rtx_insn *insn)
   for (i = 0; i < n_sets; i++)
     {
       rtx dest = sets[i].dest;
-      rtx orig = dest;
 
       /* A STRICT_LOW_PART can be ignored; we'll record the equivalence for
          the low part after invalidating any knowledge about larger modes.  */
@@ -2582,55 +2567,6 @@ cselib_record_sets (rtx_insn *insn)
 	    }
 	  else
 	    sets[i].dest_addr_elt = 0;
-	}
-
-      /* Improve handling of STRICT_LOW_PART if the current value is known
-	 to be const0_rtx, then the low bits will be set to dest and higher
-	 bits will remain zero.  Used in code like:
-
-	 {di:SI=0;clobber flags:CC;}
-	 flags:CCNO=cmp(bx:SI,0)
-	 strict_low_part(di:QI)=flags:CCNO<=0
-
-	 where we can note both that di:QI=flags:CCNO<=0 and
-	 also that because di:SI is known to be 0 and strict_low_part(di:QI)
-	 preserves the upper bits that di:SI=zero_extend(flags:CCNO<=0).  */
-      scalar_int_mode mode;
-      if (dest != orig
-	  && cselib_record_sets_hook
-	  && REG_P (dest)
-	  && HARD_REGISTER_P (dest)
-	  && is_a <scalar_int_mode> (GET_MODE (dest), &mode)
-	  && n_sets + n_strict_low_parts < MAX_SETS)
-	{
-	  opt_scalar_int_mode wider_mode_iter;
-	  FOR_EACH_WIDER_MODE (wider_mode_iter, mode)
-	    {
-	      scalar_int_mode wider_mode = wider_mode_iter.require ();
-	      if (GET_MODE_PRECISION (wider_mode) > BITS_PER_WORD)
-		break;
-
-	      rtx reg = gen_lowpart (wider_mode, dest);
-	      if (!REG_P (reg))
-		break;
-
-	      cselib_val *v = cselib_lookup (reg, wider_mode, 0, VOIDmode);
-	      if (!v)
-		continue;
-
-	      struct elt_loc_list *l;
-	      for (l = v->locs; l; l = l->next)
-		if (l->loc == const0_rtx)
-		  break;
-
-	      if (!l)
-		continue;
-
-	      sets[n_sets + n_strict_low_parts].dest = reg;
-	      sets[n_sets + n_strict_low_parts].src = dest;
-	      sets[n_sets + n_strict_low_parts++].src_elt = sets[i].src_elt;
-	      break;
-	    }
 	}
     }
 
@@ -2676,26 +2612,12 @@ cselib_record_sets (rtx_insn *insn)
 	  || (MEM_P (dest) && cselib_record_memory))
 	cselib_record_set (dest, sets[i].src_elt, sets[i].dest_addr_elt);
     }
-
-  /* And deal with STRICT_LOW_PART.  */
-  for (i = 0; i < n_strict_low_parts; i++)
-    {
-      if (! PRESERVED_VALUE_P (sets[n_sets + i].src_elt->val_rtx))
-	continue;
-      machine_mode dest_mode = GET_MODE (sets[n_sets + i].dest);
-      cselib_val *v
-	= cselib_lookup (sets[n_sets + i].dest, dest_mode, 1, VOIDmode);
-      cselib_preserve_value (v);
-      rtx r = gen_rtx_ZERO_EXTEND (dest_mode,
-				   sets[n_sets + i].src_elt->val_rtx);
-      cselib_add_permanent_equiv (v, r, insn);
-    }
 }
 
 /* Return true if INSN in the prologue initializes hard_frame_pointer_rtx.  */
 
 bool
-fp_setter_insn (rtx_insn *insn)
+fp_setter_insn (rtx insn)
 {
   rtx expr, pat = NULL_RTX;
 
@@ -2749,8 +2671,8 @@ cselib_process_insn (rtx_insn *insn)
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	if (call_used_regs[i]
 	    || (REG_VALUES (i) && REG_VALUES (i)->elt
-		&& (targetm.hard_regno_call_part_clobbered
-		    (i, GET_MODE (REG_VALUES (i)->elt->val_rtx)))))
+		&& HARD_REGNO_CALL_PART_CLOBBERED (i,
+		      GET_MODE (REG_VALUES (i)->elt->val_rtx))))
 	  cselib_invalidate_regno (i, reg_raw_mode[i]);
 
       /* Since it is not clear how cselib is going to be used, be
@@ -2759,13 +2681,6 @@ cselib_process_insn (rtx_insn *insn)
       if (RTL_LOOPING_CONST_OR_PURE_CALL_P (insn)
 	  || !(RTL_CONST_OR_PURE_CALL_P (insn)))
 	cselib_invalidate_mem (callmem);
-      else
-	/* For const/pure calls, invalidate any argument slots because
-	   they are owned by the callee.  */
-	for (x = CALL_INSN_FUNCTION_USAGE (insn); x; x = XEXP (x, 1))
-	  if (GET_CODE (XEXP (x, 0)) == USE
-	      && MEM_P (XEXP (XEXP (x, 0), 0)))
-	    cselib_invalidate_mem (XEXP (XEXP (x, 0), 0));
     }
 
   cselib_record_sets (insn);
@@ -2811,6 +2726,13 @@ cselib_process_insn (rtx_insn *insn)
 void
 cselib_init (int record_what)
 {
+  elt_list_pool = create_alloc_pool ("elt_list",
+				     sizeof (struct elt_list), 10);
+  elt_loc_list_pool = create_alloc_pool ("elt_loc_list",
+				         sizeof (struct elt_loc_list), 10);
+  cselib_val_pool = create_alloc_pool ("cselib_val_list",
+				       sizeof (cselib_val), 10);
+  value_pool = create_alloc_pool ("value", RTX_CODE_SIZE (VALUE), 100);
   cselib_record_memory = record_what & CSELIB_RECORD_MEMORY;
   cselib_preserve_constants = record_what & CSELIB_PRESERVE_CONSTANTS;
   cselib_any_perm_equivs = false;
@@ -2852,10 +2774,10 @@ cselib_finish (void)
   cselib_any_perm_equivs = false;
   cfa_base_preserved_val = NULL;
   cfa_base_preserved_regno = INVALID_REGNUM;
-  elt_list_pool.release ();
-  elt_loc_list_pool.release ();
-  cselib_val_pool.release ();
-  value_pool.release ();
+  free_alloc_pool (elt_list_pool);
+  free_alloc_pool (elt_loc_list_pool);
+  free_alloc_pool (cselib_val_pool);
+  free_alloc_pool (value_pool);
   cselib_clear_table ();
   delete cselib_hash_table;
   cselib_hash_table = NULL;

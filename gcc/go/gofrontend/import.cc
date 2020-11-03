@@ -7,9 +7,9 @@
 #include "go-system.h"
 
 #include "filenames.h"
+#include "simple-object.h"
 
 #include "go-c.h"
-#include "go-diagnostics.h"
 #include "gogo.h"
 #include "lex.h"
 #include "types.h"
@@ -82,25 +82,6 @@ Import::open_package(const std::string& filename, Location location,
 	  // A special case.
 	  fn = relative_import_path;
 	}
-      else if (fn[0] == '.' && fn[1] == '.'
-	       && (fn[2] == '\0' || IS_DIR_SEPARATOR(fn[2])))
-	{
-	  // We are going to join relative_import_path and fn, and it
-	  // will look like DIR/../PATH.  But DIR does not necessarily
-	  // exist in this case, and if it doesn't the use of .. will
-	  // fail although it shouldn't.  The gc compiler uses
-	  // path.Join here, which cleans up the .., so we need to do
-	  // the same.
-	  size_t index;
-	  for (index = relative_import_path.length() - 1;
-	       index > 0 && !IS_DIR_SEPARATOR(relative_import_path[index]);
-	       index--)
-	    ;
-	  if (index > 0)
-	    fn = relative_import_path.substr(0, index) + fn.substr(2);
-	  else
-	    fn = relative_import_path + '/' + fn;
-	}
       else
 	fn = relative_import_path + '/' + fn;
       is_local = false;
@@ -152,7 +133,7 @@ Import::try_package_in_directory(const std::string& filename,
   if (fd < 0)
     {
       if (errno != ENOENT && errno != EISDIR)
-	go_warning_at(location, 0, "%s: %m", filename.c_str());
+	warning_at(location, 0, "%s: %m", filename.c_str());
 
       fd = Import::try_suffixes(&found_filename);
       if (fd < 0)
@@ -166,8 +147,8 @@ Import::try_package_in_directory(const std::string& filename,
 
   close(fd);
 
-  go_error_at(location, "%s exists but does not contain any Go export data",
-	      found_filename.c_str());
+  error_at(location, "%s exists but does not contain any Go export data",
+	   found_filename.c_str());
 
   return NULL;
 }
@@ -219,7 +200,8 @@ Import::try_suffixes(std::string* pfilename)
 // Look for export data in the file descriptor FD.
 
 Import::Stream*
-Import::find_export_data(const std::string& filename, int fd, Location location)
+Import::find_export_data(const std::string& filename, int fd,
+			 Location location)
 {
   // See if we can read this as an object file.
   Import::Stream* stream = Import::find_object_export_data(filename, fd, 0,
@@ -227,11 +209,11 @@ Import::find_export_data(const std::string& filename, int fd, Location location)
   if (stream != NULL)
     return stream;
 
-  const int len = MAX(Export::magic_len, Import::archive_magic_len);
+  const int len = MAX(Export::v1_magic_len, Import::archive_magic_len);
 
   if (lseek(fd, 0, SEEK_SET) < 0)
     {
-      go_error_at(location, "lseek %s failed: %m", filename.c_str());
+      error_at(location, "lseek %s failed: %m", filename.c_str());
       return NULL;
     }
 
@@ -241,8 +223,7 @@ Import::find_export_data(const std::string& filename, int fd, Location location)
     return NULL;
 
   // Check for a file containing nothing but Go export data.
-  if (memcmp(buf, Export::cur_magic, Export::magic_len) == 0 ||
-      memcmp(buf, Export::v1_magic, Export::magic_len) == 0)
+  if (memcmp(buf, Export::v1_magic, Export::v1_magic_len) == 0)
     return new Stream_from_file(fd);
 
   // See if we can read this as an archive.
@@ -252,7 +233,7 @@ Import::find_export_data(const std::string& filename, int fd, Location location)
   return NULL;
 }
 
-// Look for export data in an object file.
+// Look for export data in a simple_object.
 
 Import::Stream*
 Import::find_object_export_data(const std::string& filename,
@@ -267,10 +248,10 @@ Import::find_object_export_data(const std::string& filename,
   if (errmsg != NULL)
     {
       if (err == 0)
-	go_error_at(location, "%s: %s", filename.c_str(), errmsg);
+	error_at(location, "%s: %s", filename.c_str(), errmsg);
       else
-	go_error_at(location, "%s: %s: %s", filename.c_str(), errmsg,
-		    xstrerror(err));
+	error_at(location, "%s: %s: %s", filename.c_str(), errmsg,
+		 xstrerror(err));
       return NULL;
     }
 
@@ -289,7 +270,7 @@ Import::Import(Stream* stream, Location location)
   : gogo_(NULL), stream_(stream), location_(location), package_(NULL),
     add_to_globals_(false),
     builtin_types_((- SMALLEST_BUILTIN_CODE) + 1),
-    types_(), version_(EXPORT_FORMAT_UNKNOWN)
+    types_()
 {
 }
 
@@ -312,26 +293,8 @@ Import::import(Gogo* gogo, const std::string& local_name,
       // The vector of types is package specific.
       this->types_.clear();
 
-      // Check magic string / version number.
-      if (stream->match_bytes(Export::cur_magic, Export::magic_len))
-	{
-	  stream->require_bytes(this->location_, Export::cur_magic,
-	                        Export::magic_len);
-	  this->version_ = EXPORT_FORMAT_CURRENT;
-	}
-      else if (stream->match_bytes(Export::v1_magic, Export::magic_len))
-	{
-	  stream->require_bytes(this->location_, Export::v1_magic,
-	                        Export::magic_len);
-	  this->version_ = EXPORT_FORMAT_V1;
-	}
-      else
-	{
-	  go_error_at(this->location_,
-		      ("error in import data at %d: invalid magic string"),
-		      stream->pos());
-	  return NULL;
-	}
+      stream->require_bytes(this->location_, Export::v1_magic,
+			    Export::v1_magic_len);
 
       this->require_c_string("package ");
       std::string package_name = this->read_identifier();
@@ -367,16 +330,13 @@ Import::import(Gogo* gogo, const std::string& local_name,
 	  return NULL;
 	}
 
-      // Read and discard priority if older V1 export data format.
-      if (version() == EXPORT_FORMAT_V1)
-	{
-	  this->require_c_string("priority ");
-	  std::string priority_string = this->read_identifier();
-	  int prio;
-	  if (!this->string_to_int(priority_string, false, &prio))
-	    return NULL;
-	  this->require_c_string(";\n");
-	}
+      this->require_c_string("priority ");
+      std::string priority_string = this->read_identifier();
+      int prio;
+      if (!this->string_to_int(priority_string, false, &prio))
+	return NULL;
+      this->package_->set_priority(prio);
+      this->require_c_string(";\n");
 
       while (stream->match_c_string("package"))
 	this->read_one_package();
@@ -402,11 +362,11 @@ Import::import(Gogo* gogo, const std::string& local_name,
 	    break;
 	  else
 	    {
-	      go_error_at(this->location_,
-			  ("error in import data at %d: "
-			   "expected %<const%>, %<type%>, %<var%>, "
-			   "%<func%>, or %<checksum%>"),
-			  stream->pos());
+	      error_at(this->location_,
+		       ("error in import data at %d: "
+			"expected %<const%>, %<type%>, %<var%>, "
+			"%<func%>, or %<checksum%>"),
+		       stream->pos());
 	      stream->set_saw_error();
 	      return NULL;
 	    }
@@ -417,7 +377,7 @@ Import::import(Gogo* gogo, const std::string& local_name,
       // verify that the checksum matches at link time or at dynamic
       // load time.
       this->require_c_string("checksum ");
-      stream->advance(Export::checksum_len * 2);
+      stream->advance(Export::v1_checksum_len * 2);
       this->require_c_string(";\n");
     }
 
@@ -463,88 +423,26 @@ Import::read_one_import()
   p->set_package_name(package_name, this->location());
 }
 
-// Read the list of import control functions and/or init graph.
+// Read the list of import control functions.
 
 void
 Import::read_import_init_fns(Gogo* gogo)
 {
   this->require_c_string("init");
-
-  // Maps init function to index in the "init" clause; needed
-  // to read the init_graph section.
-  std::map<std::string, unsigned> init_idx;
-
   while (!this->match_c_string(";"))
     {
-      int priority = -1;
-
       this->require_c_string(" ");
       std::string package_name = this->read_identifier();
       this->require_c_string(" ");
       std::string init_name = this->read_identifier();
-      if (this->version_ == EXPORT_FORMAT_V1)
-        {
-          // Older version 1 init fcn export data format is:
-          //
-          //   <packname> <fcn> <priority>
-          this->require_c_string(" ");
-          std::string prio_string = this->read_identifier();
-          if (!this->string_to_int(prio_string, false, &priority))
-            return;
-        }
-      gogo->add_import_init_fn(package_name, init_name, priority);
-
-      // Record the index of this init fcn so that we can look it
-      // up by index in the subsequent init_graph section.
-      unsigned idx = init_idx.size();
-      init_idx[init_name] = idx;
+      this->require_c_string(" ");
+      std::string prio_string = this->read_identifier();
+      int prio;
+      if (!this->string_to_int(prio_string, false, &prio))
+	return;
+      gogo->add_import_init_fn(package_name, init_name, prio);
     }
   this->require_c_string(";\n");
-
-  if (this->match_c_string("init_graph"))
-    {
-      this->require_c_string("init_graph");
-
-      // Build a vector mapping init fcn slot to Import_init pointer.
-      go_assert(init_idx.size() > 0);
-      std::vector<Import_init*> import_initvec;
-      import_initvec.resize(init_idx.size());
-      for (std::map<std::string, unsigned>::const_iterator it =
-               init_idx.begin();
-           it != init_idx.end(); ++it)
-	{
-	  const std::string& init_name = it->first;
-	  Import_init* ii = gogo->lookup_init(init_name);
-	  import_initvec[it->second] = ii;
-	}
-
-      // Init graph format is:
-      //
-      //    init_graph <src1> <sink1> <src2> <sink2> ... ;
-      //
-      // where src + sink are init functions indices.
-
-      while (!this->match_c_string(";"))
-	{
-	  this->require_c_string(" ");
-	  std::string src_string = this->read_identifier();
-	  unsigned src;
-	  if (!this->string_to_unsigned(src_string, &src)) return;
-
-	  this->require_c_string(" ");
-	  std::string sink_string = this->read_identifier();
-	  unsigned sink;
-	  if (!this->string_to_unsigned(sink_string, &sink)) return;
-
-	  go_assert(src < import_initvec.size());
-	  Import_init* ii_src = import_initvec[src];
-	  go_assert(sink < import_initvec.size());
-	  Import_init* ii_sink = import_initvec[sink];
-
-	  ii_src->record_precursor_fcn(ii_sink->init_name());
-	}
-      this->require_c_string(";\n");
-    }
 }
 
 // Import a constant.
@@ -607,9 +505,8 @@ Import::import_func(Package* package)
   Typed_identifier_list* parameters;
   Typed_identifier_list* results;
   bool is_varargs;
-  bool nointerface;
-  Function::import_func(this, &name, &receiver,
-			&parameters, &results, &is_varargs, &nointerface);
+  Function::import_func(this, &name, &receiver, &parameters, &results,
+			&is_varargs);
   Function_type *fntype = Type::make_function_type(receiver, parameters,
 						   results, this->location_);
   if (is_varargs)
@@ -649,10 +546,6 @@ Import::import_func(Package* package)
       if (this->add_to_globals_)
 	this->gogo_->add_dot_import_object(no);
     }
-
-  if (nointerface)
-    no->func_declaration_value()->set_nointerface();
-
   return no;
 }
 
@@ -689,9 +582,9 @@ Import::read_type()
 	  : (static_cast<size_t>(index) >= this->types_.size()
 	     || this->types_[index] == NULL))
 	{
-	  go_error_at(this->location_,
-		      "error in import data at %d: bad type index %d",
-		      stream->pos(), index);
+	  error_at(this->location_,
+		   "error in import data at %d: bad type index %d",
+		   stream->pos(), index);
 	  stream->set_saw_error();
 	  return Type::make_error_type();
 	}
@@ -702,9 +595,9 @@ Import::read_type()
   if (c != ' ')
     {
       if (!stream->saw_error())
-	go_error_at(this->location_,
-		    "error in import data at %d: expect %< %> or %<>%>'",
-		    stream->pos());
+	error_at(this->location_,
+		 "error in import data at %d: expect %< %> or %<>%>'",
+		 stream->pos());
       stream->set_saw_error();
       stream->advance(1);
       return Type::make_error_type();
@@ -714,9 +607,9 @@ Import::read_type()
       || (static_cast<size_t>(index) < this->types_.size()
 	  && this->types_[index] != NULL))
     {
-      go_error_at(this->location_,
-		  "error in import data at %d: type index already defined",
-		  stream->pos());
+      error_at(this->location_,
+	       "error in import data at %d: type index already defined",
+	       stream->pos());
       stream->set_saw_error();
       return Type::make_error_type();
     }
@@ -773,13 +666,6 @@ Import::read_type()
       this->require_c_string(" ");
     }
 
-  bool is_alias = false;
-  if (this->match_c_string("= "))
-    {
-      stream->advance(2);
-      is_alias = true;
-    }
-
   // Declare the type in the appropriate package.  If we haven't seen
   // it before, mark it as invisible.  We declare it before we read
   // the actual definition of the type, since the definition may refer
@@ -800,8 +686,8 @@ Import::read_type()
     no = package->add_type_declaration(type_name, this->location_);
   else if (!no->is_type_declaration() && !no->is_type())
     {
-      go_error_at(this->location_, "imported %<%s.%s%> both type and non-type",
-		  pkgpath.c_str(), Gogo::message_name(type_name).c_str());
+      error_at(this->location_, "imported %<%s.%s%> both type and non-type",
+	       pkgpath.c_str(), Gogo::message_name(type_name).c_str());
       stream->set_saw_error();
       return Type::make_error_type();
     }
@@ -841,9 +727,6 @@ Import::read_type()
 	  // This type has not yet been imported.
 	  ntype->clear_is_visible();
 
-	  if (is_alias)
-	    ntype->set_is_alias();
-
 	  if (!type->is_undefined() && type->interface_type() != NULL)
 	    this->gogo_->record_interface_type(type->interface_type());
 
@@ -878,43 +761,6 @@ Import::read_type()
 
   return type;
 }
-
-// Read an escape note.
-
-std::string
-Import::read_escape()
-{
-  if (this->match_c_string(" <esc:"))
-    {
-      Stream* stream = this->stream_;
-      this->require_c_string(" <esc:");
-
-      std::string escape = "esc:";
-      int c;
-      while (true)
-	{
-	  c = stream->get_char();
-	  if (c != 'x' && !ISXDIGIT(c))
-	    break;
-	  escape += c;
-	}
-
-      if (c != '>')
-	{
-	  go_error_at(this->location(),
-		      ("error in import data at %d: "
-		       "expect %< %> or %<>%>, got %c"),
-		      stream->pos(), c);
-	  stream->set_saw_error();
-	  stream->advance(1);
-	  escape = Escape_note::make_tag(Node::ESCAPE_UNKNOWN);
-	}
-      return escape;
-    }
-  else
-    return Escape_note::make_tag(Node::ESCAPE_UNKNOWN);
-}
-
 
 // Register the builtin types.
 
@@ -997,8 +843,8 @@ Import::string_to_int(const std::string &s, bool is_neg_ok, int* ret)
   long prio = strtol(s.c_str(), &end, 10);
   if (*end != '\0' || prio > 0x7fffffff || (prio < 0 && !is_neg_ok))
     {
-      go_error_at(this->location_, "invalid integer in import data at %d",
-		  this->stream_->pos());
+      error_at(this->location_, "invalid integer in import data at %d",
+	       this->stream_->pos());
       this->stream_->set_saw_error();
       return false;
     }
@@ -1054,8 +900,8 @@ Import::Stream::require_bytes(Location location, const char* bytes,
       || memcmp(bytes, read, length) != 0)
     {
       if (!this->saw_error_)
-	go_error_at(location, "import error at %d: expected %<%.*s%>",
-		    this->pos(), static_cast<int>(length), bytes);
+	error_at(location, "import error at %d: expected %<%.*s%>",
+		 this->pos(), static_cast<int>(length), bytes);
       this->saw_error_ = true;
       return;
     }
@@ -1069,7 +915,7 @@ Stream_from_file::Stream_from_file(int fd)
 {
   if (lseek(fd, 0, SEEK_SET) != 0)
     {
-      go_fatal_error(Linemap::unknown_location(), "lseek failed: %m");
+      error("lseek failed: %m");
       this->set_saw_error();
     }
 }
@@ -1097,7 +943,7 @@ Stream_from_file::do_peek(size_t length, const char** bytes)
   if (got < 0)
     {
       if (!this->saw_error())
-	go_fatal_error(Linemap::unknown_location(), "read failed: %m");
+	error("read failed: %m");
       this->set_saw_error();
       return false;
     }
@@ -1105,7 +951,7 @@ Stream_from_file::do_peek(size_t length, const char** bytes)
   if (lseek(this->fd_, - got, SEEK_CUR) != 0)
     {
       if (!this->saw_error())
-	go_fatal_error(Linemap::unknown_location(), "lseek failed: %m");
+	error("lseek failed: %m");
       this->set_saw_error();
       return false;
     }
@@ -1127,7 +973,7 @@ Stream_from_file::do_advance(size_t skip)
   if (lseek(this->fd_, skip, SEEK_CUR) != 0)
     {
       if (!this->saw_error())
-	go_fatal_error(Linemap::unknown_location(), "lseek failed: %m");
+	error("lseek failed: %m");
       this->set_saw_error();
     }
   if (!this->data_.empty())

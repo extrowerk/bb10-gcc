@@ -15,16 +15,16 @@
 class Go_optimize
 {
  public:
-  Go_optimize(const char*, bool);
+  Go_optimize(const char* name);
 
   // Whether this optimizaiton was enabled.
   bool
   is_enabled() const
   { return this->is_enabled_; }
 
-  // Enable/disable an optimization by name.  Return true if found.
+  // Enable an optimization by name.  Return true if found.
   static bool
-  enable_by_name(const char*, bool);
+  enable_by_name(const char*);
 
  private:
   // The next optimize flag.  These are not in any order.

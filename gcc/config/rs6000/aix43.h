@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for IBM RS/6000 POWER running AIX version 4.3.
-   Copyright (C) 1998-2018 Free Software Foundation, Inc.
+   Copyright (C) 1998-2015 Free Software Foundation, Inc.
    Contributed by David Edelsohn (edelsohn@gnu.org).
 
    This file is part of GCC.
@@ -39,7 +39,7 @@ do {									\
     {									\
       error ("-maix64 required: 64-bit computation with 32-bit addressing not yet supported"); \
     }									\
-} while (0)
+} while (0);
 
 #undef ASM_SPEC
 #define ASM_SPEC "-u %{maix64:-a64 %{!mcpu*:-mppc64}} %(asm_cpu)"
@@ -103,9 +103,6 @@ do {									\
 #define TARGET_ALTIVEC 0
 #undef  TARGET_ALTIVEC_ABI
 #define TARGET_ALTIVEC_ABI 0
-#undef  TARGET_EXTRA_BUILTINS
-#define TARGET_EXTRA_BUILTINS 0
-
 
 /* Define this macro as a C expression for the initializer of an
    array of string to tell the driver program which options are

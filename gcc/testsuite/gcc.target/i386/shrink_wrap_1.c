@@ -1,5 +1,5 @@
 /* { dg-do compile { target { ! ia32 } } } */
-/* { dg-options "-O2 -fdump-rtl-pro_and_epilogue" } */
+/* { dg-options "-O2 -fno-stack-protector -fdump-rtl-pro_and_epilogue" } */
 
 enum machine_mode
 {
@@ -46,3 +46,4 @@ builtin_memset_gen_str (void *data, long offset __attribute__ ((__unused__)),
 }
 
 /* { dg-final { scan-rtl-dump "Performing shrink-wrapping" "pro_and_epilogue"  } } */
+/* { dg-final { cleanup-rtl-dump "pro_and_epilogue" } } */

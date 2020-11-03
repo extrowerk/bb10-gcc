@@ -3,12 +3,8 @@
 // license that can be found in the LICENSE file.
 
 // Package fcgi implements the FastCGI protocol.
-//
-// The protocol is not an official standard and the original
-// documentation is no longer online. See the Internet Archive's
-// mirror at: https://web.archive.org/web/20150420080736/http://www.fastcgi.com/drupal/node/6?q=node/22
-//
 // Currently only the responder role is supported.
+// The protocol is defined at http://www.fastcgi.com/drupal/node/6?q=node/22
 package fcgi
 
 // This file defines the raw protocol and some utilities used by the child and
@@ -24,7 +20,7 @@ import (
 )
 
 // recType is a record type, as defined by
-// https://web.archive.org/web/20150420080736/http://www.fastcgi.com/drupal/node/6?q=node/22#S8
+// http://www.fastcgi.com/devkit/doc/fcgi-spec.html#S8
 type recType uint8
 
 const (
@@ -61,6 +57,8 @@ const (
 	statusOverloaded
 	statusUnknownRole
 )
+
+const headerLen = 8
 
 type header struct {
 	Version       uint8
@@ -158,6 +156,11 @@ func (c *conn) writeRecord(recType recType, reqId uint16, b []byte) error {
 	}
 	_, err := c.rwc.Write(c.buf.Bytes())
 	return err
+}
+
+func (c *conn) writeBeginRequest(reqId uint16, role uint16, flags uint8) error {
+	b := [8]byte{byte(role >> 8), byte(role), flags}
+	return c.writeRecord(typeBeginRequest, reqId, b[:])
 }
 
 func (c *conn) writeEndRequest(reqId uint16, appStatus int, protocolStatus uint8) error {

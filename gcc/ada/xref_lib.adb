@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1998-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1998-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -30,7 +30,7 @@ with Types;  use Types;
 with Unchecked_Deallocation;
 
 with Ada.Strings.Fixed; use Ada.Strings.Fixed;
-with Ada.Text_IO;
+with Ada.Text_IO;       use Ada.Text_IO;
 
 with GNAT.Command_Line; use GNAT.Command_Line;
 with GNAT.IO_Aux;       use GNAT.IO_Aux;
@@ -401,9 +401,8 @@ package body Xref_Lib is
      (File : ALI_File;
       Num  : Positive) return File_Reference
    is
-      Table : Table_Type renames File.Dep.Table (1 .. Last (File.Dep));
    begin
-      return Table (Num);
+      return File.Dep.Table (Num);
    end File_Name;
 
    --------------------
@@ -643,15 +642,10 @@ package body Xref_Lib is
                Token := Gnatchop_Name + 1;
             end if;
 
-            declare
-               Table : Table_Type renames
-                         File.Dep.Table (1 .. Last (File.Dep));
-            begin
-               Table (Num_Dependencies) := Add_To_Xref_File
-                 (Ali (File_Start .. File_End),
-                  Gnatchop_File => Ali (Token .. Ptr - 1),
-                  Gnatchop_Offset => Gnatchop_Offset);
-            end;
+            File.Dep.Table (Num_Dependencies) := Add_To_Xref_File
+              (Ali (File_Start .. File_End),
+               Gnatchop_File => Ali (Token .. Ptr - 1),
+               Gnatchop_Offset => Gnatchop_Offset);
 
          elsif W_Lines and then Ali (Ptr) = 'W' then
 
@@ -860,8 +854,6 @@ package body Xref_Lib is
          Ptr := Ptr + 1;
       end Skip_To_Matching_Closing_Bracket;
 
-      Table : Table_Type renames File.Dep.Table (1 .. Last (File.Dep));
-
    --  Start of processing for Parse_Identifier_Info
 
    begin
@@ -898,12 +890,8 @@ package body Xref_Lib is
 
       Parse_Token (Ali, Ptr, E_Name);
 
-      --  Exit if the symbol does not match or if we have a local symbol and we
-      --  do not want it or if the file is unknown.
-
-      if File.X_File = Empty_File then
-         return;
-      end if;
+      --  Exit if the symbol does not match
+      --  or if we have a local symbol and we do not want it
 
       if (not Local_Symbols and not E_Global)
         or else (Pattern.Initialized
@@ -984,9 +972,9 @@ package body Xref_Lib is
                   --  We don't have a unit number specified, so we set P_Eun to
                   --  the current unit.
 
-                  for K in Table'Range loop
+                  for K in Dependencies_Tables.First .. Last (File.Dep) loop
                      P_Eun := K;
-                     exit when Table (K) = File_Ref;
+                     exit when File.Dep.Table (K) = File_Ref;
                   end loop;
                end if;
 
@@ -1019,7 +1007,7 @@ package body Xref_Lib is
                            Symbol,
                            P_Line,
                            P_Column,
-                           Table (P_Eun));
+                           File.Dep.Table (P_Eun));
                      end if;
                   end;
                end if;
@@ -1037,7 +1025,7 @@ package body Xref_Lib is
                      Add_Entity
                        (Pattern,
                         Get_Symbol_Name (P_Eun, P_Line, P_Column)
-                        & ':' & Get_Gnatchop_File (Table (P_Eun))
+                        & ':' & Get_Gnatchop_File (File.Dep.Table (P_Eun))
                         & ':' & Get_Line (Get_Parent (Decl_Ref))
                         & ':' & Get_Column (Get_Parent (Decl_Ref)),
                         False);
@@ -1088,10 +1076,11 @@ package body Xref_Lib is
 
       if Wide_Search then
          declare
+            File_Ref : File_Reference;
+            pragma Unreferenced (File_Ref);
             File_Name : constant String := Get_Gnatchop_File (File.X_File);
-            Ignored : File_Reference;
          begin
-            Ignored := Add_To_Xref_File (ALI_File_Name (File_Name), False);
+            File_Ref := Add_To_Xref_File (ALI_File_Name (File_Name), False);
          end;
       end if;
 
@@ -1259,8 +1248,6 @@ package body Xref_Lib is
       Ptr     : Positive renames File.Current_Line;
       File_Nr : Natural;
 
-      Table : Table_Type renames File.Dep.Table (1 .. Last (File.Dep));
-
    begin
       while Ali (Ptr) = 'X' loop
 
@@ -1274,12 +1261,8 @@ package body Xref_Lib is
          Ptr := Ptr + 1;
          Parse_Number (Ali, Ptr, File_Nr);
 
-         --  If the referenced file is unknown, we simply ignore it
-
-         if File_Nr in Table'Range then
-            File.X_File := Table (File_Nr);
-         else
-            File.X_File := Empty_File;
+         if File_Nr > 0 then
+            File.X_File := File.Dep.Table (File_Nr);
          end if;
 
          Parse_EOL (Ali, Ptr);

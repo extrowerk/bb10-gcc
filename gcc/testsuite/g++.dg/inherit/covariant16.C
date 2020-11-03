@@ -8,7 +8,7 @@ struct A
 
 struct B : virtual A
 {
-  virtual B* foo(); /* { dg-message "overridden" } */
+  virtual B* foo(); /* { dg-error "overriding" } */
 };
 
 struct C : B

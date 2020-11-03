@@ -25,3 +25,4 @@ bar (void)
     }
 }
 /* { dg-final { scan-tree-dump-times "case 1:" 0 "cfg" } } */
+/* { dg-final { cleanup-tree-dump "cfg" } } */

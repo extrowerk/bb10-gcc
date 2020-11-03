@@ -2,7 +2,7 @@
 
 // 2005-2-18  Matt Austern  <austern@apple.com>
 //
-// Copyright (C) 2005-2018 Free Software Foundation, Inc.
+// Copyright (C) 2005-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,6 +28,8 @@
 #include <tr1/unordered_set>
 #include "testsuite_hooks.h"
 
+bool test __attribute__((unused)) = true;
+
 void test01()
 {
   typedef std::tr1::unordered_multiset<std::string> Set;
@@ -41,7 +43,7 @@ void test01()
   Set::iterator i2 = s.find("banana");
   VERIFY(i2 != s.end());
   VERIFY(*i2 == "banana");
-
+  
   std::pair<Set::iterator, Set::iterator> p = s.equal_range("grape");
   VERIFY(std::distance(p.first, p.second) == 2);
   Set::iterator i3 = p.first;
@@ -50,7 +52,7 @@ void test01()
   VERIFY(*i3 == "grape");
 
   Set::iterator i4 = s.find("lime");
-  VERIFY(i4 == s.end());
+  VERIFY(i4 == s.end());  
 
   VERIFY(s.count("grape") == 2);
   VERIFY(s.count("banana") == 1);

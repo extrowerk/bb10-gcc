@@ -1,5 +1,5 @@
 /* Integrated Register Allocator (IRA) intercommunication header file.
-   Copyright (C) 2006-2018 Free Software Foundation, Inc.
+   Copyright (C) 2006-2015 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -21,12 +21,14 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_IRA_INT_H
 #define GCC_IRA_INT_H
 
-#include "recog.h"
+#include "cfgloop.h"
+#include "ira.h"
+#include "alloc-pool.h"
 
 /* To provide consistency in naming, all IRA external variables,
    functions, common typedefs start with prefix ira_.  */
 
-#if CHECKING_P
+#ifdef ENABLE_CHECKING
 #define ENABLE_IRA_CHECKING
 #endif
 
@@ -604,7 +606,7 @@ struct ira_spilled_reg_stack_slot
   /* RTL representation of the stack slot.  */
   rtx mem;
   /* Size of the stack slot.  */
-  poly_uint64_pod width;
+  unsigned int width;
 };
 
 /* The number of elements in the following array.  */
@@ -782,7 +784,7 @@ struct target_ira_int {
 
   /* Initialized once.  It is a maximal possible size of the allocated
      struct costs.  */
-  size_t x_max_struct_costs_size;
+  int x_max_struct_costs_size;
 
   /* Allocated and initialized once, and used to initialize cost values
      for each insn.  */
@@ -1393,7 +1395,7 @@ ira_hard_reg_set_intersection_p (int hard_regno, machine_mode mode,
   int i;
 
   gcc_assert (hard_regno >= 0);
-  for (i = hard_regno_nregs (hard_regno, mode) - 1; i >= 0; i--)
+  for (i = hard_regno_nregs[hard_regno][mode] - 1; i >= 0; i--)
     if (TEST_HARD_REG_BIT (hard_regset, hard_regno + i))
       return true;
   return false;
@@ -1421,7 +1423,7 @@ ira_hard_reg_in_set_p (int hard_regno, machine_mode mode,
   int i;
 
   ira_assert (hard_regno >= 0);
-  for (i = hard_regno_nregs (hard_regno, mode) - 1; i >= 0; i--)
+  for (i = hard_regno_nregs[hard_regno][mode] - 1; i >= 0; i--)
     if (!TEST_HARD_REG_BIT (hard_regset, hard_regno + i))
       return false;
   return true;

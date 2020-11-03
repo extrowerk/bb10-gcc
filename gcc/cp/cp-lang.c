@@ -1,5 +1,5 @@
 /* Language-dependent hooks for C++.
-   Copyright (C) 2001-2018 Free Software Foundation, Inc.
+   Copyright (C) 2001-2015 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -21,11 +21,27 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "cp-tree.h"
+#include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
 #include "stor-layout.h"
+#include "cp-tree.h"
+#include "c-family/c-common.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
+#include "debug.h"
 #include "cp-objcp-common.h"
+#include "hashtab.h"
+#include "target.h"
+#include "parser.h"
 
 enum c_language_kind c_language = clk_cxx;
 static void cp_init_ts (void);
@@ -79,11 +95,6 @@ static tree cxx_enum_underlying_base_type (const_tree);
 #undef LANG_HOOKS_ENUM_UNDERLYING_BASE_TYPE
 #define LANG_HOOKS_ENUM_UNDERLYING_BASE_TYPE cxx_enum_underlying_base_type
 
-#if CHECKING_P
-#undef LANG_HOOKS_RUN_LANG_SELFTESTS
-#define LANG_HOOKS_RUN_LANG_SELFTESTS selftest::run_cp_tests
-#endif /* #if CHECKING_P */
-
 /* Each front end provides its own lang hook initializer.  */
 struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
@@ -116,7 +127,7 @@ cxx_dwarf_name (tree t, int verbosity)
   gcc_assert (DECL_P (t));
 
   if (DECL_NAME (t)
-      && (anon_aggrname_p (DECL_NAME (t)) || LAMBDA_TYPE_P (t)))
+      && (ANON_AGGRNAME_P (DECL_NAME (t)) || LAMBDA_TYPE_P (t)))
     return NULL;
   if (verbosity >= 2)
     return decl_as_dwarf_string (t,
@@ -142,7 +153,10 @@ static tree
 cp_eh_personality (void)
 {
   if (!cp_eh_personality_decl)
-    cp_eh_personality_decl = build_personality_function ("gxx");
+    {
+      const char *lang = (pragma_java_exceptions ? "gcj" : "gxx");
+      cp_eh_personality_decl = build_personality_function (lang);
+    }
 
   return cp_eh_personality_decl;
 }
@@ -233,28 +247,6 @@ tree cxx_enum_underlying_base_type (const_tree type)
 
   return underlying_type;
 }
-
-#if CHECKING_P
-
-namespace selftest {
-
-/* Implementation of LANG_HOOKS_RUN_LANG_SELFTESTS for the C++ frontend.  */
-
-void
-run_cp_tests (void)
-{
-  /* Run selftests shared within the C family.  */
-  c_family_tests ();
-
-  /* Additional C++-specific tests.  */
-  cp_pt_c_tests ();
-  cp_tree_c_tests ();
-}
-
-} // namespace selftest
-
-#endif /* #if CHECKING_P */
-
 
 #include "gt-cp-cp-lang.h"
 #include "gtype-cp.h"

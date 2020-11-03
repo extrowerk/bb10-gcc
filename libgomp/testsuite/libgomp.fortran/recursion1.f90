@@ -1,5 +1,5 @@
 ! { dg-do run }
-! { dg-options "-fcheck=recursion" }
+! { dg-options "-fopenmp -fcheck=recursion" }
 !
 ! PR 42517: Bogus runtime error with -fopenmp -fcheck=recursion
 !
@@ -14,7 +14,7 @@ do i=1,10
   call sub(i)
 end do
 !$omp end parallel do
-if (s/=55) STOP 1
+if (s/=55) call abort()
 
 contains
 

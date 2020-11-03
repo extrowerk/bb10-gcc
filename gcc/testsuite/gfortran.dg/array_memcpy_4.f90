@@ -10,3 +10,4 @@
   d = s
 end
 ! { dg-final { scan-tree-dump-times "memcpy" 1 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

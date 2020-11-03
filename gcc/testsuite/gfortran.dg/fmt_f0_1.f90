@@ -6,59 +6,59 @@
  CHARACTER(80) :: str
  x = 0.0
  write (str,'(f0.0)') x
- if (str.ne."0.") STOP 1
+ if (str.ne."0.") call abort
  write (str,'(f0.1)') x
- if (str.ne.".0") STOP 2
+ if (str.ne.".0") call abort
  write (str,'(f0.2)') x
- if (str.ne.".00") STOP 3
+ if (str.ne.".00") call abort
  write (str,'(f0.3)') x
- if (str.ne.".000") STOP 4
+ if (str.ne.".000") call abort
  write (str,'(f0.4)') x
- if (str.ne.".0000") STOP 5
+ if (str.ne.".0000") call abort
  write (str,'(F0.0)') 0.0
- if (str.ne."0.") STOP 6
+ if (str.ne."0.") call abort
  write (str,'(F0.0)') 0.001
- if (str.ne."0.") STOP 7
+ if (str.ne."0.") call abort
  write (str,'(F0.0)') 0.01
- if (str.ne."0.") STOP 8
+ if (str.ne."0.") call abort
  write (str,'(F0.0)') 0.1
- if (str.ne."0.") STOP 9
+ if (str.ne."0.") call abort
  write (str,'(F1.0)') -0.0
- if (str.ne."*") STOP 10
+ if (str.ne."*") call abort
  write (str,'(F1.0)') 0.001
- if (str.ne."*") STOP 11
+ if (str.ne."*") call abort
  write (str,'(F1.0)') 0.01
- if (str.ne."*") STOP 12
+ if (str.ne."*") call abort
  write (str,'(F1.0)') 0.1
- if (str.ne."*") STOP 13
+ if (str.ne."*") call abort
  write (str,'(F2.0)') -0.001
- if (str.ne."**") STOP 14
+ if (str.ne."**") call abort
  write (str,'(F2.0)') -0.01
- if (str.ne."**") STOP 15
+ if (str.ne."**") call abort
  write (str,'(F2.0)') -0.1
- if (str.ne."**") STOP 16
+ if (str.ne."**") call abort
  write (str,'(F0.2)') 0.0
- if (str.ne.".00") STOP 17
+ if (str.ne.".00") call abort
  write (str,'(F0.0)') -0.0
- if (str.ne."-0.") STOP 18
+ if (str.ne."-0.") call abort
  write (str,'(F0.1)') -0.0
- if (str.ne."-.0") STOP 19
+ if (str.ne."-.0") call abort
  write (str,'(F0.2)') -0.0
- if (str.ne."-.00") STOP 20
+ if (str.ne."-.00") call abort
  write (str,'(F0.3)') -0.0
- if (str.ne."-.000") STOP 21
+ if (str.ne."-.000") call abort
  write (str,'(F3.0)') -0.0
- if (str.ne."-0.") STOP 22
+ if (str.ne."-0.") call abort
  write (str,'(F2.0)') -0.0
- if (str.ne."**") STOP 23
+ if (str.ne."**") call abort
  write (str,'(F1.0)') -0.0
- if (str.ne."*") STOP 24
+ if (str.ne."*") call abort
  write (str,'(F0.1)') -0.0
- if (str.ne."-.0") STOP 25
+ if (str.ne."-.0") call abort
  write (str,'(F3.1)') -0.0
- if (str.ne."-.0") STOP 26
+ if (str.ne."-.0") call abort
  write (str,'(F2.1)') -0.0
- if (str.ne."**") STOP 27
+ if (str.ne."**") call abort
  write (str,'(F1.1)') -0.0
- if (str.ne."*") STOP 28
+ if (str.ne."*") call abort
  END  

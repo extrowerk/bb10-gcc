@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -mlzcnt " } */
-/* { dg-final { scan-assembler "lzcntw\[^\\n]*(%|)\[ad\]\[xi\]" } } */
+/* { dg-final { scan-assembler "lzcntw\[^\\n]*(%|)ax" } } */
 
 #include <x86intrin.h>
 

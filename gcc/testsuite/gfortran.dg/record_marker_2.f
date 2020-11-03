@@ -13,10 +13,10 @@
       write (20,*) 3
       rewind (20)
       read (20,*) i
-      if (i .ne. 1) STOP 1
+      if (i .ne. 1) call abort
       backspace (20)
       read (20,*) i
-      if (i .ne. 1) STOP 2
+      if (i .ne. 1) call abort
       close (20)
 
 ! PR libfortran/20125
@@ -24,14 +24,14 @@
       write (20,*) 7
       backspace (20)
       read (20,*) i
-      if (i .ne. 7) STOP 3
+      if (i .ne. 7) call abort
       close (20)
 
       open (20, status='scratch', form='unformatted')
       write (20) 8
       backspace (20)
       read (20) i
-      if (i .ne. 8) STOP 4
+      if (i .ne. 8) call abort
       close (20)
 
 ! PR libfortran/20471
@@ -45,7 +45,7 @@
       read (3) (y(n),n=1,10)
 
       do n = 1, 10
-        if (abs(x(n)-y(n)) > 0.00001) STOP 5
+        if (abs(x(n)-y(n)) > 0.00001) call abort
       end do
       close (3)
 
@@ -62,7 +62,7 @@
       nr = nr + 1
       goto 20
   30  continue
-      if (nr .ne. 5) STOP 6
+      if (nr .ne. 5) call abort
 
       do i = 1, nr+1
         backspace (3)
@@ -70,14 +70,14 @@
 
       do i = 1, nr
         read(3,end=70,err=90) n, (x(n),n=1,10)
-        if (abs(x(1) - i) .gt. 0.001) STOP 7
+        if (abs(x(1) - i) .gt. 0.001) call abort
       end do
       close (3)
       stop
 
   70  continue
-      STOP 8
+      call abort
   90  continue
-      STOP 9
+      call abort
 
       end

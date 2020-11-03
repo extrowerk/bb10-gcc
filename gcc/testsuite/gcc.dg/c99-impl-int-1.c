@@ -4,6 +4,6 @@
 /* { dg-options "-std=iso9899:1999 -pedantic-errors" } */
 
 extern foo; /* { dg-bogus "warning" "warning in place of error" } */
-/* { dg-error "type defaults" "C99 implicit int error" { target *-*-* } .-1 } */
+/* { dg-error "type defaults" "C99 implicit int error" { target *-*-* } 6 } */
 bar (void) { } /* { dg-bogus "warning" "warning in place of error" } */
-/* { dg-error "return type defaults" "C99 implicit int error" { target *-*-* } .-1 } */
+/* { dg-error "return type defaults" "C99 implicit int error" { target *-*-* } 8 } */

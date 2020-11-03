@@ -30,3 +30,5 @@ contains
     name = "name_B"
   end function
 end module
+
+! { dg-final { cleanup-modules "dtAs dtBs" } }

@@ -1,6 +1,7 @@
-// { dg-do compile { target c++11 } }
+// { dg-options "-std=gnu++11" }
+// { dg-do compile }
 
-// Copyright (C) 2007-2018 Free Software Foundation, Inc.
+// Copyright (C) 2007-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -21,12 +22,15 @@
 
 namespace gnu
 {
-  // C++11 changes from TR1.
-  using std::has_trivial_constructor; // { dg-error "has not been declared" }
-  using std::has_trivial_default_constructor; // { dg-error "has not been declared" }
-  using std::has_nothrow_constructor; // { dg-error "has not been declared" }
-  using std::has_trivial_copy;	      // { dg-error "has not been declared" }
-  using std::has_trivial_copy_constructor; // { dg-error "has not been declared" }
-  using std::has_trivial_copy_assign; // { dg-error "has not been declared" }
-  using std::has_nothrow_copy;	      // { dg-error "has not been declared" }
+  // C++0x changes from TR1.
+  using std::has_trivial_constructor;
+  using std::has_nothrow_constructor;
+  using std::has_trivial_copy;
+  using std::has_nothrow_copy;
 }
+
+// { dg-error "has not been declared" "" { target *-*-* } 26 } 
+// { dg-error "has not been declared" "" { target *-*-* } 27 } 
+// { dg-error "has not been declared" "" { target *-*-* } 28 } 
+// { dg-error "has not been declared" "" { target *-*-* } 29 } 
+

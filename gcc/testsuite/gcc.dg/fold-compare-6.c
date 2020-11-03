@@ -9,3 +9,4 @@ int foo (void)
 }
 
 /* { dg-final { scan-tree-dump "xlcbug = 1;" "original" } } */
+/* { dg-final { cleanup-tree-dump "original" } } */

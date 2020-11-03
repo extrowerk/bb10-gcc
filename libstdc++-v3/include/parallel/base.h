@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2007-2018 Free Software Foundation, Inc.
+// Copyright (C) 2007-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
@@ -419,11 +419,7 @@ namespace __gnu_parallel
 	}
     }
 
-#if _GLIBCXX_PARALLEL_ASSERTIONS && defined(__glibcxx_assert_impl)
-#define _GLIBCXX_PARALLEL_ASSERT(_Condition) __glibcxx_assert_impl(_Condition)
-#else
-#define _GLIBCXX_PARALLEL_ASSERT(_Condition)
-#endif
+#define _GLIBCXX_PARALLEL_ASSERT(_Condition) __glibcxx_assert(_Condition)
 
 } //namespace __gnu_parallel
 

@@ -14,8 +14,6 @@ bool Klass::dostuff()
     if (local & 1) { return true; } // { dg-error "not captured|non-static" }
     return false;
   };
-
-  return true;
 }
 
 int main()

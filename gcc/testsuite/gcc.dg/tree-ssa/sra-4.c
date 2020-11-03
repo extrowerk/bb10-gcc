@@ -22,3 +22,4 @@ vector int f(vector int t1, vector int t2)
 }
 
 /* { dg-final { scan-tree-dump-times "st" 0 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

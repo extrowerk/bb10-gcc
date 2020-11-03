@@ -14,5 +14,5 @@ program straret
   
 
   v = f() //  g()
-  if (v .ne. "Hello World ") STOP 1
+  if (v .ne. "Hello World ") call abort ()
 end program

@@ -37,7 +37,7 @@ PROGRAM main
   CHARACTER(14) :: cname
   CHARACTER(14) :: cnames(1)
   CALL odfname(base,i,cname)
-  if (trim (cname) .ne. "odfamilycname") STOP 1
+  if (trim (cname) .ne. "odfamilycname") call abort
   CALL odfname(base,i,cnames)
-  if (trim (cnames(1)) .ne. "odfamilycnames") STOP 2
+  if (trim (cnames(1)) .ne. "odfamilycnames") call abort
 END PROGRAM

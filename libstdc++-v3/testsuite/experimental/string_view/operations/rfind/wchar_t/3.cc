@@ -1,6 +1,6 @@
-// { dg-do run { target c++14 } }
+// { dg-options "-std=gnu++14" }
 
-// Copyright (C) 2013-2018 Free Software Foundation, Inc.
+// Copyright (C) 2013-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -22,9 +22,11 @@
 
 // basic_string_view::find_last_not_of
 
-void
+bool
 test03()
 {
+  bool test [[gnu::unused]] = true;
+
   typedef std::experimental::wstring_view::size_type csize_type;
   std::experimental::wstring_view::size_type pos;
   csize_type npos = std::experimental::wstring_view::npos;
@@ -56,8 +58,9 @@ test03()
   VERIFY( pos == 0 );
   pos = z.find_last_not_of(L"Xa");
   VERIFY( pos == 1 );
-}
 
+  return test;
+}
 int
 main()
 {

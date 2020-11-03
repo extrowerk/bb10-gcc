@@ -20,21 +20,21 @@ program proc_pointer_test
   procedure(Integer(c_int)), pointer :: ptr
 
   call assignF(ptr)
-  if(ptr() /= 42) STOP 1
+  if(ptr() /= 42) call abort()
 
   ptr => f55
-  if(ptr() /= 55) STOP 2  
+  if(ptr() /= 55) call abort()  
 
   call foo(ptr)
-  if(ptr() /= 65) STOP 3  
+  if(ptr() /= 65) call abort()  
 
 contains
 
  subroutine foo(a)
    procedure(integer(c_int)), pointer :: a
-   if(a() /= 55) STOP 4
+   if(a() /= 55) call abort()
    a => f65
-   if(a() /= 65) STOP 5
+   if(a() /= 65) call abort()
  end subroutine foo
 
  integer(c_int) function f55()

@@ -1,7 +1,7 @@
-// { dg-require-namedlocale "de_DE.ISO8859-15" }
-// { dg-require-namedlocale "es_ES.ISO8859-15" }
+// { dg-require-namedlocale "de_DE" }
+// { dg-require-namedlocale "es_ES" }
 
-// Copyright (C) 2004-2018 Free Software Foundation, Inc.
+// Copyright (C) 2004-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -24,12 +24,14 @@
 
 // Make sure that formatted output uses the locale in the output stream.
 using namespace std;
-locale l1 = locale(ISO_8859(15,de_DE));
+locale l1 = locale("de_DE");
 const num_put<char>& np = use_facet<num_put<char> >(l1);
 const numpunct<char>& npunct = use_facet<numpunct<char> >(l1);
 
 void test01()
 {
+  bool test __attribute__((unused)) = true;
+
   locale l2 = locale("C");
   const numpunct<char>& npunct2 = use_facet<numpunct<char> >(l2);
   char c __attribute__((unused)) = npunct2.thousands_sep();
@@ -47,7 +49,9 @@ void test01()
 
 void test02()
 {
-  locale l2 = locale(ISO_8859(15,es_ES));
+  bool test __attribute__((unused)) = true;
+
+  locale l2 = locale("es_ES");
   const numpunct<char>& npunct3 = use_facet<numpunct<char> >(l2);
   char c __attribute__((unused)) = npunct3.thousands_sep();
   string s = npunct3.grouping();

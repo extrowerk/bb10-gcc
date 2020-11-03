@@ -17,6 +17,7 @@ int toto()
         {
         for (k = 1; k < 100; k++)
           b[i+k] = b[i+k-1] + 2;
+        bar ();
         }
       
       for (k = 1; k < 100; k++)
@@ -26,4 +27,5 @@ int toto()
   return a[3][5] + b[1];
 }
 
-/* { dg-final { scan-tree-dump-times "number of SCoPs: 1" 1 "graphite"} } */
+/* { dg-final { scan-tree-dump-times "number of SCoPs: 3" 1 "graphite"} } */ 
+/* { dg-final { cleanup-tree-dump "graphite" } } */

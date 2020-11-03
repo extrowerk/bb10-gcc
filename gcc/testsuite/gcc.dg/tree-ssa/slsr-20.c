@@ -18,3 +18,4 @@ f (int c, int s)
 
 /* { dg-final { scan-tree-dump-times " \\* s" 1 "optimized" } } */
 /* { dg-final { scan-tree-dump-times " \\* 2" 1 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

@@ -46,8 +46,6 @@ int i = true;
 bool b = true;
 bool c = (bool)(void (A::*)())0;
 bool d = 256;
-
-int
 main() {
   if (!d) return 1;
   if (!a) return 1;
@@ -57,6 +55,4 @@ main() {
   if (!a2) return 1;
   if (!a3) return 1;
   if (!a5) return 1;
-
-  return 0;
 }

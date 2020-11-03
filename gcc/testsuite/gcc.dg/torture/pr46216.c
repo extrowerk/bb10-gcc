@@ -1,5 +1,4 @@
 /* { dg-do compile } */
-/* { dg-require-effective-target label_values } */
 
 typedef int Embryo_Cell;
 int

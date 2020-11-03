@@ -2,14 +2,12 @@
 /* { dg-options "-fsanitize=null -w" } */
 /* { dg-shouldfail "ubsan" } */
 
-short x;
-
 int
 main (void)
 {
-  short *p = 0, *u = &x;
+  short *p = 0, *u;
   *(u + *p) = 23;
   return  0;
 }
 
-/* { dg-output "load of null pointer of type 'short int'" } */
+/* { dg-output "load of null pointer of type 'short int'\[^\n\r]*(\n|\r\n|\r)" } */

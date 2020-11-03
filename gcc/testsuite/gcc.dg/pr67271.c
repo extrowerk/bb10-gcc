@@ -1,6 +1,5 @@
 /* { dg-do compile } */
 /* { dg-options "-O" } */
-/* { dg-require-effective-target int32plus } */
 
 extern long int labs (long int j);
 int

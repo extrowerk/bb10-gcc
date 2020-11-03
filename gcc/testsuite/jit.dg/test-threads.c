@@ -20,35 +20,9 @@ static pthread_mutex_t dg_mutex = PTHREAD_MUTEX_INITIALIZER;
    harness.h injects macros before including <dejagnu.h> so that the
    pass/fail functions become "dejagnu_pass"/"dejagnu_fail" etc.  */
 
-/* Forward decls of our implementations of pass/fail/note.  */
-
-inline void
-pass (const char* fmt, ...);
-
-inline void
-fail (const char* fmt, ...);
-
-inline void
-note (const char* fmt, ...);
-
-#define MAKE_DEJAGNU_H_THREADSAFE
-
-/* We also need to provide our own version of TEST_NAME.  */
-#define TEST_NAME
-
-/* We can now include all of the relevant selftests.  */
-
-#include "all-non-failing-tests.h"
-
-#define TEST_PROVIDES_MAIN
-#define TEST_ESCHEWS_TEST_JIT
-
-/* Now construct a test case from all the other test cases.
-
-   We undefine COMBINED_TEST so that we can now include harness.h
-   "for real".  */
-#undef COMBINED_TEST
-#include "harness.h"
+void dejagnu_pass (const char* fmt, ...);
+void dejagnu_fail (const char* fmt, ...);
+void dejagnu_note (const char* fmt, ...);
 
 /* We now provide our own implementations of "pass"/"fail"/"note", which
    call the underlying dejagnu implementations, but with a mutex.  */
@@ -97,6 +71,25 @@ note (const char* fmt, ...)
   dejagnu_note (buffer);
   pthread_mutex_unlock (&dg_mutex);
 }
+
+#define MAKE_DEJAGNU_H_THREADSAFE
+
+/* We also need to provide our own version of TEST_NAME.  */
+#define TEST_NAME
+
+/* We can now include all of the relevant selftests.  */
+
+#include "all-non-failing-tests.h"
+
+#define TEST_PROVIDES_MAIN
+#define TEST_ESCHEWS_TEST_JIT
+
+/* Now construct a test case from all the other test cases.
+
+   We undefine COMBINED_TEST so that we can now include harness.h
+   "for real".  */
+#undef COMBINED_TEST
+#include "harness.h"
 
 struct thread_data
 {

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -150,6 +150,10 @@ package body Stylesw is
    --  Start of processing for Save_Style_Check_Options
 
    begin
+      for K in Options'Range loop
+         Options (K) := ' ';
+      end loop;
+
       Add (Character'Val (Style_Check_Indentation + Character'Pos ('0')),
            Style_Check_Indentation /= 0);
 
@@ -161,8 +165,7 @@ package body Stylesw is
       if Style_Check_Comments then
          if Style_Check_Comments_Spacing = 2 then
             Add ('c', Style_Check_Comments);
-         else
-            pragma Assert (Style_Check_Comments_Spacing = 1);
+         elsif Style_Check_Comments_Spacing = 1 then
             Add ('C', Style_Check_Comments);
          end if;
       end if;
@@ -303,6 +306,7 @@ package body Stylesw is
 
          if On then
             case C is
+
             when '+' =>
                null;
 
@@ -467,7 +471,7 @@ package body Stylesw is
                   Write_Line ("unrecognized switch -gnaty" & C & " ignored");
                else
                   Err_Col := Err_Col - 1;
-                  Bad_Style_Switch ("invalid style switch");
+                  Bad_Style_Switch ("invalid style switch: " & C);
                   return;
                end if;
             end case;
@@ -476,6 +480,7 @@ package body Stylesw is
 
          else
             case C is
+
             when '+' =>
                On := True;
 
@@ -575,7 +580,7 @@ package body Stylesw is
                   Write_Line ("unrecognized switch -gnaty-" & C & " ignored");
                else
                   Err_Col := Err_Col - 1;
-                  Bad_Style_Switch ("invalid style switch");
+                  Bad_Style_Switch ("invalid style switch: " & C);
                   return;
                end if;
             end case;

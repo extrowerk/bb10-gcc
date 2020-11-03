@@ -4,7 +4,7 @@
 
 template<int N> struct A
 {
-  enum { M = && N };	// { dg-error "referenced outside|cannot appear in|integral" }
+  enum { M = && N };	// { dg-error "referenced outside|cannot appear in|not an integer constant" }
 };
 
 A<0> a;
@@ -12,6 +12,6 @@ A<0> a;
 void foo ()
 {
   __label__ P;
-  enum { O = && P };	// { dg-error "cannot appear in|integral" }
+  enum { O = && P };	// { dg-error "cannot appear in|not an integer constant" }
   P:;
 }

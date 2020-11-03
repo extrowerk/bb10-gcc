@@ -18,7 +18,7 @@ contains
 !$omp section
     n = bitwise_or (n, Z'2000')
 !$omp end parallel sections
-    if (n .ne. Z'243f') STOP 1
+    if (n .ne. Z'243f') call abort
   end subroutine
   subroutine test2
     use reduction5, min => max, max => min
@@ -36,7 +36,7 @@ contains
     if (m .gt. 3) m = 3
     if (n .lt. -1) n = -1
 !$omp end parallel sections
-    if (m .ne. 3 .or. n .ne. 15) STOP 2
+    if (m .ne. 3 .or. n .ne. 15) call abort
   end subroutine test2
 end
 

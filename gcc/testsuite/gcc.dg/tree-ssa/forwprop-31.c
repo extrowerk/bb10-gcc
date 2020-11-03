@@ -13,3 +13,4 @@ int foo (int x)
 /* { dg-final { scan-tree-dump-times "= 0;" 2 "forwprop1" } } */
 /* { dg-final { scan-tree-dump-times "-" 0 "forwprop1" } } */
 /* { dg-final { scan-tree-dump-times "\\+" 1 "forwprop1" } } */
+/* { dg-final { cleanup-tree-dump "forwprop1" } } */

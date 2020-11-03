@@ -13,4 +13,5 @@ unsigned int test2(unsigned int b)
 
 /* { dg-final { scan-tree-dump-times "~a" 1 "original" } } */
 /* { dg-final { scan-tree-dump-times "~b" 1 "original" } } */
+/* { dg-final { cleanup-tree-dump "original" } } */
 

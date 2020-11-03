@@ -1,6 +1,6 @@
 ## Makefile for the VTV library.
 ##
-## Copyright (C) 2013-2018 Free Software Foundation, Inc.
+## Copyright (C) 2013 Free Software Foundation, Inc.
 ##
 ## Process this file with automake to produce Makefile.in.
 ##
@@ -28,7 +28,7 @@ endif
 ACLOCAL_AMFLAGS = -I .. -I ../config
 
 # May be used by toolexeclibdir.
-gcc_version := $(shell @get_gcc_base_ver@ $(top_srcdir)/../gcc/BASE-VER)
+gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 
 DEFS = @DEFS@
 AM_CPPFLAGS = -I$(top_srcdir)/../include
@@ -38,11 +38,10 @@ AM_CXXFLAGS = $(XCFLAGS)
 AM_CXXFLAGS += $(LIBSTDCXX_RAW_CXX_CXXFLAGS)
 AM_CXXFLAGS += -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end
 
-if ENABLE_VTABLE_VERIFY
-  toolexeclib_LTLIBRARIES = libvtv.la
 if VTV_CYGMIN
-  toolexeclib_LTLIBRARIES += libvtv_stubs.la
-endif
+  toolexeclib_LTLIBRARIES = libvtv.la libvtv_stubs.la
+else
+  toolexeclib_LTLIBRARIES = libvtv.la
 endif
 
 vtv_headers = \
@@ -77,14 +76,11 @@ vtv_end.c:
 	rm -f $@
 	$(LN_S) $(toplevel_srcdir)/libgcc/vtv_end.c $@
 
-if VTV_NO_OBSTACK
+if VTV_CYGMIN
   obstack.c:
 	  rm -f $@
 	  $(LN_S) $(toplevel_srcdir)/libiberty/obstack.c $@
-	  > config.h
-endif
-
-if VTV_CYGMIN
+  
   vtv_stubs.cc:
 	  rm -f $@
 	  $(LN_S) $(toplevel_srcdir)/libstdc++-v3/libsupc++/vtv_stubs.cc $@
@@ -97,12 +93,11 @@ if VTV_CYGMIN
 endif
 
 if ENABLE_VTABLE_VERIFY
-  libvtv_la_SOURCES = $(vtv_sources)
-if VTV_NO_OBSTACK
-  libvtv_la_SOURCES += obstack.c
-endif
 if VTV_CYGMIN
+  libvtv_la_SOURCES = $(vtv_sources) obstack.c
   libvtv_stubs_la_SOURCES = $(vtv_stubs_sources)
+else
+  libvtv_la_SOURCES = $(vtv_sources)
 endif
   libvtv_include_HEADERS = $(vtv_headers)
 else

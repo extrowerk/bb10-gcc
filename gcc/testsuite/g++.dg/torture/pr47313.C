@@ -1,5 +1,4 @@
 // { dg-do compile }
-// { dg-additional-options "-Wno-return-type" }
 
 namespace internal {
     template < class DSC, bool Const >   struct CC_iterator   {

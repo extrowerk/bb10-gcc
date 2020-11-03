@@ -1,9 +1,8 @@
-// { dg-do run { target c++11 } }
-// { dg-options "-Wno-deprecated" }
+// { dg-options "-std=gnu++11 -Wno-deprecated" }
 
 // 2007-10-27  Paolo Carlini  <pcarlini@suse.de>
 
-// Copyright (C) 2007-2018 Free Software Foundation, Inc.
+// Copyright (C) 2007-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,6 +27,7 @@
 
 void test01()
 {
+  bool test __attribute__((unused)) = true;
   typedef std::pair<int, char> pair_type;
   typedef std::tr1::array<pair_type, 3> array_type;
   array_type store;

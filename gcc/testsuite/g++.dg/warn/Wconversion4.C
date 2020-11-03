@@ -7,7 +7,7 @@ class Test
 {
   void eval()
   {
-    foo(bar());  // { dg-warning "may change value" }
+    foo(bar());  // { dg-warning "may alter its value" }
   }
 
   unsigned int bar() const

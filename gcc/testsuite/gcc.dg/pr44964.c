@@ -2,9 +2,8 @@
 /* { dg-options "-fkeep-inline-functions -O" } */
 
 static inline __attribute__ ((const))
-int baz (int i)
+void baz (int i)
 {
-  return i;
 }
 
 static __attribute__ ((always_inline))

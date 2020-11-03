@@ -1,6 +1,6 @@
-// { dg-require-namedlocale "ja_JP.eucJP" }
+// { dg-require-namedlocale "ja_JP.eucjp" }
 
-// Copyright (C) 2009-2018 Free Software Foundation, Inc.
+// Copyright (C) 2009-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,8 +27,9 @@ void test01()
 {
 #ifdef _GLIBCXX_USE_WCHAR_T
   using namespace std;
+  bool test __attribute__((unused)) = true;
 
-  locale locf(locale("C"), "ja_JP.eucJP", locale::monetary);
+  locale locf(locale("C"), "ja_JP.eucjp", locale::monetary);
 
   const moneypunct<wchar_t, false>& mpf = 
     use_facet<moneypunct<wchar_t, false> >(locf);
@@ -39,7 +40,7 @@ void test01()
 
   VERIFY( mpf.curr_symbol() == mpf_copy.curr_symbol() );
 
-  locale loct(locale("C"), "ja_JP.eucJP", locale::monetary);
+  locale loct(locale("C"), "ja_JP.eucjp", locale::monetary);
 
   const moneypunct<wchar_t, true>& mpt = 
     use_facet<moneypunct<wchar_t, true> >(loct);

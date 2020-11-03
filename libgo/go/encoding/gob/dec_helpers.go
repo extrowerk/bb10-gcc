@@ -327,12 +327,11 @@ func decStringSlice(state *decoderState, v reflect.Value, length int, ovfl error
 			errorf("string data too long for buffer: %d", n)
 		}
 		// Read the data.
-		data := state.b.Bytes()
-		if len(data) < n {
-			errorf("invalid string length %d: exceeds input size %d", n, len(data))
+		data := make([]byte, n)
+		if _, err := state.b.Read(data); err != nil {
+			errorf("error decoding string: %s", err)
 		}
-		slice[i] = string(data[:n])
-		state.b.Drop(n)
+		slice[i] = string(data)
 	}
 	return true
 }

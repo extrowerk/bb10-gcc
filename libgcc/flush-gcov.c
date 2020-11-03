@@ -3,12 +3,11 @@
 #include <sys/neutrino.h>
 
 void __flush_init (void) ATTRIBUTE_HIDDEN; 
-void flush_init(void);
 
 static int suspend_other_threads = 1;
-static void flush_cov_data( int );
 
-static void flush_cov_data( __attribute__((unused)) int ign ) {
+
+void flush_cov_data(int signo) {
 	if(suspend_other_threads)
 		ThreadCtl(_NTO_TCTL_THREADS_HOLD, 0);	
 	__gcov_flush();

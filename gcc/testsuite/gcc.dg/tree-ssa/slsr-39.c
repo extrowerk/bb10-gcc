@@ -23,3 +23,4 @@ void foo (arr_2 a2, int v1)
 }
 
 /* { dg-final { scan-tree-dump-times "Replacing reference: " 4 "slsr" } } */
+/* { dg-final { cleanup-tree-dump "slsr" } } */

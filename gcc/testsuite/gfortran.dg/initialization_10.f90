@@ -1,5 +1,4 @@
 ! { dg-do compile }
-! { dg-require-visibility "" }
 !
 ! PR fortran/32867 - nested initialization expression not simplified
 !

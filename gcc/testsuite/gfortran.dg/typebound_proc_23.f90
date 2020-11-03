@@ -24,7 +24,7 @@ end module
 
 use ice
 type(ice_type) :: t
-if (it/=0) STOP 1
+if (it/=0) call abort()
 call ice_sub(t)
-if (it/=1) STOP 2
+if (it/=1) call abort()
 end

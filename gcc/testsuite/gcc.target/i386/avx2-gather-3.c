@@ -1,6 +1,6 @@
 /* { dg-do run } */
 /* { dg-require-effective-target avx2 } */
-/* { dg-options "-O3 -mavx2 -ffast-math -mtune=skylake" } */
+/* { dg-options "-O3 -mavx2 -ffast-math" } */
 
 #include "avx2-check.h"
 

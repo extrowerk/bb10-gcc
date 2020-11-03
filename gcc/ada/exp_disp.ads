@@ -4,9 +4,9 @@
 --                                                                          --
 --                             E X P _ D I S P                              --
 --                                                                          --
---                                 S p e c                                  --
+--                                 GS p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -174,11 +174,6 @@ package Exp_Disp is
    pragma Inline (Building_Static_DT);
    --  Returns true when building statically allocated dispatch tables
 
-   function Building_Static_Secondary_DT (Typ : Entity_Id) return Boolean;
-   pragma Inline (Building_Static_Secondary_DT);
-   --  Returns true when building statically allocated secondary dispatch
-   --  tables
-
    procedure Build_Static_Dispatch_Tables (N : Node_Id);
    --  N is a library level package declaration or package body. Build the
    --  static dispatch table of the tagged types defined at library level. In
@@ -218,12 +213,6 @@ package Exp_Disp is
    function CPP_Num_Prims (Typ : Entity_Id) return Nat;
    --  Return the number of primitives of the C++ part of the dispatch table.
    --  For types that are not derivations of CPP types return 0.
-
-   function Elab_Flag_Needed (Typ : Entity_Id) return Boolean;
-   --  Return True if the elaboration of the tagged type Typ is completed at
-   --  run time by the execution of code located in the IP routine and the
-   --  expander must generate an extra elaboration flag to avoid performing
-   --  such elaboration twice.
 
    procedure Expand_Dispatching_Call (Call_Node : Node_Id);
    --  Expand the call to the operation through the dispatch table and perform
@@ -356,6 +345,10 @@ package Exp_Disp is
    --  Typ and fill the contents of Access_Disp_Table. In case of library level
    --  tagged types this routine imports the forward declaration of the tag
    --  entity, that will be declared and exported by Make_DT.
+
+   function Make_VM_TSD (Typ : Entity_Id) return List_Id;
+   --  Build the Type Specific Data record associated with tagged type Typ.
+   --  Invoked only when generating code for VM targets.
 
    function Register_Primitive
      (Loc     : Source_Ptr;

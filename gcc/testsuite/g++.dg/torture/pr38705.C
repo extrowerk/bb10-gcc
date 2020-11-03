@@ -24,5 +24,4 @@ S::bar () const
 {
   foo (u);
   foo (t);
-  return 0;
 }

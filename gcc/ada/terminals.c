@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                     Copyright (C) 2008-2018, AdaCore                     *
+ *                     Copyright (C) 2008-2015, AdaCore                     *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -32,7 +32,7 @@
 /* First all usupported platforms. Add stubs for exported routines. */
 
 #if defined (VMS) || defined (__vxworks) || defined (__Lynx__) \
-  || defined (__ANDROID__) || defined (__PikeOS__) || defined(__DJGPP__)
+  || defined (__ANDROID__) || defined (__PikeOS__)
 
 #define ATTRIBUTE_UNUSED __attribute__((unused))
 
@@ -85,12 +85,6 @@ __gnat_setup_child_communication (void *d ATTRIBUTE_UNUSED,
 
 int
 __gnat_terminate_process (void *desc ATTRIBUTE_UNUSED)
-{
-  return -1;
-}
-
-int
-__gnat_terminate_pid (int pid ATTRIBUTE_UNUSED)
 {
   return -1;
 }
@@ -176,7 +170,7 @@ static int Vw32_start_process_inherit_error_mode = 1;
 
 /* Control whether spawnve quotes arguments as necessary to ensure
    correct parsing by child process.  Because not all uses of spawnve
-   are careful about constructing argv arrays, we make this behavior
+   are careful about constructing argv arrays, we make this behaviour
    conditional (off by default, since a similar operation is already done
    in g-expect.adb by calling Normalize_Argument). */
 static int Vw32_quote_process_args = 0;
@@ -295,27 +289,34 @@ is_gui_app (char *exe)
     {
     case IMAGE_SUBSYSTEM_UNKNOWN:
         return 1;
+        break;
 
     case IMAGE_SUBSYSTEM_NATIVE:
         return 1;
+        break;
 
     case IMAGE_SUBSYSTEM_WINDOWS_GUI:
         return 1;
+        break;
 
     case IMAGE_SUBSYSTEM_WINDOWS_CUI:
         return 0;
+        break;
 
     case IMAGE_SUBSYSTEM_OS2_CUI:
         return 0;
+        break;
 
     case IMAGE_SUBSYSTEM_POSIX_CUI:
         return 0;
+        break;
 
     default:
         /* Unknown, return GUI app to be preservative: if yes, it will be
            correctly launched, if no, it will be launched, and a console will
            be also displayed, which is not a big deal */
         return 1;
+        break;
     }
 
 }
@@ -968,47 +969,6 @@ __gnat_terminate_process (struct TTY_Process* p)
     return 0;
 }
 
-typedef struct {
-  DWORD dwProcessId;
-  HANDLE hwnd;
-} pid_struct;
-
-static BOOL CALLBACK
-find_process_handle (HWND hwnd, pid_struct * ps)
-{
-  DWORD thread_id;
-  DWORD process_id;
-
-  thread_id = GetWindowThreadProcessId (hwnd, &process_id);
-  if (process_id == ps->dwProcessId)
-    {
-      ps->hwnd = hwnd;
-      return FALSE;
-    }
-  /* keep looking */
-  return TRUE;
-}
-
-int
-__gnat_terminate_pid (int pid)
-{
-  pid_struct ps;
-
-  ps.dwProcessId = pid;
-  ps.hwnd = 0;
-  EnumWindows ((WNDENUMPROC) find_process_handle, (LPARAM) &ps);
-
-  if (ps.hwnd)
-    {
-      if (!TerminateProcess (ps.hwnd, 1))
-	return -1;
-      else
-	return 0;
-    }
-
-  return -1;
-}
-
 /* wait for process pid to terminate and return the process status. This
    implementation is different from the adaint.c one for Windows as it uses
    the Win32 API instead of the C one. */
@@ -1099,7 +1059,7 @@ __gnat_setup_winsize (void *desc, int rows, int columns)
  || defined (__OpenBSD__) \
  || defined (__NetBSD__)  \
  || defined (__DragonFly__)
-#   define BSD
+#   define FREEBSD
 #endif
 
 /* Include every system header we need */
@@ -1110,8 +1070,8 @@ __gnat_setup_winsize (void *desc, int rows, int columns)
 
 /* On some system termio is either absent or including it will disable termios
    (HP-UX) */
-#if !defined (__hpux__) && !defined (BSD) && !defined (__APPLE__) \
-  && !defined (__rtems__) && !defined (__QNXNTO__)
+#if ! defined (__hpux__) && ! defined (FREEBSD) && \
+    ! defined (__APPLE__) && ! defined(__rtems__) && ! defined(__QNXNTO__)
 #   include <termio.h>
 #endif
 
@@ -1123,10 +1083,10 @@ __gnat_setup_winsize (void *desc, int rows, int columns)
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#if defined (__sun__)
+#if defined (sun)
 #   include <sys/stropts.h>
 #endif
-#if defined (BSD) || defined (__sun__)
+#if defined (FREEBSD) || defined (sun)
 #   include <sys/signal.h>
 #endif
 #if defined (__hpux__)
@@ -1138,7 +1098,7 @@ __gnat_setup_winsize (void *desc, int rows, int columns)
 
 /* On HP-UX and Sun system, there is a bzero function but with a different
    signature. Use memset instead */
-#if defined (__hpux__) || defined (__sun__) || defined (_AIX)
+#if defined (__hpux__) || defined (sun) || defined (_AIX)
 #   define bzero(s,n) memset (s,0,n)
 #endif
 
@@ -1156,11 +1116,11 @@ __gnat_setup_winsize (void *desc, int rows, int columns)
 */
 
 /* Configurable part */
-#if defined (__APPLE__) || defined (BSD)
+#if defined (__APPLE__) || defined (FREEBSD)
 #define USE_OPENPTY
-#elif defined (__linux__)
+#elif defined (linux)
 #define USE_GETPT
-#elif defined (__sun__)
+#elif defined (sun)
 #define USE_CLONE_DEVICE "/dev/ptmx"
 #elif defined (_AIX)
 #define USE_CLONE_DEVICE "/dev/ptc"
@@ -1446,7 +1406,7 @@ __gnat_setup_child_communication
     desc->slave_fd = open (desc->slave_name, O_RDWR, 0);
 #endif
 
-#if defined (__sun__) || defined (__hpux__)
+#if defined (sun) || defined (__hpux__)
   /* On systems such as Solaris we are using stream. We need to push the right
      "modules" in order to get the expected terminal behaviors. Otherwise
      functionalities such as termios are not available.  */
@@ -1457,8 +1417,7 @@ __gnat_setup_child_communication
 
 #ifdef TIOCSCTTY
   /* make the tty the controlling terminal */
-  if ((status = ioctl (desc->slave_fd, TIOCSCTTY, 0)) == -1)
-    _exit (1);
+  status = ioctl (desc->slave_fd, TIOCSCTTY, 0);
 #endif
 
   /* adjust tty settings */
@@ -1472,15 +1431,14 @@ __gnat_setup_child_communication
   if (desc->slave_fd > 2) close (desc->slave_fd);
 
   /* adjust process group settings */
-  /* ignore failures of the following two commands as the context might not
-   * allow making those changes. */
-  setpgid (pid, pid);
-  tcsetpgrp (0, pid);
+  status = setpgid (pid, pid);
+  status = tcsetpgrp (0, pid);
 
   /* launch the program */
   execvp (new_argv[0], new_argv);
 
-  _exit (1);
+  /* return the pid */
+  return pid;
 }
 
 /* send_signal_via_characters - Send a characters that will trigger a signal
@@ -1544,17 +1502,6 @@ __gnat_interrupt_pid (int pid)
 int __gnat_terminate_process (pty_desc *desc)
 {
   return kill (desc->child_pid, SIGKILL);
-}
-
-/* __gnat_terminate_pid - kill a process
- *
- * PARAMETERS
- *   pid unix process id
- */
-int
-__gnat_terminate_pid (int pid)
-{
-  return kill (pid, SIGKILL);
 }
 
 /* __gnat_tty_waitpid - wait for the child process to die
@@ -1622,9 +1569,9 @@ pty_desc *
 __gnat_new_tty (void)
 {
   int status;
-  pty_desc* desc = NULL;
-  if ((status = allocate_pty_desc (&desc)))
-    child_setup_tty (desc->master_fd);
+  pty_desc* desc;
+  status = allocate_pty_desc (&desc);
+  child_setup_tty (desc->master_fd);
   return desc;
 }
 

@@ -25,3 +25,4 @@ int *foo (int n)
 /* { dg-final { scan-tree-dump "LOOP VECTORIZED" "vect" } } */
 /* { dg-final { scan-tree-dump-not "Peeling for alignment will be applied" "vect" } } */
 /* { dg-final { scan-tree-dump-not "Vectorizing an unaligned access" "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

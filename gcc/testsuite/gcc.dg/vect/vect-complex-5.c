@@ -41,3 +41,4 @@ main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 0 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

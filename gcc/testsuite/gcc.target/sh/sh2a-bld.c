@@ -4,8 +4,9 @@
     BLD #imm3, Rn
     BLD.B #imm3, @(disp12, Rn)
  */
-/* { dg-do compile { target { sh2a } } }  */
+/* { dg-do assemble }  */
 /* { dg-options "-Os -mbitops" }  */
+/* { dg-skip-if "" { "sh*-*-*" } "*" "-m2a -m2a-nofpu -m2a-single -m2a-single-only" }  */
 /* { dg-final { scan-assembler "bld"} }  */
 /* { dg-final { scan-assembler "bld.b"} }  */
 

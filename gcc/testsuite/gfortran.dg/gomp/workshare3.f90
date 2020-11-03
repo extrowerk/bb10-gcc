@@ -30,9 +30,10 @@ program foo
   do j=1,n
      if (abs(a(j)-c(j)) > eps) then
         print *,1,j,a(j), c(j)
-        STOP 1
+        call abort
      end if
   end do
 
 end program foo
 ! { dg-final { scan-tree-dump-times "__builtin_cosf" 2 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

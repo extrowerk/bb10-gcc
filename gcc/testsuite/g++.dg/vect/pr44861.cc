@@ -31,3 +31,4 @@ void g() {
     new Bar(*foo, foo);
 }
 
+// { dg-final { cleanup-tree-dump "vect" } }

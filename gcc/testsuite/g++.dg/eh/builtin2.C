@@ -7,7 +7,7 @@ extern "C" int printf (const char *, ...) throw();
 
 extern void callme (void) throw();
 
-void
+int
 foo (int i)
 {
   try {
@@ -17,7 +17,7 @@ foo (int i)
   }
 }
 
-void
+int
 bar (int i)
 {
   try {
@@ -28,3 +28,4 @@ bar (int i)
 }
 
 /* { dg-final { scan-tree-dump-times "resx" 0 "eh" } } */
+/* { dg-final { cleanup-tree-dump "eh" } } */

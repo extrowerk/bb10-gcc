@@ -1,5 +1,3 @@
-/* { dg-require-effective-target trampolines } */
-
 extern int foo (int, int, int (*) (int, int, int, int, int, int, int));
 
 int z;
@@ -7,6 +5,7 @@ int z;
 int
 main (void)
 {
+#ifndef NO_TRAMPOLINES
   int sum = 0;
   int i;
 
@@ -38,7 +37,8 @@ main (void)
 
   if (z != 0x1b)
     abort ();
-
+#endif
+  
   exit (0);
 }
 

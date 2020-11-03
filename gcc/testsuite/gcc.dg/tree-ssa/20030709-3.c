@@ -45,3 +45,4 @@ record_component_aliases (type)
 /* There should be one IF conditional.  */
 /* { dg-final { scan-tree-dump-times "if " 1 "dom2"} } */
 
+/* { dg-final { cleanup-tree-dump "dom2" } } */

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -30,6 +30,7 @@
 ------------------------------------------------------------------------------
 
 with Csets;    use Csets;
+with Namet;    use Namet;
 with Opt;      use Opt;
 with Widechar; use Widechar;
 
@@ -124,11 +125,7 @@ package body Casing is
    -- Set_Casing --
    ----------------
 
-   procedure Set_Casing
-     (Buf : in out Bounded_String;
-      C   : Casing_Type;
-      D   : Casing_Type := Mixed_Case)
-   is
+   procedure Set_Casing (C : Casing_Type; D : Casing_Type := Mixed_Case) is
       Ptr : Natural;
 
       Actual_Casing : Casing_Type;
@@ -147,7 +144,7 @@ package body Casing is
 
       Ptr := 1;
 
-      while Ptr <= Buf.Length loop
+      while Ptr <= Name_Len loop
 
          --  Wide character. Note that we do nothing with casing in this case.
          --  In Ada 2005 mode, required folding of lower case letters happened
@@ -159,29 +156,29 @@ package body Casing is
          --  the requested casing operation, beyond folding to upper case
          --  when it is mandatory, which does not involve underscores.
 
-         if Buf.Chars (Ptr) = ASCII.ESC
-           or else Buf.Chars (Ptr) = '['
+         if Name_Buffer (Ptr) = ASCII.ESC
+           or else Name_Buffer (Ptr) = '['
            or else (Upper_Half_Encoding
-                     and then Buf.Chars (Ptr) in Upper_Half_Character)
+                     and then Name_Buffer (Ptr) in Upper_Half_Character)
          then
-            Skip_Wide (Buf.Chars, Ptr);
+            Skip_Wide (Name_Buffer, Ptr);
             After_Und := False;
 
          --  Underscore, or non-identifer character (error case)
 
-         elsif Buf.Chars (Ptr) = '_'
-           or else not Identifier_Char (Buf.Chars (Ptr))
+         elsif Name_Buffer (Ptr) = '_'
+            or else not Identifier_Char (Name_Buffer (Ptr))
          then
             After_Und := True;
             Ptr := Ptr + 1;
 
          --  Lower case letter
 
-         elsif Is_Lower_Case_Letter (Buf.Chars (Ptr)) then
+         elsif Is_Lower_Case_Letter (Name_Buffer (Ptr)) then
             if Actual_Casing = All_Upper_Case
               or else (After_Und and then Actual_Casing = Mixed_Case)
             then
-               Buf.Chars (Ptr) := Fold_Upper (Buf.Chars (Ptr));
+               Name_Buffer (Ptr) := Fold_Upper (Name_Buffer (Ptr));
             end if;
 
             After_Und := False;
@@ -189,11 +186,11 @@ package body Casing is
 
          --  Upper case letter
 
-         elsif Is_Upper_Case_Letter (Buf.Chars (Ptr)) then
+         elsif Is_Upper_Case_Letter (Name_Buffer (Ptr)) then
             if Actual_Casing = All_Lower_Case
               or else (not After_Und and then Actual_Casing = Mixed_Case)
             then
-               Buf.Chars (Ptr) := Fold_Lower (Buf.Chars (Ptr));
+               Name_Buffer (Ptr) := Fold_Lower (Name_Buffer (Ptr));
             end if;
 
             After_Und := False;
@@ -206,11 +203,6 @@ package body Casing is
             Ptr := Ptr + 1;
          end if;
       end loop;
-   end Set_Casing;
-
-   procedure Set_Casing (C : Casing_Type; D : Casing_Type := Mixed_Case) is
-   begin
-      Set_Casing (Global_Name_Buffer, C, D);
    end Set_Casing;
 
 end Casing;

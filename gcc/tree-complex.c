@@ -1,5 +1,5 @@
 /* Lower complex number operations to scalar operations.
-   Copyright (C) 2004-2018 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,26 +20,62 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
-#include "rtl.h"
+#include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
 #include "tree.h"
-#include "gimple.h"
-#include "cfghooks.h"
-#include "tree-pass.h"
-#include "ssa.h"
 #include "fold-const.h"
 #include "stor-layout.h"
+#include "flags.h"
+#include "predict.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
 #include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
+#include "gimple-ssa.h"
 #include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "statistics.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
+#include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
+#include "tree-iterator.h"
+#include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 #include "tree-hasher.h"
 #include "cfgloop.h"
-#include "cfganal.h"
 
 
 /* For each complex ssa name, a lattice value.  We're interested in finding
@@ -60,11 +96,6 @@ typedef int complex_lattice_t;
 
 #define PAIR(a, b)  ((a) << 2 | (b))
 
-class complex_propagate : public ssa_propagation_engine
-{
-  enum ssa_prop_result visit_stmt (gimple *, edge *, tree *) FINAL OVERRIDE;
-  enum ssa_prop_result visit_phi (gphi *) FINAL OVERRIDE;
-};
 
 static vec<complex_lattice_t> complex_lattice_values;
 
@@ -74,14 +105,6 @@ static int_tree_htab_type *complex_variable_components;
 
 /* For each complex SSA_NAME, a pair of ssa names for the components.  */
 static vec<tree> complex_ssa_name_components;
-
-/* Vector of PHI triplets (original complex PHI and corresponding real and
-   imag PHIs if real and/or imag PHIs contain temporarily
-   non-SSA_NAME/non-invariant args that need to be replaced by SSA_NAMEs.  */
-static vec<gphi *> phis_to_revisit;
-
-/* BBs that need EH cleanup.  */
-static bitmap need_eh_cleanup;
 
 /* Lookup UID in the complex_variable_components hashtable and return the
    associated tree.  */
@@ -119,7 +142,7 @@ some_nonzerop (tree t)
      cannot be treated the same as operations with a real or imaginary
      operand if we care about the signs of zeros in the result.  */
   if (TREE_CODE (t) == REAL_CST && !flag_signed_zeros)
-    zerop = real_identical (&TREE_REAL_CST (t), &dconst0);
+    zerop = REAL_VALUES_IDENTICAL (TREE_REAL_CST (t), dconst0);
   else if (TREE_CODE (t) == FIXED_CST)
     zerop = fixed_zerop (t);
   else if (TREE_CODE (t) == INTEGER_CST)
@@ -221,7 +244,7 @@ init_dont_simulate_again (void)
       for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
 	   gsi_next (&gsi))
 	{
-	  gimple *stmt;
+	  gimple stmt;
 	  tree op0, op1;
 	  bool sim_again_p;
 
@@ -308,9 +331,9 @@ init_dont_simulate_again (void)
 
 /* Evaluate statement STMT against the complex lattice defined above.  */
 
-enum ssa_prop_result
-complex_propagate::visit_stmt (gimple *stmt, edge *taken_edge_p ATTRIBUTE_UNUSED,
-			       tree *result_p)
+static enum ssa_prop_result
+complex_visit_stmt (gimple stmt, edge *taken_edge_p ATTRIBUTE_UNUSED,
+		    tree *result_p)
 {
   complex_lattice_t new_l, old_l, op1_l, op2_l;
   unsigned int ver;
@@ -403,8 +426,8 @@ complex_propagate::visit_stmt (gimple *stmt, edge *taken_edge_p ATTRIBUTE_UNUSED
 
 /* Evaluate a PHI node against the complex lattice defined above.  */
 
-enum ssa_prop_result
-complex_propagate::visit_phi (gphi *phi)
+static enum ssa_prop_result
+complex_visit_phi (gphi *phi)
 {
   complex_lattice_t new_l, old_l;
   unsigned int ver;
@@ -446,8 +469,8 @@ create_one_component_var (tree type, tree orig, const char *prefix,
   if (DECL_NAME (orig) && !DECL_IGNORED_P (orig))
     {
       const char *name = IDENTIFIER_POINTER (DECL_NAME (orig));
-      name = ACONCAT ((name, suffix, NULL));
-      DECL_NAME (r) = get_identifier (name);
+
+      DECL_NAME (r) = get_identifier (ACONCAT ((name, suffix, NULL)));
 
       SET_DECL_DEBUG_EXPR (r, build1 (code, type, orig));
       DECL_HAS_DEBUG_EXPR_P (r) = 1;
@@ -537,7 +560,7 @@ set_component_ssa_name (tree ssa_name, bool imag_p, tree value)
   complex_lattice_t lattice = find_lattice_value (ssa_name);
   size_t ssa_name_index;
   tree comp;
-  gimple *last;
+  gimple last;
   gimple_seq list;
 
   /* We know the value must be zero, else there's a bug in our lattice
@@ -602,7 +625,7 @@ set_component_ssa_name (tree ssa_name, bool imag_p, tree value)
 
 static tree
 extract_component (gimple_stmt_iterator *gsi, tree t, bool imagpart_p,
-		   bool gimple_p, bool phiarg_p = false)
+		   bool gimple_p)
 {
   switch (TREE_CODE (t))
     {
@@ -611,21 +634,6 @@ extract_component (gimple_stmt_iterator *gsi, tree t, bool imagpart_p,
 
     case COMPLEX_EXPR:
       gcc_unreachable ();
-
-    case BIT_FIELD_REF:
-      {
-	tree inner_type = TREE_TYPE (TREE_TYPE (t));
-	t = unshare_expr (t);
-	TREE_TYPE (t) = inner_type;
-	TREE_OPERAND (t, 1) = TYPE_SIZE (inner_type);
-	if (imagpart_p)
-	  TREE_OPERAND (t, 2) = size_binop (PLUS_EXPR, TREE_OPERAND (t, 2),
-					    TYPE_SIZE (inner_type));
-	if (gimple_p)
-	  t = force_gimple_operand_gsi (gsi, t, true, NULL, true,
-					GSI_SAME_STMT);
-	return t;
-      }
 
     case VAR_DECL:
     case RESULT_DECL:
@@ -648,10 +656,7 @@ extract_component (gimple_stmt_iterator *gsi, tree t, bool imagpart_p,
       }
 
     case SSA_NAME:
-      t = get_component_ssa_name (t, imagpart_p);
-      if (TREE_CODE (t) == SSA_NAME && SSA_NAME_DEF_STMT (t) == NULL)
-	gcc_assert (phiarg_p);
-      return t;
+      return get_component_ssa_name (t, imagpart_p);
 
     default:
       gcc_unreachable ();
@@ -661,7 +666,7 @@ extract_component (gimple_stmt_iterator *gsi, tree t, bool imagpart_p,
 /* Update the complex components of the ssa name on the lhs of STMT.  */
 
 static void
-update_complex_components (gimple_stmt_iterator *gsi, gimple *stmt, tree r,
+update_complex_components (gimple_stmt_iterator *gsi, gimple stmt, tree r,
 			   tree i)
 {
   tree lhs;
@@ -698,12 +703,13 @@ update_complex_components_on_edge (edge e, tree lhs, tree r, tree i)
 static void
 update_complex_assignment (gimple_stmt_iterator *gsi, tree r, tree i)
 {
-  gimple *old_stmt = gsi_stmt (*gsi);
+  gimple stmt;
+
   gimple_assign_set_rhs_with_ops (gsi, COMPLEX_EXPR, r, i);
-  gimple *stmt = gsi_stmt (*gsi);
+  stmt = gsi_stmt (*gsi);
   update_stmt (stmt);
-  if (maybe_clean_or_replace_eh_stmt (old_stmt, stmt))
-    bitmap_set_bit (need_eh_cleanup, gimple_bb (stmt)->index);
+  if (maybe_clean_eh_stmt (stmt))
+    gimple_purge_dead_eh_edges (gimple_bb (stmt));
 
   if (gimple_in_ssa_p (cfun))
     update_complex_components (gsi, gsi_stmt (*gsi), r, i);
@@ -752,48 +758,31 @@ update_phi_components (basic_block bb)
 
       if (is_complex_reg (gimple_phi_result (phi)))
 	{
-	  gphi *p[2] = { NULL, NULL };
-	  unsigned int i, j, n;
-	  bool revisit_phi = false;
+	  tree lr, li;
+	  gimple pr = NULL, pi = NULL;
+	  unsigned int i, n;
 
-	  for (j = 0; j < 2; j++)
-	    {
-	      tree l = get_component_ssa_name (gimple_phi_result (phi), j > 0);
-	      if (TREE_CODE (l) == SSA_NAME)
-		p[j] = create_phi_node (l, bb);
-	    }
+	  lr = get_component_ssa_name (gimple_phi_result (phi), false);
+	  if (TREE_CODE (lr) == SSA_NAME)
+	    pr = create_phi_node (lr, bb);
+
+	  li = get_component_ssa_name (gimple_phi_result (phi), true);
+	  if (TREE_CODE (li) == SSA_NAME)
+	    pi = create_phi_node (li, bb);
 
 	  for (i = 0, n = gimple_phi_num_args (phi); i < n; ++i)
 	    {
 	      tree comp, arg = gimple_phi_arg_def (phi, i);
-	      for (j = 0; j < 2; j++)
-		if (p[j])
-		  {
-		    comp = extract_component (NULL, arg, j > 0, false, true);
-		    if (TREE_CODE (comp) == SSA_NAME
-			&& SSA_NAME_DEF_STMT (comp) == NULL)
-		      {
-			/* For the benefit of any gimple simplification during
-			   this pass that might walk SSA_NAME def stmts,
-			   don't add SSA_NAMEs without definitions into the
-			   PHI arguments, but put a decl in there instead
-			   temporarily, and revisit this PHI later on.  */
-			if (SSA_NAME_VAR (comp))
-			  comp = SSA_NAME_VAR (comp);
-			else
-			  comp = create_tmp_reg (TREE_TYPE (comp),
-						 get_name (comp));
-			revisit_phi = true;
-		      }
-		    SET_PHI_ARG_DEF (p[j], i, comp);
-		  }
-	    }
-
-	  if (revisit_phi)
-	    {
-	      phis_to_revisit.safe_push (phi);
-	      phis_to_revisit.safe_push (p[0]);
-	      phis_to_revisit.safe_push (p[1]);
+	      if (pr)
+		{
+		  comp = extract_component (NULL, arg, false, false);
+		  SET_PHI_ARG_DEF (pr, i, comp);
+		}
+	      if (pi)
+		{
+		  comp = extract_component (NULL, arg, true, false);
+		  SET_PHI_ARG_DEF (pi, i, comp);
+		}
 	    }
 	}
     }
@@ -806,7 +795,7 @@ expand_complex_move (gimple_stmt_iterator *gsi, tree type)
 {
   tree inner_type = TREE_TYPE (type);
   tree r, i, lhs, rhs;
-  gimple *stmt = gsi_stmt (*gsi);
+  gimple stmt = gsi_stmt (*gsi);
 
   if (is_gimple_assign (stmt))
     {
@@ -867,7 +856,7 @@ expand_complex_move (gimple_stmt_iterator *gsi, tree type)
   else if (rhs && TREE_CODE (rhs) == SSA_NAME && !TREE_SIDE_EFFECTS (lhs))
     {
       tree x;
-      gimple *t;
+      gimple t;
       location_t loc;
 
       loc = gimple_location (stmt);
@@ -989,7 +978,7 @@ expand_complex_libcall (gimple_stmt_iterator *gsi, tree ar, tree ai,
   machine_mode mode;
   enum built_in_function bcode;
   tree fn, type, lhs;
-  gimple *old_stmt;
+  gimple old_stmt;
   gcall *stmt;
 
   old_stmt = gsi_stmt (*gsi);
@@ -1056,7 +1045,7 @@ expand_complex_multiplication (gimple_stmt_iterator *gsi, tree inner_type,
     case PAIR (ONLY_IMAG, ONLY_REAL):
       rr = ar;
       if (TREE_CODE (ai) == REAL_CST
-	  && real_identical (&TREE_REAL_CST (ai), &dconst1))
+	  && REAL_VALUES_IDENTICAL (TREE_REAL_CST (ai), dconst1))
 	ri = br;
       else
 	ri = gimplify_build2 (gsi, MULT_EXPR, inner_type, ai, br);
@@ -1155,7 +1144,7 @@ expand_complex_div_wide (gimple_stmt_iterator *gsi, tree inner_type,
 {
   tree rr, ri, ratio, div, t1, t2, tr, ti, compare;
   basic_block bb_cond, bb_true, bb_false, bb_join;
-  gimple *stmt;
+  gimple stmt;
 
   /* Examine |br| < |bi|, and branch.  */
   t1 = gimplify_build1 (gsi, ABS_EXPR, inner_type, br);
@@ -1169,7 +1158,7 @@ expand_complex_div_wide (gimple_stmt_iterator *gsi, tree inner_type,
   if (TREE_CODE (compare) != INTEGER_CST)
     {
       edge e;
-      gimple *stmt;
+      gimple stmt;
       tree cond, tmp;
 
       tmp = create_tmp_var (boolean_type_node);
@@ -1193,19 +1182,13 @@ expand_complex_div_wide (gimple_stmt_iterator *gsi, tree inner_type,
       bb_join = e->dest;
       bb_true = create_empty_bb (bb_cond);
       bb_false = create_empty_bb (bb_true);
-      bb_true->count = bb_false->count
-	 = bb_cond->count.apply_probability (profile_probability::even ());
 
       /* Wire the blocks together.  */
       e->flags = EDGE_TRUE_VALUE;
-      /* TODO: With value profile we could add an historgram to determine real
-	 branch outcome.  */
-      e->probability = profile_probability::even ();
       redirect_edge_succ (e, bb_true);
-      edge e2 = make_edge (bb_cond, bb_false, EDGE_FALSE_VALUE);
-      e2->probability = profile_probability::even ();
-      make_single_succ_edge (bb_true, bb_join, EDGE_FALLTHRU);
-      make_single_succ_edge (bb_false, bb_join, EDGE_FALLTHRU);
+      make_edge (bb_cond, bb_false, EDGE_FALSE_VALUE);
+      make_edge (bb_true, bb_join, EDGE_FALLTHRU);
+      make_edge (bb_false, bb_join, EDGE_FALLTHRU);
       add_bb_to_loop (bb_true, bb_cond->loop_father);
       add_bb_to_loop (bb_false, bb_cond->loop_father);
 
@@ -1349,7 +1332,6 @@ expand_complex_division (gimple_stmt_iterator *gsi, tree inner_type,
       rr = gimplify_build2 (gsi, code, inner_type, ai, bi);
       ri = gimplify_build2 (gsi, code, inner_type, ar, bi);
       ri = gimplify_build1 (gsi, NEGATE_EXPR, inner_type, ri);
-      break;
 
     case PAIR (ONLY_REAL, VARYING):
     case PAIR (ONLY_IMAG, VARYING):
@@ -1424,7 +1406,7 @@ expand_complex_comparison (gimple_stmt_iterator *gsi, tree ar, tree ai,
 			   tree br, tree bi, enum tree_code code)
 {
   tree cr, ci, cc, type;
-  gimple *stmt;
+  gimple stmt;
 
   cr = gimplify_build2 (gsi, code, boolean_type_node, ar, br);
   ci = gimplify_build2 (gsi, code, boolean_type_node, ai, bi);
@@ -1464,8 +1446,6 @@ expand_complex_comparison (gimple_stmt_iterator *gsi, tree ar, tree ai,
     }
 
   update_stmt (stmt);
-  if (maybe_clean_eh_stmt (stmt))
-    bitmap_set_bit (need_eh_cleanup, gimple_bb (stmt)->index);
 }
 
 /* Expand inline asm that sets some complex SSA_NAMEs.  */
@@ -1504,7 +1484,7 @@ expand_complex_asm (gimple_stmt_iterator *gsi)
 static void
 expand_complex_operations_1 (gimple_stmt_iterator *gsi)
 {
-  gimple *stmt = gsi_stmt (*gsi);
+  gimple stmt = gsi_stmt (*gsi);
   tree type, inner_type, lhs;
   tree ac, ar, ai, bc, br, bi;
   complex_lattice_t al, bl;
@@ -1669,10 +1649,9 @@ expand_complex_operations_1 (gimple_stmt_iterator *gsi)
 static unsigned int
 tree_lower_complex (void)
 {
+  int old_last_basic_block;
   gimple_stmt_iterator gsi;
   basic_block bb;
-  int n_bbs, i;
-  int *rpo;
 
   if (!init_dont_simulate_again ())
     return 0;
@@ -1681,10 +1660,7 @@ tree_lower_complex (void)
   complex_lattice_values.safe_grow_cleared (num_ssa_names);
 
   init_parameter_lattice_values ();
-  class complex_propagate complex_propagate;
-  complex_propagate.ssa_propagate ();
-
-  need_eh_cleanup = BITMAP_ALLOC (NULL);
+  ssa_propagate (complex_visit_stmt, complex_visit_phi);
 
   complex_variable_components = new int_tree_htab_type (10);
 
@@ -1693,53 +1669,25 @@ tree_lower_complex (void)
 
   update_parameter_components ();
 
-  rpo = XNEWVEC (int, last_basic_block_for_fn (cfun));
-  n_bbs = pre_and_rev_post_order_compute (NULL, rpo, false);
-  for (i = 0; i < n_bbs; i++)
+  /* ??? Ideally we'd traverse the blocks in breadth-first order.  */
+  old_last_basic_block = last_basic_block_for_fn (cfun);
+  FOR_EACH_BB_FN (bb, cfun)
     {
-      bb = BASIC_BLOCK_FOR_FN (cfun, rpo[i]);
-      if (!bb)
+      if (bb->index >= old_last_basic_block)
 	continue;
+
       update_phi_components (bb);
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	expand_complex_operations_1 (&gsi);
     }
 
-  free (rpo);
-
-  if (!phis_to_revisit.is_empty ())
-    {
-      unsigned int n = phis_to_revisit.length ();
-      for (unsigned int j = 0; j < n; j += 3)
-	for (unsigned int k = 0; k < 2; k++)
-	  if (gphi *phi = phis_to_revisit[j + k + 1])
-	    {
-	      unsigned int m = gimple_phi_num_args (phi);
-	      for (unsigned int l = 0; l < m; ++l)
-		{
-		  tree op = gimple_phi_arg_def (phi, l);
-		  if (TREE_CODE (op) == SSA_NAME
-		      || is_gimple_min_invariant (op))
-		    continue;
-		  tree arg = gimple_phi_arg_def (phis_to_revisit[j], l);
-		  op = extract_component (NULL, arg, k > 0, false, false);
-		  SET_PHI_ARG_DEF (phi, l, op);
-		}
-	    }
-      phis_to_revisit.release ();
-    }
-
   gsi_commit_edge_inserts ();
-
-  unsigned todo
-    = gimple_purge_all_dead_eh_edges (need_eh_cleanup) ? TODO_cleanup_cfg : 0;
-  BITMAP_FREE (need_eh_cleanup);
 
   delete complex_variable_components;
   complex_variable_components = NULL;
   complex_ssa_name_components.release ();
   complex_lattice_values.release ();
-  return todo;
+  return 0;
 }
 
 namespace {

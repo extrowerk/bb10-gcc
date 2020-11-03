@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -193,16 +193,7 @@ package body Exp_Ch2 is
               Unchecked_Convert_To (T,
                 New_Occurrence_Of (Entity (Val), Loc)));
 
-         --  If constant is of a character type, just make an appropriate
-         --  character literal, which will get the proper type.
-
-         elsif Is_Character_Type (T) then
-            Rewrite (N,
-              Make_Character_Literal (Loc,
-                Chars => Chars (Val),
-                Char_Literal_Value => Expr_Rep_Value (Val)));
-
-         --  If constant is of an integer type, just make an appropriate
+         --  If constant is of an integer type, just make an appropriately
          --  integer literal, which will get the proper type.
 
          elsif Is_Integer_Type (T) then
@@ -405,15 +396,14 @@ package body Exp_Ch2 is
          Write_Eol;
       end if;
 
-      --  Set Atomic_Sync_Required if necessary for atomic variable. Note that
-      --  this processing does NOT apply to Volatile_Full_Access variables.
+      --  Set Atomic_Sync_Required if necessary for atomic variable
 
       if Nkind_In (N, N_Identifier, N_Expanded_Name)
         and then Ekind (E) = E_Variable
         and then (Is_Atomic (E) or else Is_Atomic (Etype (E)))
       then
          declare
-            Set : Boolean;
+            Set  : Boolean;
 
          begin
             --  If variable is atomic, but type is not, setting depends on

@@ -26,9 +26,10 @@ program main
   character(len=20) :: line
   n = 3
   write (unit=line,fmt='(3I2)') myfunc(n) + myfunc(n)
-  if (line /= ' 61218') STOP 1
+  if (line /= ' 61218') call abort
   write (unit=line,fmt='(A)') mychar(2) // mychar(2)
-  if (line /= '2323') STOP 2
+  if (line /= '2323') call abort
 end program main
 ! { dg-final { scan-tree-dump-times "myfunc" 2 "original" } }
 ! { dg-final { scan-tree-dump-times "mychar" 2 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

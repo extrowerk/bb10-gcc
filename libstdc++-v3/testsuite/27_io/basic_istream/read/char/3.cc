@@ -1,6 +1,6 @@
 // 1999-08-11 bkoz
 
-// Copyright (C) 1999-2018 Free Software Foundation, Inc.
+// Copyright (C) 1999-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,12 +28,14 @@ void
 test09()
 {
   using namespace std;
+  bool test __attribute__((unused)) = true;
 
   istringstream iss("Juana Briones");
   char tab[13];
   iss.read(tab, 13);
   if (!iss)
-    VERIFY( false );
+    test = false;
+  VERIFY( test );
 }
  
 int 

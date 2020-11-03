@@ -1,5 +1,5 @@
 /* { dg-do compile { target c++11 } } */
-/* { dg-options "-Wall -Wno-tautological-compare" } */
+/* { dg-options "-Wall" } */
 
 // Check that we can compare vector types that really are the same through
 // typedefs.

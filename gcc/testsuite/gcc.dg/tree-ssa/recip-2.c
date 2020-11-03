@@ -32,3 +32,4 @@ void e(float a, float b, float c, float d, float e, float f)
 
 /* { dg-final { scan-tree-dump-times " / " 2 "recip" } } */
 /* { dg-final { scan-tree-dump-times " \\* " 5 "recip" } } */
+/* { dg-final { cleanup-tree-dump "recip" } } */

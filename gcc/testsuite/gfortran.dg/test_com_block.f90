@@ -24,9 +24,9 @@ program testComBlock
   ! r and s are reals (default size) in com block, set to 
   ! 1.0 and 2.0, respectively, in hello()
   if(r .ne. 1.0) then 
-     STOP 1
+     call abort()
   endif
   if(s .ne. 2.0) then
-     STOP 2
+     call abort()
   endif
 end program testComBlock

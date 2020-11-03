@@ -3,7 +3,6 @@
 // right pointer to operator delete.
 
 // { dg-do run }
-// { dg-xfail-run-if "AIX operator new" { powerpc-ibm-aix* } }
 
 #include <new>
 

@@ -18,3 +18,4 @@ t()
 /* { dg-final { scan-tree-dump "magic2" "optimized"} } */
 /* { dg-final { scan-tree-dump "foo" "optimized"} } */
  
+/* { dg-final { cleanup-tree-dump "optimized" } } */

@@ -10,3 +10,4 @@ int *g(struct C *p)
 }
 
 /* { dg-final { scan-tree-dump-not "if" "phiopt1" } } */
+/* { dg-final { cleanup-tree-dump "phiopt1" } } */

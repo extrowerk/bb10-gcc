@@ -1,5 +1,4 @@
 ! { dg-do compile }
-! { dg-require-visibility "" }
 ! This tests that PR32760, in its various manifestations is fixed.
 !
 ! Contributed by Harald Anlauf <anlauf@gmx.de>

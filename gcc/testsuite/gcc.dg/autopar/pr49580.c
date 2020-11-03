@@ -1,6 +1,6 @@
 /* PR debug/49580 */
 /* { dg-do compile } */
-/* { dg-options "-O2 -ftree-parallelize-loops=4 -fdump-tree-parloops2-details" } */
+/* { dg-options "-O2 -ftree-parallelize-loops=4 -fdump-tree-parloops-details" } */
 
 #include <stdarg.h>
 #include <stdlib.h>
@@ -33,5 +33,6 @@ int main (void)
 }
 
 
-/* { dg-final { scan-tree-dump-times "SUCCESS: may be parallelized" 1 "parloops2" } } */
+/* { dg-final { scan-tree-dump-times "SUCCESS: may be parallelized" 1 "parloops" } } */
+/* { dg-final { cleanup-tree-dump "parloops" } } */
 

@@ -1,4 +1,3 @@
-/* { dg-require-effective-target int32plus } */
 /* { dg-options "-Os -fgraphite-identity" } */
 
 static void b2w(unsigned int *out, const unsigned char *in, unsigned int len)

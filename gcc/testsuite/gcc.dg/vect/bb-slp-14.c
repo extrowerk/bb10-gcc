@@ -14,8 +14,7 @@ main1 (unsigned int x, unsigned int y)
   int i;
   unsigned int a0, a1, a2, a3;
 
-  /* Not consecutive load with permutation - supported with building up
-     the vector from scalars.  */
+  /* Not consecutive load with permutation - not supported.  */
   a0 = in[0] + 23;
   a1 = in[1] + 142;
   a2 = in[1] + 2;
@@ -48,5 +47,6 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "basic block vectorized" 1 "slp2" { target vect_int_mult } } } */
+/* { dg-final { scan-tree-dump-times "basic block vectorized" 0 "slp2"  } } */
+/* { dg-final { cleanup-tree-dump "slp2" } } */
   

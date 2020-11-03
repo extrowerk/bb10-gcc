@@ -12,7 +12,7 @@ program where_20
 ! This classic case worked before the patch.
    a = (/1, 2, 3, 4/)
    where (b .gt. 1) a(2:4) = a(1:3)
-   if (any(a .ne. (/1,2,2,3/))) STOP 1
+   if (any(a .ne. (/1,2,2,3/))) call abort ()
 
 ! This is the original manifestation of the problem
 ! and is repeated in where_19.f90.
@@ -20,26 +20,26 @@ program where_20
    where (b .gt. 1)
      c = b
    endwhere
-   if (any(a .ne. (/1,2,2,3/))) STOP 2
+   if (any(a .ne. (/1,2,2,3/))) call abort ()
 
 ! Mask to.destination dependency.
    a = (/1, 2, 3, 4/)
    where (b .gt. 1)
      c = d
    endwhere
-   if (any(a .ne. (/1,2,2,3/))) STOP 3
+   if (any(a .ne. (/1,2,2,3/))) call abort ()
 
 ! Source to.destination dependency.
    a = (/1, 2, 3, 4/)
    where (d .gt. 1)
      c = b
    endwhere
-   if (any(a .ne. (/1,2,2,3/))) STOP 4
+   if (any(a .ne. (/1,2,2,3/))) call abort ()
 
 ! Check the simple where.
    a = (/1, 2, 3, 4/)
    where (b .gt. 1) c = b
-   if (any(a .ne. (/1,2,2,3/))) STOP 5
+   if (any(a .ne. (/1,2,2,3/))) call abort ()
 
 ! This was OK before the patch.
    a = (/1, 2, 3, 4/)
@@ -48,7 +48,7 @@ program where_20
        c = b
      end where
    endwhere
-   if (any(a .ne. (/1,2,2,3/))) STOP 6
+   if (any(a .ne. (/1,2,2,3/))) call abort ()
 
 end program
 

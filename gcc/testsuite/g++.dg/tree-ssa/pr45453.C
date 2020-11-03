@@ -16,3 +16,4 @@ B ()
 }
 /* We should inline foo and devirtualize call to foo in the inlined version.  */
 // { dg-final { scan-tree-dump-times "OBJ_TYPE_REF" 1 "optimized" } }
+// { dg-final { cleanup-tree-dump "optimized" } }

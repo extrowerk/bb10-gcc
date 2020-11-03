@@ -18,18 +18,11 @@ static int thrower ()
 
 struct X
 {
-  X (int)
-#if __cplusplus <= 201402L
-  throw (int)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#endif
-  ;
+  X (int) throw (int);
   ~X () throw ();
 };
 
-X::X (int)
-#if __cplusplus <= 201402L
-  throw (int)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#endif
+X::X (int) throw (int)
   {printf ("in ctor X %s\n", __PRETTY_FUNCTION__); bad = true;}
 X::~X () throw ()
   {printf ("in dtor X %s\n", __PRETTY_FUNCTION__); bad = true;}
@@ -37,17 +30,10 @@ X::~X () throw ()
 struct X1 {};
 struct Y : X
 {
-  Y()
-#if __cplusplus <= 201402L
-  throw (int)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#endif
-  ;
+  Y() throw (int);
   ~Y() throw ();
 };
-Y::Y()
-#if __cplusplus <= 201402L
-  throw (int)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#endif
+Y::Y() throw (int)
   : X(thrower ())   // throws, so X::X is never called
   {printf ("in ctor Y%s\n", __PRETTY_FUNCTION__); bad = true;}
 Y::~Y() throw ()

@@ -10,7 +10,7 @@ void foo()
   #pragma omp master
     {
     bad1:		// { dg-error "jump" }
-                        // { dg-message "exits OpenMP" "" { target *-*-* } .-1 }
+                        // { dg-message "exits OpenMP" "" { target *-*-* } 12 }
       return;		// { dg-error "invalid exit" }
     }
 }

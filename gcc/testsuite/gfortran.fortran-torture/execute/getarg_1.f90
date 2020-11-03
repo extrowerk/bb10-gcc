@@ -11,20 +11,20 @@ program getarg_1
 
   I2 = 0
   CALL GETARG(I2,ARGS2)
-  if (args2.ne.args) STOP 1
+  if (args2.ne.args) call abort
 
-  if (args.eq.'') STOP 2
+  if (args.eq.'') call abort
   I = 1
   CALL GETARG(I,ARGS)
-  if (args.ne.'') STOP 3
+  if (args.ne.'') call abort
   I = -1
   CALL GETARG(I,ARGS)
-  if (args.ne.'') STOP 4
+  if (args.ne.'') call abort
   ! Assume we won't have been called with more that 4 args.
   I = 4
   CALL GETARG(I,ARGS)
-  if (args.ne.'') STOP 5
+  if (args.ne.'') call abort
   I = 1000
   CALL GETARG(I,ARGS)
-  if (args.ne.'') STOP 6
+  if (args.ne.'') call abort
 end

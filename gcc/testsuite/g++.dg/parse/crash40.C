@@ -10,17 +10,17 @@ struct C : A {};
 
 class AA
 {
-  template<int> void foo(); /* { dg-message "private" } */
+  template<int> void foo(); /* { dg-error "is private" } */
 };
 struct BB : AA {};
 
 class AAA {
-  int get() const { return 0; }
+  int get() const {}
 };
 struct BBB {
   static BBB *foo();
 private:
-  int get() const { return 1; } /* { dg-message "private" } */
+  int get() const {} /* { dg-error "is private" } */
 };
 template<bool> struct S {
   S(unsigned int = BBB::foo()->AAA::get()); /* { dg-error "is not a base of" } */
@@ -37,6 +37,6 @@ void bar()
   int i;
   i.C::foo<0>(); /* { dg-error "which is of non-class type" } */
 
-  S<false> s;
+  S<false> s; /* { dg-error "default argument" } */
   SS<false> ss;
 }

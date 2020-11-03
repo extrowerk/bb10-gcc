@@ -1,6 +1,6 @@
 /* Routines for emitting trees to a file stream.
 
-   Copyright (C) 2011-2018 Free Software Foundation, Inc.
+   Copyright (C) 2011-2015 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@google.com>
 
 This file is part of GCC.
@@ -22,14 +22,39 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
-#include "target.h"
-#include "tree.h"
-#include "gimple.h"
-#include "tree-streamer.h"
-#include "cgraph.h"
+#include "tm.h"
+#include "diagnostic.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
 #include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
+#include "predict.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
+#include "tree-streamer.h"
+#include "data-streamer.h"
+#include "streamer-hooks.h"
 #include "gomp-constants.h"
 
 
@@ -87,10 +112,7 @@ pack_ts_base_value_fields (struct bitpack_d *bp, tree expr)
   bp_pack_value (bp, TREE_ADDRESSABLE (expr), 1);
   bp_pack_value (bp, TREE_THIS_VOLATILE (expr), 1);
   if (DECL_P (expr))
-    {
-      bp_pack_value (bp, DECL_UNSIGNED (expr), 1);
-      bp_pack_value (bp, DECL_NAMELESS (expr), 1);
-    }
+    bp_pack_value (bp, DECL_UNSIGNED (expr), 1);
   else if (TYPE_P (expr))
     bp_pack_value (bp, TYPE_UNSIGNED (expr), 1);
   else
@@ -113,25 +135,12 @@ pack_ts_base_value_fields (struct bitpack_d *bp, tree expr)
   bp_pack_value (bp, TREE_DEPRECATED (expr), 1);
   if (TYPE_P (expr))
     {
-      if (AGGREGATE_TYPE_P (expr))
-	bp_pack_value (bp, TYPE_REVERSE_STORAGE_ORDER (expr), 1);
-      else
-	bp_pack_value (bp, TYPE_SATURATING (expr), 1);
+      bp_pack_value (bp, TYPE_SATURATING (expr), 1);
       bp_pack_value (bp, TYPE_ADDR_SPACE (expr), 8);
-    }
-  else if (TREE_CODE (expr) == BIT_FIELD_REF || TREE_CODE (expr) == MEM_REF)
-    {
-      bp_pack_value (bp, REF_REVERSE_STORAGE_ORDER (expr), 1);
-      bp_pack_value (bp, 0, 8);
     }
   else if (TREE_CODE (expr) == SSA_NAME)
     {
       bp_pack_value (bp, SSA_NAME_IS_DEFAULT_DEF (expr), 1);
-      bp_pack_value (bp, 0, 8);
-    }
-  else if (TREE_CODE (expr) == CALL_EXPR)
-    {
-      bp_pack_value (bp, CALL_EXPR_BY_DESCRIPTOR (expr), 1);
       bp_pack_value (bp, 0, 8);
     }
   else
@@ -216,11 +225,10 @@ pack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
     {
       bp_pack_value (bp, DECL_PACKED (expr), 1);
       bp_pack_value (bp, DECL_NONADDRESSABLE_P (expr), 1);
-      bp_pack_value (bp, DECL_PADDING_P (expr), 1);
       bp_pack_value (bp, expr->decl_common.off_align, 8);
     }
 
-  if (VAR_P (expr))
+  if (TREE_CODE (expr) == VAR_DECL)
     {
       bp_pack_value (bp, DECL_HAS_DEBUG_EXPR_P (expr), 1);
       bp_pack_value (bp, DECL_NONLOCAL_FRAME (expr), 1);
@@ -228,10 +236,11 @@ pack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
 
   if (TREE_CODE (expr) == RESULT_DECL
       || TREE_CODE (expr) == PARM_DECL
-      || VAR_P (expr))
+      || TREE_CODE (expr) == VAR_DECL)
     {
       bp_pack_value (bp, DECL_BY_REFERENCE (expr), 1);
-      if (VAR_P (expr) || TREE_CODE (expr) == PARM_DECL)
+      if (TREE_CODE (expr) == VAR_DECL
+	  || TREE_CODE (expr) == PARM_DECL)
 	bp_pack_value (bp, DECL_HAS_VALUE_EXPR_P (expr), 1);
     }
 }
@@ -261,7 +270,7 @@ pack_ts_decl_with_vis_value_fields (struct bitpack_d *bp, tree expr)
   bp_pack_value (bp, DECL_VISIBILITY (expr),  2);
   bp_pack_value (bp, DECL_VISIBILITY_SPECIFIED (expr),  1);
 
-  if (VAR_P (expr))
+  if (TREE_CODE (expr) == VAR_DECL)
     {
       bp_pack_value (bp, DECL_HARD_REGISTER (expr), 1);
       /* DECL_IN_TEXT_SECTION is set during final asm output only. */
@@ -283,6 +292,10 @@ pack_ts_decl_with_vis_value_fields (struct bitpack_d *bp, tree expr)
 static void
 pack_ts_function_decl_value_fields (struct bitpack_d *bp, tree expr)
 {
+  /* For normal/md builtins we only write the class and code, so they
+     should never be handled here.  */
+  gcc_assert (!streamer_handle_as_builtin_p (expr));
+
   bp_pack_enum (bp, built_in_class, BUILT_IN_LAST,
 		DECL_BUILT_IN_CLASS (expr));
   bp_pack_value (bp, DECL_STATIC_CONSTRUCTOR (expr), 1);
@@ -312,21 +325,10 @@ pack_ts_function_decl_value_fields (struct bitpack_d *bp, tree expr)
 static void
 pack_ts_type_common_value_fields (struct bitpack_d *bp, tree expr)
 {
-  /* for VECTOR_TYPE, TYPE_MODE reevaluates the mode using target_flags
-     not necessary valid in a global context.
-     Use the raw value previously set by layout_type.  */
-  bp_pack_machine_mode (bp, TYPE_MODE_RAW (expr));
+  bp_pack_machine_mode (bp, TYPE_MODE (expr));
   bp_pack_value (bp, TYPE_STRING_FLAG (expr), 1);
-  /* TYPE_NO_FORCE_BLK is private to stor-layout and need
-     no streaming.  */
+  bp_pack_value (bp, TYPE_NO_FORCE_BLK (expr), 1);
   bp_pack_value (bp, TYPE_NEEDS_CONSTRUCTING (expr), 1);
-  bp_pack_value (bp, TYPE_PACKED (expr), 1);
-  bp_pack_value (bp, TYPE_RESTRICT (expr), 1);
-  bp_pack_value (bp, TYPE_USER_ALIGN (expr), 1);
-  bp_pack_value (bp, TYPE_READONLY (expr), 1);
-  /* We used to stream TYPE_ALIAS_SET == 0 information to let frontends mark
-     types that are opaque for TBAA.  This however did not work as intended,
-     because TYPE_ALIAS_SET == 0 was regularly lost in type merging.  */
   if (RECORD_OR_UNION_TYPE_P (expr))
     {
       bp_pack_value (bp, TYPE_TRANSPARENT_AGGR (expr), 1);
@@ -334,11 +336,17 @@ pack_ts_type_common_value_fields (struct bitpack_d *bp, tree expr)
     }
   else if (TREE_CODE (expr) == ARRAY_TYPE)
     bp_pack_value (bp, TYPE_NONALIASED_COMPONENT (expr), 1);
-  if (AGGREGATE_TYPE_P (expr))
-    bp_pack_value (bp, TYPE_TYPELESS_STORAGE (expr), 1);
-  bp_pack_value (bp, TYPE_EMPTY_P (expr), 1);
+  bp_pack_value (bp, TYPE_PACKED (expr), 1);
+  bp_pack_value (bp, TYPE_RESTRICT (expr), 1);
+  bp_pack_value (bp, TYPE_USER_ALIGN (expr), 1);
+  bp_pack_value (bp, TYPE_READONLY (expr), 1);
   bp_pack_var_len_unsigned (bp, TYPE_PRECISION (expr));
   bp_pack_var_len_unsigned (bp, TYPE_ALIGN (expr));
+  /* Make sure to preserve the fact whether the frontend would assign
+     alias-set zero to this type.  */
+  bp_pack_var_len_int (bp, (TYPE_ALIAS_SET (expr) == 0
+			    || (!in_lto_p
+				&& get_alias_set (expr) == 0)) ? 0 : -1);
 }
 
 
@@ -462,8 +470,6 @@ streamer_write_tree_bitfields (struct output_block *ob, tree expr)
 	  if (MR_DEPENDENCE_CLIQUE (expr) != 0)
 	    bp_pack_value (&bp, MR_DEPENDENCE_BASE (expr), sizeof (short) * 8);
 	}
-      else if (code == CALL_EXPR)
-	bp_pack_enum (&bp, internal_fn, IFN_LAST, CALL_EXPR_IFN (expr));
     }
 
   if (CODE_CONTAINS_STRUCT (code, TS_BLOCK))
@@ -490,6 +496,41 @@ streamer_write_tree_bitfields (struct output_block *ob, tree expr)
     pack_ts_omp_clause_value_fields (ob, &bp, expr);
 
   streamer_write_bitpack (&bp);
+}
+
+
+/* Write the code and class of builtin EXPR to output block OB.  IX is
+   the index into the streamer cache where EXPR is stored.*/
+
+void
+streamer_write_builtin (struct output_block *ob, tree expr)
+{
+  gcc_assert (streamer_handle_as_builtin_p (expr));
+
+  if (DECL_BUILT_IN_CLASS (expr) == BUILT_IN_MD
+      && !targetm.builtin_decl)
+    sorry ("tree bytecode streams do not support machine specific builtin "
+	   "functions on this target");
+
+  streamer_write_record_start (ob, LTO_builtin_decl);
+  streamer_write_enum (ob->main_stream, built_in_class, BUILT_IN_LAST,
+		       DECL_BUILT_IN_CLASS (expr));
+  streamer_write_uhwi (ob, DECL_FUNCTION_CODE (expr));
+
+  if (DECL_ASSEMBLER_NAME_SET_P (expr))
+    {
+      /* When the assembler name of a builtin gets a user name,
+	 the new name is always prefixed with '*' by
+	 set_builtin_user_assembler_name.  So, to prevent the
+	 reader side from adding a second '*', we omit it here.  */
+      const char *str = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (expr));
+      if (strlen (str) > 1 && str[0] == '*')
+	streamer_write_string (ob, ob->main_stream, &str[1], true);
+      else
+	streamer_write_string (ob, ob->main_stream, NULL, true);
+    }
+  else
+    streamer_write_string (ob, ob->main_stream, NULL, true);
 }
 
 
@@ -540,23 +581,11 @@ write_ts_common_tree_pointers (struct output_block *ob, tree expr, bool ref_p)
 static void
 write_ts_vector_tree_pointers (struct output_block *ob, tree expr, bool ref_p)
 {
+  unsigned i;
   /* Note that the number of elements for EXPR has already been emitted
      in EXPR's header (see streamer_write_tree_header).  */
-  unsigned int count = vector_cst_encoded_nelts (expr);
-  for (unsigned int i = 0; i < count; ++i)
-    stream_write_tree (ob, VECTOR_CST_ENCODED_ELT (expr, i), ref_p);
-}
-
-
-/* Write all pointer fields in the TS_POLY_INT_CST structure of EXPR to
-   output block OB.  If REF_P is true, write a reference to EXPR's pointer
-   fields.  */
-
-static void
-write_ts_poly_tree_pointers (struct output_block *ob, tree expr, bool ref_p)
-{
-  for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
-    stream_write_tree (ob, POLY_INT_CST_COEFF (expr, i), ref_p);
+  for (i = 0; i < VECTOR_CST_NELTS (expr); ++i)
+    stream_write_tree (ob, VECTOR_CST_ELT (expr, i), ref_p);
 }
 
 
@@ -583,15 +612,11 @@ write_ts_decl_minimal_tree_pointers (struct output_block *ob, tree expr,
   /* Drop names that were created for anonymous entities.  */
   if (DECL_NAME (expr)
       && TREE_CODE (DECL_NAME (expr)) == IDENTIFIER_NODE
-      && anon_aggrname_p (DECL_NAME (expr)))
+      && ANON_AGGRNAME_P (DECL_NAME (expr)))
     stream_write_tree (ob, NULL_TREE, ref_p);
   else
     stream_write_tree (ob, DECL_NAME (expr), ref_p);
-  if (TREE_CODE (expr) != TRANSLATION_UNIT_DECL
-      && ! DECL_CONTEXT (expr))
-    stream_write_tree (ob, (*all_translation_units)[0], ref_p);
-  else
-    stream_write_tree (ob, DECL_CONTEXT (expr), ref_p);
+  stream_write_tree (ob, DECL_CONTEXT (expr), ref_p);
 }
 
 
@@ -611,22 +636,16 @@ write_ts_decl_common_tree_pointers (struct output_block *ob, tree expr,
 
   stream_write_tree (ob, DECL_ATTRIBUTES (expr), ref_p);
 
-  /* On non-early-LTO enabled targets we claim we compiled with -g0
-     but dwarf2out still did its set_decl_origin_self game fooling
-     itself late.  Und that here since we won't have access to the
-     early generated abstract DIEs.  */
-  tree ao = DECL_ABSTRACT_ORIGIN (expr);
-  if (debug_info_level == DINFO_LEVEL_NONE
-      && ao == expr)
-    ao = NULL_TREE;
-  stream_write_tree (ob, ao, ref_p);
+  /* Do not stream DECL_ABSTRACT_ORIGIN.  We cannot handle debug information
+     for early inlining so drop it on the floor instead of ICEing in
+     dwarf2out.c.  */
 
-  if ((VAR_P (expr) || TREE_CODE (expr) == PARM_DECL)
+  if ((TREE_CODE (expr) == VAR_DECL
+       || TREE_CODE (expr) == PARM_DECL)
       && DECL_HAS_VALUE_EXPR_P (expr))
     stream_write_tree (ob, DECL_VALUE_EXPR (expr), ref_p);
 
-  if (VAR_P (expr)
-      && DECL_HAS_DEBUG_EXPR_P (expr))
+  if (TREE_CODE (expr) == VAR_DECL)
     stream_write_tree (ob, DECL_DEBUG_EXPR (expr), ref_p);
 }
 
@@ -736,8 +755,10 @@ write_ts_type_non_common_tree_pointers (struct output_block *ob, tree expr,
     stream_write_tree (ob, TYPE_ARG_TYPES (expr), ref_p);
 
   if (!POINTER_TYPE_P (expr))
-    stream_write_tree (ob, TYPE_MIN_VALUE_RAW (expr), ref_p);
-  stream_write_tree (ob, TYPE_MAX_VALUE_RAW (expr), ref_p);
+    stream_write_tree (ob, TYPE_MINVAL (expr), ref_p);
+  stream_write_tree (ob, TYPE_MAXVAL (expr), ref_p);
+  if (RECORD_OR_UNION_TYPE_P (expr))
+    stream_write_tree (ob, TYPE_BINFO (expr), ref_p);
 }
 
 
@@ -798,17 +819,14 @@ write_ts_block_tree_pointers (struct output_block *ob, tree expr, bool ref_p)
 
   /* Stream BLOCK_ABSTRACT_ORIGIN for the limited cases we can handle - those
      that represent inlined function scopes.
-     For the rest them on the floor instead of ICEing in dwarf2out.c, but
-     keep the notion of whether the block is an inlined block by refering
-     to itself for the sake of tree_nonartificial_location.  */
+     For the rest them on the floor instead of ICEing in dwarf2out.c.  */
   if (inlined_function_outer_scope_p (expr))
     {
       tree ultimate_origin = block_ultimate_origin (expr);
       stream_write_tree (ob, ultimate_origin, ref_p);
     }
   else
-    stream_write_tree (ob, (BLOCK_ABSTRACT_ORIGIN (expr)
-			    ? expr : NULL_TREE), ref_p);
+    stream_write_tree (ob, NULL_TREE, ref_p);
   /* Do not stream BLOCK_NONLOCALIZED_VARS.  We cannot handle debug information
      for early inlined BLOCKs so drop it on the floor instead of ICEing in
      dwarf2out.c.  */
@@ -911,9 +929,6 @@ streamer_write_tree_body (struct output_block *ob, tree expr, bool ref_p)
   if (CODE_CONTAINS_STRUCT (code, TS_VECTOR))
     write_ts_vector_tree_pointers (ob, expr, ref_p);
 
-  if (CODE_CONTAINS_STRUCT (code, TS_POLY_INT_CST))
-    write_ts_poly_tree_pointers (ob, expr, ref_p);
-
   if (CODE_CONTAINS_STRUCT (code, TS_COMPLEX))
     write_ts_complex_tree_pointers (ob, expr, ref_p);
 
@@ -985,6 +1000,16 @@ streamer_write_tree_header (struct output_block *ob, tree expr)
   tag = lto_tree_code_to_tag (code);
   streamer_write_record_start (ob, tag);
 
+  /* The following will cause bootstrap miscomparisons.  Enable with care.  */
+#ifdef LTO_STREAMER_DEBUG
+  /* This is used mainly for debugging purposes.  When the reader
+     and the writer do not agree on a streamed node, the pointer
+     value for EXPR can be used to track down the differences in
+     the debugger.  */
+  gcc_assert ((HOST_WIDE_INT) (intptr_t) expr == (intptr_t) expr);
+  streamer_write_hwi (ob, (HOST_WIDE_INT) (intptr_t) expr);
+#endif
+
   /* The text in strings and identifiers are completely emitted in
      the header.  */
   if (CODE_CONTAINS_STRUCT (code, TS_STRING))
@@ -992,12 +1017,7 @@ streamer_write_tree_header (struct output_block *ob, tree expr)
   else if (CODE_CONTAINS_STRUCT (code, TS_IDENTIFIER))
     write_identifier (ob, ob->main_stream, expr);
   else if (CODE_CONTAINS_STRUCT (code, TS_VECTOR))
-    {
-      bitpack_d bp = bitpack_create (ob->main_stream);
-      bp_pack_value (&bp, VECTOR_CST_LOG2_NPATTERNS (expr), 8);
-      bp_pack_value (&bp, VECTOR_CST_NELTS_PER_PATTERN (expr), 8);
-      streamer_write_bitpack (&bp);
-    }
+    streamer_write_hwi (ob, VECTOR_CST_NELTS (expr));
   else if (CODE_CONTAINS_STRUCT (code, TS_VEC))
     streamer_write_hwi (ob, TREE_VEC_LENGTH (expr));
   else if (CODE_CONTAINS_STRUCT (code, TS_BINFO))

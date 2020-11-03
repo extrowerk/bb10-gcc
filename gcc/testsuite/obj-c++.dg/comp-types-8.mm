@@ -1,5 +1,4 @@
 /* { dg-do compile } */
-/* { dg-additional-options "-Wno-return-type" } */
 
 /* We used to ICE because we removed the cast to List_linked*
    in -[ListIndex_linked next]. */

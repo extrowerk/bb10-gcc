@@ -2,8 +2,10 @@
 ! { dg-options "-fdump-tree-original" }
 !
 ! Test the fix for PR66079. The original problem was with the first
-! allocate statement. The rest of this testcase fixes problems found
-! whilst working on it!
+! allocate statement. The rest of the testcase fixes problems found
+! whilst working on it but these have been commented out in 5 branch
+! since the pre-requisite patches in 6 branch have not been back
+! ported.
 !
 ! Reported by Damian Rouson  <damian@sourceryinstitute.org>
 !
@@ -21,17 +23,17 @@ contains
     allocate(d,source=subdata(1)) ! memory was lost, now OK
     allocate(e,source=d) ! OK
     allocate(f,source=create (99)) ! memory was lost, now OK
-    if (d%b .ne. 1) STOP 1
-    if (e%b .ne. 1) STOP 2
-    if (f%b .ne. 99) STOP 3
+    if (d%b .ne. 1) call abort
+    if (e%b .ne. 1) call abort
+    if (f%b .ne. 99) call abort
     allocate (g, source = greeting1("good day"))
-    if (g .ne. "good day") STOP 4
+    if (g .ne. "good day") call abort
     allocate (h, source = greeting2("hello"))
-    if (h .ne. "hello") STOP 5
-    allocate (i, source = greeting3("hiya!"))
-    if (i .ne. "hiya!") STOP 6
-    call greeting4 (j, "Goodbye ") ! Test that dummy arguments are OK
-    if (j .ne. "Goodbye ") STOP 7
+    if (h .ne. "hello") call abort
+!    allocate (i, source = greeting3("hiya!"))
+!    if (i .ne. "hiya!") call abort
+!    call greeting4 (j, "Goodbye ") ! Test that dummy arguments are OK
+!    if (j .ne. "Goodbye ") call abort
   end subroutine
 
   function create (arg) result(res)
@@ -52,19 +54,19 @@ contains
     allocate(res, source = arg)
   end function
 
-  function greeting3 (arg) result(res)
-    character(5) :: arg
-    Character(5), allocatable :: res, res1
-    allocate(res, res1, source = arg) ! Caused an ICE
-    if (res1 .ne. res) STOP 8
-  end function
+!  function greeting3 (arg) result(res)
+!    character(5) :: arg
+!    Character(5), allocatable :: res, res1
+!    allocate(res, res1, source = arg) ! Caused an ICE
+!    if (res1 .ne. res) call abort
+!  end function
 
-  subroutine greeting4 (res, arg)
-    character(8), intent(in) :: arg
-    Character(8), allocatable, intent(out) :: res
-    allocate(res, source = arg) ! Caused an ICE
-  end subroutine
+!  subroutine greeting4 (res, arg)
+!    character(8), intent(in) :: arg
+!    Character(8), allocatable, intent(out) :: res
+!    allocate(res, source = arg) ! Caused an ICE
+!  end subroutine
 end
-! { dg-final { scan-tree-dump-times "builtin_malloc" 20 "original" } }
-! { dg-final { scan-tree-dump-times "builtin_free" 21 "original" } }
-
+! { dg-final { scan-tree-dump-times "builtin_malloc" 16 "original" } }
+! { dg-final { scan-tree-dump-times "builtin_free" 16 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

@@ -41,8 +41,8 @@ contains
     last = 0
     do i = from, to, step
       last = last + 1
-      if (values (last) .ne. i) STOP 1
+      if (values (last) .ne. i) call abort
     end do
-    if (size (values, dim = 1) .ne. last) STOP 2
+    if (size (values, dim = 1) .ne. last) call abort
   end subroutine test
 end program main

@@ -20,8 +20,7 @@ public:
 };
 }
 class B a, *b=&a;
-
-int main()
+main()
 {
   if (0)
     {
@@ -32,3 +31,4 @@ int main()
 }
 
 /* { dg-final { scan-tree-dump-not "A::foo" "ssa"} } */
+/* { dg-final { cleanup-tree-dump "ssa" } } */

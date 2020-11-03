@@ -46,13 +46,13 @@ PROGRAM test
   basics = basics_t (42, -1.5, (.5, .5), .FALSE.)
   IF (basics%i /= 42 .OR. basics%r /= -1.5 &
       .OR. basics%c /= (.5, .5) .OR. basics%l) THEN
-    STOP 1
+    CALL abort()
   END IF
 
   strings = strings_t ("hello", "abc", "this one is long")
   IF (strings%str1 /= "hello" .OR. strings%str2 /= "abc" &
       .OR. strings%long /= "this one i") THEN
-    STOP 2
+    CALL abort()
   END IF
 
   arrays = array_t ( (/ 1, 2, 3, 4 /), RESHAPE((/ 5, 6, 7, 8 /), (/ 2, 2 /)) )
@@ -60,7 +60,7 @@ PROGRAM test
       .OR. arrays%ints(4) /= 3 .OR. arrays%ints(5) /= 4 &
       .OR. arrays%matrix(1, 1) /= 5. .OR. arrays%matrix(2, 1) /= 6. &
       .OR. arrays%matrix(1, 2) /= 7. .OR. arrays%matrix(2, 2) /= 8.) THEN
-    STOP 3
+    CALL abort()
   END IF
 
   nestedStruct = nestedStruct_t (basics_t (42, -1.5, (.5, .5), .FALSE.), arrays)
@@ -68,7 +68,7 @@ PROGRAM test
       .OR. nestedStruct%basics%c /= (.5, .5) .OR. nestedStruct%basics%l &
       .OR. ANY(nestedStruct%arrays%ints /= arrays%ints) &
       .OR. ANY(nestedStruct%arrays%matrix /= arrays%matrix)) THEN
-    STOP 4
+    CALL abort()
   END IF
 
 END PROGRAM test

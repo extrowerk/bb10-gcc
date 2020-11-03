@@ -71,3 +71,4 @@ baz3 (void)
 }
 
 /* { dg-final { scan-tree-dump-not "t = D" "gimple"} } */
+/* { dg-final { cleanup-tree-dump "gimple" } } */

@@ -13,3 +13,4 @@ bf (void)
 
 /* { dg-final { scan-tree-dump-not "__builtin_stack_save" "optimized"} } */
 /* { dg-final { scan-tree-dump-not "__builtin_stack_restore" "optimized"} } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

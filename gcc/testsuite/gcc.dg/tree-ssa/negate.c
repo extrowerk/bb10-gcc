@@ -24,3 +24,4 @@ int g (int a, int b)
 
 /* There should be an addition now.  */
 /* { dg-final { scan-tree-dump-times "\\+" 1 "reassoc1"} } */
+/* { dg-final { cleanup-tree-dump "reassoc1" } } */

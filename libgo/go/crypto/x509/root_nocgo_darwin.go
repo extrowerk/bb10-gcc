@@ -6,6 +6,6 @@
 
 package x509
 
-func loadSystemRoots() (*CertPool, error) {
-	return execSecurityRoots()
+func initSystemRoots() {
+	systemRoots, _ = execSecurityRoots()
 }

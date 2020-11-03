@@ -1,6 +1,5 @@
 // PR c++/36628
 // { dg-do run { target c++11 } }
-// { dg-additional-options "-Wno-return-type" }
 
 #include <typeinfo>
 #include <string.h>
@@ -26,6 +25,4 @@ int main()
     return 2;
   if (strcmp (typeid(h).name(), "FOivE") != 0)
     return 3;
-
-  return 0;
 }

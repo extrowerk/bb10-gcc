@@ -15,7 +15,7 @@ contains
     implicit none
     type(my_c_ptr_2) :: my_ptr1
     if( .not. my_c_associated_2(my_ptr1)) then
-       STOP 1
+       call abort()
     end if
   end subroutine sub2
 
@@ -24,7 +24,7 @@ contains
     implicit none
     type(my_c_ptr_2) :: my_ptr1
     if( .not. my_c_associated(my_ptr1)) then
-       STOP 2
+       call abort()
     end if
   end subroutine sub3
 
@@ -33,7 +33,7 @@ contains
     implicit none
     type(my_c_ptr) :: my_ptr1
     if( .not. my_c_associated_3(my_ptr1)) then
-       STOP 3
+       call abort()
     end if
   end subroutine sub4
 

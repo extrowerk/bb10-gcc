@@ -1,5 +1,5 @@
 /* Special implementation of the SPREAD intrinsic
-   Copyright (C) 2008-2018 Free Software Foundation, Inc.
+   Copyright (C) 2008-2015 Free Software Foundation, Inc.
    Contributed by Thomas Koenig <tkoenig@gcc.gnu.org>, based on
    spread_generic.c written by Paul Brook <paul@nowt.org>
 
@@ -25,6 +25,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
 #include "libgfortran.h"
+#include <stdlib.h>
+#include <assert.h>
 #include <string.h>
 
 
@@ -72,8 +74,7 @@ spread_i2 (gfc_array_i2 *ret, const gfc_array_i2 *source,
 
       /* The front end has signalled that we need to populate the
 	 return array descriptor.  */
-      ret->dtype.rank = rrank;
-
+      ret->dtype = (source->dtype & ~GFC_DTYPE_RANK_MASK) | rrank;
       dim = 0;
       rs = 1;
       for (n = 0; n < rrank; n++)
@@ -228,8 +229,10 @@ spread_i2 (gfc_array_i2 *ret, const gfc_array_i2 *source,
 
 void
 spread_scalar_i2 (gfc_array_i2 *ret, const GFC_INTEGER_2 *source,
-			const index_type along, const index_type ncopies)
+			const index_type along, const index_type pncopies)
 {
+  int n;
+  int ncopies = pncopies;
   GFC_INTEGER_2 * restrict dest;
   index_type stride;
 
@@ -255,7 +258,7 @@ spread_scalar_i2 (gfc_array_i2 *ret, const GFC_INTEGER_2 *source,
   dest = ret->base_addr;
   stride = GFC_DESCRIPTOR_STRIDE(ret,0);
 
-  for (index_type n = 0; n < ncopies; n++)
+  for (n = 0; n < ncopies; n++)
     {
       *dest = *source;
       dest += stride;

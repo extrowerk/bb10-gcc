@@ -12,7 +12,7 @@ subs_ext (s64 a, int b, int c)
   if (d == 0)
     return a + c;
   else
-    return d;
+    return b + d + c;
 }
 
 int
@@ -23,7 +23,7 @@ subs_shift_ext (s64 a, int b, int c)
   if (d == 0)
     return a + c;
   else
-    return d;
+    return b + d + c;
 }
 
 int main ()
@@ -32,27 +32,27 @@ int main ()
   s64 y;
 
   x = subs_ext (0x13000002ll, 41, 15);
-  if (x != (int)(0x13000002ll - 41))
+  if (x != 318767121)
     abort ();
 
-  x = subs_ext (0x50505050ll, 0x50505050ll, 4);
-  if (x != (int)(0x50505050ll + 4))
+  x = subs_ext (0x50505050ll, 29, 4);
+  if (x != 1347440724)
     abort ();
 
   x = subs_ext (0x12121212121ll, 2, 14);
-  if (x != (int)(0x12121212121ll - 2))
+  if (x != 555819311)
     abort ();
 
   x = subs_shift_ext (0x123456789ll, 4, 12);
-  if (x != (int)(0x123456789ll - (4 << 3)))
+  if (x != 591751033)
     abort ();
 
-  x = subs_shift_ext (0x02020202ll << 3, 0x02020202ll, 8);
-  if (x != (int)(8 + (0x02020202ll << 3)))
+  x = subs_shift_ext (0x02020202ll, 9, 8);
+  if (x != 33685963)
     abort ();
 
   x = subs_shift_ext (0x987987987987ll, 23, 41);
-  if (x != (int)(0x987987987987ll - (23 << 3)))
+  if (x != -2020050673)
     abort ();
 
   return 0;

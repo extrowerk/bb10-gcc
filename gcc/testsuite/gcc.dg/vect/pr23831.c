@@ -9,3 +9,4 @@ void foo (void)
     bm[j] = bm[j] * 8;
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

@@ -8,7 +8,7 @@ program prog
   close (10)
   open (unit=10, file='PR19451.dat', action="read")
   write (10,*,err=20) "Hello World"
-  STOP 1
+  call abort()
   20 close (10, status='delete')
 end program
 

@@ -1,6 +1,5 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -Wall" } */
-/* { dg-require-effective-target nonlocal_goto } */
 
 #include <setjmp.h>
 

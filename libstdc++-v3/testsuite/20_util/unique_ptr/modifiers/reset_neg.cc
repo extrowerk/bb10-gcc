@@ -1,6 +1,7 @@
-// { dg-do compile { target c++11 } }
+// { dg-do compile }
+// { dg-options "-std=gnu++11" }
 
-// Copyright (C) 2008-2018 Free Software Foundation, Inc.
+// Copyright (C) 2008-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -21,37 +22,17 @@
 
 struct A
 {
-  virtual ~A() { }
 };
 
 struct B : A
 {
+  virtual ~B() { }
 };
 
-void
-test01()
+void test01()
 {
   std::unique_ptr<B[]> up;
-  up.reset(new A[3]);		// { dg-error "no matching function" }
-
-  std::unique_ptr<A[]> up2;
-  up2.reset(new B[3]);		// { dg-error "no matching function" }
+  up.reset(new A[3]);		// { dg-error "" }
 }
 
-struct A_pointer { operator A*() const { return nullptr; } };
-
-void
-test02()
-{
-  A_pointer p;
-  // Disallow conversions from user-defined pointer-like types
-  // for the array version
-  std::unique_ptr<A[]> upA3;
-  upA3.reset(p); // { dg-error "no matching function" }
-  std::unique_ptr<const A[]> cA3;
-  cA3.reset(p); // { dg-error "no matching function" }
-  std::unique_ptr<volatile A[]> vA3;
-  vA3.reset(p); // { dg-error "no matching function" }
-  std::unique_ptr<const volatile A[]> cvA3;
-  cvA3.reset(p); // { dg-error "no matching function" }
-}
+// { dg-prune-output "include" }

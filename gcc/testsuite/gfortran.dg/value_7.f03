@@ -6,7 +6,7 @@ program test
   character(len=13) :: chr
   chr =  'Fortran       '
   call sub1(chr)
-  if(chr /= 'Fortran       ') STOP 1
+  if(chr /= 'Fortran       ') call abort()
 contains
   subroutine sub1(a)
     character(len=13), VALUE :: a
@@ -16,7 +16,7 @@ contains
   subroutine sub2(a)
     character(len=13), VALUE :: a
     print *, a          
-    if(a /= 'Fortran rules') STOP 2
+    if(a /= 'Fortran rules') call abort()
   end subroutine sub2
 end program test
 

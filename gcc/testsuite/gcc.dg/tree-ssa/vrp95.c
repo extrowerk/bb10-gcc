@@ -47,3 +47,4 @@ range (unsigned long long int x, int y)
 
 /* { dg-final { scan-tree-dump-not "link_error" "vrp1" } } */
 /* { dg-final { scan-tree-dump "required_check" "vrp1" } } */
+/* { dg-final { cleanup-tree-dump "vrp1" } } */

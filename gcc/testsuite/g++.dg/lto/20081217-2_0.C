@@ -1,5 +1,5 @@
 struct A {
-  virtual int foo() { return 0; }
+  virtual int foo() {}
 };
 struct B {
   virtual int f() {return 1; }
@@ -13,7 +13,6 @@ C::C()
 {
 }
 
-int
 main()
 {
   C c;

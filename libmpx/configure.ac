@@ -39,7 +39,18 @@ AC_MSG_RESULT($LIBMPX_SUPPORTED)
 AM_CONDITIONAL(LIBMPX_SUPPORTED, [test "x$LIBMPX_SUPPORTED" = "xyes"])
 
 link_libmpx="-lpthread"
+link_mpx=""
+AC_MSG_CHECKING([whether ld accepts -z bndplt])
+echo "int main() {};" > conftest.c
+if AC_TRY_COMMAND([${CC} ${CFLAGS} -Wl,-z,bndplt -o conftest conftest.c 1>&AS_MESSAGE_LOG_FD])
+then
+    AC_MSG_RESULT([yes])
+    link_mpx="$link_mpx -z bndplt"
+else
+    AC_MSG_RESULT([no])
+fi
 AC_SUBST(link_libmpx)
+AC_SUBST(link_mpx)
 
 AM_INIT_AUTOMAKE(foreign no-dist no-dependencies)
 AM_ENABLE_MULTILIB(, ..)
@@ -117,10 +128,6 @@ AC_SUBST(enable_shared)
 AC_SUBST(enable_static)
 
 XCFLAGS="-Wall -Wextra"
-# Add CET specific flags if CET is enabled
-GCC_CET_FLAGS(CET_FLAGS)
-XCFLAGS="$XCFLAGS $CET_FLAGS"
-
 AC_SUBST(XCFLAGS)
 
 if test "${multilib}" = "yes"; then
@@ -128,9 +135,6 @@ if test "${multilib}" = "yes"; then
 else
   multilib_arg=
 fi
-
-# Determine what GCC version number to use in filesystem paths.
-GCC_BASE_VER
 
 AC_CONFIG_FILES([Makefile libmpx.spec])
 AC_CONFIG_HEADERS(config.h)

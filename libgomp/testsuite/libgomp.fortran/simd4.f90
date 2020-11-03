@@ -13,42 +13,42 @@
   end do
   s = foo (b)
   do i = 1, 1024
-    if (a(i).ne.((i - 513) * b(i))) STOP 1
+    if (a(i).ne.((i - 513) * b(i))) call abort
     if (i.lt.52.and.modulo (i - 52, 39).ne.0) then
-      if (b(i).ne.(modulo (i - 52, 39) - 39)) STOP 2
+      if (b(i).ne.(modulo (i - 52, 39) - 39)) call abort
     else
-      if (b(i).ne.(modulo (i - 52, 39))) STOP 3
+      if (b(i).ne.(modulo (i - 52, 39))) call abort
     end if
     a(i) = i - 513
   end do
-  if (k.ne.(4 + 3 * 1024).or.s.ne.1596127) STOP 4
+  if (k.ne.(4 + 3 * 1024).or.s.ne.1596127) call abort
   k = 4
   m = 2
   t = 1
   s = bar (b)
   do i = 1, 1024
-    if (a(i).ne.((i - 513) * b(i))) STOP 5
+    if (a(i).ne.((i - 513) * b(i))) call abort
     if (i.lt.52.and.modulo (i - 52, 39).ne.0) then
-      if (b(i).ne.(modulo (i - 52, 39) - 39)) STOP 6
+      if (b(i).ne.(modulo (i - 52, 39) - 39)) call abort
     else
-      if (b(i).ne.(modulo (i - 52, 39))) STOP 7
+      if (b(i).ne.(modulo (i - 52, 39))) call abort
     end if
     a(i) = i - 513
   end do
-  if (k.ne.(4 + 3 * 1024).or.s.ne.1596127) STOP 8
+  if (k.ne.(4 + 3 * 1024).or.s.ne.1596127) call abort
   k = 4
   m = 2
   t = 1
   s = baz (b)
   do i = 1, 1024
-    if (a(i).ne.((i - 513) * b(i))) STOP 9
+    if (a(i).ne.((i - 513) * b(i))) call abort
     if (i.lt.52.and.modulo (i - 52, 39).ne.0) then
-      if (b(i).ne.(modulo (i - 52, 39) - 39)) STOP 10
+      if (b(i).ne.(modulo (i - 52, 39) - 39)) call abort
     else
-      if (b(i).ne.(modulo (i - 52, 39))) STOP 11
+      if (b(i).ne.(modulo (i - 52, 39))) call abort
     end if
   end do
-  if (k.ne.(4 + 3 * 1024).or.s.ne.1596127) STOP 12
+  if (k.ne.(4 + 3 * 1024).or.s.ne.1596127) call abort
 contains
   function foo (p)
     integer :: p(1024), u, v, i, s, foo
@@ -63,8 +63,8 @@ contains
       s = s + p(i) + k
     end do
     !$omp end parallel do simd
-    if (i.ne.1025) STOP 13
-    if (u.ne.(36 + 4 + 3 * 1023).or.v.ne.(36 + 4 + 3 * 1024)) STOP 14
+    if (i.ne.1025) call abort
+    if (u.ne.(36 + 4 + 3 * 1023).or.v.ne.(36 + 4 + 3 * 1024)) call abort
     foo = s
   end function foo
   function bar (p)
@@ -80,8 +80,8 @@ contains
       s = s + p(i) + k
     end do
     !$omp endparalleldosimd
-    if (i.ne.1025) STOP 15
-    if (u.ne.(36 + 4 + 3 * 1023).or.v.ne.(36 + 4 + 3 * 1024)) STOP 16
+    if (i.ne.1025) call abort
+    if (u.ne.(36 + 4 + 3 * 1023).or.v.ne.(36 + 4 + 3 * 1024)) call abort
     bar = s
   end function bar
   function baz (p)
@@ -96,8 +96,8 @@ contains
       v = p(i) + k
       s = s + p(i) + k
     end do
-    if (i.ne.1025) STOP 17
-    if (u.ne.(36 + 4 + 3 * 1023).or.v.ne.(36 + 4 + 3 * 1024)) STOP 18
+    if (i.ne.1025) call abort
+    if (u.ne.(36 + 4 + 3 * 1023).or.v.ne.(36 + 4 + 3 * 1024)) call abort
     baz = s
   end function baz
 end

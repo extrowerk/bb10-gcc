@@ -1,4 +1,4 @@
-// Copyright (C) 2001-2018 Free Software Foundation, Inc.
+// Copyright (C) 2001-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -21,7 +21,8 @@
 #include <functional>
 #include <testsuite_new_operators.h>
 #include <testsuite_hooks.h>
-#include <testsuite_iterators.h>
+
+bool test __attribute__((unused)) = true;
 
 const int A[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17};
 const int B[] = {2, 4, 6, 8, 10, 12, 14, 16, 1, 3, 5, 7, 9, 11, 13, 15, 17};
@@ -42,16 +43,11 @@ void
 test01()
 {
   using std::stable_partition;
-  using __gnu_test::test_container;
-  using __gnu_test::forward_iterator_wrapper;
 
   int s1[N];
   std::copy(A, A + N, s1);
 
-  test_container<int, forward_iterator_wrapper> c(s1, s1+N);
-  forward_iterator_wrapper<int> expected = c.begin();
-  std::advance(expected, M);
-  VERIFY( stable_partition(c.begin(), c.end(), Pred()) == expected);
+  VERIFY( stable_partition(s1, s1 + N, Pred()) == s1 + M );
   VERIFY( std::equal(s1, s1 + N, B) );
 }
 

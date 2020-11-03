@@ -27,41 +27,40 @@ program test_qp
 !   print '(3a)', '>',trim(str4),'<'
 
    read (str1, *) fp3
-   if (fp1 /= fp3) STOP 1
+   if (fp1 /= fp3) call abort()
    read (str2, *) fp3
-   if (fp1 /= fp3) STOP 2
+   if (fp1 /= fp3) call abort()
    read (str3, *) fp4
-   if (abs (fp2 - fp4)/fp2 > epsilon(fp2)) STOP 3
+   if (abs (fp2 - fp4)/fp2 > epsilon(fp2)) call abort()
    read (str4, *) fp4
-   if (abs (fp2 - fp4)/fp2 > epsilon(fp2)) STOP 4
+   if (abs (fp2 - fp4)/fp2 > epsilon(fp2)) call abort()
 
    select case (qp)
      case (8)
-       if (str1 /= "   1.0000000000000000") STOP 5
-       if (str2 /= "1.0000000000000000") STOP 6
-       if (str3 /= "   1.4142135623730951") STOP 7
-       if (str4 /= "1.4142135623730951") STOP 8
+       if (str1 /= "   1.0000000000000000") call abort()
+       if (str2 /= "1.0000000000000000") call abort()
+       if (str3 /= "   1.4142135623730951") call abort()
+       if (str4 /= "1.4142135623730951") call abort()
 
      case (10)
-       if (str1 /= "   1.00000000000000000000") STOP 9
-       if (str2 /= "1.00000000000000000000") STOP 10
-       if (str3 /= "   1.41421356237309504876") STOP 11
-       if (str4 /= "1.41421356237309504876") STOP 12
+       if (str1 /= "   1.00000000000000000000") call abort()
+       if (str2 /= "1.00000000000000000000") call abort()
+       if (str3 /= "   1.41421356237309504876") call abort()
+       if (str4 /= "1.41421356237309504876") call abort()
 
      case (16)
+       if (str1 /= "   1.00000000000000000000000000000000000") call abort()
+       if (str2 /= "1.00000000000000000000000000000000000") call abort()
+
        if (digits(1.0_qp) == 113) then
          ! IEEE 754 binary 128 format
          ! e.g. libquadmath/__float128 on i686/x86_64/ia64
-         if (str1 /= "   1.00000000000000000000000000000000000") STOP 13
-         if (str2 /= "1.00000000000000000000000000000000000") STOP 14
-         if (str3 /= "   1.41421356237309504880168872420969798") STOP 15
-         if (str4 /= "1.41421356237309504880168872420969798") STOP 16
+         if (str3 /= "   1.41421356237309504880168872420969798") call abort()
+         if (str4 /= "1.41421356237309504880168872420969798") call abort()
        else if (digits(1.0_qp) == 106) then
          ! IBM binary 128 format
-         if (str1 /= "   1.0000000000000000000000000000000") STOP 17
-         if (str2 /= "1.0000000000000000000000000000000") STOP 18
-         if (str3(1:37) /= "   1.4142135623730950488016887242097") STOP 19
-         if (str4(1:34) /= "1.4142135623730950488016887242097") STOP 20
+         if (str3(1:37) /= "   1.41421356237309504880168872420969") call abort()
+         if (str4(1:34) /= "1.41421356237309504880168872420969") call abort()
        end if
 
        ! Do a libm run-time test
@@ -69,11 +68,11 @@ program test_qp
          real(qp), volatile :: fp2a
          fp2a = 2.0_qp
          fp2a = sqrt (fp2a)
-         if (abs (fp2a - fp2) > sqrt(2.0_qp)-nearest(sqrt(2.0_qp),-1.0_qp)) STOP 21
+         if (abs (fp2a - fp2) > sqrt(2.0_qp)-nearest(sqrt(2.0_qp),-1.0_qp)) call abort()
        end block
 
      case default
-       STOP 22
+       call abort()
    end select
 
 end program test_qp

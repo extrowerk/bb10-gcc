@@ -1,5 +1,4 @@
 // { dg-do run }
-// { dg-options "-Wno-deprecated" }
 
 extern "C" void abort (void);
 bool v, x1, x2, x3, x4, x5, x6;

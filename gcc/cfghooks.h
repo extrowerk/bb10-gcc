@@ -1,5 +1,5 @@
 /* Hooks for cfg representation specific functions.
-   Copyright (C) 2003-2018 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -21,7 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_CFGHOOKS_H
 #define GCC_CFGHOOKS_H
 
-#include "predict.h"
+/* Only basic-block.h includes this.  */
 
 /* Structure to gather statistic about profile consistency, per pass.
    An array of this structure, indexed by pass static number, is allocated
@@ -62,7 +62,7 @@ struct cfg_hooks
 
   /* Debugging.  */
   int (*verify_flow_info) (void);
-  void (*dump_bb) (FILE *, basic_block, int, dump_flags_t);
+  void (*dump_bb) (FILE *, basic_block, int, int);
   void (*dump_bb_for_graph) (pretty_printer *, basic_block);
 
   /* Basic CFG manipulation.  */
@@ -186,21 +186,9 @@ struct cfg_hooks
 };
 
 extern void verify_flow_info (void);
-
-/* Check control flow invariants, if internal consistency checks are
-   enabled.  */
-
-static inline void
-checking_verify_flow_info (void)
-{
-  /* TODO: Add a separate option for -fchecking=cfg.  */
-  if (flag_checking)
-    verify_flow_info ();
-}
-
-extern void dump_bb (FILE *, basic_block, int, dump_flags_t);
+extern void dump_bb (FILE *, basic_block, int, int);
 extern void dump_bb_for_graph (pretty_printer *, basic_block);
-extern void dump_flow_info (FILE *, dump_flags_t);
+extern void dump_flow_info (FILE *, int);
 
 extern edge redirect_edge_and_branch (edge, basic_block);
 extern basic_block redirect_edge_and_branch_force (edge, basic_block);
@@ -208,14 +196,12 @@ extern edge redirect_edge_succ_nodup (edge, basic_block);
 extern bool can_remove_branch_p (const_edge);
 extern void remove_branch (edge);
 extern void remove_edge (edge);
-extern edge split_block (basic_block, rtx);
-extern edge split_block (basic_block, gimple *);
+extern edge split_block (basic_block, void *);
 extern edge split_block_after_labels (basic_block);
 extern bool move_block_after (basic_block, basic_block);
 extern void delete_basic_block (basic_block);
 extern basic_block split_edge (edge);
-extern basic_block create_basic_block (rtx, rtx, basic_block);
-extern basic_block create_basic_block (gimple_seq, basic_block);
+extern basic_block create_basic_block (void *, void *, basic_block);
 extern basic_block create_empty_bb (basic_block);
 extern bool can_merge_blocks_p (basic_block, basic_block);
 extern void merge_blocks (basic_block, basic_block);

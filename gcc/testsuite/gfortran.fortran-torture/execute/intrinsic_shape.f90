@@ -8,7 +8,7 @@ program testbounds
    allocate (a(3:8, 6:7))
 
    j = shape (a);
-   if (any (j .ne. (/ 6, 2 /))) STOP 1
+   if (any (j .ne. (/ 6, 2 /))) call abort
 
    call test(a)
 contains
@@ -16,7 +16,7 @@ contains
 subroutine test (a)
    real, dimension (1:, 1:) :: a
 
-   if (any (shape (a) .ne. (/ 6, 2 /))) STOP 2
+   if (any (shape (a) .ne. (/ 6, 2 /))) call abort
 end subroutine
 end program
 

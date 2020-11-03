@@ -2,6 +2,6 @@
 
 template<int> struct A
 {
-  ~A() {}	// { dg-message "previous" }
+  ~A() {}	// { dg-error "with" }
   ~A() {}	// { dg-error "cannot be overloaded" }
 };

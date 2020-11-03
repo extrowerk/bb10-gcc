@@ -8,10 +8,7 @@ struct Klass
 {
   int implementation ();
   int magic ();
-
-  typedef int Func (Klass*);
-
-  static Func* resolver ();
+  static void *resolver ();
 };
 
 int Klass::implementation (void)
@@ -20,13 +17,11 @@ int Klass::implementation (void)
   return 0;
 }
 
-Klass::Func* Klass::resolver (void)
+void *Klass::resolver (void)
 {
-  /* GCC guarantees this conversion to be safe and the resulting pointer
-     usable to call the member function using ordinary (i.e., non-member)
-     function call syntax.  */
-
-  return reinterpret_cast<Func*>(&Klass::implementation);
+  int (Klass::*pmf) () = &Klass::implementation;
+  
+  return (void *)(int (*)(Klass *))(((Klass *)0)->*pmf);
 }
 
 int Klass::magic (void) __attribute__ ((ifunc ("_ZN5Klass8resolverEv")));
@@ -38,6 +33,6 @@ struct Klassier : Klass
 int main ()
 {
   Klassier obj;
-
+  
   return obj.magic () != 0;
 }

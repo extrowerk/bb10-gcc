@@ -35,7 +35,6 @@ class MainWindow  {
 void MainWindow::update_status(Result result) {
     switch (result) {
         status_frame.modify_bg(Gtk::STATE_NORMAL,Gdk::Color::Color("green")); // { dg-error "" }
-	// { dg-warning "statement will never be executed" "" { target *-*-* } .-1 }
         status_frame.modify_bg(Gtk::STATE_NORMAL,Gdk::Color::Color("red")); // { dg-error "" }
         status_label.set_text("Out of memory");
     }

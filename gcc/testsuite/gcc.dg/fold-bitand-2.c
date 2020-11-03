@@ -39,3 +39,4 @@ unsigned f5 (void)
 /* { dg-final { scan-tree-dump-times "return 1" 1 "original" } } */
 /* { dg-final { scan-tree-dump-times "return 2" 1 "original" } } */
 /* { dg-final { scan-tree-dump-times "return 3" 1 "original" } } */
+/* { dg-final { cleanup-tree-dump "original" } } */

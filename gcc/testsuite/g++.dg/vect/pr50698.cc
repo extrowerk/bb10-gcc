@@ -24,3 +24,4 @@ void sumS() {
 }
 
 // { dg-final { scan-tree-dump-not "run-time aliasing" "vect" } }
+// { dg-final { cleanup-tree-dump "vect" } }

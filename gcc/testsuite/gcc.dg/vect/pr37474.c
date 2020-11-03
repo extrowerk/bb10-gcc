@@ -34,4 +34,5 @@ void foo (unsigned int *__restrict__ pInput, unsigned int *__restrict__ pOutput)
     }
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */
 

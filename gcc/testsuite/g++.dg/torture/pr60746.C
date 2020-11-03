@@ -20,6 +20,4 @@ Two::run ()
       || list_arry[4][orig].getSize () > 0)
     {
     }
-
-  return 0;
 }

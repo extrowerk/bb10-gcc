@@ -8,15 +8,15 @@ program PR19754_2
    a = 1. ; b = 2. ;  i = 4
    c = b - floor( a / b )        ! this caused an ICE
    d = b - real(floor( a / b ))
-   if (any (c/=d)) STOP 1
+   if (any (c/=d)) call abort ()
    j = aint(b) - floor( a / b )  ! this caused an ICE
-   if (any(real(j)/=d)) STOP 2
+   if (any(real(j)/=d)) call abort ()
    c = i
-   if (any(real(i)/=c)) STOP 3
+   if (any(real(i)/=c)) call abort ()
    c = i + b                     ! this caused an ICE 
    d = real(i) + b
-   if (any(c/=d)) STOP 4
+   if (any(c/=d)) call abort ()
    j = i + aint (a)
    k = i + a                     ! this caused an ICE
-   if (any(j/=k)) STOP 5
+   if (any(j/=k)) call abort ()
 end program PR19754_2

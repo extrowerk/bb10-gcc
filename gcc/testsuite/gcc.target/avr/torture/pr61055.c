@@ -1,4 +1,4 @@
-/* { dg-do run { target { ! avr_tiny } } } */
+/* { dg-do run } */
 /* { dg-options { -fno-peephole2 } } */
 
 #include <stdlib.h>

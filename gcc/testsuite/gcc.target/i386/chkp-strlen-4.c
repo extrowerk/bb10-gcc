@@ -1,7 +1,8 @@
 /* { dg-do compile { target { ! x32 } } } */
 /* { dg-require-effective-target mempcpy } */
-/* { dg-options "-fcheck-pointer-bounds -mmpx -O2 -fdump-tree-strlen" } */
+/* { dg-options "-fcheck-pointer-bounds -mmpx -O2 -fdump-tree-strlen -D_GNU_SOURCE" } */
 /* { dg-final { scan-tree-dump-times "strlen" 1 "strlen" } } */
+/* { dg-final { cleanup-tree-dump "strlen" } } */
 
 #define USE_GNU
 #include "../../gcc.dg/strlenopt.h"

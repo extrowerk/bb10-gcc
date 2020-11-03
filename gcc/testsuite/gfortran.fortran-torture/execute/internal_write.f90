@@ -6,6 +6,6 @@
        IF (A.NE.'GCC       ') THEN
 !         PRINT*,'A was not filled correctly by internal write'
 !         PRINT*,' A = ',A
-          STOP 1
+          CALL ABORT
        ENDIF
        END

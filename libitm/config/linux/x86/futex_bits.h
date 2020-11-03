@@ -1,4 +1,4 @@
-/* Copyright (C) 2008-2018 Free Software Foundation, Inc.
+/* Copyright (C) 2008-2015 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU Transactional Memory Library (libitm).
@@ -28,15 +28,14 @@
 # endif
 
 static inline long
-sys_futex0 (std::atomic<int> *addr, int op, int val)
+sys_futex0 (std::atomic<int> *addr, long op, long val)
 {
+  register long r10 __asm__("%r10") = 0;
   long res;
 
-  register long r10 __asm__("%r10") = 0;
   __asm volatile ("syscall"
 		  : "=a" (res)
-		  : "0" (SYS_futex), "D" (addr), "S" (op),
-		    "d" (val), "r" (r10)
+		  : "0" (SYS_futex), "D" (addr), "S" (op), "d" (val), "r" (r10)
 		  : "r11", "rcx", "memory");
 
   return res;
@@ -46,6 +45,25 @@ sys_futex0 (std::atomic<int> *addr, int op, int val)
 # ifndef SYS_futex
 #  define SYS_futex	240
 # endif
+
+# ifdef __PIC__
+
+static inline long
+sys_futex0 (std::atomic<int> *addr, int op, int val)
+{
+  long res;
+
+  __asm volatile ("xchgl\t%%ebx, %2\n\t"
+		  "int\t$0x80\n\t"
+		  "xchgl\t%%ebx, %2"
+		  : "=a" (res)
+		  : "0"(SYS_futex), "r" (addr), "c"(op),
+		    "d"(val), "S"(0)
+		  : "memory");
+  return res;
+}
+
+# else
 
 static inline long
 sys_futex0 (std::atomic<int> *addr, int op, int val)
@@ -60,4 +78,5 @@ sys_futex0 (std::atomic<int> *addr, int op, int val)
   return res;
 }
 
+# endif /* __PIC__ */
 #endif /* __x86_64__ */

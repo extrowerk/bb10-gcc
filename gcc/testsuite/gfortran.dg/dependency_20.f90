@@ -7,3 +7,4 @@
   endwhere
 end
 ! { dg-final { scan-tree-dump-times "temp" 0 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

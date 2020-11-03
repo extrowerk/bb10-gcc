@@ -36,3 +36,4 @@ main(void)
 }
 
 /* { dg-final { scan-assembler-not "bl?\[ \t\]*memset" { target { arm_thumb2_ok } } } } */
+/* { dg-final { cleanup-saved-temps } } */

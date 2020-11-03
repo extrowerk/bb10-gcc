@@ -1,5 +1,4 @@
-/* { dg-require-effective-target trampolines } */
-
+#ifndef NO_TRAMPOLINES
 extern void abort (void);
 
 int x(int a, int b)
@@ -42,3 +41,6 @@ int main ()
 
   return 0;
 }
+#else
+int main() { return 0; }
+#endif

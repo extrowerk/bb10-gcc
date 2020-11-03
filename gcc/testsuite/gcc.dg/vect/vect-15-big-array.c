@@ -5,6 +5,8 @@
 
 #define N 128
 
+volatile int y = 0;
+
 __attribute__ ((noinline))
 int main1 ()
 {
@@ -15,7 +17,8 @@ int main1 ()
   for (i = 0; i <N; i++)
     {
       b[i] = i*3;
-      asm volatile ("" ::: "memory");
+      if (y)
+	abort ();
     }
 
   /* Not vectorizable yet (reverse access and forward access).  */
@@ -42,3 +45,4 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target { vect_perm && vect_hw_misalign } } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

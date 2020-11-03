@@ -3,5 +3,5 @@ namespace N {
 }
 
 int main() {
-  N::C(); // { dg-error "template|deduction" }
+  N::C(); // { dg-error "template" }
 }

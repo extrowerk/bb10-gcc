@@ -1,6 +1,6 @@
 // Random number extensions -*- C++ -*-
 
-// Copyright (C) 2012-2018 Free Software Foundation, Inc.
+// Copyright (C) 2012-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -40,10 +40,10 @@
 #include <array>
 #include <ext/cmath>
 #ifdef __SSE2__
-# include <emmintrin.h>
+# include <x86intrin.h>
 #endif
 
-#if defined(_GLIBCXX_USE_C99_STDINT_TR1) && defined(UINT32_C)
+#ifdef _GLIBCXX_USE_C99_STDINT_TR1
 
 namespace __gnu_cxx _GLIBCXX_VISIBILITY(default)
 {
@@ -112,7 +112,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       static constexpr result_type
       min()
-      { return 0; }
+      { return 0; };
 
       static constexpr result_type
       max()
@@ -183,11 +183,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       {
 #ifdef __SSE2__
 	__m128i _M_state[_M_nstate];
-#endif
-#ifdef __ARM_NEON
-#ifdef __aarch64__
-	__Uint32x4_t _M_state[_M_nstate];
-#endif
 #endif
 	uint32_t _M_state32[_M_nstate32];
 	result_type _M_stateT[state_size];
@@ -409,7 +404,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
-
       /** Parameter type. */
       struct param_type
       {
@@ -421,8 +415,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		   _RealType __beta_val = _RealType(1))
 	: _M_alpha(__alpha_val), _M_beta(__beta_val)
 	{
-	  __glibcxx_assert(_M_alpha > _RealType(0));
-	  __glibcxx_assert(_M_beta > _RealType(0));
+	  _GLIBCXX_DEBUG_ASSERT(_M_alpha > _RealType(0));
+	  _GLIBCXX_DEBUG_ASSERT(_M_beta > _RealType(0));
 	}
 
 	_RealType
@@ -437,10 +431,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	operator==(const param_type& __p1, const param_type& __p2)
 	{ return (__p1._M_alpha == __p2._M_alpha
 		  && __p1._M_beta == __p2._M_beta); }
-
-	friend bool
-	operator!=(const param_type& __p1, const param_type& __p2)
-	{ return !(__p1 == __p2); }
 
       private:
 	void
@@ -679,11 +669,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  else if (__dist == _Dimen * (_Dimen + 1) / 2)
 	    _M_init_lower(__meanbegin, __meanend, __varcovbegin, __varcovend);
 	  else
-	    {
-	      __glibcxx_assert(__dist == _Dimen);
-	      _M_init_diagonal(__meanbegin, __meanend,
-			       __varcovbegin, __varcovend);
-	    }
+	    _M_init_diagonal(__meanbegin, __meanend,
+			     __varcovbegin, __varcovend);
 	}
 
 	param_type(std::initializer_list<_RealType> __mean,
@@ -701,11 +688,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    _M_init_lower(__mean.begin(), __mean.end(),
 			  __varcov.begin(), __varcov.end());
 	  else
-	    {
-	      __glibcxx_assert(__varcov.size() == _Dimen);
-	      _M_init_diagonal(__mean.begin(), __mean.end(),
-			       __varcov.begin(), __varcov.end());
-	    }
+	    _M_init_diagonal(__mean.begin(), __mean.end(),
+			     __varcov.begin(), __varcov.end());
 	}
 
 	std::array<_RealType, _Dimen>
@@ -719,10 +703,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	friend bool
 	operator==(const param_type& __p1, const param_type& __p2)
 	{ return __p1._M_mean == __p2._M_mean && __p1._M_t == __p2._M_t; }
-
-	friend bool
-	operator!=(const param_type& __p1, const param_type& __p2)
-	{ return !(__p1 == __p2); }
 
       private:
 	template <typename _InputIterator1, typename _InputIterator2>
@@ -956,7 +936,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
-
       /** Parameter type. */
       struct param_type
       {
@@ -966,8 +945,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		   result_type __sigma_val = result_type(1))
 	: _M_nu(__nu_val), _M_sigma(__sigma_val)
 	{
-	  __glibcxx_assert(_M_nu >= result_type(0));
-	  __glibcxx_assert(_M_sigma > result_type(0));
+	  _GLIBCXX_DEBUG_ASSERT(_M_nu >= result_type(0));
+	  _GLIBCXX_DEBUG_ASSERT(_M_sigma > result_type(0));
 	}
 
 	result_type
@@ -980,11 +959,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 	friend bool
 	operator==(const param_type& __p1, const param_type& __p2)
-	{ return __p1._M_nu == __p2._M_nu && __p1._M_sigma == __p2._M_sigma; }
-
-	friend bool
-	operator!=(const param_type& __p1, const param_type& __p2)
-	{ return !(__p1 == __p2); }
+	{ return __p1._M_nu == __p2._M_nu
+	      && __p1._M_sigma == __p2._M_sigma; }
 
       private:
 	void _M_initialize();
@@ -1202,7 +1178,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
-
       /** Parameter type. */
       struct param_type
       {
@@ -1212,8 +1187,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		   result_type __omega_val = result_type(1))
 	: _M_mu(__mu_val), _M_omega(__omega_val)
 	{
-	  __glibcxx_assert(_M_mu >= result_type(0.5L));
-	  __glibcxx_assert(_M_omega > result_type(0));
+	  _GLIBCXX_DEBUG_ASSERT(_M_mu >= result_type(0.5L));
+	  _GLIBCXX_DEBUG_ASSERT(_M_omega > result_type(0));
 	}
 
 	result_type
@@ -1226,11 +1201,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 	friend bool
 	operator==(const param_type& __p1, const param_type& __p2)
-	{ return __p1._M_mu == __p2._M_mu && __p1._M_omega == __p2._M_omega; }
-
-	friend bool
-	operator!=(const param_type& __p1, const param_type& __p2)
-	{ return !(__p1 == __p2); }
+	{ return __p1._M_mu == __p2._M_mu
+	      && __p1._M_omega == __p2._M_omega; }
 
       private:
 	void _M_initialize();
@@ -1439,7 +1411,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
-
       /** Parameter type. */
       struct param_type
       {
@@ -1449,8 +1420,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		   result_type __mu_val = result_type(1))
 	: _M_alpha(__alpha_val), _M_mu(__mu_val)
 	{
-	  __glibcxx_assert(_M_alpha > result_type(0));
-	  __glibcxx_assert(_M_mu > result_type(0));
+	  _GLIBCXX_DEBUG_ASSERT(_M_alpha > result_type(0));
+	  _GLIBCXX_DEBUG_ASSERT(_M_mu > result_type(0));
 	}
 
 	result_type
@@ -1464,10 +1435,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	friend bool
 	operator==(const param_type& __p1, const param_type& __p2)
 	{ return __p1._M_alpha == __p2._M_alpha && __p1._M_mu == __p2._M_mu; }
-
-	friend bool
-	operator!=(const param_type& __p1, const param_type& __p2)
-	{ return !(__p1 == __p2); }
 
       private:
 	void _M_initialize();
@@ -1678,7 +1645,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
-
       /** Parameter type. */
       struct param_type
       {
@@ -1689,9 +1655,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		   result_type __nu_val = result_type(1))
 	: _M_lambda(__lambda_val), _M_mu(__mu_val), _M_nu(__nu_val)
 	{
-	  __glibcxx_assert(_M_lambda > result_type(0));
-	  __glibcxx_assert(_M_mu > result_type(0));
-	  __glibcxx_assert(_M_nu > result_type(0));
+	  _GLIBCXX_DEBUG_ASSERT(_M_lambda > result_type(0));
+	  _GLIBCXX_DEBUG_ASSERT(_M_mu > result_type(0));
+	  _GLIBCXX_DEBUG_ASSERT(_M_nu > result_type(0));
 	}
 
 	result_type
@@ -1708,15 +1674,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 	friend bool
 	operator==(const param_type& __p1, const param_type& __p2)
-	{
-	  return __p1._M_lambda == __p2._M_lambda
+	{ return __p1._M_lambda == __p2._M_lambda
 	      && __p1._M_mu == __p2._M_mu
-	      && __p1._M_nu == __p2._M_nu;
-	}
-
-	friend bool
-	operator!=(const param_type& __p1, const param_type& __p2)
-	{ return !(__p1 == __p2); }
+	      && __p1._M_nu == __p2._M_nu; }
 
       private:
 	void _M_initialize();
@@ -1924,7 +1884,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
-
       /** Parameter type. */
       struct param_type
       {
@@ -1934,7 +1893,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		   result_type __b = result_type(1))
 	: _M_a(__a), _M_b(__b)
 	{
-	  __glibcxx_assert(_M_a <= _M_b);
+	  _GLIBCXX_DEBUG_ASSERT(_M_a <= _M_b);
 	}
 
 	result_type
@@ -1948,10 +1907,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	friend bool
 	operator==(const param_type& __p1, const param_type& __p2)
 	{ return __p1._M_a == __p2._M_a && __p1._M_b == __p2._M_b; }
-
-	friend bool
-	operator!=(const param_type& __p1, const param_type& __p2)
-	{ return !(__p1 == __p2); }
 
       private:
 	void _M_initialize();
@@ -2165,7 +2120,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
-
       /** Parameter type. */
       struct param_type
       {
@@ -2175,8 +2129,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		   result_type __omega = result_type(1))
 	: _M_q(__q), _M_omega(__omega)
 	{
-	  __glibcxx_assert(_M_q > result_type(0));
-	  __glibcxx_assert(_M_q < result_type(1));
+	  _GLIBCXX_DEBUG_ASSERT(_M_q > result_type(0));
+	  _GLIBCXX_DEBUG_ASSERT(_M_q < result_type(1));
 	}
 
 	result_type
@@ -2189,11 +2143,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 	friend bool
 	operator==(const param_type& __p1, const param_type& __p2)
-	{ return __p1._M_q == __p2._M_q && __p1._M_omega == __p2._M_omega; }
-
-	friend bool
-	operator!=(const param_type& __p1, const param_type& __p2)
-	{ return !(__p1 == __p2); }
+	{ return __p1._M_q == __p2._M_q
+	      && __p1._M_omega == __p2._M_omega; }
 
       private:
 	void _M_initialize();
@@ -2402,7 +2353,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
-
       /** Parameter type. */
       struct param_type
       {
@@ -2414,9 +2364,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		   _RealType __c = _RealType(1))
 	: _M_a(__a), _M_b(__b), _M_c(__c)
 	{
-	  __glibcxx_assert(_M_a <= _M_b);
-	  __glibcxx_assert(_M_b <= _M_c);
-	  __glibcxx_assert(_M_a < _M_c);
+	  _GLIBCXX_DEBUG_ASSERT(_M_a <= _M_b);
+	  _GLIBCXX_DEBUG_ASSERT(_M_b <= _M_c);
+	  _GLIBCXX_DEBUG_ASSERT(_M_a < _M_c);
 
 	  _M_r_ab = (_M_b - _M_a) / (_M_c - _M_a);
 	  _M_f_ab_ac = (_M_b - _M_a) * (_M_c - _M_a);
@@ -2437,14 +2387,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 	friend bool
 	operator==(const param_type& __p1, const param_type& __p2)
-	{
-	  return (__p1._M_a == __p2._M_a && __p1._M_b == __p2._M_b
-		  && __p1._M_c == __p2._M_c);
-	}
-
-	friend bool
-	operator!=(const param_type& __p1, const param_type& __p2)
-	{ return !(__p1 == __p2); }
+	{ return (__p1._M_a == __p2._M_a && __p1._M_b == __p2._M_b
+		  && __p1._M_c == __p2._M_c); }
 
       private:
 
@@ -2676,8 +2620,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	: _M_mu(__mu), _M_kappa(__kappa)
 	{
 	  const _RealType __pi = __gnu_cxx::__math_constants<_RealType>::__pi;
-	  __glibcxx_assert(_M_mu >= -__pi && _M_mu <= __pi);
-	  __glibcxx_assert(_M_kappa >= _RealType(0));
+	  _GLIBCXX_DEBUG_ASSERT(_M_mu >= -__pi && _M_mu <= __pi);
+	  _GLIBCXX_DEBUG_ASSERT(_M_kappa >= _RealType(0));
 
 	  auto __tau = std::sqrt(_RealType(4) * _M_kappa * _M_kappa
 				 + _RealType(1)) + _RealType(1);
@@ -2696,11 +2640,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 	friend bool
 	operator==(const param_type& __p1, const param_type& __p2)
-	{ return __p1._M_mu == __p2._M_mu && __p1._M_kappa == __p2._M_kappa; }
-
-	friend bool
-	operator!=(const param_type& __p1, const param_type& __p2)
-	{ return !(__p1 == __p2); }
+	{ return (__p1._M_mu == __p2._M_mu
+		  && __p1._M_kappa == __p2._M_kappa); }
 
       private:
 	_RealType _M_mu;
@@ -2916,8 +2857,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		   result_type __n = 1)
 	: _M_N{__N}, _M_K{__K}, _M_n{__n}
 	{
-	  __glibcxx_assert(_M_N >= _M_K);
-	  __glibcxx_assert(_M_N >= _M_n);
+	  _GLIBCXX_DEBUG_ASSERT(_M_N >= _M_K);
+	  _GLIBCXX_DEBUG_ASSERT(_M_N >= _M_n);
 	}
 
 	result_type
@@ -2941,10 +2882,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	{ return (__p1._M_N == __p2._M_N)
 	      && (__p1._M_K == __p2._M_K)
 	      && (__p1._M_n == __p2._M_n); }
-
-	friend bool
-	operator!=(const param_type& __p1, const param_type& __p2)
-	{ return !(__p1 == __p2); }
 
       private:
 
@@ -3168,7 +3105,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     public:
       /** The type of the range of the distribution. */
       typedef _RealType result_type;
-
       /** Parameter type. */
       struct param_type
       {
@@ -3178,7 +3114,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		   result_type __b = result_type(1))
 	: _M_a(__a), _M_b(__b)
 	{
-	  __glibcxx_assert(_M_b > result_type(0));
+	  _GLIBCXX_DEBUG_ASSERT(_M_b > result_type(0));
 	}
 
 	result_type
@@ -3191,11 +3127,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 	friend bool
 	operator==(const param_type& __p1, const param_type& __p2)
-	{ return __p1._M_a == __p2._M_a && __p1._M_b == __p2._M_b; }
-
-	friend bool
-	operator!=(const param_type& __p1, const param_type& __p2)
-	{ return !(__p1 == __p2); }
+	{ return __p1._M_a == __p2._M_a
+	      && __p1._M_b == __p2._M_b; }
 
       private:
 	void _M_initialize();
@@ -3378,7 +3311,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     public:
       /** The type of the range of the distribution. */
       typedef std::array<_RealType, _Dimen> result_type;
-
       /** Parameter type. */
       struct param_type
       {
@@ -3387,12 +3319,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	{ }
 
 	friend bool
-	operator==(const param_type&, const param_type&)
+	operator==(const param_type& __p1, const param_type& __p2)
 	{ return true; }
-
-	friend bool
-	operator!=(const param_type&, const param_type&)
-	{ return false; }
       };
 
       /**
@@ -3559,229 +3487,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	       _RealType>& __d2)
     { return !(__d1 == __d2); }
 
-
-  /**
-   * @brief A distribution for random coordinates inside a unit sphere.
-   */
-  template<std::size_t _Dimen, typename _RealType = double>
-    class uniform_inside_sphere_distribution
-    {
-      static_assert(std::is_floating_point<_RealType>::value,
-		    "template argument not a floating point type");
-      static_assert(_Dimen != 0, "dimension is zero");
-
-    public:
-      /** The type of the range of the distribution. */
-      using result_type = std::array<_RealType, _Dimen>;
-
-      /** Parameter type. */
-      struct param_type
-      {
-	using distribution_type
-	  = uniform_inside_sphere_distribution<_Dimen, _RealType>;
-	friend class uniform_inside_sphere_distribution<_Dimen, _RealType>;
-
-	explicit
-	param_type(_RealType __radius = _RealType(1))
-	: _M_radius(__radius)
-	{
-	  __glibcxx_assert(_M_radius > _RealType(0));
-	}
-
-	_RealType
-	radius() const
-	{ return _M_radius; }
-
-	friend bool
-	operator==(const param_type& __p1, const param_type& __p2)
-	{ return __p1._M_radius == __p2._M_radius; }
-
-	friend bool
-	operator!=(const param_type& __p1, const param_type& __p2)
-	{ return !(__p1 == __p2); }
-
-      private:
-	_RealType _M_radius;
-      };
-
-      /**
-       * @brief Constructors.
-       */
-      explicit
-      uniform_inside_sphere_distribution(_RealType __radius = _RealType(1))
-      : _M_param(__radius), _M_uosd()
-      { }
-
-      explicit
-      uniform_inside_sphere_distribution(const param_type& __p)
-      : _M_param(__p), _M_uosd()
-      { }
-
-      /**
-       * @brief Resets the distribution state.
-       */
-      void
-      reset()
-      { _M_uosd.reset(); }
-
-      /**
-       * @brief Returns the @f$radius@f$ of the distribution.
-       */
-      _RealType
-      radius() const
-      { return _M_param.radius(); }
-
-      /**
-       * @brief Returns the parameter set of the distribution.
-       */
-      param_type
-      param() const
-      { return _M_param; }
-
-      /**
-       * @brief Sets the parameter set of the distribution.
-       * @param __param The new parameter set of the distribution.
-       */
-      void
-      param(const param_type& __param)
-      { _M_param = __param; }
-
-      /**
-       * @brief Returns the greatest lower bound value of the distribution.
-       * This function makes no sense for this distribution.
-       */
-      result_type
-      min() const
-      {
-	result_type __res;
-	__res.fill(0);
-	return __res;
-      }
-
-      /**
-       * @brief Returns the least upper bound value of the distribution.
-       * This function makes no sense for this distribution.
-       */
-      result_type
-      max() const
-      {
-	result_type __res;
-	__res.fill(0);
-	return __res;
-      }
-
-      /**
-       * @brief Generating functions.
-       */
-      template<typename _UniformRandomNumberGenerator>
-	result_type
-	operator()(_UniformRandomNumberGenerator& __urng)
-	{ return this->operator()(__urng, _M_param); }
-
-      template<typename _UniformRandomNumberGenerator>
-	result_type
-	operator()(_UniformRandomNumberGenerator& __urng,
-		   const param_type& __p);
-
-      template<typename _ForwardIterator,
-	       typename _UniformRandomNumberGenerator>
-	void
-	__generate(_ForwardIterator __f, _ForwardIterator __t,
-		   _UniformRandomNumberGenerator& __urng)
-	{ this->__generate(__f, __t, __urng, this->param()); }
-
-      template<typename _ForwardIterator,
-	       typename _UniformRandomNumberGenerator>
-	void
-	__generate(_ForwardIterator __f, _ForwardIterator __t,
-		   _UniformRandomNumberGenerator& __urng,
-		   const param_type& __p)
-	{ this->__generate_impl(__f, __t, __urng, __p); }
-
-      template<typename _UniformRandomNumberGenerator>
-	void
-	__generate(result_type* __f, result_type* __t,
-		   _UniformRandomNumberGenerator& __urng,
-		   const param_type& __p)
-	{ this->__generate_impl(__f, __t, __urng, __p); }
-
-      /**
-       * @brief Return true if two uniform on sphere distributions have
-       *        the same parameters and the sequences that would be
-       *        generated are equal.
-       */
-      friend bool
-      operator==(const uniform_inside_sphere_distribution& __d1,
-		 const uniform_inside_sphere_distribution& __d2)
-      { return __d1._M_param == __d2._M_param && __d1._M_uosd == __d2._M_uosd; }
-
-      /**
-       * @brief Inserts a %uniform_inside_sphere_distribution random number
-       *        distribution @p __x into the output stream @p __os.
-       *
-       * @param __os An output stream.
-       * @param __x  A %uniform_inside_sphere_distribution random number
-       *             distribution.
-       *
-       * @returns The output stream with the state of @p __x inserted or in
-       * an error state.
-       */
-      template<size_t _Dimen1, typename _RealType1, typename _CharT,
-	       typename _Traits>
-	friend std::basic_ostream<_CharT, _Traits>&
-	operator<<(std::basic_ostream<_CharT, _Traits>& __os,
-		   const __gnu_cxx::uniform_inside_sphere_distribution<_Dimen1,
-								   _RealType1>&
-		   );
-
-      /**
-       * @brief Extracts a %uniform_inside_sphere_distribution random number
-       *        distribution
-       * @p __x from the input stream @p __is.
-       *
-       * @param __is An input stream.
-       * @param __x  A %uniform_inside_sphere_distribution random number
-       *             generator engine.
-       *
-       * @returns The input stream with @p __x extracted or in an error state.
-       */
-      template<std::size_t _Dimen1, typename _RealType1, typename _CharT,
-	       typename _Traits>
-	friend std::basic_istream<_CharT, _Traits>&
-	operator>>(std::basic_istream<_CharT, _Traits>& __is,
-		   __gnu_cxx::uniform_inside_sphere_distribution<_Dimen1,
-								 _RealType1>&);
-
-    private:
-      template<typename _ForwardIterator,
-	       typename _UniformRandomNumberGenerator>
-	void
-	__generate_impl(_ForwardIterator __f, _ForwardIterator __t,
-			_UniformRandomNumberGenerator& __urng,
-			const param_type& __p);
-
-      param_type _M_param;
-      uniform_on_sphere_distribution<_Dimen, _RealType> _M_uosd;
-    };
-
-  /**
-   * @brief Return true if two uniform on sphere distributions are different.
-   */
-  template<std::size_t _Dimen, typename _RealType>
-    inline bool
-    operator!=(const __gnu_cxx::uniform_inside_sphere_distribution<_Dimen,
-	       _RealType>& __d1,
-	       const __gnu_cxx::uniform_inside_sphere_distribution<_Dimen,
-	       _RealType>& __d2)
-    { return !(__d1 == __d2); }
-
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace __gnu_cxx
 
-#include <ext/opt_random.h>
-#include <ext/random.tcc>
+#include "ext/opt_random.h"
+#include "random.tcc"
 
-#endif // _GLIBCXX_USE_C99_STDINT_TR1 && UINT32_C
+#endif // _GLIBCXX_USE_C99_STDINT_TR1
 
 #endif // C++11
 

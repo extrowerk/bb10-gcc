@@ -11,8 +11,8 @@ program streamio_3
   i = 0
   rewind(10)
   read(10,'(3(2x,i4/)/3(3x,i6/))') i
-  if (any(i.ne.(/(j,j=1,6)/))) STOP 1
+  if (any(i.ne.(/(j,j=1,6)/))) call abort()
   inquire(unit=10, access=myaccess)
-  if (myaccess.ne."STREAM") STOP 2
+  if (myaccess.ne."STREAM") call abort()
   close(10,status="delete")
 end program streamio_3

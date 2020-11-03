@@ -22,3 +22,4 @@ copy_sptr (sptr_t *dest, sptr_t src)
 }
 
 /* { dg-final { scan-rtl-dump "\\\(set \\\(reg:TI \[0-9\]*" "expand" } } */
+/* { dg-final { cleanup-rtl-dump "expand" } } */

@@ -27,8 +27,9 @@ type reader struct {
 	blockCRC     uint32
 	wantBlockCRC uint32
 	setupDone    bool // true if we have parsed the bzip2 header.
-	blockSize    int  // blockSize in bytes, i.e. 900 * 1000.
+	blockSize    int  // blockSize in bytes, i.e. 900 * 1024.
 	eof          bool
+	buf          []byte    // stores Burrows-Wheeler transformed data.
 	c            [256]uint // the `C' array for the inverse BWT.
 	tt           []uint32  // mirrors the `tt' array in the bzip2 source and contains the P array in the upper 24 bits.
 	tPos         uint32    // Index of the next output byte in tt.
@@ -75,7 +76,7 @@ func (bz2 *reader) setup(needMagic bool) error {
 	}
 
 	bz2.fileCRC = 0
-	bz2.blockSize = 100 * 1000 * (level - '0')
+	bz2.blockSize = 100 * 1024 * (int(level) - '0')
 	if bz2.blockSize > len(bz2.tt) {
 		bz2.tt = make([]uint32, bz2.blockSize)
 	}
@@ -163,7 +164,7 @@ func (bz2 *reader) readFromBlock(buf []byte) int {
 func (bz2 *reader) read(buf []byte) (int, error) {
 	for {
 		n := bz2.readFromBlock(buf)
-		if n > 0 || len(buf) == 0 {
+		if n > 0 {
 			bz2.blockCRC = updateCRC(bz2.blockCRC, buf[:n])
 			return n, nil
 		}
@@ -293,7 +294,7 @@ func (bz2 *reader) readBlock() (err error) {
 		if c >= numHuffmanTrees {
 			return StructuralError("tree index too large")
 		}
-		treeIndexes[i] = mtfTreeDecoder.Decode(c)
+		treeIndexes[i] = uint8(mtfTreeDecoder.Decode(c))
 	}
 
 	// The list of symbols for the move-to-front transform is taken from
@@ -318,9 +319,6 @@ func (bz2 *reader) readBlock() (err error) {
 		length := br.ReadBits(5)
 		for j := range lengths {
 			for {
-				if length < 1 || length > 20 {
-					return StructuralError("Huffman length out of range")
-				}
 				if !br.ReadBit() {
 					break
 				}
@@ -329,6 +327,9 @@ func (bz2 *reader) readBlock() (err error) {
 				} else {
 					length++
 				}
+			}
+			if length < 0 || length > 20 {
+				return StructuralError("Huffman length out of range")
 			}
 			lengths[j] = uint8(length)
 		}
@@ -352,7 +353,7 @@ func (bz2 *reader) readBlock() (err error) {
 	// variables accumulate the repeat count. See the Wikipedia page for
 	// details.
 	repeat := 0
-	repeatPower := 0
+	repeat_power := 0
 
 	// The `C' array (used by the inverse BWT) needs to be zero initialized.
 	for i := range bz2.c {
@@ -379,10 +380,10 @@ func (bz2 *reader) readBlock() (err error) {
 		if v < 2 {
 			// This is either the RUNA or RUNB symbol.
 			if repeat == 0 {
-				repeatPower = 1
+				repeat_power = 1
 			}
-			repeat += repeatPower << v
-			repeatPower <<= 1
+			repeat += repeat_power << v
+			repeat_power <<= 1
 
 			// This limit of 2 million comes from the bzip2 source
 			// code. It prevents repeat from overflowing.
@@ -399,7 +400,7 @@ func (bz2 *reader) readBlock() (err error) {
 				return StructuralError("repeats past end of block")
 			}
 			for i := 0; i < repeat; i++ {
-				b := mtf.First()
+				b := byte(mtf.First())
 				bz2.tt[bufIndex] = uint32(b)
 				bz2.c[b]++
 				bufIndex++
@@ -420,7 +421,7 @@ func (bz2 *reader) readBlock() (err error) {
 		// it's always referenced with a run-length of 1. Thus 0
 		// doesn't need to be encoded and we have |v-1| in the next
 		// line.
-		b := mtf.Decode(int(v - 1))
+		b := byte(mtf.Decode(int(v - 1)))
 		if bufIndex >= bz2.blockSize {
 			return StructuralError("data exceeds block size")
 		}

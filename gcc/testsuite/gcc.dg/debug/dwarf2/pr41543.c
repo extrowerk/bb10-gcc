@@ -11,3 +11,4 @@ foo (va_list ap)
 }
 
 /* { dg-final { scan-assembler-not "DW_AT_decl_file\[^\\r\\n\]*\(pr41543\.i\)" } } */
+/* { dg-final { cleanup-saved-temps } } */

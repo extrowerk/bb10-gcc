@@ -15,7 +15,6 @@ struct B : public A {
   }
 };
 
-int
 main() {
   try {
     B b;

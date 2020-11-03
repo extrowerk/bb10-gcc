@@ -1,6 +1,7 @@
 /* Check that the rotr and rotl instructions are generated.  */
 /* { dg-do compile }  */
 /* { dg-options "-O1" } */
+/* { dg-skip-if "" { "sh*-*-*" } { "-m5*" } { "" } }  */
 /* { dg-final { scan-assembler-times "rotr" 2 } } */
 /* { dg-final { scan-assembler-times "rotl" 3 } } */
 

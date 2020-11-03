@@ -11,8 +11,6 @@ class list
 	}
 	const list&       _M_get_Node_allocator() const
 	{
-	  static list l;
-	  return l;
 	}
 	list       _M_get_Tp_allocator() const
 	{

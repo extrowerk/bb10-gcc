@@ -26,6 +26,7 @@ int f3 (unsigned char c)
     return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "if " 0 "vrp1" } } */
+/* { dg-final { scan-tree-dump-times "if " 0 "vrp1" } } * /
+/* { dg-final { cleanup-tree-dump "vrp1" } } */
 
 

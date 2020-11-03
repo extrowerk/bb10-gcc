@@ -22,3 +22,4 @@ m()
  a(0);
 }
 /* { dg-final { scan-tree-dump-times "Inlining a into m" 1 "einline"  } } */
+/* { dg-final { cleanup-tree-dump "einline" } } */

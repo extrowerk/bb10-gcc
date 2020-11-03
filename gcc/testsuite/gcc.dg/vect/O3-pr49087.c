@@ -34,3 +34,4 @@ foo (int arg)
     }
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

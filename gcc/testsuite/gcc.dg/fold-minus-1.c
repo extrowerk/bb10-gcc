@@ -17,3 +17,4 @@ void g(vec*x,vec*y,vec*z){
 /* { dg-final { scan-tree-dump-not "/" "gimple"} } */
 /* { dg-final { scan-tree-dump-not "\\\+" "gimple"} } */
 /* { dg-final { scan-tree-dump "{ -13, -13 }" "gimple"} } */
+/* { dg-final { cleanup-tree-dump "gimple" } } */

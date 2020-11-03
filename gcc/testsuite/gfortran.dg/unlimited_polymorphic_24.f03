@@ -202,15 +202,17 @@ program main
     select case (i)
       case (1:10)
         read (output(i), '(i6)') j
-        if (j .ne. i) STOP 1
+        if (j .ne. i) call abort
       case (11)
-        if (output(i) .ne. "  1.23") STOP 2
+        if (output(i) .ne. "  1.23") call abort
       case (12)
-        if (output(i) .ne. "     A") STOP 3
+        if (output(i) .ne. "     A") call abort
       case (13)
-        if (output(i) .ne. "    BC") STOP 4
+        if (output(i) .ne. "    BC") call abort
       case (14)
-        if (output(i) .ne. "   DEF") STOP 5
+        if (output(i) .ne. "   DEF") call abort
     end select
   end do
 end program main
+
+! { dg-final { cleanup-modules "list_mod link_mod" } }

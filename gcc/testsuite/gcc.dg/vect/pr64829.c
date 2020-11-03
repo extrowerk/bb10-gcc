@@ -63,3 +63,4 @@ int fail ( const RMColorData * pInColor,
   return (0);
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

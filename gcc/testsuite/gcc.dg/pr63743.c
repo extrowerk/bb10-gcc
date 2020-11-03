@@ -4,8 +4,8 @@
 double
 libcall_dep (double x, double y)
 {
-  double tem = x + y;
-  return x * tem;
+  return x * (x + y);
 }
 
 /* { dg-final { scan-rtl-dump-times "Swap operands" 1 "expand" } } */
+/* { dg-final { cleanup-rtl-dump "expand" } } */

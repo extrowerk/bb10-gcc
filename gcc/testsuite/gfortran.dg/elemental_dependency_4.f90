@@ -1,6 +1,5 @@
 ! { dg-do run }
 ! { dg-additional-options "-fdump-tree-original" }
-! { dg-require-visibility "" }
 !
 ! Tests the fix for PR64952, in which the assignment to 'array' should
 ! have generated a temporary because of the references to the lhs in
@@ -55,49 +54,49 @@ PROGRAM Main
 
     ! Original testcase
     array = Nick(index,array)
-    If (any (array .ne. array(1))) STOP 1
+    If (any (array .ne. array(1))) call abort
 
     array = (/ (i+0.0, i = 1,5) /)
     ! This should not create a temporary
     array = Charles(array)
-    If (any (array .ne. index)) STOP 2
+    If (any (array .ne. index)) call abort
     ! { dg-final { scan-tree-dump-times "array\\\[\[^\\\]\]*\\\]\\s*=\\s*charles\\s*\\(&array\\\[\[^\\\]\]*\\\]\\);" 1 "original" } }
 
     ! Check use association of the function works correctly.
     arraym = Bill(index,arraym)
-    if (any (arraym .ne. arraym(1))) STOP 3
+    if (any (arraym .ne. arraym(1))) call abort
 
     ! Check siblings interact correctly.
     array = (/ (i+0.0, i = 1,5) /)
     array = Henry(index)
-    if (any (array .ne. array(1))) STOP 4
+    if (any (array .ne. array(1))) call abort
 
     array = (/ (i+0.0, i = 1,5) /)
     ! This should not create a temporary
     array = index + Henry2(0) - array
     ! { dg-final { scan-tree-dump-times "array\\\[\[^\\\]\]*\\\]\\s*=\\s*\\(\\(real\\(kind=4\\)\\)\\s*index\\\[\[^\\\]\]*\\\]\\s*\\+\\s*D.\\d*\\)\\s*-\\s*array\\\[\[^\\\]\]*\\\];" 1 "original" } }
-    if (any (array .ne. 15.0)) STOP 5
+    if (any (array .ne. 15.0)) call abort
 
     arraym = (/ (i+0.0, i = 1,5) /)
     arraym = Peter(index, arraym)
-    if (any (arraym .ne. 15.0)) STOP 6
+    if (any (arraym .ne. 15.0)) call abort
 
     array = (/ (i+0.0, i = 1,5) /)
     array = Robert(index)
-    if (any (arraym .ne. 15.0)) STOP 7
+    if (any (arraym .ne. 15.0)) call abort
 
     missme => Robert2
     array = (/ (i+0.0, i = 1,5) /)
     array = David(index)
-    if (any (arraym .ne. 15.0)) STOP 8
+    if (any (arraym .ne. 15.0)) call abort
 
     array = (/ (i+0.0, i = 1,5) /)
     array = James(index)
-    if (any (arraym .ne. 15.0)) STOP 9
+    if (any (arraym .ne. 15.0)) call abort
 
     array = (/ (i+0.0, i = 1,5) /)
     array = Romeo(index)
-    if (any (arraym .ne. 15.0)) STOP 10
+    if (any (arraym .ne. 15.0)) call abort
 
 CONTAINS
     ELEMENTAL FUNCTION Nick (n, x)
@@ -165,3 +164,4 @@ CONTAINS
     END FUNCTION Romeo
 END PROGRAM Main
 
+! { dg-final { cleanup-tree-dump "original" } }

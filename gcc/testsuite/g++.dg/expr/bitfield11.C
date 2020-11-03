@@ -6,7 +6,7 @@ struct A
   unsigned int a : 1;
 };
 
-void
+bool
 foo (A *x, A *y)
 {
   x->a = y ? y->a : true;

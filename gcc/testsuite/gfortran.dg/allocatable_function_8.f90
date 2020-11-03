@@ -1,5 +1,4 @@
 ! { dg-do run }
-! { dg-require-visibility "" }
 ! Test the fix for PR61459 and PR58883.
 !
 ! Contributed by John Wingate  <johnww@tds.net>
@@ -45,10 +44,10 @@ program main
    real, dimension(2) :: x = 1.0, y
 ! PR61459
    y = f_workaround (x)
-   if (any (f_segfault (x) .ne. y)) STOP 1
-   if (any (f_segfault_plus (x) .ne. y)) STOP 2
+   if (any (f_segfault (x) .ne. y)) call abort
+   if (any (f_segfault_plus (x) .ne. y)) call abort
 ! PR58883
-   if (any (foo () .ne. reshape([1,2,3,4,5,6,7,8],[2,4]))) STOP 3
+   if (any (foo () .ne. reshape([1,2,3,4,5,6,7,8],[2,4]))) call abort
 contains
   function foo()
     integer, allocatable  :: foo(:,:)

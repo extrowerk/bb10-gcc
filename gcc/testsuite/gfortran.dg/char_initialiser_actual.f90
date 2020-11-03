@@ -15,11 +15,11 @@ program char_initialiser
 contains
   subroutine sfoo(ch1, ch2)
      character*(*)               :: ch1, ch2
-     if (ch1 /= ch2) STOP 1
+     if (ch1 /= ch2) call abort ()
   end subroutine sfoo
   subroutine afoo(ch1, ch2)
      character*(*), dimension(:) :: ch1, ch2
-     if (any(ch1 /= ch2)) STOP 2
+     if (any(ch1 /= ch2)) call abort ()
   end subroutine afoo
   function pfoo(ch2)
      character*5, dimension(:), target  :: ch2

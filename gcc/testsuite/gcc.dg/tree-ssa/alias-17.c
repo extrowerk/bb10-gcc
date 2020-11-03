@@ -15,3 +15,4 @@ int foo(int x)
 }
 
 /* { dg-final { scan-tree-dump-not "NOTE: no flow-sensitive alias info for" "ccp2" } } */
+/* { dg-final { cleanup-tree-dump "ccp2" } } */

@@ -107,3 +107,4 @@ f13 (unsigned int a, unsigned int b)
 }
 
 /* { dg-final { scan-tree-dump-not "link_error" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

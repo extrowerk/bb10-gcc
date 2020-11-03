@@ -1,5 +1,5 @@
 /* Generic helper function for repacking arrays.
-   Copyright (C) 2003-2018 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran runtime library (libgfortran).
@@ -24,6 +24,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
 #include "libgfortran.h"
+#include <stdlib.h>
+#include <assert.h>
 #include <string.h>
 
 extern void internal_unpack (gfc_array_char *, const void *);
@@ -40,7 +42,8 @@ internal_unpack (gfc_array_char * d, const void * s)
   index_type dsize;
   char *dest;
   const char *src;
-  index_type size;
+  int n;
+  int size;
   int type_size;
 
   dest = d->base_addr;
@@ -53,6 +56,7 @@ internal_unpack (gfc_array_char * d, const void * s)
     {
     case GFC_DTYPE_INTEGER_1:
     case GFC_DTYPE_LOGICAL_1:
+    case GFC_DTYPE_DERIVED_1:
       internal_unpack_1 ((gfc_array_i1 *) d, (const GFC_INTEGER_1 *) s);
       return;
 
@@ -134,17 +138,7 @@ internal_unpack (gfc_array_char * d, const void * s)
 # endif
 #endif
 
-    default:
-      break;
-    }
-
-  switch (GFC_DESCRIPTOR_SIZE(d))
-    {
-    case 1:
-      internal_unpack_1 ((gfc_array_i1 *) d, (const GFC_INTEGER_1 *) s);
-      return;
-
-    case 2:
+    case GFC_DTYPE_DERIVED_2:
       if (GFC_UNALIGNED_2(d->base_addr) || GFC_UNALIGNED_2(s))
 	break;
       else
@@ -152,8 +146,7 @@ internal_unpack (gfc_array_char * d, const void * s)
 	  internal_unpack_2 ((gfc_array_i2 *) d, (const GFC_INTEGER_2 *) s);
 	  return;
 	}
-      
-    case 4:
+    case GFC_DTYPE_DERIVED_4:
       if (GFC_UNALIGNED_4(d->base_addr) || GFC_UNALIGNED_4(s))
 	break;
       else
@@ -162,7 +155,7 @@ internal_unpack (gfc_array_char * d, const void * s)
 	  return;
 	}
 
-    case 8:
+    case GFC_DTYPE_DERIVED_8:
       if (GFC_UNALIGNED_8(d->base_addr) || GFC_UNALIGNED_8(s))
 	break;
       else
@@ -172,7 +165,7 @@ internal_unpack (gfc_array_char * d, const void * s)
 	}
 
 #ifdef HAVE_GFC_INTEGER_16
-    case 16:
+    case GFC_DTYPE_DERIVED_16:
       if (GFC_UNALIGNED_16(d->base_addr) || GFC_UNALIGNED_16(s))
 	break;
       else
@@ -181,6 +174,7 @@ internal_unpack (gfc_array_char * d, const void * s)
 	  return;
 	}
 #endif
+
     default:
       break;
     }
@@ -189,7 +183,7 @@ internal_unpack (gfc_array_char * d, const void * s)
 
   dim = GFC_DESCRIPTOR_RANK (d);
   dsize = 1;
-  for (index_type n = 0; n < dim; n++)
+  for (n = 0; n < dim; n++)
     {
       count[n] = 0;
       stride[n] = GFC_DESCRIPTOR_STRIDE(d,n);
@@ -222,7 +216,7 @@ internal_unpack (gfc_array_char * d, const void * s)
       dest += stride0;
       count[0]++;
       /* Advance to the next source element.  */
-      index_type n = 0;
+      n = 0;
       while (count[n] == extent[n])
         {
           /* When we get to the end of a dimension, reset it and increment

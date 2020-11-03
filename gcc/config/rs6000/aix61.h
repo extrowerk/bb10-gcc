@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for IBM RS/6000 POWER running AIX V6.1.
-   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by David Edelsohn (edelsohn@gnu.org).
 
    This file is part of GCC.
@@ -56,7 +56,7 @@ do {									\
     {									\
       rs6000_current_cmodel = CMODEL_LARGE;				\
     }									\
-} while (0)
+} while (0);
 
 #undef ASM_SPEC
 #define ASM_SPEC "-u %{maix64:-a64 %{!mcpu*:-mppc64}} %(asm_cpu)"
@@ -80,7 +80,6 @@ do {									\
 %{mcpu=power6x: -mpwr6} \
 %{mcpu=power7: -mpwr7} \
 %{mcpu=power8: -mpwr8} \
-%{mcpu=power9: -mpwr9} \
 %{mcpu=powerpc: -mppc} \
 %{mcpu=rs64a: -mppc} \
 %{mcpu=603: -m603} \
@@ -168,7 +167,7 @@ do {									\
    %{!maix64:\
      %{pthread:%{pg:gcrt0_r%O%s}%{!pg:%{p:mcrt0_r%O%s}%{!p:crt0_r%O%s}}}\
      %{!pthread:%{pg:gcrt0%O%s}%{!pg:%{p:mcrt0%O%s}%{!p:crt0%O%s}}}}}\
-   %{shared:crtcxa_s%O%s;:crtcxa%O%s} crtdbase%O%s"
+   %{shared:crtcxa_s%O%s;:crtcxa%O%s}"
 
 /* AIX V5 typedefs ptrdiff_t as "long" while earlier releases used "int".  */
 
@@ -209,5 +208,7 @@ extern long long int    atoll(const char *);
 
 /* This target defines SUPPORTS_WEAK and TARGET_ASM_NAMED_SECTION,
    but does not have crtbegin/end.  */
+
+#define TARGET_USE_JCR_SECTION 0
 
 #define TARGET_AIX_VERSION 61

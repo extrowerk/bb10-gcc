@@ -47,21 +47,21 @@ program me
 
    b = .true.
    c = .true.
-   if (b * c) STOP 1
+   if (b * c) call abort
    c = .false.
-   if (.not. (b * c)) STOP 2
-   if (c * b) STOP 3
+   if (.not. (b * c)) call abort
+   if (c * b) call abort
    b = .false.
-   if (b * c) STOP 4
+   if (b * c) call abort
 
    i = 0
    b = i
-   if (b) STOP 5
+   if (b) call abort
    i = 2
    b = i
-   if (.not. b) STOP 6
+   if (.not. b) call abort
 
    j = 3
-   if ((i .foo. j) .ne. 5) STOP 7
+   if ((i .foo. j) .ne. 5) call abort
 end program
 

@@ -14,3 +14,4 @@ void test (int n)
    correct, this transformation is obviously harmful.  */
 
 /* { dg-final { scan-tree-dump-times "/" 0 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

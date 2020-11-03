@@ -17,3 +17,4 @@ bar ()
       fun_tab[i] = foo;
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

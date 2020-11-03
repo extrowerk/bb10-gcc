@@ -12,13 +12,13 @@
       anum = 0
       rewind(lun)
       read (lun, *) anum
-      if (anum.ne.5) STOP 1
+      if (anum.ne.5) call abort
       open (looney, status='scratch')
       write(looney,*)bin
       bin = 0
       rewind (looney)
       read (looney,*)bin
-      if (bin.ne.23) STOP 2
+      if (bin.ne.23) call abort
       close (lun)
       close (looney)
       end

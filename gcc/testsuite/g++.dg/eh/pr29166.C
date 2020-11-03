@@ -1,6 +1,5 @@
 // PR 29166: r4-r7 corrupted when unwinding.
 // { dg-do run }
-// { dg-additional-options "-Wno-register" }
 
 class Ex 
 { 

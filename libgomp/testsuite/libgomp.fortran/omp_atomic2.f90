@@ -11,28 +11,28 @@
   n = 20
   call foo (r, d, n)
 
-  if (n .ne. 22) STOP 1
-  if (any (r .ne. 33)) STOP 2
+  if (n .ne. 22) call abort
+  if (any (r .ne. 33)) call abort
 
   i = 1
   j = 18
   k = 23
 !$omp atomic
   i = min (i, j, k, n)
-  if (i .ne. 1) STOP 3
+  if (i .ne. 1) call abort
 !$omp atomic
   i = max (j, n, k, i)
-  if (i .ne. 23) STOP 4
+  if (i .ne. 23) call abort
 
   a = 1
   b = 18
   c = 23
 !$omp atomic
   a = min (a, b, c)
-  if (a .ne. 1) STOP 5
+  if (a .ne. 1) call abort
 !$omp atomic
   a = max (a, b, c)
-  if (a .ne. 23) STOP 6
+  if (a .ne. 23) call abort
 
 contains
   function bar (i)

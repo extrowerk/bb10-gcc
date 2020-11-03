@@ -1,11 +1,11 @@
-// { dg-do run }
-// { dg-options "-pthread"  }
-// { dg-require-effective-target c++11 }
-// { dg-require-effective-target pthread }
+// { dg-do run { target *-*-freebsd* *-*-dragonfly* *-*-netbsd* *-*-linux* *-*-gnu* *-*-solaris* *-*-cygwin *-*-darwin* powerpc-ibm-aix* } }
+// { dg-options " -std=gnu++11 -pthread" { target *-*-freebsd* *-*-dragonfly* *-*-netbsd* *-*-linux* *-*-gnu* powerpc-ibm-aix* } }
+// { dg-options " -std=gnu++11 -pthreads" { target *-*-solaris* } }
+// { dg-options " -std=gnu++11 " { target *-*-cygwin *-*-darwin* } }
 // { dg-require-cstdint "" }
 // { dg-require-gthreads "" }
 
-// Copyright (C) 2008-2018 Free Software Foundation, Inc.
+// Copyright (C) 2008-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -35,6 +35,7 @@ struct user_lock
 
   void lock()
   {
+    bool test __attribute__((unused)) = true;
     VERIFY( !is_locked );
     is_locked = true;
   }
@@ -44,6 +45,7 @@ struct user_lock
 
   void unlock()
   {
+    bool test __attribute__((unused)) = true;
     VERIFY( is_locked );
     is_locked = false;
   }
@@ -54,6 +56,8 @@ private:
 
 int main()
 {
+  bool test __attribute__((unused)) = true;
+
   try
     {
       std::mutex m1;

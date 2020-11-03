@@ -1,6 +1,4 @@
 /* { dg-do compile } */
-/* { dg-require-effective-target arm_cortex_m } */
-/* { dg-require-effective-target arm_thumb2 } */
 /* { dg-options "-O2" }  */
 int test (int a, int b)
 {
@@ -19,6 +17,4 @@ int test (int a, int b)
     r -= 3;
   return r;
 }
-/* Ensure there is no IT block with more than 2 instructions, ie. we only allow
-   IT, ITT and ITE.  */
-/* { dg-final { scan-assembler-not "\\sit\[te\]{2}" } } */
+/* { dg-final { scan-assembler-times "\tit" 2 { target arm_thumb2 } } } */

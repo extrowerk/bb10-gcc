@@ -9,16 +9,17 @@ main (int argc, char **argv)
   int i;
   int num_devices;
   int devnum;
-  acc_device_t devtype = acc_device_default;
+  acc_device_t devtype = acc_device_host;
+
+#if ACC_DEVICE_TYPE_nvidia
+  devtype = acc_device_nvidia;
+#endif
 
   num_devices = acc_get_num_devices (devtype);
   if (num_devices == 0)
-    abort ();
+    return 0;
 
   acc_init (devtype);
-
-  if (num_devices != acc_get_num_devices (devtype))
-    abort ();
 
   for (i = 0; i < num_devices; i++)
     {
@@ -30,7 +31,8 @@ main (int argc, char **argv)
 
   acc_shutdown (devtype);
 
-  if (num_devices != acc_get_num_devices (devtype))
+  num_devices = acc_get_num_devices (devtype);
+  if (num_devices == 0)
     abort ();
 
   for (i = 0; i < num_devices; i++)

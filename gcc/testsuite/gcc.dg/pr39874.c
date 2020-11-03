@@ -24,5 +24,6 @@ void test2(char *signature)
 
 /* { dg-final { scan-tree-dump-times " == 15" 2 "optimized" } } */
 /* { dg-final { scan-tree-dump-not " == 3" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */
 
 

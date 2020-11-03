@@ -43,4 +43,5 @@ int main ()
 }
 
 /* { dg-final { scan-tree-dump-times "OUTER LOOP VECTORIZED" 1 "vect" { xfail { vect_no_align && { ! vect_hw_misalign } } } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */
 

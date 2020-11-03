@@ -16,7 +16,7 @@ MODULE mod_t
   END INTERFACE
 
   INTERFACE OPERATOR(.FOO.)
-    MODULE PROCEDURE t_bar
+    MODULE PROCEDURE t_bar                  ! { dg-error "Ambiguous interfaces" }
   END INTERFACE
 
   ! intrinsic operator
@@ -29,7 +29,7 @@ MODULE mod_t
   END INTERFACE
 
   INTERFACE OPERATOR(==)
-    MODULE PROCEDURE t_bar
+    MODULE PROCEDURE t_bar                  ! { dg-error "Ambiguous interfaces" }
   END INTERFACE
 
   INTERFACE OPERATOR(.eq.)
@@ -37,12 +37,12 @@ MODULE mod_t
   END INTERFACE
 
 CONTAINS
-  LOGICAL FUNCTION t_foo(this, other)  ! { dg-error "Ambiguous interfaces" }
+  LOGICAL FUNCTION t_foo(this, other)
     TYPE(t), INTENT(in) :: this, other
     t_foo = .FALSE.
   END FUNCTION
 
-  LOGICAL FUNCTION t_bar(this, other)  ! { dg-error "Ambiguous interfaces" }
+  LOGICAL FUNCTION t_bar(this, other)
     TYPE(t), INTENT(in) :: this, other
     t_bar = .FALSE.
   END FUNCTION

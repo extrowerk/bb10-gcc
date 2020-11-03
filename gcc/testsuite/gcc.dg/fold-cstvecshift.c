@@ -10,3 +10,4 @@ void f (vec *r)
 }
 
 /* { dg-final { scan-tree-dump "{ 4, 6, 8, 10 }" "ccp1"} } */
+/* { dg-final { cleanup-tree-dump "ccp1" } } */

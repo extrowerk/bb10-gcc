@@ -1,5 +1,5 @@
 // { dg-do assemble  }
-// { dg-options "-O1 -fno-inline-functions -Wno-return-type" }
+// { dg-options "-O1 -fno-inline-functions" }
 
 struct A
 {

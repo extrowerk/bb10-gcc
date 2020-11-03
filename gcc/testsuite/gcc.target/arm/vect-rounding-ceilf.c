@@ -18,3 +18,4 @@ foo ()
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_call_ceilf } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

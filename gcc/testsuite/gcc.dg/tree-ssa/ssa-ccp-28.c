@@ -23,3 +23,4 @@ int main(void)
 
 /* { dg-final { scan-tree-dump-times "= p;" 0 "ccp1" } } */
 /* { dg-final { scan-tree-dump-times "= q;" 0 "ccp1" } } */
+/* { dg-final { cleanup-tree-dump "ccp1" } } */

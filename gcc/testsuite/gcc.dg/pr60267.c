@@ -11,3 +11,4 @@ foo (int *a, int *b, int *c)
     a[i] = b[i] * c[i];
 }
 
+/* { dg-final { cleanup-saved-temps } } */

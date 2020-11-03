@@ -13,24 +13,24 @@ str = repeat('X', len(str))
 allocate(a[*], stat=stat, errmsg=str)
 !print *, stat, trim(str)
 if (stat == 0 .or. str /= "Attempt to allocate an allocated object") &
-  STOP 1
+  call abort ()
 
 str = repeat('Y', len(str))
 allocate(b(2)[*], stat=stat, errmsg=str)
 !print *, stat, trim(str)
 if (stat == 0 .or. str /= "Attempt to allocate an allocated object") &
-  STOP 2
+  call abort ()
 
 str = repeat('Q', len(str))
 allocate(c, stat=stat, errmsg=str)
 !print *, stat, trim(str)
 if (stat == 0 .or. str /= "Attempt to allocate an allocated object") &
-  STOP 3
+  call abort ()
 
 str = repeat('P', len(str))
 allocate(d(3), stat=stat, errmsg=str)
 !print *, stat, trim(str)
 if (stat == 0 .or. str /= "Attempt to allocate an allocated object") &
-  STOP 4
+  call abort ()
 
 end

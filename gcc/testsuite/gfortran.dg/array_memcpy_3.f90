@@ -12,3 +12,4 @@ subroutine bar(x)
 end subroutine
 
 ! { dg-final { scan-tree-dump-times "memcpy|ref-all\[^\\n\]*ref-all" 2 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

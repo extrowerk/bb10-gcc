@@ -1,5 +1,5 @@
 ! { dg-do run { xfail *-*-* } }
-! { dg-options "-std=f2008 " }
+! { dg-options "-std=f2008 -fall-intrinsics" }
 
 ! Check for correct scope of variables that are implicit typed within a BLOCK.
 ! This is not yet implemented, thus XFAIL'ed the test.
@@ -13,5 +13,5 @@ PROGRAM main
   END BLOCK
 
   ! Here, we should still access the same a that was set above.
-  IF (a /= 42) STOP 1
+  IF (a /= 42) CALL abort ()
 END PROGRAM main

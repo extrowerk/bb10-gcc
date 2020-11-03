@@ -13,9 +13,9 @@
     end do
   do i = 1, 151
     if (mod (i, 31) .eq. 1) then
-      if (a(i) .ne. 2) STOP 1
+      if (a(i) .ne. 2) call abort
     else
-      if (a(i) .ne. 0) STOP 2
+      if (a(i) .ne. 0) call abort
     end if
   end do
 end

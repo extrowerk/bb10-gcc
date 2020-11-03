@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha w/ELF.
-   Copyright (C) 1996-2018 Free Software Foundation, Inc.
+   Copyright (C) 1996-2015 Free Software Foundation, Inc.
    Contributed by Richard Henderson (rth@tamu.edu).
 
 This file is part of GCC.
@@ -22,7 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #define CC1_SPEC  "%{G*}"
 
 #undef  ASM_SPEC
-#define ASM_SPEC  "%{G*} %{relax:-relax} %{!gstabs*:-no-mdebug}%{gstabs*:-mdebug} %{mcpu=*:-m%*}"
+#define ASM_SPEC  "%{G*} %{relax:-relax} %{!gstabs*:-no-mdebug}%{gstabs*:-mdebug}"
 
 /* Do not output a .file directive at the beginning of the input file.  */
  
@@ -168,5 +168,5 @@ extern int alpha_this_gpdisp_sequence_number;
    I imagine that other systems will catch up.  In the meantime, it
    doesn't harm to make sure that the data exists to be used later.  */
 #if defined(HAVE_LD_EH_FRAME_HDR)
-#define LINK_EH_SPEC "%{!static|static-pie:--eh-frame-hdr} "
+#define LINK_EH_SPEC "%{!static:--eh-frame-hdr} "
 #endif

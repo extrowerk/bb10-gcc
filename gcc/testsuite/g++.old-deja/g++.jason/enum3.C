@@ -1,5 +1,5 @@
 // { dg-do assemble  }
-// { dg-options "-Wall -Wno-register" }
+// { dg-options "-Wall" }
 
 enum tristate { no = -1, maybe, yes };
 

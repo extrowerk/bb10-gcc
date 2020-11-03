@@ -102,8 +102,6 @@ const (
 	stateAttr
 	// stateURL occurs inside an HTML attribute whose content is a URL.
 	stateURL
-	// stateSrcset occurs inside an HTML srcset attribute.
-	stateSrcset
 	// stateJS occurs inside an event handler or script element.
 	stateJS
 	// stateJSDqStr occurs inside a JavaScript double quoted string.
@@ -147,7 +145,6 @@ var stateNames = [...]string{
 	stateRCDATA:      "stateRCDATA",
 	stateAttr:        "stateAttr",
 	stateURL:         "stateURL",
-	stateSrcset:      "stateSrcset",
 	stateJS:          "stateJS",
 	stateJSDqStr:     "stateJSDqStr",
 	stateJSSqStr:     "stateJSSqStr",
@@ -288,8 +285,7 @@ type element uint8
 const (
 	// elementNone occurs outside a special tag or special element body.
 	elementNone element = iota
-	// elementScript corresponds to the raw text <script> element
-	// with JS MIME type or no type attribute.
+	// elementScript corresponds to the raw text <script> element.
 	elementScript
 	// elementStyle corresponds to the raw text <style> element.
 	elementStyle
@@ -314,8 +310,7 @@ func (e element) String() string {
 	return fmt.Sprintf("illegal element %d", int(e))
 }
 
-// attr identifies the current HTML attribute when inside the attribute,
-// that is, starting from stateAttrName until stateTag/stateText (exclusive).
+// attr identifies the most recent HTML attribute when inside a start tag.
 type attr uint8
 
 const (
@@ -323,23 +318,17 @@ const (
 	attrNone attr = iota
 	// attrScript corresponds to an event handler attribute.
 	attrScript
-	// attrScriptType corresponds to the type attribute in script HTML element
-	attrScriptType
 	// attrStyle corresponds to the style attribute whose value is CSS.
 	attrStyle
 	// attrURL corresponds to an attribute whose value is a URL.
 	attrURL
-	// attrSrcset corresponds to a srcset attribute.
-	attrSrcset
 )
 
 var attrNames = [...]string{
-	attrNone:       "attrNone",
-	attrScript:     "attrScript",
-	attrScriptType: "attrScriptType",
-	attrStyle:      "attrStyle",
-	attrURL:        "attrURL",
-	attrSrcset:     "attrSrcset",
+	attrNone:   "attrNone",
+	attrScript: "attrScript",
+	attrStyle:  "attrStyle",
+	attrURL:    "attrURL",
 }
 
 func (a attr) String() string {

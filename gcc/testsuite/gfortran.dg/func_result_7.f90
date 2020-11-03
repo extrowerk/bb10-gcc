@@ -4,8 +4,8 @@
 !
 ! Contributed by Vittorio Zecca <zeccav@gmail.com>
 
-function fun() result(f)  ! { dg-error "RESULT variable" } 
-  pointer fun             ! { dg-error "RESULT variable" }
-  dimension fun(1)        ! { dg-error "RESULT variable" }
+function fun() result(f)
+  pointer fun       ! { dg-error "not allowed" }
+  dimension fun(1)  ! { dg-error "not allowed" }
   f=0
 end

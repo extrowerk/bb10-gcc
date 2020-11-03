@@ -33,3 +33,4 @@ int f1()
 /* 4 transactions overall, two of them write to global:  */
 /* { dg-final { scan-tree-dump-times "ITM_RU4\\s*\\(&global" 4 "tmmark" } } */
 /* { dg-final { scan-tree-dump-times "ITM_WU4\\s*\\(&global" 2 "tmmark" } } */
+/* { dg-final { cleanup-tree-dump "tmmark" } } */

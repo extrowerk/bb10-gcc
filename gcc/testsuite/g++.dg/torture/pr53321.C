@@ -2,7 +2,7 @@
 // { dg-require-profiling "-fprofile-generate" }
 // { dg-options "-fprofile-generate" }
 
-typedef __SIZE_TYPE__ size_t;
+typedef long unsigned int size_t;
 
 extern "C"
 {

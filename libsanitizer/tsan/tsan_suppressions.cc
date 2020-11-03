@@ -19,7 +19,6 @@
 #include "tsan_mman.h"
 #include "tsan_platform.h"
 
-#if !SANITIZER_GO
 // Suppressions for true/false positives in standard libraries.
 static const char *const std_suppressions =
 // Libstdc++ 4.4 has data races in std::string.
@@ -32,117 +31,92 @@ static const char *const std_suppressions =
 "race:std::_Sp_counted_ptr_inplace<std::thread::_Impl\n";
 
 // Can be overriden in frontend.
-SANITIZER_WEAK_DEFAULT_IMPL
-const char *__tsan_default_suppressions() {
+#ifndef TSAN_GO
+extern "C" const char *WEAK __tsan_default_suppressions() {
   return 0;
 }
 #endif
 
 namespace __tsan {
 
-ALIGNED(64) static char suppression_placeholder[sizeof(SuppressionContext)];
-static SuppressionContext *suppression_ctx = nullptr;
-static const char *kSuppressionTypes[] = {
-    kSuppressionRace,   kSuppressionRaceTop, kSuppressionMutex,
-    kSuppressionThread, kSuppressionSignal, kSuppressionLib,
-    kSuppressionDeadlock};
+static bool suppressions_inited = false;
 
 void InitializeSuppressions() {
-  CHECK_EQ(nullptr, suppression_ctx);
-  suppression_ctx = new (suppression_placeholder) // NOLINT
-      SuppressionContext(kSuppressionTypes, ARRAY_SIZE(kSuppressionTypes));
-  suppression_ctx->ParseFromFile(flags()->suppressions);
-#if !SANITIZER_GO
-  suppression_ctx->Parse(__tsan_default_suppressions());
-  suppression_ctx->Parse(std_suppressions);
+  CHECK(!suppressions_inited);
+  SuppressionContext::InitIfNecessary();
+#ifndef TSAN_GO
+  SuppressionContext::Get()->Parse(__tsan_default_suppressions());
+  SuppressionContext::Get()->Parse(std_suppressions);
 #endif
+  suppressions_inited = true;
 }
 
-SuppressionContext *Suppressions() {
-  CHECK(suppression_ctx);
-  return suppression_ctx;
-}
-
-static const char *conv(ReportType typ) {
+SuppressionType conv(ReportType typ) {
   if (typ == ReportTypeRace)
-    return kSuppressionRace;
+    return SuppressionRace;
   else if (typ == ReportTypeVptrRace)
-    return kSuppressionRace;
+    return SuppressionRace;
   else if (typ == ReportTypeUseAfterFree)
-    return kSuppressionRace;
+    return SuppressionRace;
   else if (typ == ReportTypeVptrUseAfterFree)
-    return kSuppressionRace;
-  else if (typ == ReportTypeExternalRace)
-    return kSuppressionRace;
+    return SuppressionRace;
   else if (typ == ReportTypeThreadLeak)
-    return kSuppressionThread;
+    return SuppressionThread;
   else if (typ == ReportTypeMutexDestroyLocked)
-    return kSuppressionMutex;
+    return SuppressionMutex;
   else if (typ == ReportTypeMutexDoubleLock)
-    return kSuppressionMutex;
-  else if (typ == ReportTypeMutexInvalidAccess)
-    return kSuppressionMutex;
+    return SuppressionMutex;
   else if (typ == ReportTypeMutexBadUnlock)
-    return kSuppressionMutex;
+    return SuppressionMutex;
   else if (typ == ReportTypeMutexBadReadLock)
-    return kSuppressionMutex;
+    return SuppressionMutex;
   else if (typ == ReportTypeMutexBadReadUnlock)
-    return kSuppressionMutex;
+    return SuppressionMutex;
   else if (typ == ReportTypeSignalUnsafe)
-    return kSuppressionSignal;
+    return SuppressionSignal;
   else if (typ == ReportTypeErrnoInSignal)
-    return kSuppressionNone;
+    return SuppressionNone;
   else if (typ == ReportTypeDeadlock)
-    return kSuppressionDeadlock;
-  Printf("ThreadSanitizer: unknown report type %d\n", typ);
+    return SuppressionDeadlock;
+  Printf("ThreadSanitizer: unknown report type %d\n", typ),
   Die();
 }
 
-static uptr IsSuppressed(const char *stype, const AddressInfo &info,
-    Suppression **sp) {
-  if (suppression_ctx->Match(info.function, stype, sp) ||
-      suppression_ctx->Match(info.file, stype, sp) ||
-      suppression_ctx->Match(info.module, stype, sp)) {
-    VPrintf(2, "ThreadSanitizer: matched suppression '%s'\n", (*sp)->templ);
-    atomic_fetch_add(&(*sp)->hit_count, 1, memory_order_relaxed);
-    return info.address;
-  }
-  return 0;
-}
-
 uptr IsSuppressed(ReportType typ, const ReportStack *stack, Suppression **sp) {
-  CHECK(suppression_ctx);
-  if (!suppression_ctx->SuppressionCount() || stack == 0 ||
+  if (!SuppressionContext::Get()->SuppressionCount() || stack == 0 ||
       !stack->suppressable)
     return 0;
-  const char *stype = conv(typ);
-  if (0 == internal_strcmp(stype, kSuppressionNone))
+  SuppressionType stype = conv(typ);
+  if (stype == SuppressionNone)
     return 0;
-  for (const SymbolizedStack *frame = stack->frames; frame;
-      frame = frame->next) {
-    uptr pc = IsSuppressed(stype, frame->info, sp);
-    if (pc != 0)
-      return pc;
+  Suppression *s;
+  for (const ReportStack *frame = stack; frame; frame = frame->next) {
+    const AddressInfo &info = frame->info;
+    if (SuppressionContext::Get()->Match(info.function, stype, &s) ||
+        SuppressionContext::Get()->Match(info.file, stype, &s) ||
+        SuppressionContext::Get()->Match(info.module, stype, &s)) {
+      DPrintf("ThreadSanitizer: matched suppression '%s'\n", s->templ);
+      s->hit_count++;
+      *sp = s;
+      return info.address;
+    }
   }
-  if (0 == internal_strcmp(stype, kSuppressionRace) && stack->frames != nullptr)
-    return IsSuppressed(kSuppressionRaceTop, stack->frames->info, sp);
   return 0;
 }
 
 uptr IsSuppressed(ReportType typ, const ReportLocation *loc, Suppression **sp) {
-  CHECK(suppression_ctx);
-  if (!suppression_ctx->SuppressionCount() || loc == 0 ||
+  if (!SuppressionContext::Get()->SuppressionCount() || loc == 0 ||
       loc->type != ReportLocationGlobal || !loc->suppressable)
     return 0;
-  const char *stype = conv(typ);
-  if (0 == internal_strcmp(stype, kSuppressionNone))
+  SuppressionType stype = conv(typ);
+  if (stype == SuppressionNone)
     return 0;
   Suppression *s;
   const DataInfo &global = loc->global;
-  if (suppression_ctx->Match(global.name, stype, &s) ||
-      suppression_ctx->Match(global.module, stype, &s)) {
-      VPrintf(2, "ThreadSanitizer: matched suppression '%s'\n", s->templ);
-      atomic_fetch_add(&s->hit_count, 1, memory_order_relaxed);
+  if (SuppressionContext::Get()->Match(global.name, stype, &s) ||
+      SuppressionContext::Get()->Match(global.module, stype, &s)) {
+      DPrintf("ThreadSanitizer: matched suppression '%s'\n", s->templ);
+      s->hit_count++;
       *sp = s;
       return global.start;
   }
@@ -151,18 +125,17 @@ uptr IsSuppressed(ReportType typ, const ReportLocation *loc, Suppression **sp) {
 
 void PrintMatchedSuppressions() {
   InternalMmapVector<Suppression *> matched(1);
-  CHECK(suppression_ctx);
-  suppression_ctx->GetMatched(&matched);
+  SuppressionContext::Get()->GetMatched(&matched);
   if (!matched.size())
     return;
   int hit_count = 0;
   for (uptr i = 0; i < matched.size(); i++)
-    hit_count += atomic_load_relaxed(&matched[i]->hit_count);
+    hit_count += matched[i]->hit_count;
   Printf("ThreadSanitizer: Matched %d suppressions (pid=%d):\n", hit_count,
          (int)internal_getpid());
   for (uptr i = 0; i < matched.size(); i++) {
-    Printf("%d %s:%s\n", atomic_load_relaxed(&matched[i]->hit_count),
-           matched[i]->type, matched[i]->templ);
+    Printf("%d %s:%s\n", matched[i]->hit_count,
+           SuppressionTypeString(matched[i]->type), matched[i]->templ);
   }
 }
 }  // namespace __tsan

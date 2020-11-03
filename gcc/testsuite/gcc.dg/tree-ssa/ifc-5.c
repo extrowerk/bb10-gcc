@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-c -O2 -ftree-vectorize -fdump-tree-ifcvt-stats-blocks-details" { target *-*-* } } */
+/* { dg-options "-c -O2 -ftree-vectorize -fdump-tree-ifcvt-stats" { target *-*-* } } */
 
 void
 dct_unquantize_h263_inter_c (short *block, int n, int qscale, int nCoeffs)
@@ -21,10 +21,4 @@ dct_unquantize_h263_inter_c (short *block, int n, int qscale, int nCoeffs)
 }
 
 /* { dg-final { scan-tree-dump-times "Applying if-conversion" 1 "ifcvt" } } */
-
-/* We insert into code
-   if (LOOP_VECTORIZED (...))
-   which is folded by vectorizer.  Both outgoing edges must have probability
-   100% so the resulting profile match after folding.  */
-/* { dg-final { scan-tree-dump-times "Invalid sum of outgoing probabilities 200.0" 1 "ifcvt" } } */
-/* { dg-final { scan-tree-dump-times "Invalid sum of incoming counts" 1 "ifcvt" } } */
+/* { dg-final { cleanup-tree-dump "ifcvt" } } */

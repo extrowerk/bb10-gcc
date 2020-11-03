@@ -7,3 +7,4 @@ double foo (double x)
 }
 
 /* { dg-final { scan-tree-dump "return 0.0;" "original" } } */
+/* { dg-final { cleanup-tree-dump "original" } } */

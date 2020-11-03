@@ -1,4 +1,4 @@
-/* { dg-do compile } */
+/* { dg-do compile { target "sh*-*-*" } } */
 /* { dg-options "-O1" } */
 
 char a;

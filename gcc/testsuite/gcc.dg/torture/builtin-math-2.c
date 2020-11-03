@@ -382,3 +382,4 @@ void bar()
 /* { dg-final { scan-tree-dump-times "_gamma_r " 6 "original" } } */
 /* { dg-final { scan-tree-dump-times "_gammaf_r" 6 "original" } } */
 /* { dg-final { scan-tree-dump-times "_gammal_r" 6 "original" } } */
+/* { dg-final { cleanup-tree-dump "original" } } */

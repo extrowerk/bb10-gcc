@@ -6,7 +6,7 @@ program read
    character(50) :: buf='0.D99999'
    double precision val
    read (UNIT=buf, FMT='(D60.0)', ERR=10) Val
-   STOP 1
+   call abort
 10 read (UNIT=buf, FMT='(D60.0)') Val
 end program read
 ! { dg-output "At line 10 of file.*" }

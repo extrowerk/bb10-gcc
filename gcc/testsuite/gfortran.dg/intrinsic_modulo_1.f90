@@ -26,12 +26,12 @@ program main
      if (modulo_result(i) /= floor_result(i) ) then
 !        print "(A,4F5.0)" ,"real case failed: ", &
 !             ar(i),br(i), modulo_result(i), floor_result(i)
-        STOP 1
+        call abort()
     end if
     if (imodulo_result(i) /= ifloor_result(i)) then
 !       print "(A,4I5)", "int case failed: ", &
 !            ai(i), bi(i), imodulo_result(i), ifloor_result(i)
-       STOP 2
+       call abort ()
      end if
   end do
 end program main

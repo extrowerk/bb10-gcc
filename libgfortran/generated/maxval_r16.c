@@ -1,5 +1,5 @@
 /* Implementation of the MAXVAL intrinsic
-   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran runtime library (libgfortran).
@@ -24,6 +24,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
 #include "libgfortran.h"
+#include <stdlib.h>
+#include <assert.h>
 
 
 #if defined (HAVE_GFC_REAL_16) && defined (HAVE_GFC_REAL_16)
@@ -51,20 +53,9 @@ maxval_r16 (gfc_array_r16 * const restrict retarray,
   index_type dim;
   int continue_loop;
 
-#ifdef HAVE_BACK_ARG
-  assert(back == 0);
-#endif
-
   /* Make dim zero based to avoid confusion.  */
-  rank = GFC_DESCRIPTOR_RANK (array) - 1;
   dim = (*pdim) - 1;
-
-  if (unlikely (dim < 0 || dim > rank))
-    {
-      runtime_error ("Dim argument incorrect in MAXVAL intrinsic: "
- 		     "is %ld, should be between 1 and %ld",
-		     (long int) dim + 1, (long int) rank + 1);
-    }
+  rank = GFC_DESCRIPTOR_RANK (array) - 1;
 
   len = GFC_DESCRIPTOR_EXTENT(array,dim);
   if (len < 0)
@@ -104,7 +95,7 @@ maxval_r16 (gfc_array_r16 * const restrict retarray,
 	}
 
       retarray->offset = 0;
-      retarray->dtype.rank = rank;
+      retarray->dtype = (array->dtype & ~GFC_DTYPE_RANK_MASK) | rank;
 
       alloc_size = GFC_DESCRIPTOR_STRIDE(retarray,rank-1) * extent[rank-1];
 
@@ -192,9 +183,9 @@ maxval_r16 (gfc_array_r16 * const restrict retarray,
 	  base -= sstride[n] * extent[n];
 	  dest -= dstride[n] * extent[n];
 	  n++;
-	  if (n >= rank)
+	  if (n == rank)
 	    {
-	      /* Break out of the loop.  */
+	      /* Break out of the look.  */
 	      continue_loop = 0;
 	      break;
 	    }
@@ -228,27 +219,16 @@ mmaxval_r16 (gfc_array_r16 * const restrict retarray,
   GFC_REAL_16 * restrict dest;
   const GFC_REAL_16 * restrict base;
   const GFC_LOGICAL_1 * restrict mbase;
-  index_type rank;
-  index_type dim;
+  int rank;
+  int dim;
   index_type n;
   index_type len;
   index_type delta;
   index_type mdelta;
   int mask_kind;
 
-#ifdef HAVE_BACK_ARG
-  assert (back == 0);
-#endif
   dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
-
-
-  if (unlikely (dim < 0 || dim > rank))
-    {
-      runtime_error ("Dim argument incorrect in MAXVAL intrinsic: "
- 		     "is %ld, should be between 1 and %ld",
-		     (long int) dim + 1, (long int) rank + 1);
-    }
 
   len = GFC_DESCRIPTOR_EXTENT(array,dim);
   if (len <= 0)
@@ -308,7 +288,7 @@ mmaxval_r16 (gfc_array_r16 * const restrict retarray,
       alloc_size = GFC_DESCRIPTOR_STRIDE(retarray,rank-1) * extent[rank-1];
 
       retarray->offset = 0;
-      retarray->dtype.rank = rank;
+      retarray->dtype = (array->dtype & ~GFC_DTYPE_RANK_MASK) | rank;
 
       if (alloc_size == 0)
 	{
@@ -408,9 +388,9 @@ mmaxval_r16 (gfc_array_r16 * const restrict retarray,
 	  mbase -= mstride[n] * extent[n];
 	  dest -= dstride[n] * extent[n];
 	  n++;
-	  if (n >= rank)
+	  if (n == rank)
 	    {
-	      /* Break out of the loop.  */
+	      /* Break out of the look.  */
 	      base = NULL;
 	      break;
 	    }
@@ -448,23 +428,12 @@ smaxval_r16 (gfc_array_r16 * const restrict retarray,
 
   if (*mask)
     {
-#ifdef HAVE_BACK_ARG
-      maxval_r16 (retarray, array, pdim, back);
-#else
       maxval_r16 (retarray, array, pdim);
-#endif
       return;
     }
   /* Make dim zero based to avoid confusion.  */
   dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
-
-  if (unlikely (dim < 0 || dim > rank))
-    {
-      runtime_error ("Dim argument incorrect in MAXVAL intrinsic: "
- 		     "is %ld, should be between 1 and %ld",
-		     (long int) dim + 1, (long int) rank + 1);
-    }
 
   for (n = 0; n < dim; n++)
     {
@@ -499,7 +468,7 @@ smaxval_r16 (gfc_array_r16 * const restrict retarray,
 	}
 
       retarray->offset = 0;
-      retarray->dtype.rank = rank;
+      retarray->dtype = (array->dtype & ~GFC_DTYPE_RANK_MASK) | rank;
 
       alloc_size = GFC_DESCRIPTOR_STRIDE(retarray,rank-1) * extent[rank-1];
 
@@ -559,7 +528,7 @@ smaxval_r16 (gfc_array_r16 * const restrict retarray,
 	     frequently used path so probably not worth it.  */
 	  dest -= dstride[n] * extent[n];
 	  n++;
-	  if (n >= rank)
+	  if (n == rank)
 	    return;
 	  else
 	    {

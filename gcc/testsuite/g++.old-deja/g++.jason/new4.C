@@ -10,7 +10,6 @@ struct A {
 A* ap = new A (1);
 A* ap2 = new A[3];
 
-int
 main ()
 {
   if (ap->i != 1 || ap2[0].i != 42 || ap2[1].i != 42 || ap2[2].i != 42)
@@ -21,6 +20,4 @@ main ()
 
   if (ap->i != 1 || ap2[0].i != 42 || ap2[1].i != 42 || ap2[2].i != 42)
     return 1;
-
-  return 0;
 }

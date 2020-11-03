@@ -7,7 +7,6 @@ struct QBasicAtomicInt
   bool deref ()
   {
     asm volatile ("":"=m" (i), "=qm" (j));
-    return true;
   }
 };
 
@@ -42,6 +41,4 @@ bool makeDir (unsigned len)
         return false;
       i = pos;
     }
-
-  return true;
 }

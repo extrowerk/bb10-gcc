@@ -21,10 +21,10 @@ contains
         select type (X)
             type is (real)
                 if ( abs (X - this%expectedScalar) > 0.0001 ) then
-                    STOP 1
+                    call abort()
                 end if
             class default
-                STOP 2
+                call abort ()
          end select
     end subroutine FCheck
 

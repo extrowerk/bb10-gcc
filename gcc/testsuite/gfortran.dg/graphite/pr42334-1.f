@@ -1,4 +1,4 @@
-! { dg-options "-O2 -floop-nest-optimize" }
+! { dg-options "-O2 -floop-interchange" }
 
       subroutine linel(icmdl,stre,anisox)
       real*8 stre(6),tkl(3,3),ekl(3,3),anisox(3,3,3,3)

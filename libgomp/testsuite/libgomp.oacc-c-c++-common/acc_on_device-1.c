@@ -15,6 +15,8 @@ main (int argc, char *argv[])
       abort ();
     if (!acc_on_device (acc_device_host))
       abort ();
+    if (acc_on_device (acc_device_host_nonshm))
+      abort ();
     if (acc_on_device (acc_device_not_host))
       abort ();
     if (acc_on_device (acc_device_nvidia))
@@ -29,6 +31,8 @@ main (int argc, char *argv[])
     if (!acc_on_device (acc_device_none))
       abort ();
     if (!acc_on_device (acc_device_host))
+      abort ();
+    if (acc_on_device (acc_device_host_nonshm))
       abort ();
     if (acc_on_device (acc_device_not_host))
       abort ();
@@ -47,6 +51,13 @@ main (int argc, char *argv[])
       abort ();
     if (acc_on_device (acc_device_host))
       abort ();
+#if ACC_DEVICE_TYPE_host_nonshm
+    if (!acc_on_device (acc_device_host_nonshm))
+      abort ();
+#else
+    if (acc_on_device (acc_device_host_nonshm))
+      abort ();
+#endif
     if (!acc_on_device (acc_device_not_host))
       abort ();
 #if ACC_DEVICE_TYPE_nvidia

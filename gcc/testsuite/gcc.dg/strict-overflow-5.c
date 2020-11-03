@@ -15,4 +15,5 @@ int foo (int i)
 }
 
 /* { dg-final { scan-tree-dump "return 3" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */
 

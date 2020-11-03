@@ -1,5 +1,5 @@
 /* TLS emulation.
-   Copyright (C) 2006-2018 Free Software Foundation, Inc.
+   Copyright (C) 2006-2015 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>.
 
 This file is part of GCC.
@@ -160,7 +160,8 @@ __emutls_get_address (struct __emutls_object *obj)
       if (arr == NULL)
 	abort ();
       arr->size = size;
-      __gthread_setspecific (emutls_key, (void *) arr);
+      if (__gthread_setspecific (emutls_key, (void *) arr) != 0)
+	abort ();
     }
   else if (__builtin_expect (offset > arr->size, 0))
     {
@@ -174,7 +175,8 @@ __emutls_get_address (struct __emutls_object *obj)
       arr->size = size;
       memset (arr->data + orig_size, 0,
 	      (size - orig_size) * sizeof (void *));
-      __gthread_setspecific (emutls_key, (void *) arr);
+      if (__gthread_setspecific (emutls_key, (void *) arr) != 0)
+	abort ();
     }
 
   void *ret = arr->data[offset - 1];

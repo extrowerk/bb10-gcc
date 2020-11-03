@@ -1,5 +1,5 @@
 ;; Predicate definitions for ARM and Thumb
-;; Copyright (C) 2004-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2015 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 
 ;; This file is part of GCC.
@@ -82,11 +82,6 @@
 	      || REGNO (op) >= FIRST_PSEUDO_REGISTER));
 })
 
-(define_predicate "arm_general_adddi_operand"
-  (ior (match_operand 0 "arm_general_register_operand")
-       (and (match_code "const_int")
-	    (match_test "const_ok_for_dimode_op (INTVAL (op), PLUS)"))))
-
 (define_predicate "vfp_register_operand"
   (match_code "reg,subreg")
 {
@@ -146,7 +141,8 @@
        (match_test "const_ok_for_arm (~INTVAL (op))")))
 
 (define_predicate "const0_operand"
-  (match_test "op == CONST0_RTX (mode)"))
+  (and (match_code "const_int")
+       (match_test "INTVAL (op) == 0")))
 
 ;; Something valid on the RHS of an ARM data-processing instruction
 (define_predicate "arm_rhs_operand"
@@ -174,7 +170,8 @@
 
 (define_predicate "const_neon_scalar_shift_amount_operand"
   (and (match_code "const_int")
-       (match_test "IN_RANGE (UINTVAL (op), 1, GET_MODE_BITSIZE (mode))")))
+       (match_test "((unsigned HOST_WIDE_INT) INTVAL (op)) <= GET_MODE_BITSIZE (mode)
+	&& ((unsigned HOST_WIDE_INT) INTVAL (op)) > 0")))
 
 (define_predicate "ldrd_strd_offset_operand"
   (and (match_operand 0 "const_int_operand")
@@ -246,6 +243,11 @@
        (and (match_code "const_double")
 	    (match_test "arm_const_double_rtx (op)"))))
 
+(define_predicate "arm_float_compare_operand"
+  (if_then_else (match_test "TARGET_VFP")
+		(match_operand 0 "vfp_compare_operand")
+		(match_operand 0 "s_register_operand")))
+
 ;; True for valid index operands.
 (define_predicate "index_operand"
   (ior (match_operand 0 "s_register_operand")
@@ -283,19 +285,19 @@
 		      (match_test "power_of_two_operand (XEXP (op, 1), mode)"))
 		 (and (match_code "rotate")
 		      (match_test "CONST_INT_P (XEXP (op, 1))
-				   && (UINTVAL (XEXP (op, 1))) < 32")))
+				   && ((unsigned HOST_WIDE_INT) INTVAL (XEXP (op, 1))) < 32")))
 	    (and (match_code "ashift,ashiftrt,lshiftrt,rotatert")
 		 (match_test "!CONST_INT_P (XEXP (op, 1))
-			      || (UINTVAL (XEXP (op, 1))) < 32")))
+			      || ((unsigned HOST_WIDE_INT) INTVAL (XEXP (op, 1))) < 32")))
        (match_test "mode == GET_MODE (op)")))
 
 (define_special_predicate "shift_nomul_operator"
   (and (ior (and (match_code "rotate")
 		 (match_test "CONST_INT_P (XEXP (op, 1))
-			      && (UINTVAL (XEXP (op, 1))) < 32"))
+			      && ((unsigned HOST_WIDE_INT) INTVAL (XEXP (op, 1))) < 32"))
 	    (and (match_code "ashift,ashiftrt,lshiftrt,rotatert")
 		 (match_test "!CONST_INT_P (XEXP (op, 1))
-			      || (UINTVAL (XEXP (op, 1))) < 32")))
+			      || ((unsigned HOST_WIDE_INT) INTVAL (XEXP (op, 1))) < 32")))
        (match_test "mode == GET_MODE (op)")))
 
 ;; True for shift operators which can be used with saturation instructions.
@@ -304,7 +306,7 @@
                  (match_test "power_of_two_operand (XEXP (op, 1), mode)"))
             (and (match_code "ashift,ashiftrt")
                  (match_test "CONST_INT_P (XEXP (op, 1))
-		              && (UINTVAL (XEXP (op, 1)) < 32)")))
+		              && ((unsigned HOST_WIDE_INT) INTVAL (XEXP (op, 1)) < 32)")))
        (match_test "mode == GET_MODE (op)")))
 
 ;; True for MULT, to identify which variant of shift_operator is in use.
@@ -331,13 +333,6 @@
   (and (match_operand 0 "expandable_comparison_operator")
        (match_test "maybe_get_arm_condition_code (op) != ARM_NV")))
 
-;; Likewise, but don't ignore the mode.
-;; RTL SET operations require their operands source and destination have
-;; the same modes, so we can't ignore the modes there.  See PR target/69161.
-(define_predicate "arm_comparison_operator_mode"
-  (and (match_operand 0 "expandable_comparison_operator")
-       (match_test "maybe_get_arm_condition_code (op) != ARM_NV")))
-
 (define_special_predicate "lt_ge_comparison_operator"
   (match_code "lt,ge"))
 
@@ -355,9 +350,9 @@
 
 (define_special_predicate "arm_cond_move_operator"
   (if_then_else (match_test "arm_restrict_it")
-		(and (match_test "TARGET_VFP5")
-		     (match_operand 0 "arm_vsel_comparison_operator"))
-		(match_operand 0 "expandable_comparison_operator")))
+                (and (match_test "TARGET_FPU_ARMV8")
+                     (match_operand 0 "arm_vsel_comparison_operator"))
+                (match_operand 0 "expandable_comparison_operator")))
 
 (define_special_predicate "noov_comparison_operator"
   (match_code "lt,ge,eq,ne"))
@@ -395,12 +390,6 @@
 	     || mode == CC_DGEUmode
 	     || mode == CC_DGTUmode));
 })
-
-;; Any register, including CC
-(define_predicate "cc_register_operand"
-  (and (match_code "reg")
-       (ior (match_operand 0 "s_register_operand")
-	    (match_operand 0 "cc_register"))))
 
 (define_special_predicate "arm_extendqisi_mem_op"
   (and (match_operand 0 "memory_operand")
@@ -536,7 +525,7 @@
   (ior (and (match_code "reg,subreg")
 	    (match_operand 0 "s_register_operand"))
        (and (match_code "const_int")
-	    (match_test "(UINTVAL (op)) < 256"))))
+	    (match_test "((unsigned HOST_WIDE_INT) INTVAL (op)) < 256"))))
 
 (define_predicate "thumb1_cmpneg_operand"
   (and (match_code "const_int")
@@ -616,23 +605,69 @@
 (define_special_predicate "vect_par_constant_high" 
   (match_code "parallel")
 {
-  return arm_simd_check_vect_par_cnst_half_p (op, mode, true);
+  HOST_WIDE_INT count = XVECLEN (op, 0);
+  int i;
+  int base = GET_MODE_NUNITS (mode);
+
+  if ((count < 1)
+      || (count != base/2))
+    return false;
+    
+  if (!VECTOR_MODE_P (mode))
+    return false;
+
+  for (i = 0; i < count; i++)
+   {
+     rtx elt = XVECEXP (op, 0, i);
+     int val;
+
+     if (!CONST_INT_P (elt))
+       return false;
+
+     val = INTVAL (elt);
+     if (val != (base/2) + i)
+       return false;
+   }
+  return true; 
 })
 
 (define_special_predicate "vect_par_constant_low"
   (match_code "parallel")
 {
-  return arm_simd_check_vect_par_cnst_half_p (op, mode, false);
+  HOST_WIDE_INT count = XVECLEN (op, 0);
+  int i;
+  int base = GET_MODE_NUNITS (mode);
+
+  if ((count < 1)
+      || (count != base/2))
+    return false;
+    
+  if (!VECTOR_MODE_P (mode))
+    return false;
+
+  for (i = 0; i < count; i++)
+   {
+     rtx elt = XVECEXP (op, 0, i);
+     int val;
+
+     if (!CONST_INT_P (elt))
+       return false;
+
+     val = INTVAL (elt);
+     if (val != i)
+       return false;
+   } 
+  return true; 
 })
 
 (define_predicate "const_double_vcvt_power_of_two_reciprocal"
   (and (match_code "const_double")
-       (match_test "TARGET_32BIT
-		    && vfp3_const_double_for_fract_bits (op)")))
+       (match_test "TARGET_32BIT && TARGET_VFP
+                   && vfp3_const_double_for_fract_bits (op)")))
 
 (define_predicate "const_double_vcvt_power_of_two"
   (and (match_code "const_double")
-       (match_test "TARGET_32BIT
+       (match_test "TARGET_32BIT && TARGET_VFP
 		    && vfp3_const_double_for_bits (op) > 0")))
 
 (define_predicate "neon_struct_operand"

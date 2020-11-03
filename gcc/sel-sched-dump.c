@@ -1,5 +1,5 @@
 /* Instruction scheduling pass.   Log dumping infrastructure.
-   Copyright (C) 2006-2018 Free Software Foundation, Inc.
+   Copyright (C) 2006-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,19 +20,32 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
+#include "tm.h"
+#include "diagnostic-core.h"
 #include "rtl.h"
-#include "df.h"
+#include "tm_p.h"
+#include "hard-reg-set.h"
+#include "regs.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "basic-block.h"
+#include "flags.h"
+#include "insn-config.h"
 #include "insn-attr.h"
+#include "params.h"
 #include "cselib.h"
+#include "target.h"
 
 #ifdef INSN_SCHEDULING
-#include "regset.h"
-#include "sched-int.h"
-#include "cfgloop.h"
 #include "sel-sched-ir.h"
 #include "sel-sched-dump.h"
-#include "print-rtl.h"
 
 
 /* These variables control high-level pretty printing.  */
@@ -121,7 +134,7 @@ dump_insn_rtx_1 (rtx insn, int flags)
   int all;
 
   /* flags == -1 also means dumping all.  */
-  all = (flags & 1);
+  all = (flags & 1);;
   if (all)
     flags |= DUMP_INSN_RTX_ALL;
 
@@ -985,6 +998,35 @@ debug_blist (blist_t bnds)
 {
   switch_dump (stderr);
   dump_blist (bnds);
+  sel_print ("\n");
+  restore_dump ();
+}
+
+/* Dump a rtx vector REF.  */
+DEBUG_FUNCTION void
+debug (vec<rtx_insn *> &ref)
+{
+  switch_dump (stderr);
+  dump_insn_vector (ref);
+  sel_print ("\n");
+  restore_dump ();
+}
+
+DEBUG_FUNCTION void
+debug (vec<rtx_insn *> *ptr)
+{
+  if (ptr)
+    debug (*ptr);
+  else
+    fprintf (stderr, "<nil>\n");
+}
+
+/* Dump an insn vector SUCCS.  */
+DEBUG_FUNCTION void
+debug_insn_vector (rtx_vec_t succs)
+{
+  switch_dump (stderr);
+  dump_insn_vector (succs);
   sel_print ("\n");
   restore_dump ();
 }

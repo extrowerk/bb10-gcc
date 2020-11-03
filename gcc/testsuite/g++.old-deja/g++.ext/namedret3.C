@@ -1,5 +1,5 @@
 // { dg-do assemble  }
-// { dg-options "-Wno-deprecated -Wno-return-type" }
+// { dg-options "-Wno-deprecated" }
 
 extern "C" void abort();
 

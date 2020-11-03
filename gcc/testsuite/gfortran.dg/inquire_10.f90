@@ -6,14 +6,14 @@
 
   open(file='cseq', unit=23)
   inquire(file='cseq',number=unit)
-  if (unit /= 23) STOP 1
+  if (unit /= 23) call abort
   inquire(file=trim(cwd) // '/cseq',number=unit)
-  if (unit /= 23) STOP 2
+  if (unit /= 23) call abort
 
   close(unit=23, status = 'delete')
 
   inquire(file='foo/../cseq2',number=unit)
-  if (unit >= 0) STOP 3
+  if (unit >= 0) call abort
   inquire(file='cseq2',number=unit)
-  if (unit >= 0) STOP 4
+  if (unit >= 0) call abort
 end

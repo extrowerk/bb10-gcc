@@ -17,3 +17,4 @@ f (void)
 /* Unsuitable to be handled as a builtin, so we're expecting four calls.
    { dg-final { scan-rtl-dump-times "\\\(call \[^\\n\]* acc_on_device" 4 "expand" } } */
 
+/* { dg-final { cleanup-rtl-dump "expand" } } */

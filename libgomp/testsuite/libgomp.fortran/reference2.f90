@@ -11,7 +11,7 @@ contains
     a = 15
     l = bar (a)
 !$omp end parallel
-    if (l) STOP 1
+    if (l) call abort
   end subroutine
   function bar (a)
     real, dimension (5) :: a

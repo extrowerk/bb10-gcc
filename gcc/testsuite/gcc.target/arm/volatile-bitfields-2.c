@@ -1,5 +1,5 @@
-/* { dg-do compile } */
 /* { dg-require-effective-target arm_eabi } */
+/* { dg-do compile } */
 /* { dg-options "-O2" } */
 
 typedef struct {

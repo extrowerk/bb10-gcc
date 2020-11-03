@@ -1,5 +1,5 @@
 /* Implementation of the PAUSE statement.
-   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran runtime library (libgfortran).
@@ -40,29 +40,29 @@ do_pause (void)
 
   fgets(buff, 4, stdin);
   if (strncmp(buff, "go\n", 3) != 0)
-    stop_string ('\0', 0, false);
+    stop_string ('\0', 0);
   estr_write ("RESUMED\n");
 }
 
 /* A numeric PAUSE statement.  */
 
-extern void pause_numeric (GFC_INTEGER_8);
+extern void pause_numeric (GFC_INTEGER_4);
 export_proto(pause_numeric);
 
 void
-pause_numeric (GFC_INTEGER_8 code)
+pause_numeric (GFC_INTEGER_4 code)
 {
-  st_printf ("PAUSE %ld\n", (long) code);
+  st_printf ("PAUSE %d\n", (int) code);
   do_pause ();
 }
 
 /* A character string or blank PAUSE statement.  */
 
-extern void pause_string (char *string, size_t len);
+extern void pause_string (char *string, GFC_INTEGER_4 len);
 export_proto(pause_string);
 
 void
-pause_string (char *string, size_t len)
+pause_string (char *string, GFC_INTEGER_4 len)
 {
   estr_write ("PAUSE ");
   ssize_t w = write (STDERR_FILENO, string, len);

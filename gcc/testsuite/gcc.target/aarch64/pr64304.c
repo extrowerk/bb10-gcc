@@ -15,3 +15,4 @@ set_bit (unsigned int bit, unsigned char value)
   /* { dg-final { scan-assembler "and\tw\[0-9\]+, w\[0-9\]+, 7" } } */
 }
 
+/* { dg-final { cleanup-saved-temps } } */

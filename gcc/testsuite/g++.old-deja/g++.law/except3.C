@@ -34,7 +34,6 @@ void do_something(Vector& v)
     int i = v[v.size()+10];
 }
  
-int
 main()
 {
     Vector v(10);

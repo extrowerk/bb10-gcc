@@ -495,16 +495,7 @@ struct types attrib_array_types[] = {
 #define HASH_SIZE 32749
 static struct entry *hash_table[HASH_SIZE];
 
-/* The index of the current type being output.  */
-static int idx;
-
-/* The maximum index of the type(s) to output.  */
-static int limidx;
-
-/* Set to non-zero to output a single type in response to the -i option
-   (which sets LIMIDX to the index of the type to output.  */
-static int output_one;
-static int short_enums;
+static int idx, limidx, output_one, short_enums;
 static const char *destdir;
 static const char *srcdir;
 static const char *srcdir_safe;
@@ -544,7 +535,6 @@ switchfiles (int fields)
       fputs ("failed to create test files\n", stderr);
       exit (1);
     }
-
   for (i = 0; i < NDG_OPTIONS; i++)
     fprintf (outfile, dg_options[i], "", srcdir_safe);
   fprintf (outfile, "\n\
@@ -615,16 +605,8 @@ getrandll (void)
   return ret;
 }
 
-/* Generate a subfield.  The object pointed to by FLEX is set to a non-zero
-   value when the generated field is a flexible array member.  When set, it
-   prevents subsequent fields from being generated (a flexible array member
-   must be the last member of the struct it's defined in).  ARRAY is non-
-   zero when the enclosing structure is part of an array.  In that case,
-   avoid generating a flexible array member as a subfield (such a member
-   would be invalid).  */
-
 int
-subfield (struct entry *e, char *letter, int *flex, int array)
+subfield (struct entry *e, char *letter)
 {
   int i, type;
   char buf[20];
@@ -643,10 +625,7 @@ subfield (struct entry *e, char *letter, int *flex, int array)
       if (e[0].etype == ETYPE_STRUCT_ARRAY || e[0].etype == ETYPE_UNION_ARRAY)
 	{
 	  if (e[0].arr_len == 255)
-	    {
-	      *flex = 1;
- 	      snprintf (buf, 20, "%c[]", *letter);
-	    }
+	    snprintf (buf, 20, "%c[]", *letter);
 	  else
 	    snprintf (buf, 20, "%c[%d]", *letter, e[0].arr_len);
 	  /* If this is an array type, do not put aligned attributes on
@@ -678,15 +657,8 @@ subfield (struct entry *e, char *letter, int *flex, int array)
 	  break;
 	}
 
-      for (i = 1; !*flex && i <= e[0].len; )
-	{
-	  /* Avoid generating flexible array members if the enclosing
-	     type is an array.  */
-	  int array
-	    = (e[0].etype == ETYPE_STRUCT_ARRAY
-	       || e[0].etype == ETYPE_UNION_ARRAY);
-	    i += subfield (e + i, letter, flex, array);
-	}
+      for (i = 1; i <= e[0].len; )
+	i += subfield (e + i, letter);
 
       switch (type)
 	{
@@ -707,11 +679,8 @@ subfield (struct entry *e, char *letter, int *flex, int array)
     case ETYPE_ARRAY:
       if (e[0].etype == ETYPE_ARRAY)
 	{
-	  if (!array && e[0].arr_len == 255)
-	    {
-	      *flex = 1;
- 	      snprintf (buf, 20, "%c[]", *letter);
-	    }
+	  if (e[0].arr_len == 255)
+	    snprintf (buf, 20, "%c[]", *letter);
 	  else
 	    snprintf (buf, 20, "%c[%d]", *letter, e[0].arr_len);
 	}
@@ -1050,12 +1019,12 @@ acceptable.  Do NOT use for cryptographic purposes.
 
 static hashval_t
 iterative_hash (const void *k_in /* the key */,
-		size_t  length /* the length of the key */,
-		hashval_t initval /* the previous hash, or
-				     an arbitrary value */)
+		register size_t  length /* the length of the key */,
+		register hashval_t initval /* the previous hash, or
+					      an arbitrary value */)
 {
-  const unsigned char *k = (const unsigned char *)k_in;
-  hashval_t a,b,c,len;
+  register const unsigned char *k = (const unsigned char *)k_in;
+  register hashval_t a,b,c,len;
 
   /* Set up the internal state */
   len = length;
@@ -1163,7 +1132,6 @@ e_insert (struct entry *e)
   hash_table[hval % HASH_SIZE] = e;
 }
 
-/* Output a single type.  */
 void
 output (struct entry *e)
 {
@@ -1189,11 +1157,8 @@ output (struct entry *e)
   else
     fprintf (outfile, "U(%d,", idx);
   c = 'a';
-
-  int flex = 0;
   for (i = 1; i <= e[0].len; )
-    i += subfield (e + i, &c, &flex, 0);
-  
+    i += subfield (e + i, &c);
   fputs (",", outfile);
   c = 'a';
   for (i = 1; i <= e[0].len; )

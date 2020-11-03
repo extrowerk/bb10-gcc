@@ -52,8 +52,8 @@ end module
   type(t2), target :: y
   type(t3) :: z
   z%a => x
-  if ((z%sizeof() .ne. 1) .or. (z%a%sizeof() .ne. 1)) STOP 1
+  if ((z%sizeof() .ne. 1) .or. (z%a%sizeof() .ne. 1)) call abort
   z%a => y
-  if ((z%sizeof() .ne. 2) .or. (z%a%sizeof() .ne. 2)) STOP 2
+  if ((z%sizeof() .ne. 2) .or. (z%a%sizeof() .ne. 2)) call abort
 end
  	

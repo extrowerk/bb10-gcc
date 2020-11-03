@@ -1,5 +1,5 @@
 /* File format for coverage information
-   Copyright (C) 1996-2018 Free Software Foundation, Inc.
+   Copyright (C) 1996-2015 Free Software Foundation, Inc.
    Contributed by Bob Manson <manson@cygnus.com>.
    Completely remangled by Nathan Sidwell <nathan@codesourcery.com>.
 
@@ -48,11 +48,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 	padding: | char:0 | char:0 char:0 | char:0 char:0 char:0
 	item: int32 | int64 | string
 
-   The basic format of the notes file is
-
-	file : int32:magic int32:version int32:stamp int32:support_unexecuted_blocks record*
-
-   The basic format of the data file is
+   The basic format of the files is
 
    	file : int32:magic int32:version int32:stamp record*
 
@@ -67,19 +63,19 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
    Although the ident and version are formally 32 bit numbers, they
    are derived from 4 character ASCII strings.  The version number
-   consists of a two character major version number
-   (first digit starts from 'A' letter to not to clash with the older
-   numbering scheme), the single character minor version number,
-   and a single character indicating the status of the release.
+   consists of the single character major version number, a two
+   character minor version number (leading zero for versions less than
+   10), and a single character indicating the status of the release.
    That will be 'e' experimental, 'p' prerelease and 'r' for release.
    Because, by good fortune, these are in alphabetical order, string
    collating can be used to compare version strings.  Be aware that
    the 'e' designation will (naturally) be unstable and might be
-   incompatible with itself.  For gcc 17.0 experimental, it would be
-   'B70e' (0x42373065).  As we currently do not release more than 5 minor
-   releases, the single character should be always fine.  Major number
-   is currently changed roughly every year, which gives us space
-   for next 250 years (maximum allowed number would be 259.9).
+   incompatible with itself.  For gcc 3.4 experimental, it would be
+   '304e' (0x33303465).  When the major version reaches 10, the
+   letters A-Z will be used.  Assuming minor increments releases every
+   6 months, we have to make a major increment every 50 years.
+   Assuming major increments releases every 5 years, we're ok for the
+   next 155 years -- good enough for me.
 
    A record has a tag, length and variable amount of data.
 
@@ -108,7 +104,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 	function-graph: announce_function basic_blocks {arcs | lines}*
 	announce_function: header int32:ident
 		int32:lineno_checksum int32:cfg_checksum
-		string:name string:source int32:start_lineno int32:start_column int32:end_lineno
+		string:name string:source int32:lineno
 	basic_block: header int32:flags*
 	arcs: header int32:block_no arc*
 	arc:  int32:dest_block int32:flags
@@ -181,6 +177,8 @@ typedef uint64_t gcov_type_unsigned;
 #if IN_GCOV > 0
 #include <sys/types.h>
 #endif
+#else /*!IN_GCOV */
+#define GCOV_TYPE_SIZE (LONG_LONG_TYPE_SIZE > 32 ? 64 : 32)
 #endif
 
 #if defined (HOST_HAS_F_SETLKW)
@@ -234,6 +232,7 @@ typedef uint64_t gcov_type_unsigned;
 #define GCOV_TAG_FUNCTION_LENGTH (3)
 #define GCOV_TAG_BLOCKS		 ((gcov_unsigned_t)0x01410000)
 #define GCOV_TAG_BLOCKS_LENGTH(NUM) (NUM)
+#define GCOV_TAG_BLOCKS_NUM(LENGTH) (LENGTH)
 #define GCOV_TAG_ARCS		 ((gcov_unsigned_t)0x01430000)
 #define GCOV_TAG_ARCS_LENGTH(NUM)  (1 + (NUM) * 2)
 #define GCOV_TAG_ARCS_NUM(LENGTH)  (((LENGTH) - 1) / 2)
@@ -391,7 +390,6 @@ GCOV_LINKAGE void gcov_write_unsigned (gcov_unsigned_t) ATTRIBUTE_HIDDEN;
 /* Available only in compiler */
 GCOV_LINKAGE unsigned gcov_histo_index (gcov_type value);
 GCOV_LINKAGE void gcov_write_string (const char *);
-GCOV_LINKAGE void gcov_write_filename (const char *);
 GCOV_LINKAGE gcov_position_t gcov_write_tag (gcov_unsigned_t);
 GCOV_LINKAGE void gcov_write_length (gcov_position_t /*position*/);
 #endif

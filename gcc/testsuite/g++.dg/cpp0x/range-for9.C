@@ -5,6 +5,6 @@
 void test()
 {
     int a[] = {0,1,2};
-    for (int x : a)  // { dg-error "range-based 'for'|forming reference" }
+    for (int x : a)  // { dg-error "range-based 'for'" }
         ;
 }

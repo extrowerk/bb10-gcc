@@ -1,4 +1,4 @@
-// Copyright (C) 2008-2018 Free Software Foundation, Inc.
+// Copyright (C) 2008-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -16,15 +16,17 @@
 // <http://www.gnu.org/licenses/>.
 //
 
-// { dg-do run { target c++11 } }
+// { dg-options "-std=gnu++11" }
 
 #include <unordered_map>
 #include <testsuite_hooks.h>
 
 using namespace std;
 
-void test01()
+int test01()
 {
+  bool test __attribute__((unused)) = true;
+
   unordered_map<int,double> m({ { 1, 1.0 }, { 2, 2.0 }, { 42, 237.0 } });
   VERIFY(m.size() == 3);
   VERIFY(m[1] == 1.0);
@@ -42,6 +44,7 @@ void test01()
   VERIFY(m[6] == 66.0);
   VERIFY(m[7] == 77.0);
   VERIFY(m[8] == 88.0);
+  return test;
 }
 
 int main()

@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fno-trapping-math -fdump-tree-ifcombine-details-blocks" } */
+/* { dg-options "-O2 -fno-trapping-math -fdump-tree-ifcombine" } */
 
 void f ();
 enum Sign { NEG=-1, ZERO, POS };
@@ -19,4 +19,4 @@ void g (double x)
    The transformation would also be legal with -ftrapping-math.  */
 
 /* { dg-final { scan-tree-dump "optimizing.* < " "ifcombine" } } */
-/* { dg-final { scan-tree-dump-not "Invalid sum" "ifcombine" } } */
+/* { dg-final { cleanup-tree-dump "ifcombine" } } */

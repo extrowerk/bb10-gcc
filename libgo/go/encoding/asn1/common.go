@@ -18,33 +18,29 @@ import (
 
 // Here are some standard tags and classes
 
-// ASN.1 tags represent the type of the following object.
 const (
-	TagBoolean         = 1
-	TagInteger         = 2
-	TagBitString       = 3
-	TagOctetString     = 4
-	TagNull            = 5
-	TagOID             = 6
-	TagEnum            = 10
-	TagUTF8String      = 12
-	TagSequence        = 16
-	TagSet             = 17
-	TagNumericString   = 18
-	TagPrintableString = 19
-	TagT61String       = 20
-	TagIA5String       = 22
-	TagUTCTime         = 23
-	TagGeneralizedTime = 24
-	TagGeneralString   = 27
+	tagBoolean         = 1
+	tagInteger         = 2
+	tagBitString       = 3
+	tagOctetString     = 4
+	tagOID             = 6
+	tagEnum            = 10
+	tagUTF8String      = 12
+	tagSequence        = 16
+	tagSet             = 17
+	tagPrintableString = 19
+	tagT61String       = 20
+	tagIA5String       = 22
+	tagUTCTime         = 23
+	tagGeneralizedTime = 24
+	tagGeneralString   = 27
 )
 
-// ASN.1 class types represent the namespace of the tag.
 const (
-	ClassUniversal       = 0
-	ClassApplication     = 1
-	ClassContextSpecific = 2
-	ClassPrivate         = 3
+	classUniversal       = 0
+	classApplication     = 1
+	classContextSpecific = 2
+	classPrivate         = 3
 )
 
 type tagAndLength struct {
@@ -78,7 +74,6 @@ type fieldParameters struct {
 	defaultValue *int64 // a default value for INTEGER typed fields (maybe nil).
 	tag          *int   // the EXPLICIT or IMPLICIT tag (maybe nil).
 	stringType   int    // the string tag to use when marshaling.
-	timeType     int    // the time tag to use when marshaling.
 	set          bool   // true iff this should be encoded as a SET
 	omitEmpty    bool   // true iff this should be omitted if empty when marshaling.
 
@@ -99,18 +94,12 @@ func parseFieldParameters(str string) (ret fieldParameters) {
 			if ret.tag == nil {
 				ret.tag = new(int)
 			}
-		case part == "generalized":
-			ret.timeType = TagGeneralizedTime
-		case part == "utc":
-			ret.timeType = TagUTCTime
 		case part == "ia5":
-			ret.stringType = TagIA5String
+			ret.stringType = tagIA5String
 		case part == "printable":
-			ret.stringType = TagPrintableString
-		case part == "numeric":
-			ret.stringType = TagNumericString
+			ret.stringType = tagPrintableString
 		case part == "utf8":
-			ret.stringType = TagUTF8String
+			ret.stringType = tagUTF8String
 		case strings.HasPrefix(part, "default:"):
 			i, err := strconv.ParseInt(part[8:], 10, 64)
 			if err == nil {
@@ -139,38 +128,36 @@ func parseFieldParameters(str string) (ret fieldParameters) {
 
 // Given a reflected Go type, getUniversalType returns the default tag number
 // and expected compound flag.
-func getUniversalType(t reflect.Type) (matchAny bool, tagNumber int, isCompound, ok bool) {
+func getUniversalType(t reflect.Type) (tagNumber int, isCompound, ok bool) {
 	switch t {
-	case rawValueType:
-		return true, -1, false, true
 	case objectIdentifierType:
-		return false, TagOID, false, true
+		return tagOID, false, true
 	case bitStringType:
-		return false, TagBitString, false, true
+		return tagBitString, false, true
 	case timeType:
-		return false, TagUTCTime, false, true
+		return tagUTCTime, false, true
 	case enumeratedType:
-		return false, TagEnum, false, true
+		return tagEnum, false, true
 	case bigIntType:
-		return false, TagInteger, false, true
+		return tagInteger, false, true
 	}
 	switch t.Kind() {
 	case reflect.Bool:
-		return false, TagBoolean, false, true
+		return tagBoolean, false, true
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return false, TagInteger, false, true
+		return tagInteger, false, true
 	case reflect.Struct:
-		return false, TagSequence, true, true
+		return tagSequence, true, true
 	case reflect.Slice:
 		if t.Elem().Kind() == reflect.Uint8 {
-			return false, TagOctetString, false, true
+			return tagOctetString, false, true
 		}
 		if strings.HasSuffix(t.Name(), "SET") {
-			return false, TagSet, true, true
+			return tagSet, true, true
 		}
-		return false, TagSequence, true, true
+		return tagSequence, true, true
 	case reflect.String:
-		return false, TagPrintableString, false, true
+		return tagPrintableString, false, true
 	}
-	return false, 0, false, false
+	return 0, false, false
 }

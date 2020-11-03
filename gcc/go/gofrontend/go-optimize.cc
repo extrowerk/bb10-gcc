@@ -19,8 +19,8 @@ Go_optimize* optimizations;
 
 // Create a new optimization.
 
-Go_optimize::Go_optimize(const char* name, bool enabled)
-  : next_(optimizations), name_(name), is_enabled_(enabled)
+Go_optimize::Go_optimize(const char* name)
+  : next_(optimizations), name_(name), is_enabled_(false)
 {
   optimizations = this;
 }
@@ -28,7 +28,7 @@ Go_optimize::Go_optimize(const char* name, bool enabled)
 // Enable an optimization by name.
 
 bool
-Go_optimize::enable_by_name(const char* name, bool value)
+Go_optimize::enable_by_name(const char* name)
 {
   bool is_all = strcmp(name, "all") == 0;
   bool found = false;
@@ -36,18 +36,18 @@ Go_optimize::enable_by_name(const char* name, bool value)
     {
       if (is_all || strcmp(name, p->name_) == 0)
 	{
-	  p->is_enabled_ = value;
+	  p->is_enabled_ = true;
 	  found = true;
 	}
     }
   return found;
 }
 
-// Enable/disable an optimization.  Return 1 if this is a real name, 0 if not.
+// Enable an optimization.  Return 1 if this is a real name, 0 if not.
 
 GO_EXTERN_C
 int
-go_enable_optimize(const char* name, int value)
+go_enable_optimize(const char* name)
 {
-  return Go_optimize::enable_by_name(name, (bool)value) ? 1 : 0;
+  return Go_optimize::enable_by_name(name) ? 1 : 0;
 }

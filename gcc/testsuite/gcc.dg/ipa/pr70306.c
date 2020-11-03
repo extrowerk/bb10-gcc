@@ -1,6 +1,5 @@
 /* { dg-options "-O2 -fdump-ipa-icf" } */
 /* { dg-do run } */
-/* { dg-require-effective-target global_constructor } */
 
 int ctor_counter = 1;
 int dtor_counter;

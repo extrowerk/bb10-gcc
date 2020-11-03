@@ -9,7 +9,7 @@ program prog
   k = 3
   l = 4
 
-  if ((a .ne. 3.0) .or. (b .ne. 3.0) .or. (c .ne. 3.0)) STOP 1
+  if ((a .ne. 3.0) .or. (b .ne. 3.0) .or. (c .ne. 3.0)) call abort ()
   if ((i .ne. 4) .or. (j .ne. 4) .or. (k .ne. 4) .or. (l .ne. 4)) &
-    STOP 2
+    call abort ()
 end program

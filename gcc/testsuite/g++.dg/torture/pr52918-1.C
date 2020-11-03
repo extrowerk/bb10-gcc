@@ -21,16 +21,9 @@ public:
 class free_list   {
     typedef __mutex __mutex_type;
     __mutex_type&     _M_get_mutex();
-    void _M_get(size_t __sz)
-#if __cplusplus <= 201402L
-    throw(bad_alloc)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#endif
-    ;
+    void _M_get(size_t __sz) throw(bad_alloc);
 };
-void  free_list::_M_get(size_t __sz)
-#if __cplusplus <= 201402L
-throw(bad_alloc)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#endif
+void  free_list::_M_get(size_t __sz) throw(bad_alloc)
 {
   __mutex_type& __bfl_mutex = _M_get_mutex();
   __bfl_mutex.unlock();

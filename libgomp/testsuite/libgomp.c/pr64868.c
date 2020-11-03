@@ -1,5 +1,6 @@
 /* PR c/64868 */
 /* { dg-do run } */
+/* { dg-options "-O2 -fopenmp" } */
 
 float f = 2.0f;
 double d = 4.0;

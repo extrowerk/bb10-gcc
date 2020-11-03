@@ -22,8 +22,6 @@ template <class T>
 decltype(auto) h5(T t) { return t.i; }
 template <class T>
 decltype(auto) h6(T t) { return (t.i); }
-template <class T>
-decltype(auto) h7(T t) { return (i); }
 
 int main()
 {
@@ -50,5 +48,4 @@ int main()
   same_type<decltype(h4()),int&>();
   same_type<decltype(h5(a)),int>();
   same_type<decltype(h6(a)),int&>();
-  same_type<decltype(h7(a)),int&>();
 }

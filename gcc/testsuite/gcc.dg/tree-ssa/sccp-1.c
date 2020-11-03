@@ -12,3 +12,4 @@ int main(int argc, char* argv[])
 /* There should be no loop left.  */
 
 /* { dg-final { scan-tree-dump-times "goto" 0 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

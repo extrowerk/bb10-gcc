@@ -1,8 +1,6 @@
-// { dg-xfail-run-if "AIX operator new" { powerpc-ibm-aix* } }
-
 // 2004-01-25 jlquinn@gcc.gnu.org
 
-// Copyright (C) 2004-2018 Free Software Foundation, Inc.
+// Copyright (C) 2004-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,20 +26,21 @@
 
 int new_fails;
 
-void* operator new(std::size_t n, const std::nothrow_t&) throw()
+void* operator new(std::size_t n) throw (std::bad_alloc)
 {
   if (new_fails)
-    return 0;
+    throw std::bad_alloc();  
   return malloc(n);
 }
-void* operator new[] (std::size_t n, const std::nothrow_t& ntt) throw()
-{ return operator new(n, ntt); }
+void* operator new[] (std::size_t n) throw (std::bad_alloc)
+{ return operator new(n); }
 
 void operator delete (void *p) throw() { free(p); }
 void operator delete[] (void *p) throw() { operator delete(p); }
 
 int main ()
 {
+  bool test __attribute__((unused)) = true;
   const int i = std::ios::xalloc();
   VERIFY( i >= 0 );
 

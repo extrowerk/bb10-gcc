@@ -5,7 +5,6 @@ template <class T>
 static inline bool Dispatch (T* obj, void (T::*func) ())
 {
   (obj->*func) ();
-  return true;
 }
 class C
 {
@@ -22,8 +21,6 @@ bool C::f (int n)
       case 1:
 	  b = Dispatch (this, &C::g);
     }
-
-  return true;
 }
 void C::g ()
 {

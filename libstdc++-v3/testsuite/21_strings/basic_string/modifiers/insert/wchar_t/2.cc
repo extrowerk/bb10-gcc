@@ -1,6 +1,6 @@
 // 1999-06-03 bkoz
 
-// Copyright (C) 1999-2018 Free Software Foundation, Inc.
+// Copyright (C) 1999-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -26,8 +26,10 @@
 //   wstring& insert(size_type __p, const wchar_t* s, size_type n);
 //   wstring& insert(size_type __p, const wchar_t* s);
 // but now s points inside the _Rep
-void test02(void)
+int test02(void)
 {
+  bool test __attribute__((unused)) = true;
+
   std::wstring str01;
   const wchar_t* title = L"Everything was beautiful, and nothing hurt";
   // Increasing size: str01 is reallocated every time.
@@ -70,6 +72,7 @@ void test02(void)
   str01.insert(0, str01.c_str());
   VERIFY( str01 == L"Everything was beautiful, and nothing hurt"
 	  L"Everything was beautiful, and nothing hurt");
+  return test;
 }
 
 int main()

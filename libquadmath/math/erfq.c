@@ -11,9 +11,9 @@
 
 /* Modifications and expansions for 128-bit long double are
    Copyright (C) 2001 Stephen L. Moshier <moshier@na-net.ornl.gov>
-   and are incorporated herein by permission of the author.  The author
+   and are incorporated herein by permission of the author.  The author 
    reserves the right to distribute this material elsewhere under different
-   copying permissions.  These modifications are distributed here under
+   copying permissions.  These modifications are distributed here under 
    the following terms:
 
     This library is free software; you can redistribute it and/or
@@ -96,7 +96,6 @@
  *		erfc/erf(NaN) is NaN
  */
 
-#include <errno.h>
 #include "quadmath-imp.h"
 
 
@@ -143,10 +142,13 @@ deval (__float128 x, const __float128 *p, int n)
 
 static const __float128
 tiny = 1e-4931Q,
+  half = 0.5Q,
   one = 1.0Q,
   two = 2.0Q,
   /* 2/sqrt(pi) - 1 */
-  efx = 1.2837916709551257389615890312154517168810E-1Q;
+  efx = 1.2837916709551257389615890312154517168810E-1Q,
+  /* 8 * (2/sqrt(pi) - 1) */
+  efx8 = 1.0270333367641005911692712249723613735048E0Q;
 
 
 /* erf(x)  = x  + x R(x^2)
@@ -771,8 +773,6 @@ erfq (__float128 x)
 
   if (ix >= 0x3fff0000) /* |x| >= 1.0 */
     {
-      if (ix >= 0x40030000 && sign > 0)
-	return one; /* x >= 16, avoid spurious underflow from erfc.  */
       y = erfcq (x);
       return (one - y);
       /*    return (one - erfcq (x)); */
@@ -785,12 +785,7 @@ erfq (__float128 x)
       if (ix < 0x3fc60000) /* |x|<2**-57 */
 	{
 	  if (ix < 0x00080000)
-	    {
-	      /* Avoid spurious underflow.  */
-	      __float128 ret =  0.0625 * (16.0 * x + (16.0 * efx) * x);
-	      math_check_force_underflow (ret);
-	      return ret;
-	    }
+	    return 0.125 * (8.0 * x + efx8 * x);	/*avoid underflow */
 	  return x + efx * x;
 	}
       y = a + a * neval (z, TN1, NTN1) / deval (z, TD1, NTD1);
@@ -872,7 +867,7 @@ erfcq (__float128 x)
 	  y = C19b + z * neval (z, RNr19, NRNr19) / deval (z, RDr19, NRDr19);
 	  y += C19a;
 	  break;
-	default: /* i == 9.  */
+	case 9:
 	  z = x - 1.125Q;
 	  y = C20b + z * neval (z, RNr20, NRNr20) / deval (z, RDr20, NRDr20);
 	  y += C20a;
@@ -926,22 +921,14 @@ erfcq (__float128 x)
       z = u.value;
       r = expq (-z * z - 0.5625) * expq ((z - x) * (z + x) + p);
       if ((sign & 0x80000000) == 0)
-	{
-	  __float128 ret = r / x;
-	  if (ret == 0)
-	    errno = ERANGE;
-	  return ret;
-	}
+	return r / x;
       else
 	return two - r / x;
     }
   else
     {
       if ((sign & 0x80000000) == 0)
-	{
-	  errno = ERANGE;
-	  return tiny * tiny;
-	}
+	return tiny * tiny;
       else
 	return two - tiny;
     }

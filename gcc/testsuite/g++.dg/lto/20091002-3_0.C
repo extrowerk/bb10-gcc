@@ -5,7 +5,7 @@
 
 template < class T > 
 class DataArray {
-    int max() const { return 0; }
+    int max() const { }
 };
 class Name { };
 class DataHashTable {

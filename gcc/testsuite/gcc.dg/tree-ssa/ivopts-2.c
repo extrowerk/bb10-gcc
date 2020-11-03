@@ -23,3 +23,4 @@ f ()
 
 /* We should only have two IVs.  */
 /* { dg-final { scan-tree-dump-not "\\n  candidates \\d+, \\d+,\[^\\n\]*\\n\[^\\n\]*\\nFinal cost" "ivopts" } }  */
+/* { dg-final { cleanup-tree-dump "ivopts" } }  */

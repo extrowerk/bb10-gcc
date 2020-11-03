@@ -1,6 +1,7 @@
-// { dg-do compile { target c++11 } }
+// { dg-do compile }
+// { dg-options "-std=gnu++14" }
 
-// Copyright (C) 2014-2018 Free Software Foundation, Inc.
+// Copyright (C) 2014-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -24,6 +25,4 @@ int main()
   constexpr std::complex<int> c{};
   constexpr auto r __attribute__((unused)) = real(c);
   constexpr auto i __attribute__((unused)) = imag(c);
-  constexpr double r2 __attribute__((unused)) = std::real(0.0);
-  constexpr double i2 __attribute__((unused)) = std::imag(0.0);
 }

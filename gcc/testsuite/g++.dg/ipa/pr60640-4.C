@@ -82,3 +82,4 @@ int main (int argc, char *argv[])
 }
 
 /* { dg-final { scan-ipa-dump-times "Thunk fixed offset" 2 "cp"} } */
+/* { dg-final { cleanup-ipa-dump "cp" } } */

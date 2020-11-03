@@ -1,5 +1,5 @@
 /* { dg-do compile { target i?86-*-* x86_64-*-* } } */
-/* { dg-options "-march=amdfam10 -O3 -fprofile-generate -Wno-return-type" } */
+/* { dg-options "-march=amdfam10 -O3 -fprofile-generate" } */
 enum gimple_code {};
 struct A {
   gimple_code code;

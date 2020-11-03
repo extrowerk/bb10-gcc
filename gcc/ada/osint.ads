@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -51,10 +51,6 @@ package Osint is
    Ada_Objects_Path          : constant String := "ADA_OBJECTS_PATH";
    Project_Include_Path_File : constant String := "ADA_PRJ_INCLUDE_FILE";
    Project_Objects_Path_File : constant String := "ADA_PRJ_OBJECTS_FILE";
-
-   Output_FD : File_Descriptor;
-   --  File descriptor for current library info, list, tree, C, H, or binder
-   --  output. Only one of these is open at a time, so we need only one FD.
 
    procedure Initialize;
    --  Initialize internal tables
@@ -120,7 +116,7 @@ package Osint is
    --  lower case form, so that two environment variable names compare equal if
    --  they refer to the same environment variable.
 
-   function Number_Of_Files return Nat;
+   function Number_Of_Files return Int;
    --  Gives the total number of filenames found on the command line
 
    No_Index : constant := -1;
@@ -213,6 +209,24 @@ package Osint is
    --  Expand a wildcard host syntax file or directory specification and return
    --  a list of valid Unix syntax file or directory specs. If Only_Dirs is
    --  True, then only return directories.
+
+   function To_Canonical_Dir_Spec
+     (Host_Dir     : String;
+      Prefix_Style : Boolean) return String_Access;
+   --  Convert a host syntax directory specification to canonical (Unix)
+   --  syntax. If Prefix_Style then make it a valid file specification prefix.
+   --  A file specification prefix is a directory specification that can be
+   --  appended with a simple file specification to yield a valid absolute
+   --  or relative path to a file. On a conversion to Unix syntax this simply
+   --  means the spec has a trailing slash ("/").
+
+   function To_Canonical_File_Spec
+     (Host_File : String) return String_Access;
+   --  Convert a host syntax file specification to canonical (Unix) syntax
+
+   function To_Canonical_Path_Spec
+     (Host_Path : String) return String_Access;
+   --  Convert a host syntax Path specification to canonical (Unix) syntax
 
    function To_Host_Dir_Spec
      (Canonical_Dir : String;
@@ -401,12 +415,10 @@ package Osint is
       Lo  : Source_Ptr;
       Hi  : out Source_Ptr;
       Src : out Source_Buffer_Ptr;
-      FD  : out File_Descriptor;
       T   : File_Type := Source);
    --  Allocates a Source_Buffer of appropriate length and then reads the
    --  entire contents of the source file N into the buffer. The address of
-   --  the allocated buffer is returned in Src. FD is used for extended error
-   --  information in the case the read fails.
+   --  the allocated buffer is returned in Src.
    --
    --  Each line of text is terminated by one of the sequences:
    --
@@ -419,8 +431,11 @@ package Osint is
    --  positions other than the last source character are treated as blanks).
    --
    --  The logical lower bound of the source buffer is the input value of Lo,
-   --  and on exit Hi is set to the logical upper bound of the source buffer,
-   --  which is redundant with Src'Last.
+   --  and on exit Hi is set to the logical upper bound of the source buffer.
+   --  Note that the returned value in Src points to an array with a physical
+   --  lower bound of zero. This virtual origin addressing approach means that
+   --  a constrained array pointer can be used with a low bound of zero which
+   --  results in more efficient code.
    --
    --  If the given file cannot be opened, then the action depends on whether
    --  this file is the current main unit (i.e. its name matches the name
@@ -428,11 +443,7 @@ package Osint is
    --  failure to find the file is a fatal error, an error message is output,
    --  and program execution is terminated. Otherwise (for the case of a
    --  subsidiary source loaded directly or indirectly using with), a file
-   --  not found condition causes null to be set as the result value and a
-   --  value of No_Source_File (0) to be set as the FD value. In the related
-   --  case of a file with no read permissions the result is the same except FD
-   --  is set to No_Access_To_Source_File (-1). Upon success FD is set to a
-   --  positive Source_File_Index.
+   --  not found condition causes null to be set as the result value.
    --
    --  Note that the name passed to this function is the simple file name,
    --  without any directory information. The implementation is responsible
@@ -668,7 +679,7 @@ package Osint is
    --  The suffixes used for the ALI files
 
    function Prep_Suffix return String;
-   --  The suffix used for preprocessed files
+   --  The suffix used for pre-processed files
 
 private
 
@@ -680,6 +691,9 @@ private
 
    Target_Object_Suffix : constant String := Get_Target_Object_Suffix.all;
    --  The suffix used for the target object files
+
+   Output_FD : File_Descriptor;
+   --  File descriptor for current library info, list, tree, or binder output
 
    Output_File_Name : File_Name_Type;
    --  File_Name_Type for name of open file whose FD is in Output_FD, the name
@@ -745,7 +759,8 @@ private
    --  for this file. This routine merely constructs the name.
 
    procedure Write_Info (Info : String);
-   --  Implements Write_Binder_Info, Write_Debug_Info, and Write_Library_Info
+   --  Implementation of Write_Binder_Info, Write_Debug_Info and
+   --  Write_Library_Info (identical)
 
    procedure Write_With_Check (A : Address; N  : Integer);
    --  Writes N bytes from buffer starting at address A to file whose FD is

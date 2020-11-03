@@ -1,5 +1,5 @@
 /* Generic helper function for repacking arrays.
-   Copyright (C) 2003-2018 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran runtime library (libgfortran).
@@ -24,6 +24,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
 #include "libgfortran.h"
+#include <stdlib.h>
+#include <assert.h>
 #include <string.h>
 
 extern void *internal_pack (gfc_array_char *);
@@ -41,6 +43,7 @@ internal_pack (gfc_array_char * source)
   const char *src;
   char *dest;
   void *destptr;
+  int n;
   int packed;
   index_type size;
   index_type type_size;
@@ -54,6 +57,7 @@ internal_pack (gfc_array_char * source)
     {
     case GFC_DTYPE_INTEGER_1:
     case GFC_DTYPE_LOGICAL_1:
+    case GFC_DTYPE_DERIVED_1:
       return internal_pack_1 ((gfc_array_i1 *) source);
 
     case GFC_DTYPE_INTEGER_2:
@@ -121,48 +125,40 @@ internal_pack (gfc_array_char * source)
 # endif
 #endif
 
-    default:
-      break;
-    }
-
-  switch(GFC_DESCRIPTOR_SIZE (source))
-    {
-    case 1:
-      return internal_pack_1 ((gfc_array_i1 *) source);
-
-    case 2:
+    case GFC_DTYPE_DERIVED_2:
       if (GFC_UNALIGNED_2(source->base_addr))
 	break;
       else
 	return internal_pack_2 ((gfc_array_i2 *) source);
 
-    case 4:
+    case GFC_DTYPE_DERIVED_4:
       if (GFC_UNALIGNED_4(source->base_addr))
 	break;
       else
 	return internal_pack_4 ((gfc_array_i4 *) source);
 
-    case 8:
+    case GFC_DTYPE_DERIVED_8:
       if (GFC_UNALIGNED_8(source->base_addr))
 	break;
       else
 	return internal_pack_8 ((gfc_array_i8 *) source);
 
 #ifdef HAVE_GFC_INTEGER_16
-    case 16:
+    case GFC_DTYPE_DERIVED_16:
       if (GFC_UNALIGNED_16(source->base_addr))
 	break;
       else
 	return internal_pack_16 ((gfc_array_i16 *) source);
 #endif
+
     default:
       break;
     }
-  
+
   dim = GFC_DESCRIPTOR_RANK (source);
   ssize = 1;
   packed = 1;
-  for (index_type n = 0; n < dim; n++)
+  for (n = 0; n < dim; n++)
     {
       count[n] = 0;
       stride[n] = GFC_DESCRIPTOR_STRIDE(source,n);
@@ -198,7 +194,7 @@ internal_pack (gfc_array_char * source)
       src += stride0;
       count[0]++;
       /* Advance to the next source element.  */
-      index_type n = 0;
+      n = 0;
       while (count[n] == extent[n])
         {
           /* When we get to the end of a dimension, reset it and increment

@@ -1,4 +1,4 @@
-// Copyright (C) 2004-2018 Free Software Foundation, Inc.
+// Copyright (C) 2004-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -26,6 +26,7 @@ void
 test10()
 {
   using namespace std;
+  bool test __attribute__((unused)) = true;
   typedef wstring string_type;
   typedef wstringbuf stringbuf_type;
   typedef wistream istream_type;
@@ -37,19 +38,23 @@ test10()
   
   istr.ignore(0);
   if (istr.gcount() != 0) 
-    VERIFY( false );
+    test = false;
+  VERIFY( test );
   
   istr.ignore(0, L'b');
   if (istr.gcount() != 0) 
-    VERIFY( false );
+    test = false;
+  VERIFY( test );
   
   istr.ignore();	// Advance to next position.
   istr.ignore(0, L'b');
   if ((n=istr.gcount()) != 0) 
-    VERIFY( false );
+    test = false;
+  VERIFY( test );
   
   if (istr.peek() != L'b')
-    VERIFY( false );
+    test = false;
+  VERIFY( test );
 }
 
 int 

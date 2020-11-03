@@ -1,5 +1,5 @@
 /* Part of CPP library.
-   Copyright (C) 1997-2018 Free Software Foundation, Inc.
+   Copyright (C) 1997-2015 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -68,7 +68,7 @@ struct cset_converter
 
 #define CPP_INCREMENT_LINE(PFILE, COLS_HINT) do { \
     const struct line_maps *line_table = PFILE->line_table; \
-    const struct line_map_ordinary *map = \
+    const struct line_map *map = \
       LINEMAPS_LAST_ORDINARY_MAP (line_table); \
     linenum_type line = SOURCE_LINE (map, line_table->highest_line); \
     linemap_line_start (PFILE->line_table, line + 1, COLS_HINT); \
@@ -246,7 +246,7 @@ struct lexer_state
      all directives apart from #define.  */
   unsigned char save_comments;
 
-  /* Nonzero if lexing __VA_ARGS__ and __VA_OPT__ are valid.  */
+  /* Nonzero if lexing __VA_ARGS__ is valid.  */
   unsigned char va_args_ok;
 
   /* Nonzero if lexing poisoned identifiers is valid.  */
@@ -282,7 +282,6 @@ struct spec_nodes
   cpp_hashnode *n_true;			/* C++ keyword true */
   cpp_hashnode *n_false;		/* C++ keyword false */
   cpp_hashnode *n__VA_ARGS__;		/* C99 vararg macros */
-  cpp_hashnode *n__VA_OPT__;		/* C++ vararg macros */
   cpp_hashnode *n__has_include__;	/* __has_include__ operator */
   cpp_hashnode *n__has_include_next__;	/* __has_include_next__ operator */
 };
@@ -503,11 +502,6 @@ struct cpp_reader
   const unsigned char *date;
   const unsigned char *time;
 
-  /* Externally set timestamp to replace current date and time useful for
-     reproducibility.  It should be initialized to -2 (not yet set) and
-     set to -1 to disable it or to a non-negative value to enable it.  */
-  time_t source_date_epoch;
-
   /* EOF token, and a token forcing paste avoidance.  */
   cpp_token avoid_paste;
   cpp_token eof;
@@ -632,8 +626,7 @@ extern bool _cpp_save_parameter (cpp_reader *, cpp_macro *, cpp_hashnode *,
 extern bool _cpp_arguments_ok (cpp_reader *, cpp_macro *, const cpp_hashnode *,
 			       unsigned int);
 extern const unsigned char *_cpp_builtin_macro_text (cpp_reader *,
-						     cpp_hashnode *,
-						     source_location = 0);
+						     cpp_hashnode *);
 extern int _cpp_warn_if_unused_macro (cpp_reader *, cpp_hashnode *, void *);
 extern void _cpp_push_token_context (cpp_reader *, cpp_hashnode *,
 				     const cpp_token *, unsigned int);
@@ -646,14 +639,13 @@ extern void _cpp_destroy_hashtable (cpp_reader *);
 /* In files.c */
 typedef struct _cpp_file _cpp_file;
 extern _cpp_file *_cpp_find_file (cpp_reader *, const char *, cpp_dir *,
-				  bool, int, bool, source_location);
+				  bool, int, bool);
 extern bool _cpp_find_failed (_cpp_file *);
 extern void _cpp_mark_file_once_only (cpp_reader *, struct _cpp_file *);
 extern void _cpp_fake_include (cpp_reader *, const char *);
-extern bool _cpp_stack_file (cpp_reader *, _cpp_file*, bool,
-			     source_location);
+extern bool _cpp_stack_file (cpp_reader *, _cpp_file*, bool);
 extern bool _cpp_stack_include (cpp_reader *, const char *, int,
-				enum include_type, source_location);
+				enum include_type);
 extern int _cpp_compare_file_date (cpp_reader *, const char *, int);
 extern void _cpp_report_missing_guards (cpp_reader *);
 extern void _cpp_init_files (cpp_reader *);
@@ -696,7 +688,7 @@ extern int _cpp_handle_directive (cpp_reader *, int);
 extern void _cpp_define_builtin (cpp_reader *, const char *);
 extern char ** _cpp_save_pragma_names (cpp_reader *);
 extern void _cpp_restore_pragma_names (cpp_reader *, char **);
-extern int _cpp_do__Pragma (cpp_reader *, source_location);
+extern int _cpp_do__Pragma (cpp_reader *);
 extern void _cpp_init_directives (cpp_reader *);
 extern void _cpp_init_internal_pragmas (cpp_reader *);
 extern void _cpp_do_file_change (cpp_reader *, enum lc_reason, const char *,
@@ -709,7 +701,7 @@ struct _cpp_dir_only_callbacks
 {
   /* Called to print a block of lines. */
   void (*print_lines) (int, const void *, size_t);
-  bool (*maybe_print_line) (source_location);
+  void (*maybe_print_line) (source_location);
 };
 
 extern void _cpp_preprocess_dir_only (cpp_reader *,
@@ -752,12 +744,9 @@ struct normalize_state
 #define NORMALIZE_STATE_UPDATE_IDNUM(st, c)	\
   ((st)->previous = (c), (st)->prev_class = 0)
 
-extern bool _cpp_valid_ucn (cpp_reader *, const unsigned char **,
-			    const unsigned char *, int,
-			    struct normalize_state *state,
-			    cppchar_t *,
-			    source_range *char_range,
-			    cpp_string_location_reader *loc_reader);
+extern cppchar_t _cpp_valid_ucn (cpp_reader *, const unsigned char **,
+				 const unsigned char *, int,
+				 struct normalize_state *state);
 extern void _cpp_destroy_iconv (cpp_reader *);
 extern unsigned char *_cpp_convert_input (cpp_reader *, const char *,
 					  unsigned char *, size_t, size_t,
@@ -844,10 +833,10 @@ ufputs (const unsigned char *s, FILE *f)
    of the macro, rather than the the location of the first character
    of the macro.  NUM_TOKENS is the number of tokens that are part of
    the replacement-list of MACRO.  */
-const line_map_macro *linemap_enter_macro (struct line_maps *,
-					   struct cpp_hashnode*,
-					   source_location,
-					   unsigned int);
+const struct line_map *linemap_enter_macro (struct line_maps *,
+					    struct cpp_hashnode*,
+					    source_location,
+					    unsigned int);
 
 /* Create and return a virtual location for a token that is part of a
    macro expansion-list at a macro expansion point.  See the comment
@@ -871,7 +860,7 @@ const line_map_macro *linemap_enter_macro (struct line_maps *,
    MACRO_DEFINITION_LOC is the location in the macro definition,
    either of the token itself or of a macro parameter that it
    replaces.  */
-source_location linemap_add_macro_token (const line_map_macro *,
+source_location linemap_add_macro_token (const struct line_map *,
 					 unsigned int,
 					 source_location,
 					 source_location);

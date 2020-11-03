@@ -11,10 +11,11 @@ program main
   i = 0
   c = 'abcd'
   d = 'efgh'
-  if (c // 'a' >= d // 'a') STOP 1
-  if ('a' // c >= 'a' // d) STOP 2
+  if (c // 'a' >= d // 'a') call abort
+  if ('a' // c >= 'a' // d) call abort
 end program main
 
 ! { dg-final { scan-tree-dump-times "gfortran_concat_string" 0 "original" } }
 ! { dg-final { scan-tree-dump-times "__builtin_memcmp" 2 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }
 

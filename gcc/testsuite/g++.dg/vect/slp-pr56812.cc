@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 /* { dg-require-effective-target vect_float } */
 /* { dg-require-effective-target vect_hw_misalign } */
-/* { dg-additional-options "-O3 -funroll-loops -fvect-cost-model=dynamic -fopt-info-vec" } */
+/* { dg-additional-options "-O3 -funroll-loops -fvect-cost-model=dynamic" } */
 
 class mydata {
 public:
@@ -13,7 +13,9 @@ public:
 
 void mydata::Set (float x)
 {
-  /* We want to vectorize this either as loop or basic-block.  */
-  for (int i=0; i<upper(); i++) /* { dg-message "note: \[^\n\]* vectorized" } */
+  for (int i=0; i<upper(); i++)
     data[i] = x;
 }
+
+/* { dg-final { scan-tree-dump-times "basic block vectorized" 1 "slp1" } } */
+/* { dg-final { cleanup-tree-dump "slp1" } } */

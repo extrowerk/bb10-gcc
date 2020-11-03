@@ -34,3 +34,4 @@ void vnum_test8(int *data)
 
 /* { dg-final { scan-tree-dump-times "= 0;" 1 "ivopts"} } */
 /* { dg-final { scan-tree-dump-times "= 2;" 1 "ivopts"} } */
+/* { dg-final { cleanup-tree-dump "ivopts" } }  */

@@ -4,5 +4,5 @@ program  bug6
   integer(1) :: i = 65
   character a
   a = achar(i)
-  if (a /= 'A') STOP 1
+  if (a /= 'A') call abort
 end program  bug6

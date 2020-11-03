@@ -15,7 +15,7 @@ subroutine test1()
 
   x%i = 77
   call f(x)
-  if (x%i /= 6) STOP 1
+  if (x%i /= 6) call abort ()
   call f()
 contains
   subroutine f(y1)
@@ -32,11 +32,11 @@ subroutine test2()
   class(mytype), allocatable :: x,y
   allocate (mytype2 :: x)
   call g(x)
-  if (allocated (x) .or. .not. same_type_as (x,y)) STOP 2
+  if (allocated (x) .or. .not. same_type_as (x,y)) call abort()
 
   allocate (mytype2 :: x)
   call h(x)
-  if (allocated (x) .or. .not. same_type_as (x,y)) STOP 3
+  if (allocated (x) .or. .not. same_type_as (x,y)) call abort()
 
   call h()
 contains

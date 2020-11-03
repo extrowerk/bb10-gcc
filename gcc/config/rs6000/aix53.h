@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for IBM RS/6000 POWER running AIX V5.3.
-   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by David Edelsohn (edelsohn@gnu.org).
 
    This file is part of GCC.
@@ -39,7 +39,7 @@ do {									\
     {									\
       error ("-maix64 required: 64-bit computation with 32-bit addressing not yet supported"); \
     }									\
-} while (0)
+} while (0);
 
 #undef ASM_SPEC
 #define ASM_SPEC "-u %{maix64:-a64 %{!mcpu*:-mppc64}} %(asm_cpu)"
@@ -63,7 +63,6 @@ do {									\
 %{mcpu=power6x: -mpwr6} \
 %{mcpu=power7: -mpwr7} \
 %{mcpu=power8: -mpwr8} \
-%{mcpu=power9: -mpwr9} \
 %{mcpu=powerpc: -mppc} \
 %{mcpu=rs64a: -mppc} \
 %{mcpu=603: -m603} \
@@ -176,5 +175,7 @@ extern long long int    atoll(const char *);
 
 /* This target defines SUPPORTS_WEAK and TARGET_ASM_NAMED_SECTION,
    but does not have crtbegin/end.  */
+
+#define TARGET_USE_JCR_SECTION 0
 
 #define TARGET_AIX_VERSION 53

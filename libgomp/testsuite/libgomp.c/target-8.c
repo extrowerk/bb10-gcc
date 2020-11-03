@@ -1,4 +1,5 @@
 /* { dg-do run } */
+/* { dg-options "-fopenmp" } */
 
 void
 foo (int *p)

@@ -1,6 +1,6 @@
 // PR debug/44668
 // { dg-do compile }
-// { dg-options "-gdwarf-2 -dA" }
+// { dg-options "-g -dA" }
 
 struct C
 {

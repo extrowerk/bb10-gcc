@@ -28,3 +28,4 @@ begin
 end;
 
 -- { dg-final { scan-tree-dump-not "\.F" "gimple" } }
+-- { dg-final { cleanup-tree-dump "gimple" } }

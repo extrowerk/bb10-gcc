@@ -23,3 +23,4 @@ f3 (S *p)
 }
 
 // { dg-final { scan-tree-dump-times "__ubsan_handle_dynamic_type_cache_miss" 0 "optimized" } }
+// { dg-final { cleanup-tree-dump "optimized" } }

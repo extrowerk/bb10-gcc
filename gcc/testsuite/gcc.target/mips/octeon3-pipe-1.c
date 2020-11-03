@@ -9,3 +9,4 @@ NOMIPS16 int f (int a, int b)
 }
 
 /* { dg-final { scan-rtl-dump "octeon_mult\\*17" "sched2" } }  */
+/* { dg-final { cleanup-rtl-dump "sched2" } }  */

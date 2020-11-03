@@ -23,11 +23,11 @@
 //
 // That is more useful.
 
-#define INT_MAX __INT_MAX__ // { dg-warning "17: conversion from 'int' to 'float' changes value from .2147483647. to " }
+#define INT_MAX __INT_MAX__ 
 
 float  vfloat;
 
 void h (void)
 {
-    vfloat = INT_MAX; // { dg-message "14: in expansion of macro .INT_MAX." }
+    vfloat = INT_MAX; // { dg-warning "conversion to .float. alters .int. constant value" }
 }

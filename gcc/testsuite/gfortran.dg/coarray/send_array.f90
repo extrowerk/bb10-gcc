@@ -42,7 +42,7 @@ contains
     sync all
     if (this_image() == num_images()) then
       if (any (a /= caf)) &
-           STOP 1
+           call abort()
     end if
     sync all
 
@@ -57,7 +57,7 @@ contains
     sync all
     if (this_image() == num_images()) then
       if (any (a /= caf)) &
-           STOP 2
+           call abort()
     end if
     sync all
 
@@ -90,7 +90,7 @@ contains
     sync all
     if (this_image() == num_images()) then
       if (any (a /= caf)) &
-           STOP 3
+           call abort()
     end if
     sync all
 
@@ -136,7 +136,7 @@ contains
                         print *, a
                         print *, caf
                         print *, a-caf
-                        STOP 4
+                        call abort()
                       endif
                     end if
                     sync all
@@ -171,7 +171,7 @@ contains
     sync all
     if (this_image() == num_images()) then
       if (any (a /= caf)) &
-           STOP 5
+           call abort()
     end if
 
     ! Whole array: ARRAY = ARRAY
@@ -185,7 +185,7 @@ contains
     sync all
     if (this_image() == num_images()) then
       if (any (a /= caf)) &
-           STOP 6
+           call abort()
     end if
     sync all
 
@@ -218,7 +218,7 @@ contains
     sync all
     if (this_image() == num_images()) then
       if (any (a /= caf)) &
-           STOP 7
+           call abort()
     end if
     sync all
 
@@ -264,7 +264,7 @@ contains
                         print *, a
                         print *, caf
                         print *, a-caf
-                        STOP 8
+                        call abort()
                       endif
                     end if
                     sync all
@@ -299,7 +299,7 @@ contains
     sync all
     if (this_image() == num_images()) then
       if (any (a /= caf)) &
-           STOP 9
+           call abort()
     end if
 
     ! Whole array: ARRAY = ARRAY
@@ -313,7 +313,7 @@ contains
     sync all
     if (this_image() == num_images()) then
       if (any (a /= caf)) &
-           STOP 10
+           call abort()
     end if
     sync all
 
@@ -346,7 +346,7 @@ contains
     sync all
     if (this_image() == num_images()) then
       if (any (a /= caf)) &
-           STOP 11
+           call abort()
     end if
 
     ! Array sections with different ranges and pos/neg strides
@@ -391,7 +391,7 @@ contains
                         print *, a
                         print *, caf
                         print *, a-caf
-                        STOP 12
+                        call abort()
                       endif
                     end if
                     sync all

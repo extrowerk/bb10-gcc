@@ -12,3 +12,5 @@ module ct
   type :: t1
   end type
 end
+
+! { dg-final { cleanup-modules "ct" } }

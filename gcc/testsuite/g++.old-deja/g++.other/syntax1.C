@@ -11,9 +11,7 @@ void AAA::fff() {}
 
 AAA aaa;
 
-int
 main ()
 {
   aaa.fff();
-  return 0;
 }

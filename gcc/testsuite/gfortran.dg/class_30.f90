@@ -15,6 +15,6 @@ end type t2
 
 type, bind(C):: t3
   class(t), pointer :: y
-  ! { dg-error "Polymorphic component y at .1. in SEQUENCE or BIND" "" { target *-*-* } .-1 }
+  ! { dg-error "Polymorphic component y at .1. in SEQUENCE or BIND" "" { target *-*-* } 17 }
 end type t3
 end

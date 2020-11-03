@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+
 #include "cpuid.h"
 
 static void bmi2_test (void);
@@ -16,8 +17,10 @@ main ()
 {
   unsigned int eax, ebx, ecx, edx;
 
-  if (!__get_cpuid_count (7, 0, &eax, &ebx, &ecx, &edx))
+  if (__get_cpuid_max (0, NULL) < 7)
     return 0;
+
+  __cpuid_count (7, 0,  eax, ebx, ecx, edx);
 
   /* Run BMI2 test only if host has BMI2 support.  */
   if (ebx & bit_BMI2)
@@ -26,11 +29,11 @@ main ()
 #ifdef DEBUG
       printf ("PASSED\n");
 #endif
-      return 0;
     }
-
 #ifdef DEBUG
-  printf ("SKIPPED\n");
+  else
+    printf ("SKIPPED\n");
 #endif
+
   return 0;
 }

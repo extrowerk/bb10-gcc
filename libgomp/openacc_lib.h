@@ -1,6 +1,6 @@
 !  OpenACC Runtime Library Definitions.			-*- mode: fortran -*-
 
-!  Copyright (C) 2014-2018 Free Software Foundation, Inc.
+!  Copyright (C) 2014-2015 Free Software Foundation, Inc.
 
 !  Contributed by Tobias Burnus <burnus@net-b.de>
 !              and Mentor Embedded.
@@ -38,8 +38,7 @@
       integer (acc_device_kind), parameter :: acc_device_none = 0
       integer (acc_device_kind), parameter :: acc_device_default = 1
       integer (acc_device_kind), parameter :: acc_device_host = 2
-!     integer (acc_device_kind), parameter :: acc_device_host_nonshm = 3
-!     removed.
+      integer (acc_device_kind), parameter :: acc_device_host_nonshm = 3
       integer (acc_device_kind), parameter :: acc_device_not_host = 4
       integer (acc_device_kind), parameter :: acc_device_nvidia = 5
 
@@ -108,11 +107,6 @@
         end subroutine
       end interface
 
-!     acc_async_wait is an OpenACC 1.0 compatibility name for acc_wait.
-      interface acc_async_wait
-        procedure :: acc_wait_h
-      end interface
-
       interface acc_wait_async
         subroutine acc_wait_async_h (a1, a2)
           integer a1, a2
@@ -122,12 +116,6 @@
       interface acc_wait_all
         subroutine acc_wait_all_h ()
         end subroutine
-      end interface
-
-!     acc_async_wait_all is an OpenACC 1.0 compatibility name for
-!     acc_wait_all.
-      interface acc_async_wait_all
-        procedure :: acc_wait_all_h
       end interface
 
       interface acc_wait_all_async
@@ -202,9 +190,23 @@
       end interface
 
       interface acc_pcopyin
-        procedure :: acc_present_or_copyin_32_h
-        procedure :: acc_present_or_copyin_64_h
-        procedure :: acc_present_or_copyin_array_h
+        subroutine acc_pcopyin_32_h (a, len)
+          use iso_c_binding, only: c_int32_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int32_t) len
+        end subroutine
+
+        subroutine acc_pcopyin_64_h (a, len)
+          use iso_c_binding, only: c_int64_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int64_t) len
+        end subroutine
+
+        subroutine acc_pcopyin_array_h (a)
+          type (*), dimension (..), contiguous :: a
+          end subroutine
       end interface
 
       interface acc_create
@@ -248,9 +250,23 @@
       end interface
 
       interface acc_pcreate
-        procedure :: acc_present_or_create_32_h
-        procedure :: acc_present_or_create_64_h
-        procedure :: acc_present_or_create_array_h
+        subroutine acc_pcreate_32_h (a, len)
+          use iso_c_binding, only: c_int32_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int32_t) len
+        end subroutine
+
+        subroutine acc_pcreate_64_h (a, len)
+          use iso_c_binding, only: c_int64_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int64_t) len
+        end subroutine
+
+        subroutine acc_pcreate_array_h (a)
+          type (*), dimension (..), contiguous :: a
+          end subroutine
       end interface
 
       interface acc_copyout
@@ -336,7 +352,7 @@
       ! acc_map_data: Only available in C/C++
       ! acc_unmap_data: Only available in C/C++
       ! acc_deviceptr: Only available in C/C++
-      ! acc_hostptr: Only available in C/C++
+      ! acc_ostptr: Only available in C/C++
 
       interface acc_is_present
         function acc_is_present_32_h (a, len)

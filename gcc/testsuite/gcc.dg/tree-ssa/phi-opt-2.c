@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O1 -fdump-tree-optimized" } */
-/* { dg-additional-options "-mbranch-cost=1" { target branch_cost } } */
+/* { dg-additional-options "-mbranch-cost=1" { target { i?86-*-* x86_64-*-* mips*-*-* s390*-*-* avr*-*-* } } } */
 
 _Bool f1(_Bool a, _Bool b)
 {
@@ -22,3 +22,4 @@ _Bool f1(_Bool a, _Bool b)
    Test this only when known to be !LOGICAL_OP_NON_SHORT_CIRCUIT,
    otherwise ifcombine may convert this into return a & b;.  */
 /* { dg-final { scan-tree-dump-times "if" 1 "optimized" { target { i?86-*-* x86_64-*-* mips*-*-* s390*-*-* avr*-*-* } } } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

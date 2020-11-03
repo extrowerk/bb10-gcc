@@ -1,7 +1,6 @@
 /* PR c/38700 */
 /* { dg-do compile } */
 /* { dg-options "-O0" } */
-/* { dg-require-effective-target label_values } */
 
 int
 foo ()

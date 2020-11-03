@@ -14,5 +14,5 @@ extern ostream cout;
 
 int main()
 {
-  cout << isdigit(0);  // { dg-error "invalid conversion" }
+  cout << isdigit(0);
 }

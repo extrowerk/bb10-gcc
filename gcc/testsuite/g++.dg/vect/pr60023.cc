@@ -77,3 +77,4 @@ f8 (int *p, int *q)
     p[i] = q[i] + 1;
 }
 
+// { dg-final { cleanup-tree-dump "vect" } }

@@ -1,6 +1,4 @@
 // PR c++/55951
-// { dg-do compile }
-// { dg-options "" }
 
 enum { A };
 

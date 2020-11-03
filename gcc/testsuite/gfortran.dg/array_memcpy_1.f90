@@ -25,3 +25,4 @@ subroutine testl(a,b)
 end subroutine
 
 ! { dg-final { scan-tree-dump-times "memcpy" 4 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

@@ -2,6 +2,7 @@
 /* { dg-options "-fcheck-pointer-bounds -mmpx -O2 -fdump-tree-chkp" } */
 /* { dg-final { scan-tree-dump "bndcl" "chkp" } } */
 /* { dg-final { scan-tree-dump "bndcu" "chkp" } } */
+/* { dg-final { cleanup-tree-dump "chkp" } } */
 
 int
 test (int *p)

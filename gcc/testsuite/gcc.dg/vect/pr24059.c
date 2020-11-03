@@ -13,3 +13,4 @@ void compute_predicate_codes (char *codes, struct pred_data *p)
     codes[i] = p->codes[i] ? 2 : 0;
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

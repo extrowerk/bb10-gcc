@@ -1,5 +1,4 @@
 /* { dg-lto-do link } */
-/* { dg-require-effective-target vect_simd_clones } */
 /* { dg-require-effective-target avx2 } */
 /* { dg-lto-options { { -fopenmp-simd -O3 -ffast-math -mavx2 -flto -flto-partition=max } } } */
 

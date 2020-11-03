@@ -9,7 +9,7 @@
        open(unit=11,status='scratch',form='unformatted')
        write(11)data
        read(11,end=        1000 )data
-       STOP 1
+       call abort()
  1000  continue
        backspace 11
        backspace 11
@@ -19,9 +19,9 @@
        read(11,end=        1001 )data
  1001  continue
        read(11,end=        1002 )data
-       STOP 1
+       call abort
  1002  continue
-       if (.not. all(data == -3)) STOP 2
+       if (.not. all(data == -3)) call abort()
        close(11)
        end
 

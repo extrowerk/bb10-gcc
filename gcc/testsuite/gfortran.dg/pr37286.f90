@@ -1,5 +1,4 @@
 ! { dg-do compile }
-! { dg-require-visibility "" }
 
 module general_rand
   implicit none

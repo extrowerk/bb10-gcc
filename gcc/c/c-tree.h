@@ -1,5 +1,5 @@
 /* Definitions for C parsing and type checking.
-   Copyright (C) 1987-2018 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -43,7 +43,8 @@ along with GCC; see the file COPYING3.  If not see
 #define C_TYPE_INCOMPLETE_VARS(TYPE) TYPE_VFIELD (TYPE)
 
 /* In an IDENTIFIER_NODE, nonzero if this identifier is actually a
-   keyword.  C_RID_CODE (node) is then the RID_* value of the keyword.  */
+   keyword.  C_RID_CODE (node) is then the RID_* value of the keyword,
+   and C_RID_YYCODE is the token number wanted by Yacc.  */
 #define C_IS_RESERVED_WORD(ID) TREE_LANG_FLAG_0 (ID)
 
 /* Record whether a type or decl was written with nonconstant size.
@@ -113,10 +114,6 @@ along with GCC; see the file COPYING3.  If not see
    subexpression meaning it is not a constant expression.  */
 #define CONSTRUCTOR_NON_CONST(EXPR) TREE_LANG_FLAG_1 (CONSTRUCTOR_CHECK (EXPR))
 
-/* For a SAVE_EXPR, nonzero if the operand of the SAVE_EXPR has already
-   been folded.  */
-#define SAVE_EXPR_FOLDED_P(EXP)	TREE_LANG_FLAG_1 (SAVE_EXPR_CHECK (EXP))
-
 /* Record parser information about an expression that is irrelevant
    for code generation alongside a tree representing its value.  */
 struct c_expr
@@ -135,34 +132,6 @@ struct c_expr
      The type of an enum constant is a plain integer type, but this
      field will be the enum type.  */
   tree original_type;
-
-  /* The source range of this expression.  This is redundant
-     for node values that have locations, but not all node kinds
-     have locations (e.g. constants, and references to params, locals,
-     etc), so we stash a copy here.  */
-  source_range src_range;
-
-  /* Access to the first and last locations within the source spelling
-     of this expression.  */
-  location_t get_start () const { return src_range.m_start; }
-  location_t get_finish () const { return src_range.m_finish; }
-
-  location_t get_location () const
-  {
-    if (EXPR_HAS_LOCATION (value))
-      return EXPR_LOCATION (value);
-    else
-      return make_location (get_start (), get_start (), get_finish ());
-  }
-
-  /* Set the value to error_mark_node whilst ensuring that src_range
-     is initialized.  */
-  void set_error ()
-  {
-    value = error_mark_node;
-    src_range.m_start = UNKNOWN_LOCATION;
-    src_range.m_finish = UNKNOWN_LOCATION;
-  }
 };
 
 /* Type alias for struct c_expr. This allows to use the structure
@@ -241,7 +210,6 @@ enum c_typespec_keyword {
   cts_dfloat32,
   cts_dfloat64,
   cts_dfloat128,
-  cts_floatn_nx,
   cts_fract,
   cts_accum,
   cts_auto_type
@@ -274,12 +242,9 @@ enum c_declspec_word {
   cdw_const,
   cdw_volatile,
   cdw_restrict,
-  cdw_atomic,
   cdw_saturating,
   cdw_alignas,
   cdw_address_space,
-  cdw_gimple,
-  cdw_rtl,
   cdw_number_of_elements /* This one must always be the last
 			    enumerator.  */
 };
@@ -303,17 +268,12 @@ struct c_declspecs {
      NULL; attributes (possibly from multiple lists) will be passed
      separately.  */
   tree attrs;
-  /* The pass to start compiling a __GIMPLE or __RTL function with.  */
-  char *gimple_or_rtl_pass;
   /* The base-2 log of the greatest alignment required by an _Alignas
      specifier, in bytes, or -1 if no such specifiers with nonzero
      alignment.  */
   int align_log;
   /* For the __intN declspec, this stores the index into the int_n_* arrays.  */
   int int_n_idx;
-  /* For the _FloatN and _FloatNx declspec, this stores the index into
-     the floatn_nx_types array.  */
-  int floatn_nx_idx;
   /* The storage class specifier, or csc_none if none.  */
   enum c_storage_class storage_class;
   /* Any type specifier keyword used such as "int", not reflecting
@@ -377,10 +337,6 @@ struct c_declspecs {
   /* Whether any alignment specifier (even with zero alignment) was
      specified.  */
   BOOL_BITFIELD alignas_p : 1;
-  /* Whether any __GIMPLE specifier was specified.  */
-  BOOL_BITFIELD gimple_p : 1;
-  /* Whether any __RTL specifier was specified.  */
-  BOOL_BITFIELD rtl_p : 1;
   /* The address space that the declaration belongs to.  */
   addr_space_t address_space;
 };
@@ -399,12 +355,12 @@ enum c_declarator_kind {
   cdk_attrs
 };
 
-struct c_arg_tag {
+typedef struct c_arg_tag_d {
   /* The argument name.  */
   tree id;
   /* The type of the argument.  */
   tree type;
-};
+} c_arg_tag;
 
 
 /* Information about the parameters in a function declarator.  */
@@ -477,8 +433,6 @@ struct c_parm {
   tree attrs;
   /* The declarator.  */
   struct c_declarator *declarator;
-  /* The location of the parameter.  */
-  location_t loc;
 };
 
 /* Used when parsing an enum.  Initialized by start_enum.  */
@@ -507,7 +461,6 @@ enum c_inline_static_type {
 
 /* in c-parser.c */
 extern void c_parse_init (void);
-extern bool c_keyword_starts_typename (enum rid keyword);
 
 /* in c-aux-info.c */
 extern void gen_aux_info_record (tree, int, int, int);
@@ -520,7 +473,6 @@ extern tree c_break_label;
 extern tree c_cont_label;
 
 extern bool global_bindings_p (void);
-extern tree pushdecl (tree);
 extern void push_scope (void);
 extern tree pop_scope (void);
 extern void c_bindings_start_stmt_expr (struct c_spot_bindings *);
@@ -571,7 +523,7 @@ extern tree c_builtin_function_ext_scope (tree);
 extern void shadow_tag (const struct c_declspecs *);
 extern void shadow_tag_warned (const struct c_declspecs *, int);
 extern tree start_enum (location_t, struct c_enum_contents *, tree);
-extern bool start_function (struct c_declspecs *, struct c_declarator *, tree);
+extern int  start_function (struct c_declspecs *, struct c_declarator *, tree);
 extern tree start_decl (struct c_declarator *, struct c_declspecs *, bool,
 			tree);
 extern tree start_struct (location_t, enum tree_code, tree,
@@ -583,7 +535,7 @@ extern void temp_pop_parm_decls (void);
 extern tree xref_tag (enum tree_code, tree);
 extern struct c_typespec parser_xref_tag (location_t, enum tree_code, tree);
 extern struct c_parm *build_c_parm (struct c_declspecs *, tree,
-				    struct c_declarator *, location_t);
+				    struct c_declarator *);
 extern struct c_declarator *build_attrs_declarator (tree,
 						    struct c_declarator *);
 extern struct c_declarator *build_function_declarator (struct c_arg_info *,
@@ -621,18 +573,17 @@ extern int in_sizeof;
 extern int in_typeof;
 
 extern tree c_last_sizeof_arg;
-extern location_t c_last_sizeof_loc;
 
 extern struct c_switch *c_switch_stack;
 
 extern tree c_objc_common_truthvalue_conversion (location_t, tree);
-extern tree require_complete_type (location_t, tree);
-extern bool same_translation_unit_p (const_tree, const_tree);
+extern tree require_complete_type (tree);
+extern int same_translation_unit_p (const_tree, const_tree);
 extern int comptypes (tree, tree);
 extern int comptypes_check_different_types (tree, tree, bool *);
 extern bool c_vla_type_p (const_tree);
-extern bool c_mark_addressable (tree, bool = false);
-extern void c_incomplete_type_error (location_t, const_tree, const_tree);
+extern bool c_mark_addressable (tree);
+extern void c_incomplete_type_error (const_tree, const_tree);
 extern tree c_type_promotes_to (tree);
 extern struct c_expr default_function_array_conversion (location_t,
 							struct c_expr);
@@ -640,12 +591,11 @@ extern struct c_expr default_function_array_read_conversion (location_t,
 							     struct c_expr);
 extern struct c_expr convert_lvalue_to_rvalue (location_t, struct c_expr,
 					       bool, bool);
-extern tree decl_constant_value_1 (tree, bool);
 extern void mark_exp_read (tree);
 extern tree composite_type (tree, tree);
-extern tree build_component_ref (location_t, tree, tree, location_t);
+extern tree build_component_ref (location_t, tree, tree);
 extern tree build_array_ref (location_t, tree, tree);
-extern tree build_external_ref (location_t, tree, bool, tree *);
+extern tree build_external_ref (location_t, tree, int, tree *);
 extern void pop_maybe_used (bool);
 extern struct c_expr c_expr_sizeof_expr (location_t, struct c_expr);
 extern struct c_expr c_expr_sizeof_type (location_t, struct c_type_name *);
@@ -655,35 +605,32 @@ extern struct c_expr parser_build_binary_op (location_t,
     					     enum tree_code, struct c_expr,
 					     struct c_expr);
 extern tree build_conditional_expr (location_t, tree, bool, tree, tree,
-				    location_t, tree, tree, location_t);
+				    tree, tree);
 extern tree build_compound_expr (location_t, tree, tree);
 extern tree c_cast_expr (location_t, struct c_type_name *, tree);
 extern tree build_c_cast (location_t, tree, tree);
 extern void store_init_value (location_t, tree, tree, tree);
 extern void maybe_warn_string_init (location_t, tree, struct c_expr);
-extern void start_init (tree, tree, int, rich_location *);
+extern void start_init (tree, tree, int);
 extern void finish_init (void);
 extern void really_start_incremental_init (tree);
 extern void finish_implicit_inits (location_t, struct obstack *);
 extern void push_init_level (location_t, int, struct obstack *);
-extern struct c_expr pop_init_level (location_t, int, struct obstack *,
-				     location_t);
+extern struct c_expr pop_init_level (location_t, int, struct obstack *);
 extern void set_init_index (location_t, tree, tree, struct obstack *);
-extern void set_init_label (location_t, tree, location_t, struct obstack *);
+extern void set_init_label (location_t, tree, struct obstack *);
 extern void process_init_element (location_t, struct c_expr, bool,
 				  struct obstack *);
-extern tree build_compound_literal (location_t, tree, tree, bool,
-				    unsigned int);
+extern tree build_compound_literal (location_t, tree, tree, bool);
 extern void check_compound_literal_type (location_t, struct c_type_name *);
 extern tree c_start_case (location_t, location_t, tree, bool);
 extern void c_finish_case (tree, tree);
-extern tree build_asm_expr (location_t, tree, tree, tree, tree, tree, bool,
-			    bool);
-extern tree build_asm_stmt (bool, tree);
+extern tree build_asm_expr (location_t, tree, tree, tree, tree, tree, bool);
+extern tree build_asm_stmt (tree, tree);
 extern int c_types_compatible_p (tree, tree);
 extern tree c_begin_compound_stmt (bool);
 extern tree c_end_compound_stmt (location_t, tree, bool);
-extern void c_finish_if_stmt (location_t, tree, tree, tree);
+extern void c_finish_if_stmt (location_t, tree, tree, tree, bool);
 extern void c_finish_loop (location_t, tree, tree, tree, tree, tree, bool);
 extern tree c_begin_stmt_expr (void);
 extern tree c_finish_stmt_expr (location_t, tree);
@@ -694,22 +641,21 @@ extern tree c_finish_bc_stmt (location_t, tree *, bool);
 extern tree c_finish_goto_label (location_t, tree);
 extern tree c_finish_goto_ptr (location_t, tree);
 extern tree c_expr_to_decl (tree, bool *, bool *);
-extern tree c_finish_omp_construct (location_t, enum tree_code, tree, tree);
+extern tree c_finish_oacc_parallel (location_t, tree, tree);
+extern tree c_finish_oacc_kernels (location_t, tree, tree);
 extern tree c_finish_oacc_data (location_t, tree, tree);
-extern tree c_finish_oacc_host_data (location_t, tree, tree);
 extern tree c_begin_omp_parallel (void);
 extern tree c_finish_omp_parallel (location_t, tree, tree);
 extern tree c_begin_omp_task (void);
 extern tree c_finish_omp_task (location_t, tree, tree);
 extern void c_finish_omp_cancel (location_t, tree);
 extern void c_finish_omp_cancellation_point (location_t, tree);
-extern tree c_finish_omp_clauses (tree, enum c_omp_region_type);
-extern tree c_build_va_arg (location_t, tree, location_t, tree);
+extern tree c_finish_omp_clauses (tree);
+extern tree c_build_va_arg (location_t, tree, tree);
 extern tree c_finish_transaction (location_t, tree, int);
 extern bool c_tree_equal (tree, tree);
 extern tree c_build_function_call_vec (location_t, vec<location_t>, tree,
 				       vec<tree, va_gc> *, vec<tree, va_gc> *);
-extern tree c_omp_clause_copy_ctor (tree, tree, tree);
 
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */
@@ -750,36 +696,18 @@ typedef void c_binding_oracle_function (enum c_oracle_request, tree identifier);
 extern c_binding_oracle_function *c_binding_oracle;
 
 extern void c_finish_incomplete_decl (tree);
+extern void c_write_global_declarations (void);
 extern tree c_omp_reduction_id (enum tree_code, tree);
 extern tree c_omp_reduction_decl (tree);
 extern tree c_omp_reduction_lookup (tree, tree);
 extern tree c_check_omp_declare_reduction_r (tree *, int *, void *);
 extern void c_pushtag (location_t, tree, tree);
 extern void c_bind (location_t, tree, bool);
-extern bool tag_exists_p (enum tree_code, tree);
 
 /* In c-errors.c */
-extern bool pedwarn_c90 (location_t, int opt, const char *, ...)
+extern void pedwarn_c90 (location_t, int opt, const char *, ...)
     ATTRIBUTE_GCC_DIAG(3,4);
 extern bool pedwarn_c99 (location_t, int opt, const char *, ...)
     ATTRIBUTE_GCC_DIAG(3,4);
-
-extern void
-set_c_expr_source_range (c_expr *expr,
-			 location_t start, location_t finish);
-
-extern void
-set_c_expr_source_range (c_expr *expr,
-			 source_range src_range);
-
-/* In c-fold.c */
-extern vec<tree> incomplete_record_decls;
-
-#if CHECKING_P
-namespace selftest {
-  extern void run_c_tests (void);
-} // namespace selftest
-#endif /* #if CHECKING_P */
-
 
 #endif /* ! GCC_C_TREE_H */

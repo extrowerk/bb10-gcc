@@ -7,16 +7,11 @@ package x509
 import "sync"
 
 var (
-	once           sync.Once
-	systemRoots    *CertPool
-	systemRootsErr error
+	once        sync.Once
+	systemRoots *CertPool
 )
 
 func systemRootsPool() *CertPool {
 	once.Do(initSystemRoots)
 	return systemRoots
-}
-
-func initSystemRoots() {
-	systemRoots, systemRootsErr = loadSystemRoots()
 }

@@ -3,7 +3,5 @@
 
 // { dg-options "" }
 
-struct A {}; // { dg-message "defined here" }
-
-void A::foo(); // { dg-error "no declaration matches" }
-// { dg-message "no functions named" "note" { target *-*-* } .-1 }
+struct A {};
+void A::foo(); // { dg-error "member function declared in class|outside of class is not definition" }

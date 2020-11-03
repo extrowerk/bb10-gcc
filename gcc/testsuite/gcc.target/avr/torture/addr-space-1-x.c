@@ -1,5 +1,5 @@
 /* { dg-options "-std=gnu99" } */
-/* { dg-do run { target { ! avr_tiny } } } */
+/* { dg-do run } */
 
 #define __as __memx
 

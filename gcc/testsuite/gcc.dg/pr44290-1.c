@@ -1,5 +1,4 @@
-/* { dg-do compile } */
-/* { dg-require-effective-target naked_functions } */
+/* { dg-do compile { target arm*-*-* avr-*-* mcore-*-* rx-*-* spu-*-* } } */
 /* { dg-options "-O2 -fdump-tree-optimized" } */
 
 static void __attribute__((naked))
@@ -16,3 +15,4 @@ void fum(void *to)
 }
 
 /* { dg-final { scan-tree-dump "foo \\\(void \\\* from, void \\\* to\\\)" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

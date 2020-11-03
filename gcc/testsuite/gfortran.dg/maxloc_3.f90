@@ -9,114 +9,114 @@
   allocate (c(3))
   a(:) = 5
   ia = maxloc (a)
-  if (ia(1).ne.1) STOP 1
+  if (ia(1).ne.1) call abort
   a(2) = huge(h)
   ia = maxloc (a)
-  if (ia(1).ne.2) STOP 2
+  if (ia(1).ne.2) call abort
   a(:) = h
   ia = maxloc (a)
-  if (ia(1).ne.1) STOP 3
+  if (ia(1).ne.1) call abort
   a(3) = -huge(h)
   ia = maxloc (a)
-  if (ia(1).ne.3) STOP 4
+  if (ia(1).ne.3) call abort
   c(:) = 5
   ia = maxloc (c)
-  if (ia(1).ne.1) STOP 5
+  if (ia(1).ne.1) call abort
   c(2) = huge(h)
   ia = maxloc (c)
-  if (ia(1).ne.2) STOP 6
+  if (ia(1).ne.2) call abort
   c(:) = h
   ia = maxloc (c)
-  if (ia(1).ne.1) STOP 7
+  if (ia(1).ne.1) call abort
   c(3) = -huge(h)
   ia = maxloc (c)
-  if (ia(1).ne.3) STOP 8
+  if (ia(1).ne.3) call abort
   l = .false.
   l2(:) = .false.
   a(:) = 5
   ia = maxloc (a, mask = l)
-  if (ia(1).ne.0) STOP 9
+  if (ia(1).ne.0) call abort
   ia = maxloc (a, mask = l2)
-  if (ia(1).ne.0) STOP 10
+  if (ia(1).ne.0) call abort
   a(2) = huge(h)
   ia = maxloc (a, mask = l)
-  if (ia(1).ne.0) STOP 11
+  if (ia(1).ne.0) call abort
   ia = maxloc (a, mask = l2)
-  if (ia(1).ne.0) STOP 12
+  if (ia(1).ne.0) call abort
   a(:) = h
   ia = maxloc (a, mask = l)
-  if (ia(1).ne.0) STOP 13
+  if (ia(1).ne.0) call abort
   ia = maxloc (a, mask = l2)
-  if (ia(1).ne.0) STOP 14
+  if (ia(1).ne.0) call abort
   a(3) = -huge(h)
   ia = maxloc (a, mask = l)
-  if (ia(1).ne.0) STOP 15
+  if (ia(1).ne.0) call abort
   ia = maxloc (a, mask = l2)
-  if (ia(1).ne.0) STOP 16
+  if (ia(1).ne.0) call abort
   c(:) = 5
   ia = maxloc (c, mask = l)
-  if (ia(1).ne.0) STOP 17
+  if (ia(1).ne.0) call abort
   ia = maxloc (c, mask = l2)
-  if (ia(1).ne.0) STOP 18
+  if (ia(1).ne.0) call abort
   c(2) = huge(h)
   ia = maxloc (c, mask = l)
-  if (ia(1).ne.0) STOP 19
+  if (ia(1).ne.0) call abort
   ia = maxloc (c, mask = l2)
-  if (ia(1).ne.0) STOP 20
+  if (ia(1).ne.0) call abort
   c(:) = h
   ia = maxloc (c, mask = l)
-  if (ia(1).ne.0) STOP 21
+  if (ia(1).ne.0) call abort
   ia = maxloc (c, mask = l2)
-  if (ia(1).ne.0) STOP 22
+  if (ia(1).ne.0) call abort
   c(3) = -huge(h)
   ia = maxloc (c, mask = l)
-  if (ia(1).ne.0) STOP 23
+  if (ia(1).ne.0) call abort
   ia = maxloc (c, mask = l2)
-  if (ia(1).ne.0) STOP 24
+  if (ia(1).ne.0) call abort
   l = .true.
   l2(:) = .true.
   a(:) = 5
   ia = maxloc (a, mask = l)
-  if (ia(1).ne.1) STOP 25
+  if (ia(1).ne.1) call abort
   ia = maxloc (a, mask = l2)
-  if (ia(1).ne.1) STOP 26
+  if (ia(1).ne.1) call abort
   a(2) = huge(h)
   ia = maxloc (a, mask = l)
-  if (ia(1).ne.2) STOP 27
+  if (ia(1).ne.2) call abort
   ia = maxloc (a, mask = l2)
-  if (ia(1).ne.2) STOP 28
+  if (ia(1).ne.2) call abort
   a(:) = h
   ia = maxloc (a, mask = l)
-  if (ia(1).ne.1) STOP 29
+  if (ia(1).ne.1) call abort
   ia = maxloc (a, mask = l2)
-  if (ia(1).ne.1) STOP 30
+  if (ia(1).ne.1) call abort
   a(3) = -huge(h)
   ia = maxloc (a, mask = l)
-  if (ia(1).ne.3) STOP 31
+  if (ia(1).ne.3) call abort
   ia = maxloc (a, mask = l2)
-  if (ia(1).ne.3) STOP 32
+  if (ia(1).ne.3) call abort
   c(:) = 5
   ia = maxloc (c, mask = l)
-  if (ia(1).ne.1) STOP 33
+  if (ia(1).ne.1) call abort
   ia = maxloc (c, mask = l2)
-  if (ia(1).ne.1) STOP 34
+  if (ia(1).ne.1) call abort
   c(2) = huge(h)
   ia = maxloc (c, mask = l)
-  if (ia(1).ne.2) STOP 35
+  if (ia(1).ne.2) call abort
   ia = maxloc (c, mask = l2)
-  if (ia(1).ne.2) STOP 36
+  if (ia(1).ne.2) call abort
   c(:) = h
   ia = maxloc (c, mask = l)
-  if (ia(1).ne.1) STOP 37
+  if (ia(1).ne.1) call abort
   ia = maxloc (c, mask = l2)
-  if (ia(1).ne.1) STOP 38
+  if (ia(1).ne.1) call abort
   c(3) = -huge(h)
   ia = maxloc (c, mask = l)
-  if (ia(1).ne.3) STOP 39
+  if (ia(1).ne.3) call abort
   ia = maxloc (c, mask = l2)
-  if (ia(1).ne.3) STOP 40
+  if (ia(1).ne.3) call abort
   deallocate (c)
   allocate (c(-2:-3))
   ia = maxloc (c)
-  if (ia(1).ne.0) STOP 41
+  if (ia(1).ne.0) call abort
 end

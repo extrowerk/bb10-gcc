@@ -1,5 +1,5 @@
 // { dg-do compile }
-// { dg-additional-options "-Wno-psabi -Wno-return-type" }
+// { dg-additional-options "-Wno-psabi" }
 // Ignore warning on some powerpc-linux configurations.
 // { dg-prune-output "non-standard ABI extension" }
 

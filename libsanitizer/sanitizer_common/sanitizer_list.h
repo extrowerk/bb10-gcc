@@ -9,7 +9,6 @@
 // ThreadSanitizer, etc run-times.
 //
 //===----------------------------------------------------------------------===//
-
 #ifndef SANITIZER_LIST_H
 #define SANITIZER_LIST_H
 
@@ -28,7 +27,7 @@ struct IntrusiveList {
   friend class Iterator;
 
   void clear() {
-    first_ = last_ = nullptr;
+    first_ = last_ = 0;
     size_ = 0;
   }
 
@@ -37,11 +36,11 @@ struct IntrusiveList {
 
   void push_back(Item *x) {
     if (empty()) {
-      x->next = nullptr;
+      x->next = 0;
       first_ = last_ = x;
       size_ = 1;
     } else {
-      x->next = nullptr;
+      x->next = 0;
       last_->next = x;
       last_ = x;
       size_++;
@@ -50,7 +49,7 @@ struct IntrusiveList {
 
   void push_front(Item *x) {
     if (empty()) {
-      x->next = nullptr;
+      x->next = 0;
       first_ = last_ = x;
       size_ = 1;
     } else {
@@ -63,26 +62,13 @@ struct IntrusiveList {
   void pop_front() {
     CHECK(!empty());
     first_ = first_->next;
-    if (!first_)
-      last_ = nullptr;
-    size_--;
-  }
-
-  void extract(Item *prev, Item *x) {
-    CHECK(!empty());
-    CHECK_NE(prev, nullptr);
-    CHECK_NE(x, nullptr);
-    CHECK_EQ(prev->next, x);
-    prev->next = x->next;
-    if (last_ == x)
-      last_ = prev;
+    if (first_ == 0)
+      last_ = 0;
     size_--;
   }
 
   Item *front() { return first_; }
-  const Item *front() const { return first_; }
   Item *back() { return last_; }
-  const Item *back() const { return last_; }
 
   void append_front(IntrusiveList<Item> *l) {
     CHECK_NE(this, l);
@@ -127,32 +113,20 @@ struct IntrusiveList {
     }
   }
 
-  template<class ItemTy>
-  class IteratorBase {
+  class Iterator {
    public:
-    explicit IteratorBase(ItemTy *current) : current_(current) {}
-    IteratorBase &operator++() {
-      current_ = current_->next;
-      return *this;
+    explicit Iterator(IntrusiveList<Item> *list)
+        : list_(list), current_(list->first_) { }
+    Item *next() {
+      Item *ret = current_;
+      if (current_) current_ = current_->next;
+      return ret;
     }
-    bool operator!=(IteratorBase other) const {
-      return current_ != other.current_;
-    }
-    ItemTy &operator*() {
-      return *current_;
-    }
+    bool hasNext() const { return current_ != 0; }
    private:
-    ItemTy *current_;
+    IntrusiveList<Item> *list_;
+    Item *current_;
   };
-
-  typedef IteratorBase<Item> Iterator;
-  typedef IteratorBase<const Item> ConstIterator;
-
-  Iterator begin() { return Iterator(first_); }
-  Iterator end() { return Iterator(0); }
-
-  ConstIterator begin() const { return ConstIterator(first_); }
-  ConstIterator end() const { return ConstIterator(0); }
 
 // private, don't use directly.
   uptr size_;
@@ -160,6 +134,6 @@ struct IntrusiveList {
   Item *last_;
 };
 
-} // namespace __sanitizer
+}  // namespace __sanitizer
 
-#endif // SANITIZER_LIST_H
+#endif  // SANITIZER_LIST_H

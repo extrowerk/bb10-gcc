@@ -8,3 +8,4 @@ int g(){
 }
 
 /* { dg-final { scan-tree-dump-not "return 42" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

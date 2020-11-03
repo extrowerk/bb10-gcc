@@ -5,15 +5,10 @@
 package user
 
 import (
-	"errors"
 	"fmt"
 	"syscall"
 	"unsafe"
 )
-
-func init() {
-	groupImplemented = false
-}
 
 func isDomainJoined() (bool, error) {
 	var domain *uint16
@@ -66,7 +61,7 @@ func lookupFullName(domain, username, domainAndUser string) (string, error) {
 	if err == nil {
 		return name, nil
 	}
-	// domain worked neither as a domain nor as a server
+	// domain worked neigher as a domain nor as a server
 	// could be domain server unavailable
 	// pretend username is fullname
 	return username, nil
@@ -134,7 +129,7 @@ func newUserFromSid(usid *syscall.SID) (*User, error) {
 	return newUser(usid, gid, dir)
 }
 
-func lookupUser(username string) (*User, error) {
+func lookup(username string) (*User, error) {
 	sid, _, t, e := syscall.LookupSID("", username)
 	if e != nil {
 		return nil, e
@@ -145,22 +140,10 @@ func lookupUser(username string) (*User, error) {
 	return newUserFromSid(sid)
 }
 
-func lookupUserId(uid string) (*User, error) {
+func lookupId(uid string) (*User, error) {
 	sid, e := syscall.StringToSid(uid)
 	if e != nil {
 		return nil, e
 	}
 	return newUserFromSid(sid)
-}
-
-func lookupGroup(groupname string) (*Group, error) {
-	return nil, errors.New("user: LookupGroup not implemented on windows")
-}
-
-func lookupGroupId(string) (*Group, error) {
-	return nil, errors.New("user: LookupGroupId not implemented on windows")
-}
-
-func listGroups(*User) ([]string, error) {
-	return nil, errors.New("user: GroupIds not implemented on windows")
 }

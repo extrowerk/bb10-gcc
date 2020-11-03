@@ -1,5 +1,5 @@
 /* Prototypes.
-   Copyright (C) 2001-2018 Free Software Foundation, Inc.
+   Copyright (C) 2001-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -91,9 +91,9 @@ extern void darwin_globalize_label (FILE *, const char *);
 extern void darwin_assemble_visibility (tree, int);
 
 extern void darwin_asm_output_dwarf_delta (FILE *, int, const char *,
-					   const char *, HOST_WIDE_INT);
+					   const char *);
 extern void darwin_asm_output_dwarf_offset (FILE *, int, const char *,
-					    HOST_WIDE_INT, section *);
+					    section *);
 
 extern void darwin_asm_declare_object_name (FILE *, const char *, tree);
 extern void darwin_asm_declare_constant_name (FILE *, const char *,

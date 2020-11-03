@@ -29,7 +29,7 @@ MODULE myint
       END SUBROUTINE SUB
 END MODULE myint
 
-  if (isscan () /= 0) STOP 1
+  if (isscan () /= 0) call abort
 contains
   integer function isscan (substr)
     character(*), optional :: substr

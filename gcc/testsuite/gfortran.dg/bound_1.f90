@@ -9,12 +9,12 @@
   integer i
 
   i = ubound(tt(1)%a, 1)
-  if (i/=5) STOP 1
+  if (i/=5) call abort()
   i = lbound(tt(1)%a, 1)
-  if (i/=1) STOP 2
+  if (i/=1) call abort()
 
   i = ubound(tt, 1)
-  if (i/=2) STOP 3
+  if (i/=2) call abort()
   i = lbound(tt, 1)
-  if (i/=1) STOP 4
+  if (i/=1) call abort()
 end

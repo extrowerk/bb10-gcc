@@ -1,5 +1,5 @@
-// { dg-do compile }
-// { dg-options "-fprofile-use -std=gnu++11 -Wno-return-type" }
+// { dg-do compile { target c++11 } }
+// { dg-options "-fprofile-use" }
 
 class A {
   int m_fn1() const;

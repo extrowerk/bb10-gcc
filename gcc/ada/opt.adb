@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -38,48 +38,6 @@ package body Opt is
    SU : constant := Storage_Unit;
    --  Shorthand for System.Storage_Unit
 
-   -------------------------
-   -- Back_End_Exceptions --
-   -------------------------
-
-   function Back_End_Exceptions return Boolean is
-   begin
-      return
-        Exception_Mechanism = Back_End_SJLJ
-          or else
-        Exception_Mechanism = Back_End_ZCX;
-   end Back_End_Exceptions;
-
-   -------------------------
-   -- Front_End_Exceptions --
-   -------------------------
-
-   function Front_End_Exceptions return Boolean is
-   begin
-      return Exception_Mechanism = Front_End_SJLJ;
-   end Front_End_Exceptions;
-
-   --------------------
-   -- SJLJ_Exceptions --
-   --------------------
-
-   function SJLJ_Exceptions return Boolean is
-   begin
-      return
-        Exception_Mechanism = Back_End_SJLJ
-          or else
-        Exception_Mechanism = Front_End_SJLJ;
-   end SJLJ_Exceptions;
-
-   --------------------
-   -- ZCX_Exceptions --
-   --------------------
-
-   function ZCX_Exceptions return Boolean is
-   begin
-      return Exception_Mechanism = Back_End_ZCX;
-   end ZCX_Exceptions;
-
    ----------------------------------
    -- Register_Opt_Config_Switches --
    ----------------------------------
@@ -102,7 +60,6 @@ package body Opt is
       External_Name_Imp_Casing_Config       := External_Name_Imp_Casing;
       Fast_Math_Config                      := Fast_Math;
       Initialize_Scalars_Config             := Initialize_Scalars;
-      No_Component_Reordering_Config        := No_Component_Reordering;
       Optimize_Alignment_Config             := Optimize_Alignment;
       Persistent_BSS_Mode_Config            := Persistent_BSS_Mode;
       Polling_Required_Config               := Polling_Required;
@@ -142,7 +99,6 @@ package body Opt is
       External_Name_Imp_Casing       := Save.External_Name_Imp_Casing;
       Fast_Math                      := Save.Fast_Math;
       Initialize_Scalars             := Save.Initialize_Scalars;
-      No_Component_Reordering        := Save.No_Component_Reordering;
       Optimize_Alignment             := Save.Optimize_Alignment;
       Optimize_Alignment_Local       := Save.Optimize_Alignment_Local;
       Persistent_BSS_Mode            := Save.Persistent_BSS_Mode;
@@ -184,7 +140,6 @@ package body Opt is
       Save.External_Name_Imp_Casing       := External_Name_Imp_Casing;
       Save.Fast_Math                      := Fast_Math;
       Save.Initialize_Scalars             := Initialize_Scalars;
-      Save.No_Component_Reordering        := No_Component_Reordering;
       Save.Optimize_Alignment             := Optimize_Alignment;
       Save.Optimize_Alignment_Local       := Optimize_Alignment_Local;
       Save.Persistent_BSS_Mode            := Persistent_BSS_Mode;
@@ -221,13 +176,12 @@ package body Opt is
          Extensions_Allowed          := True;
          External_Name_Exp_Casing    := As_Is;
          External_Name_Imp_Casing    := Lowercase;
-         No_Component_Reordering     := False;
          Optimize_Alignment          := 'O';
-         Optimize_Alignment_Local    := True;
          Persistent_BSS_Mode         := False;
          Prefix_Exception_Messages   := True;
          Uneval_Old                  := 'E';
          Use_VADS_Size               := False;
+         Optimize_Alignment_Local    := True;
 
          --  Note: we do not need to worry about Warnings_As_Errors_Count since
          --  we do not expect to get any warnings from compiling such a unit.
@@ -273,7 +227,6 @@ package body Opt is
          External_Name_Imp_Casing    := External_Name_Imp_Casing_Config;
          Fast_Math                   := Fast_Math_Config;
          Initialize_Scalars          := Initialize_Scalars_Config;
-         No_Component_Reordering     := No_Component_Reordering_Config;
          Optimize_Alignment          := Optimize_Alignment_Config;
          Optimize_Alignment_Local    := False;
          Persistent_BSS_Mode         := Persistent_BSS_Mode_Config;
@@ -298,6 +251,7 @@ package body Opt is
       Default_Pool                   := Default_Pool_Config;
       Exception_Locations_Suppressed := Exception_Locations_Suppressed_Config;
       Fast_Math                      := Fast_Math_Config;
+      Optimize_Alignment             := Optimize_Alignment_Config;
       Polling_Required               := Polling_Required_Config;
    end Set_Opt_Config_Switches;
 

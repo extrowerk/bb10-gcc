@@ -1,5 +1,5 @@
 /* Localize comdats.
-   Copyright (C) 2014-2018 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -52,9 +52,26 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
-#include "tree-pass.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
+#include "tree-pass.h"
 
 /* Main dataflow loop propagating comdat groups across
    the symbol table.  All references to SYMBOL are examined
@@ -211,11 +228,8 @@ set_comdat_group (symtab_node *symbol,
   symtab_node *head = (symtab_node *)head_p;
 
   gcc_assert (!symbol->get_comdat_group ());
-  if (symbol->real_symbol_p ())
-    {
-      symbol->set_comdat_group (head->get_comdat_group ());
-      symbol->add_to_same_comdat_group (head);
-    }
+  symbol->set_comdat_group (head->get_comdat_group ());
+  symbol->add_to_same_comdat_group (head);
   return false;
 }
 
@@ -419,7 +433,7 @@ public:
 bool
 pass_ipa_comdats::gate (function *)
 {
-  return HAVE_COMDAT_GROUP;
+  return optimize;
 }
 
 } // anon namespace

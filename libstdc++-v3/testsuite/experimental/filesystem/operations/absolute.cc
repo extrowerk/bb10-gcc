@@ -1,8 +1,7 @@
-// { dg-options "-DUSE_FILESYSTEM_TS -lstdc++fs" }
-// { dg-do run { target c++11 } }
+// { dg-options "-std=gnu++11 -lstdc++fs" }
 // { dg-require-filesystem-ts "" }
 
-// Copyright (C) 2014-2018 Free Software Foundation, Inc.
+// Copyright (C) 2014-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -30,6 +29,8 @@ using std::experimental::filesystem::path;
 void
 test01()
 {
+  bool test __attribute__((unused)) = false;
+
   for (const path& p : __gnu_test::test_paths)
     VERIFY( absolute(p).is_absolute() );
 }
@@ -37,6 +38,8 @@ test01()
 void
 test02()
 {
+  bool test __attribute__((unused)) = false;
+
   path p1("/");
   VERIFY( absolute(p1) == p1 );
   VERIFY( absolute(p1, "/bar") == p1 );

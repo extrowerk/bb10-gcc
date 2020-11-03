@@ -4,13 +4,13 @@
   character (6) :: c, f2
   character (6) :: d(2)
   c = f1 (6)
-  if (c .ne. 'opqrst') STOP 1
+  if (c .ne. 'opqrst') call abort
   c = f2 (6)
-  if (c .ne. '_/!!/_') STOP 2
+  if (c .ne. '_/!!/_') call abort
   d = f3 (6)
-  if (d(1) .ne. 'opqrst' .or. d(2) .ne. 'a') STOP 3
+  if (d(1) .ne. 'opqrst' .or. d(2) .ne. 'a') call abort
   d = f4 (6)
-  if (d(1) .ne. 'Opqrst' .or. d(2) .ne. 'A') STOP 4
+  if (d(1) .ne. 'Opqrst' .or. d(2) .ne. 'A') call abort
 contains
   function f1 (n)
     use omp_lib
@@ -40,7 +40,7 @@ contains
 !$omp barrier
     l = l .or. f1 .ne. 'def'
 !$omp end parallel
-    if (l) STOP 5
+    if (l) call abort
     f1 = 'opqrst'
   end function f1
   function f3 (n)
@@ -71,7 +71,7 @@ contains
 !$omp barrier
     l = l .or. any (f3 .ne. 'def')
 !$omp end parallel
-    if (l) STOP 6
+    if (l) call abort
     f3(1) = 'opqrst'
     f3(2) = 'a'
   end function f3
@@ -105,7 +105,7 @@ contains
     l = l .or. any (f4 .ne. 'def')
     l = l .or. size (f4) .ne. 2
 !$omp end parallel
-    if (l) STOP 7
+    if (l) call abort
     f4(1) = 'Opqrst'
     f4(2) = 'A'
   end function f4
@@ -138,6 +138,6 @@ function f2 (n)
 !$omp barrier
   l = l .or. f2 .ne. 'def'
 !$omp end parallel
-  if (l) STOP 8
+  if (l) call abort
   f2 = '_/!!/_'
 end function f2

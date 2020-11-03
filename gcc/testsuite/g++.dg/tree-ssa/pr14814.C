@@ -16,4 +16,5 @@ int foo(XX& r) {
 
 /* { dg-final { scan-tree-dump-times "&this" 0 "forwprop2" } } */
 /* { dg-final { scan-tree-dump-times "&r" 0 "forwprop2" } } */
+/* { dg-final { cleanup-tree-dump "forwprop2" } } */
 

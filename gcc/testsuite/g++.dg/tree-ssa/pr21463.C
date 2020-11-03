@@ -17,3 +17,4 @@ template struct foo_t<int>;
 
 /* { dg-final { scan-tree-dump-times "MIN_EXPR" 2 "phiopt1" } } */
 /* { dg-final { scan-tree-dump-times "MAX_EXPR" 2 "phiopt1" } } */
+/* { dg-final { cleanup-tree-dump "phiopt1" } } */

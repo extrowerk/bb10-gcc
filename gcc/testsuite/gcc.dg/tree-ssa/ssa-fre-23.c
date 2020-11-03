@@ -18,3 +18,4 @@ int f(int t, int a, int b)
 }
 
 /* { dg-final { scan-tree-dump-times "PHI" 1 "fre1" } } */
+/* { dg-final { cleanup-tree-dump "fre1" } } */

@@ -5,11 +5,7 @@
 
 /* Test lexing of numbers.  */
 
-#if DEBUG
 extern int puts (const char *);
-#else
-#define puts(X)
-#endif
 extern void abort (void);
 #define err(str) do { puts(str); abort(); } while (0)
 

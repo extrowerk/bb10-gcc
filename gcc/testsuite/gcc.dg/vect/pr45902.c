@@ -1,6 +1,7 @@
 /* { dg-require-effective-target vect_int } */
 
 #include <stdarg.h>
+#include <stdlib.h>
 #include "tree-vect.h"
 
 #define N 128
@@ -27,8 +28,6 @@ main ()
 {
   int i;
 
-  check_vect ();
-
   for (i = 0; i < N; i++)
     a[i] = i;
 
@@ -41,3 +40,4 @@ main ()
   return 0;
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

@@ -10,3 +10,4 @@ int foo()
 }
 
 /* { dg-final { scan-ipa-dump-times "changeTransactionMode \\(0\\)" 1 "tmipa" } } */
+/* { dg-final { cleanup-ipa-dump "tmipa" } } */

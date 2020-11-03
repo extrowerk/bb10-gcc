@@ -1,7 +1,7 @@
-// { dg-do run { target c++11 } }
+// { dg-options "-std=gnu++11" }
 // 2007-06-05 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2007-2018 Free Software Foundation, Inc.
+// Copyright (C) 2007-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -24,6 +24,7 @@
 
 int main()
 {
+  bool test __attribute__((unused)) = true;
   const std::string s("too late: boulangerie out of pain au raisin");
   const std::error_code
     e(std::make_error_code(std::errc::operation_not_supported));

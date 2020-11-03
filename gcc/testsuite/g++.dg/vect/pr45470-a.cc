@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-additional-options "-O1 -fnon-call-exceptions" } */
+/* { dg-options "-O1 -ftree-vectorize -fnon-call-exceptions" } */
 
 struct A
 {
@@ -21,3 +21,4 @@ B::B ()
 {
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

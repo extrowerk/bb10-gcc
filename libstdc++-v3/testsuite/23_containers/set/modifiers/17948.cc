@@ -1,4 +1,4 @@
-// Copyright (C) 2004-2018 Free Software Foundation, Inc.
+// Copyright (C) 2004-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -21,6 +21,7 @@
 // libstdc++/17948
 void test01()
 {
+  bool test __attribute__((unused)) = true;
   using namespace std;
 
   typedef set<int>::size_type size_type;

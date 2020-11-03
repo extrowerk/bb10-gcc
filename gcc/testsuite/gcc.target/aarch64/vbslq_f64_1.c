@@ -17,4 +17,5 @@ fold_me (float32x4_t a, float32x4_t b)
 /* { dg-final { scan-assembler-not "bit\\tv" } } */
 /* { dg-final { scan-assembler-not "bif\\tv" } } */
 
+/* { dg-final { cleanup-saved-temps } } */
 

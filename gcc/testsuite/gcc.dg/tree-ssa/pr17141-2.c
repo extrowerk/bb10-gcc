@@ -27,3 +27,4 @@ l2:
 
 /* { dg-final { scan-tree-dump-times "&" 0 "optimized" } } */
 /* { dg-final { scan-tree-dump-times "abort" 0 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

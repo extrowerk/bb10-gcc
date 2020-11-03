@@ -1,4 +1,4 @@
-// { dg-do run { target c++14_down } }
+// { dg-do run }
 // { dg-options "-fno-elide-constructors" }
 
 int copies;

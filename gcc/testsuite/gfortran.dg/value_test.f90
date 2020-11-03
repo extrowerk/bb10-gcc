@@ -12,7 +12,7 @@ program valueTests
   call mySub(myInt)
   ! myInt should be unchanged since pass-by-value
   if(myInt .ne. 10) then
-     STOP 1
+     call abort ()
   endif
 end program valueTests
 

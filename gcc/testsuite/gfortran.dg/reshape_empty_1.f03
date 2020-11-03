@@ -12,8 +12,9 @@ integer, parameter :: K = N*A(2,2)+A(2,3)
 integer :: B(N,N) = reshape([1,2,2,2,1,2,2,2,1],[3,3])
 integer :: i
 i = 5
-if (any(A /= B)) STOP 1
-if (K /= i) STOP 2
+if (any(A /= B)) call abort
+if (K /= i) call abort
 end
 
 ! { dg-final { scan-tree-dump-times "\\\{1, 2, 2, 2, 1, 2, 2, 2, 1\\\}" 2 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

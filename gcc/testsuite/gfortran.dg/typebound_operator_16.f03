@@ -45,3 +45,5 @@ contains
     myadd = a%x + b
   end function MyAdd
 end module
+
+! { dg-final { cleanup-modules "M1 M2" } }

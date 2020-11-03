@@ -10,24 +10,24 @@ program a
 
   e1 = 'No error'
   allocate(i(4), stat=n, errmsg=e1)
-  if (trim(e1) /= 'No error') STOP 1
+  if (trim(e1) /= 'No error') call abort
   deallocate(i)
 
   e2 = 'No error'
   allocate(i(4),stat=n, errmsg=e2)
-  if (trim(e2) /= 'No error') STOP 2
+  if (trim(e2) /= 'No error') call abort
   deallocate(i)
 
 
   e1 = 'No error'
   allocate(i(4), stat=n, errmsg=e1)
   allocate(i(4), stat=n, errmsg=e1)
-  if (trim(e1) /= 'Attempt to allocate an allocated object') STOP 3
+  if (trim(e1) /= 'Attempt to allocate an allocated object') call abort
   deallocate(i)
 
   e2 = 'No error'
   allocate(i(4), stat=n, errmsg=e2)
   allocate(i(4), stat=n, errmsg=e2)
-  if (trim(e2) /= 'Attempt to allocate an allocat') STOP 4
+  if (trim(e2) /= 'Attempt to allocate an allocat') call abort
 
 end program a

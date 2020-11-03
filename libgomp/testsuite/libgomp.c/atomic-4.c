@@ -1,4 +1,5 @@
 /* PR middle-end/35611 */
+/* { dg-options "-O2" } */
 
 extern void abort (void);
 

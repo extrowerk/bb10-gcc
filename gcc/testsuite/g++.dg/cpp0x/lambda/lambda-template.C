@@ -9,7 +9,7 @@ auto apply (T t) -> decltype (t())
 }
 
 template <class T>
-void f(T t)
+T f(T t)
 {
   T t2 = t;
   if (t != [=]()->T { return t; }())

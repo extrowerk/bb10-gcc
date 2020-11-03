@@ -28,4 +28,5 @@ gimplify_for_stmt (tree stmt)
 }
 
 /* { dg-final { scan-tree-dump-times "Simplified relational" 1 "vrp1" } } */
+/* { dg-final { cleanup-tree-dump "vrp1" } } */
 

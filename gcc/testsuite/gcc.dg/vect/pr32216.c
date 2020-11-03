@@ -12,3 +12,4 @@ SetSoundVariables (int x)
   }
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

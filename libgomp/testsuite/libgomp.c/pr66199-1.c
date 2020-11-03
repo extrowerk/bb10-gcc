@@ -1,5 +1,6 @@
 /* PR middle-end/66199 */
 /* { dg-do run } */
+/* { dg-options "-O2 -fopenmp" } */
 
 int u[1024], v[1024], w[1024];
 

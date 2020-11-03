@@ -1,3 +1,5 @@
+/* { dg-do run } */
+
 #include "tree-vect.h"
 
 int a, b, c, d, e, f, g, h;
@@ -26,3 +28,4 @@ main ()
   return 0;
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

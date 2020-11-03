@@ -9,6 +9,8 @@ unsigned char ub[N];
 unsigned char uc[N];
 unsigned char diff;
 
+volatile int y = 0;
+
 __attribute__ ((noinline)) void
 main1 (unsigned char x, unsigned char max_result, unsigned char min_result)
 {
@@ -31,7 +33,9 @@ main1 (unsigned char x, unsigned char max_result, unsigned char min_result)
     if (uc[i] < min_result)
       min_result = uc[i];
 
-    asm volatile ("" ::: "memory");
+    /* Avoid vectorization.  */
+    if (y)
+      abort ();
   }
   for (i = 0; i < N; i++) {
     udiff += (unsigned char) (ub[i] - uc[i]);
@@ -63,4 +67,5 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect" { xfail vect_no_int_min_max } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect" { xfail vect_no_int_max } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

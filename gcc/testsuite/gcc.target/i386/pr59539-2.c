@@ -1,6 +1,6 @@
 /* PR target/59539 */
 /* { dg-do compile } */
-/* { dg-options "-O2 -march=haswell" } */
+/* { dg-options "-O2 -mavx2" } */
 
 #include <immintrin.h>
 

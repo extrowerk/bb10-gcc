@@ -86,3 +86,5 @@ main (int argc, int *argv[])
 
 /* { dg-final { scan-ipa-dump-times "ipa-prop: Removed a reference" 2 "inline"  } } */
 /* { dg-final { scan-tree-dump-not "hooray"  "optimized"  } } */
+/* { dg-final { cleanup-ipa-dump "inline" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

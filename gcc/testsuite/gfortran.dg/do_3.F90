@@ -8,8 +8,8 @@ program test
 
 #define TEST_LOOP(var,from,to,step,total,test,final) \
   count = 0 ; do var = from, to, step ; count = count + 1 ; end do ; \
-  if (count /= total) STOP 1; \
-  if (test (from, to, step, final) /= total) STOP 2
+  if (count /= total) call abort ; \
+  if (test (from, to, step, final) /= total) call abort
 
   ! Integer loops
   TEST_LOOP(i, 0, 0, 1, 1, test_i, 1)
@@ -48,9 +48,11 @@ program test
   TEST_LOOP(i, 17, 0, -4, 5, test_i, -3)
   TEST_LOOP(i, 17, 0, -5, 4, test_i, -3)
 
+  TEST_LOOP(i1, -huge(i1)-1_1, huge(i1), 1_1, int(huge(i1))*2+2, test_i1, huge(i1)+1_1)
   TEST_LOOP(i1, -huge(i1)-1_1, huge(i1), 2_1, int(huge(i1))+1, test_i1, huge(i1)+1_1)
   TEST_LOOP(i1, -huge(i1)-1_1, huge(i1), huge(i1), 3, test_i1, 2_1*huge(i1)-1_1)
 
+  TEST_LOOP(i1, huge(i1), -huge(i1)-1_1, -1_1, int(huge(i1))*2+2, test_i1, -huge(i1)-2_1)
   TEST_LOOP(i1, huge(i1), -huge(i1)-1_1, -2_1, int(huge(i1))+1, test_i1, -huge(i1)-2_1)
   TEST_LOOP(i1, huge(i1), -huge(i1)-1_1, -huge(i1), 3, test_i1, -2_1*huge(i1))
   TEST_LOOP(i1, huge(i1), -huge(i1)-1_1, -huge(i1)-1_1, 2, test_i1, -huge(i1)-2_1)
@@ -81,7 +83,7 @@ contains
     do i = from, to, step
       res = res + 1
     end do
-    if (i /= final) STOP 3
+    if (i /= final) call abort
   end function test_i1
 
   function test_i (from, to, step, final) result(res)
@@ -93,7 +95,7 @@ contains
     do i = from, to, step
       res = res + 1
     end do
-    if (i /= final) STOP 4
+    if (i /= final) call abort
   end function test_i
 
   function test_r (from, to, step, final) result(res)

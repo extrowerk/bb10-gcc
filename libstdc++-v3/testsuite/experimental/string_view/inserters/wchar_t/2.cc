@@ -1,6 +1,6 @@
-// { dg-do run { target c++14 } }
+// { dg-options "-std=gnu++14" }
 
-// Copyright (C) 2013-2018 Free Software Foundation, Inc.
+// Copyright (C) 2013-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -35,6 +35,8 @@
 void
 test05(std::size_t size)
 {
+  bool test [[gnu::unused]] = true;
+
   const char filename[] = "inserters_extractors-2.txt";
   const wchar_t fillc = L'f';
   std::wofstream ofs(filename);
@@ -47,12 +49,12 @@ test05(std::size_t size)
 
   // stress test
   ofs << str << std::endl;
-  if (!ofs.good())
-    VERIFY( false );
+  if (!ofs.good()) 
+    test = false;
 
   ofs << str << std::endl;
-  if (!ofs.good())
-    VERIFY( false );
+  if (!ofs.good()) 
+    test = false;
 
   VERIFY( str.size() == size );
   VERIFY( ofs.good() );

@@ -190,9 +190,8 @@ TESTFUNC_NAME (reg_len, data_type, data_len) ()	\
 
 OBSCURE_FUNC (64, 32, f)
 TESTFUNC (64, 32, f)
-/* "dup  Vd.2s, Rn" is less preferable than "dup  Vd.2s, Vn.s[lane]".  */
-/* { dg-final { scan-assembler-not "dup\\tv\[0-9\]+\.2s, w\[0-9\]+" } } */
-/* { dg-final { scan-assembler-times "dup\\tv\[0-9\]+\.2s, v\[0-9\]+\.s\\\[\[0-9\]+\\\]" 3 } } */
+/* "dup  Vd.2s, Rn" is less preferable then "dup  Vd.2s, Vn.s[lane]".  */
+/* { dg-final { scan-assembler-times "dup\\tv\[0-9\]+\.2s, v\[0-9\]+\.s\\\[\[0-9\]+\\\]" 1 } } */
 
 OBSCURE_FUNC (64, 64, f)
 TESTFUNC (64, 64, f)
@@ -217,9 +216,7 @@ TESTFUNC (64, 16, s)
 
 OBSCURE_FUNC (64, 32, s)
 TESTFUNC (64, 32, s)
-/* "dup  Vd.2s, Rn" is less preferable than "dup  Vd.2s, Vn.s[lane]".  */
-/* { dg-final { scan-assembler-not "dup\\tv\[0-9\]+\.2s, w\[0-9\]+" } } */
-/* { dg-final { scan-assembler-times "dup\\tv\[0-9\]+\.2s, v\[0-9\]+\.s\\\[\[0-9\]+\\\]" 3 } } */
+/* { dg-final { scan-assembler-times "dup\\tv\[0-9\]+\.2s, w\[0-9\]+" 2 } } */
 
 OBSCURE_FUNC (64, 64, s)
 TESTFUNC (64, 64, s)
@@ -245,15 +242,13 @@ TESTFUNC (64, 64, u)
 
 OBSCURE_FUNC (128, 32, f)
 TESTFUNC (128, 32, f)
-/* "dup  Vd.4s, Rn" is less preferable than "dup  Vd.4s, Vn.s[lane]".  */
-/* { dg-final { scan-assembler-not "dup\\tv\[0-9\]+\.4s, w\[0-9\]+" } } */
-/* { dg-final { scan-assembler-times "dup\\tv\[0-9\]+\.4s, v\[0-9\]+\.s\\\[\[0-9\]+\\\]" 3 } } */
+/* "dup  Vd.4s, Rn" is less preferable then "dup  Vd.4s, Vn.s[lane]".  */
+/* { dg-final { scan-assembler-times "dup\\tv\[0-9\]+\.4s, v\[0-9\]+\.s\\\[\[0-9\]+\\\]" 1 } } */
 
 OBSCURE_FUNC (128, 64, f)
 TESTFUNC (128, 64, f)
-/* "dup  Vd.2d, Rn" is less preferable than "dup  Vd.2d, Vn.d[lane]".  */
-/* { dg-final { scan-assembler-not "dup\\tv\[0-9\]+\.2d, x\[0-9\]+" } } */
-/* { dg-final { scan-assembler-times "dup\\tv\[0-9\]+\.2d, v\[0-9\]+\.d\\\[\[0-9\]+\\\]" 3 } } */
+/* "dup  Vd.2d, Rn" is less preferable then "dup  Vd.2d, Vn.d[lane]".  */
+/* { dg-final { scan-assembler-times "dup\\tv\[0-9\]+\.2d, v\[0-9\]+\.d\\\[\[0-9\]+\\\]" 1 } } */
 
 OBSCURE_FUNC (128, 8, p)
 TESTFUNC (128, 8, p)
@@ -273,15 +268,11 @@ TESTFUNC (128, 16, s)
 
 OBSCURE_FUNC (128, 32, s)
 TESTFUNC (128, 32, s)
-/* "dup  Vd.4s, Rn" is less preferable than "dup  Vd.4s, Vn.s[lane]".  */
-/* { dg-final { scan-assembler-not "dup\\tv\[0-9\]+\.4s, w\[0-9\]+" } } */
-/* { dg-final { scan-assembler-times "dup\\tv\[0-9\]+\.4s, v\[0-9\]+\.s\\\[\[0-9\]+\\\]" 3 } } */
+/* { dg-final { scan-assembler-times "dup\\tv\[0-9\]+\.4s, w\[0-9\]+" 2 } } */
 
 OBSCURE_FUNC (128, 64, s)
 TESTFUNC (128, 64, s)
-/* "dup  Vd.2d, Rn" is less preferable than "dup  Vd.2d, Vn.d[lane]".  */
-/* { dg-final { scan-assembler-not "dup\\tv\[0-9\]+\.2d, x\[0-9\]+" } } */
-/* { dg-final { scan-assembler-times "dup\\tv\[0-9\]+\.2d, v\[0-9\]+\.d\\\[\[0-9\]+\\\]" 3 } } */
+/* { dg-final { scan-assembler-times "dup\\tv\[0-9\]+\.2d, x\[0-9\]+" 2 } } */
 
 OBSCURE_FUNC (128, 8, u)
 TESTFUNC (128, 8, u)
@@ -355,3 +346,4 @@ main (int argc, char **argv)
   return 0;
 }
 
+/* { dg-final { cleanup-saved-temps } } */

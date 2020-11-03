@@ -1,5 +1,5 @@
 // { dg-do assemble  }
-// { dg-options "-Wno-builtin-declaration-mismatch" }
+// { dg-options "" }
 // This test case caused the compiler to abort at one point in time.
 // prms-id: 811
 
@@ -512,30 +512,28 @@ class Y {
 public:
     Y() {}
   virtual const char *stringify() = 0;
-    virtual char *stringify2() const = 0; // { dg-message "overridden" } 
+    virtual char *stringify2() const = 0; // { dg-error "overriding" } 
 };
 
-class X: public Y { // { dg-message "defined here" }
+class X: public Y {
 public:
     X(): Y() {}
-    const char *stringify();		// { dg-message "candidate" }
-    const char *stringify2() const;  // { dg-message "candidate" }
-  // { dg-error "conflicting return type" "" { target *-*-* } .-1 }
+    const char *stringify();		// { dg-error "candidate" }
+    const char *stringify2() const;  // { dg-error "candidate|conflicting return type" }
 };
 
 char *
-X::stringify() const  // { dg-error "no declaration matches" }
+X::stringify() const  // { dg-error "does not match" }
 {
     return "stringify";
 }
 
 const char *
-X::stringify2()   // { dg-error "no declaration matches" }
+X::stringify2()   // { dg-error "does not match" }
 {
     return "stringify2";
 }
 
-int
 main()
 {
     X x;
@@ -548,6 +546,4 @@ main()
     cout << "y\n";
     cout << y.stringify() << '\n';
     cout << y.stringify2() << '\n';
-
-    return 0;
 }

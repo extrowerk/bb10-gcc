@@ -1,6 +1,6 @@
-// { dg-do run { target c++11 } }
+// { dg-options "-std=gnu++11" }
 
-// Copyright (C) 2005-2018 Free Software Foundation, Inc.
+// Copyright (C) 2005-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,6 +28,8 @@ using namespace __gnu_test;
 void
 test01()
 {
+  bool test __attribute__((unused)) = true;
+
   std::deque<copycounter> a;
   copycounter c(1);
   copycounter::copycount = 0;
@@ -40,6 +42,8 @@ test01()
 void
 test02()
 {
+  bool test __attribute__((unused)) = true;
+
   std::deque<copycounter> a;
   copycounter c(1);
   copycounter::copycount = 0;
@@ -52,6 +56,8 @@ test02()
 void
 test03()
 {
+  bool test __attribute__((unused)) = true;
+
   std::deque<copycounter> a(1000);
   copycounter c(1);
   copycounter::copycount = 0;
@@ -67,6 +73,8 @@ test03()
 void
 test04()
 {
+  bool test __attribute__((unused)) = true;
+
   copycounter c(1);
   std::deque<copycounter> a(10, c);
   copycounter::copycount = 0;
@@ -92,6 +100,8 @@ test04()
 void
 test05()
 {
+  bool test __attribute__((unused)) = true;
+  
   copycounter c(1);
   std::deque<copycounter> a(10, c);
   copycounter::copycount = 0;

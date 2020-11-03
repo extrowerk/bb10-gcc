@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -49,11 +49,8 @@ package body Exp_Ch8 is
    ---------------------------------------------
 
    procedure Expand_N_Exception_Renaming_Declaration (N : Node_Id) is
-      Decl : Node_Id;
-
+      Decl : constant Node_Id := Debug_Renaming_Declaration (N);
    begin
-      Decl := Debug_Renaming_Declaration (N);
-
       if Present (Decl) then
          Insert_Action (N, Decl);
       end if;
@@ -104,8 +101,6 @@ package body Exp_Ch8 is
       --  interested in these operations if they occur as part of the name
       --  itself, subscripts are just values that are computed as part of the
       --  evaluation, so their form is unimportant.
-      --  In addition, always return True for Modify_Tree_For_C since the
-      --  code generator doesn't know how to handle renamings.
 
       -------------------------
       -- Evaluation_Required --
@@ -113,10 +108,7 @@ package body Exp_Ch8 is
 
       function Evaluation_Required (Nam : Node_Id) return Boolean is
       begin
-         if Modify_Tree_For_C then
-            return True;
-
-         elsif Nkind_In (Nam, N_Indexed_Component, N_Slice) then
+         if Nkind_In (Nam, N_Indexed_Component, N_Slice) then
             if Is_Packed (Etype (Prefix (Nam))) then
                return True;
             else
@@ -176,26 +168,18 @@ package body Exp_Ch8 is
 
       --  Ada 2005 (AI-318-02): If the renamed object is a call to a build-in-
       --  place function, then a temporary return object needs to be created
-      --  and access to it must be passed to the function.
+      --  and access to it must be passed to the function. Currently we limit
+      --  such functions to those with inherently limited result subtypes, but
+      --  eventually we plan to expand the functions that are treated as
+      --  build-in-place to include other composite result types.
 
-      if Is_Build_In_Place_Function_Call (Nam) then
+      if Ada_Version >= Ada_2005
+        and then Is_Build_In_Place_Function_Call (Nam)
+      then
          Make_Build_In_Place_Call_In_Anonymous_Context (Nam);
-
-      --  Ada 2005 (AI-318-02): Specialization of previous case for renaming
-      --  containing build-in-place function calls whose returned object covers
-      --  interface types.
-
-      elsif Present (Unqual_BIP_Iface_Function_Call (Nam)) then
-         Make_Build_In_Place_Iface_Call_In_Anonymous_Context (Nam);
       end if;
 
-      --  Create renaming entry for debug information. Mark the entity as
-      --  needing debug info if it comes from sources because the current
-      --  setting in Freeze_Entity occurs too late. ???
-
-      if Comes_From_Source (Defining_Identifier (N)) then
-         Set_Debug_Info_Needed (Defining_Identifier (N));
-      end if;
+      --  Create renaming entry for debug information
 
       Decl := Debug_Renaming_Declaration (N);
 
@@ -209,11 +193,9 @@ package body Exp_Ch8 is
    -------------------------------------------
 
    procedure Expand_N_Package_Renaming_Declaration (N : Node_Id) is
-      Decl : Node_Id;
+      Decl : constant Node_Id := Debug_Renaming_Declaration (N);
 
    begin
-      Decl := Debug_Renaming_Declaration (N);
-
       if Present (Decl) then
 
          --  If we are in a compilation unit, then this is an outer

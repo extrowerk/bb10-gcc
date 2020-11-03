@@ -8,29 +8,19 @@ package runtime
 
 import "unsafe"
 
-//extern epoll_create
 func epollcreate(size int32) int32
-
-//extern epoll_create1
 func epollcreate1(flags int32) int32
 
 //go:noescape
-//extern epoll_ctl
 func epollctl(epfd, op, fd int32, ev *epollevent) int32
 
 //go:noescape
-//extern epoll_wait
 func epollwait(epfd int32, ev *epollevent, nev, timeout int32) int32
-
-//extern __go_fcntl_uintptr
-func fcntlUintptr(fd, cmd, arg uintptr) (uintptr, uintptr)
-
-func closeonexec(fd int32) {
-	fcntlUintptr(uintptr(fd), _F_SETFD, _FD_CLOEXEC)
-}
+func closeonexec(fd int32)
 
 var (
-	epfd int32 = -1 // epoll descriptor
+	epfd           int32 = -1 // epoll descriptor
+	netpolllasterr int32
 )
 
 func netpollinit() {
@@ -43,41 +33,31 @@ func netpollinit() {
 		closeonexec(epfd)
 		return
 	}
-	println("netpollinit: failed to create epoll descriptor", errno())
-	throw("netpollinit: failed to create descriptor")
-}
-
-func netpolldescriptor() uintptr {
-	return uintptr(epfd)
+	println("netpollinit: failed to create epoll descriptor", -epfd)
+	gothrow("netpollinit: failed to create descriptor")
 }
 
 func netpollopen(fd uintptr, pd *pollDesc) int32 {
 	var ev epollevent
-	ev.events = _EPOLLIN | _EPOLLOUT | _EPOLLRDHUP | _EPOLLETpos
+	ev.events = _EPOLLIN | _EPOLLOUT | _EPOLLRDHUP | _EPOLLET
 	*(**pollDesc)(unsafe.Pointer(&ev.data)) = pd
-	if epollctl(epfd, _EPOLL_CTL_ADD, int32(fd), &ev) < 0 {
-		return int32(errno())
-	}
-	return 0
+	return -epollctl(epfd, _EPOLL_CTL_ADD, int32(fd), &ev)
 }
 
 func netpollclose(fd uintptr) int32 {
 	var ev epollevent
-	if epollctl(epfd, _EPOLL_CTL_DEL, int32(fd), &ev) < 0 {
-		return int32(errno())
-	}
-	return 0
+	return -epollctl(epfd, _EPOLL_CTL_DEL, int32(fd), &ev)
 }
 
 func netpollarm(pd *pollDesc, mode int) {
-	throw("runtime: unused")
+	gothrow("unused")
 }
 
 // polls for ready network connections
 // returns list of goroutines that become runnable
-func netpoll(block bool) *g {
+func netpoll(block bool) (gp *g) {
 	if epfd == -1 {
-		return nil
+		return
 	}
 	waitms := int32(-1)
 	if !block {
@@ -87,14 +67,12 @@ func netpoll(block bool) *g {
 retry:
 	n := epollwait(epfd, &events[0], int32(len(events)), waitms)
 	if n < 0 {
-		e := errno()
-		if e != _EINTR {
-			println("runtime: epollwait on fd", epfd, "failed with", e)
-			throw("runtime: netpoll failed")
+		if n != -_EINTR && n != netpolllasterr {
+			netpolllasterr = n
+			println("runtime: epollwait on fd", epfd, "failed with", -n)
 		}
 		goto retry
 	}
-	var gp guintptr
 	for i := int32(0); i < n; i++ {
 		ev := &events[i]
 		if ev.events == 0 {
@@ -109,12 +87,11 @@ retry:
 		}
 		if mode != 0 {
 			pd := *(**pollDesc)(unsafe.Pointer(&ev.data))
-
-			netpollready(&gp, pd, mode)
+			netpollready((**g)(noescape(unsafe.Pointer(&gp))), pd, mode)
 		}
 	}
-	if block && gp == 0 {
+	if block && gp == nil {
 		goto retry
 	}
-	return gp.ptr()
+	return gp
 }

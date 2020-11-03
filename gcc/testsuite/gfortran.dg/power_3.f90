@@ -14,24 +14,25 @@ program main
   v = -1
   ! Test in scalar expressions
   do i=-n,n
-     if (v**i /= (-1)**i) STOP 1
+     if (v**i /= (-1)**i) call abort
   end do
 
   ! Test in array constructors
   a(-m:m) = [ ((-1)**i, i= -m, m) ]
   b(-m:m) = [ (   v**i, i= -m, m) ]
-  if (any(a .ne. b)) STOP 2
+  if (any(a .ne. b)) call abort
 
   ! Test in array expressions
   c = [ ( i, i = -n , n ) ]
   d = (-1)**c
   e = v**c
-  if (any(d .ne. e)) STOP 3
+  if (any(d .ne. e)) call abort
 
   ! Test in different kind expressions
   do i2=-n,n
-     if (v**i2 /= (-1)**i2) STOP 4
+     if (v**i2 /= (-1)**i2) call abort
   end do
 
 end program main
 ! { dg-final { scan-tree-dump-times "_gfortran_pow_i4_i4" 4 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

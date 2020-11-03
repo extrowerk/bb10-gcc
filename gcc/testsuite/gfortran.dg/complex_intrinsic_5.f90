@@ -23,7 +23,7 @@ contains
       print '(a,g0," + I*",g0,"  eps=",g0)', 'Diff: ', &
                                  real(z)-real(zref), &
                                  aimag(z)-aimag(zref), eps4
-      STOP 1
+      call abort()
     end if
   END SUBROUTINE check4
   SUBROUTINE check8(z, zref)
@@ -34,7 +34,7 @@ contains
       print '(a,g0," + I*",g0,"  eps=",g0)', 'Diff: ', &
                                  real(z)-real(zref), &
                                  aimag(z)-aimag(zref), eps8
-      STOP 2
+      call abort()
     end if
   END SUBROUTINE check8
 end module test

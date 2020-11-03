@@ -3,7 +3,7 @@
 
 struct A
 {
-  int f() { return 0; }
+  int f() {}
   int i;
 
   void foo()

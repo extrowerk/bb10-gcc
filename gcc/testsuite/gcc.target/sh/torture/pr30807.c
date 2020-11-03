@@ -1,5 +1,6 @@
 /* { dg-do compile }  */
 /* { dg-additional-options "-fpic -std=c99" }  */
+/* { dg-skip-if "" { "sh*-*-*" } { "-m5*" } { "" } }  */
 
 typedef unsigned int size_t;
 typedef struct

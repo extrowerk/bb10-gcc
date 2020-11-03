@@ -1,6 +1,5 @@
 ! { dg-do compile }
 ! { dg-options "-fdump-tree-original" }
-! { dg-require-visibility "" }
 !
 ! PR fortran/56649
 ! MERGE was not properly compile-time simplified
@@ -56,3 +55,4 @@ end subroutine test
 ! { dg-final { scan-tree-dump-times "check1 = 1275069467;" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "check2 = 1;" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "__builtin_memmove ..void .. &three, .void .. &one, 3.;" 1 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

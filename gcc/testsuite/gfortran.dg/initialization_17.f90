@@ -6,5 +6,5 @@
 !
 integer :: n = 5, m = 7
 parameter (n = 42) ! { dg-error "Initializing already initialized variable" }
-dimension :: m(3)  ! { dg-error "after its initialization" } 
+dimension :: m(3)  ! { dg-error "after its initialisation" } 
 end

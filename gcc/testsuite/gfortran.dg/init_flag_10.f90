@@ -1,7 +1,7 @@
 ! { dg-do run }
 ! { dg-options "-finit-real=NAN" }
 ! { dg-add-options ieee }
-! { dg-skip-if "NaN not supported" { spu-*-* } }
+! { dg-skip-if "NaN not supported" { spu-*-* } { "*" } { "" } }
 !
 ! PR fortran/50619
 !
@@ -21,15 +21,15 @@ contains
     real :: var1, var2 ! Should get NaN initialized
 
     ! Should be the default value
-    if (e%rmult /= 1.0) STOP 1
+    if (e%rmult /= 1.0) call abort ()
 
     ! Check that NaN initialization is really turned on
-    if (var1 == var1) STOP 2 
-    if (var2 == var2) STOP 3 
+    if (var1 == var1) call abort () 
+    if (var2 == var2) call abort () 
 
     ! The following was failing:
     associate (rmult=>e%rmult)
-      if (e%rmult /= 1.0) STOP 4
+      if (e%rmult /= 1.0) call abort ()
     end associate
   end subroutine test
 end module testa2

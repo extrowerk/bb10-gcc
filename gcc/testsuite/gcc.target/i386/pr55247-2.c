@@ -1,6 +1,6 @@
-/* { dg-do compile { target { ! ia32 } } } */
+/* { dg-do compile { target { ! { ia32 } } } } */
 /* { dg-require-effective-target maybe_x32 } */
-/* { dg-options "-O2 -mx32 -mtune=generic -maddress-mode=long -dp" } */
+/* { dg-options "-O2 -mx32 -mtune=generic -maddress-mode=long" } */
 
 typedef unsigned int uint32_t;
 typedef uint32_t Elf32_Word;
@@ -34,5 +34,4 @@ _dl_profile_fixup (struct link_map *l, Elf32_Word reloc_arg)
   symbind32 (&sym);
 }
 
-/* { dg-final { scan-assembler-times "movv1ti_internal" 2 } } */
-/* { dg-final { scan-assembler-not "movti_internal" } } */
+/* { dg-final { scan-assembler-not "%xmm\[0-9\]" } } */

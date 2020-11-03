@@ -10,6 +10,6 @@ program main
 contains
   subroutine S1(a)
     integer :: a(*)
-    if(size(a(1:10),1) /= 10) STOP 1
+    if(size(a(1:10),1) /= 10) call abort()
   end subroutine S1
 end program main

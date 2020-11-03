@@ -7,18 +7,18 @@ program main
   i=44
   ir = -42
 
-  open(11,file="foo_direct_io_8.dat")
+  open(11,file="foo.dat")
   ! Try a direct access read on a formatted sequential rile
   READ (11, REC = I, ERR = 99) TEMP_CHANGES
-  STOP 1
+  call abort
 99 continue
   ! Variant 2: ir is ok, but does not jump to 99
   READ (11, REC = I, IOSTAT = IR, ERR = 98) TEMP_CHANGES
-  STOP 2
+  call abort
 
 98 continue
   if(ir == 0) then
-     STOP 3
+     call abort
   end if
   close(11,status="delete")
 end program main

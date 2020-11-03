@@ -1,5 +1,4 @@
 /* { dg-do compile } */
-/* { dg-require-effective-target int32plus } */
 
 typedef unsigned char uint8x4_t
 __attribute__ ((__vector_size__ (4)));

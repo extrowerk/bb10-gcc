@@ -24,4 +24,5 @@ void foo ()
   out[5] = 17 * a + 15 * b + 13  * c + 14 * d + 11 * e + 9 * f;
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */
 

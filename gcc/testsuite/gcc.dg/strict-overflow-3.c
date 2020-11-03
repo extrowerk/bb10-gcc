@@ -9,7 +9,8 @@
 int
 foo (int i, int j)
 {
-  return i + 100 < j + 1234;
+  return i + 100 < j + 1000;
 }
 
-/* { dg-final { scan-tree-dump-not "1234" "optimized" } } */
+/* { dg-final { scan-tree-dump-not "1000" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

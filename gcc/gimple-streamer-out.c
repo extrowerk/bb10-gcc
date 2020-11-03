@@ -1,6 +1,6 @@
 /* Routines for emitting GIMPLE to a file stream.
 
-   Copyright (C) 2011-2018 Free Software Foundation, Inc.
+   Copyright (C) 2011-2015 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@google.com>
 
 This file is part of GCC.
@@ -22,14 +22,39 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
-#include "gimple.h"
-#include "gimple-ssa.h"
-#include "gimple-streamer.h"
+#include "fold-const.h"
+#include "predict.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
 #include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
 #include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
+#include "data-streamer.h"
+#include "gimple-streamer.h"
+#include "lto-streamer.h"
+#include "tree-streamer.h"
 #include "value-prof.h"
 
 /* Output PHI function PHI to the main stream in OB.  */
@@ -56,7 +81,7 @@ output_phi (struct output_block *ob, gphi *phi)
 /* Emit statement STMT on the main stream of output block OB.  */
 
 static void
-output_gimple_stmt (struct output_block *ob, gimple *stmt)
+output_gimple_stmt (struct output_block *ob, gimple stmt)
 {
   unsigned i;
   enum gimple_code code;
@@ -145,7 +170,7 @@ output_gimple_stmt (struct output_block *ob, gimple *stmt)
 		basep = &TREE_OPERAND (*basep, 0);
 	      while (handled_component_p (*basep))
 		basep = &TREE_OPERAND (*basep, 0);
-	      if (VAR_P (*basep)
+	      if (TREE_CODE (*basep) == VAR_DECL
 		  && !auto_var_in_fn_p (*basep, current_function_decl)
 		  && !DECL_REGISTER (*basep))
 		{
@@ -180,11 +205,9 @@ output_gimple_stmt (struct output_block *ob, gimple *stmt)
 
     case GIMPLE_TRANSACTION:
       {
-	gtransaction *txn = as_a <gtransaction *> (stmt);
-	gcc_assert (gimple_transaction_body (txn) == NULL);
-	stream_write_tree (ob, gimple_transaction_label_norm (txn), true);
-	stream_write_tree (ob, gimple_transaction_label_uninst (txn), true);
-	stream_write_tree (ob, gimple_transaction_label_over (txn), true);
+	gtransaction *trans_stmt = as_a <gtransaction *> (stmt);
+	gcc_assert (gimple_transaction_body (trans_stmt) == NULL);
+	stream_write_tree (ob, gimple_transaction_label (trans_stmt), true);
       }
       break;
 
@@ -209,7 +232,8 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 				: LTO_bb0);
 
   streamer_write_uhwi (ob, bb->index);
-  bb->count.stream_out (ob);
+  streamer_write_gcov_count (ob, bb->count);
+  streamer_write_hwi (ob, bb->frequency);
   streamer_write_hwi (ob, bb->flags);
 
   if (!gsi_end_p (bsi) || phi_nodes (bb))
@@ -219,7 +243,7 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
       for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	{
 	  int region;
-	  gimple *stmt = gsi_stmt (bsi);
+	  gimple stmt = gsi_stmt (bsi);
 
 	  output_gimple_stmt (ob, stmt);
 

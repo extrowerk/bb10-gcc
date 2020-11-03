@@ -1,10 +1,9 @@
-/* { dg-require-effective-target size32plus } */
 #define NMAX 3000
 #define MEASURE_TIME 1
 
 static double a[NMAX][NMAX], c[NMAX][NMAX];
 
-void dsyrk(int N) 
+void dsyrk(long N) 
 {
   int i,j,k;
 
@@ -19,4 +18,5 @@ void dsyrk(int N)
 #pragma endscop
 }
 
-/* { dg-final { scan-tree-dump-times "number of SCoPs: 1" 1 "graphite" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "number of SCoPs: 1" 1 "graphite" } } */
+/* { dg-final { cleanup-tree-dump "graphite" } } */

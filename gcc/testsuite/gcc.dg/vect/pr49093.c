@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-additional-options "-O1 -fno-tree-fre" } */
+/* { dg-options "-O1 -ftree-vectorize -fdump-tree-vect-details -fno-tree-fre" } */
 
 volatile unsigned char g_324[4] = {0, 1, 0, 1};
 void foo (int);
@@ -19,3 +19,4 @@ lbl_473:
     }
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

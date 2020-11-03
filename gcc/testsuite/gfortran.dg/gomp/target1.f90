@@ -1,4 +1,5 @@
 ! { dg-do compile }
+! { dg-options "-fopenmp" }
 
 module target1
   interface
@@ -51,12 +52,15 @@ contains
     !$omp & private (p) firstprivate (q) shared (n) reduction (+: r) &
     !$omp & thread_limit (n * 2) dist_schedule (static, 4) collapse (2) &
     !$omp & num_threads (n + 4) proc_bind (spread) lastprivate (s) &
-    !$omp & schedule (static, 8)
+    !$omp & ordered schedule (static, 8)
       do i = 1, 10
         do j = 1, 10
           r = r + 1
           p = q
           call dosomething (a, n, p + q)
+	  !$omp ordered
+	    p = q
+	  !$omp end ordered
 	  s = i * 10 + j
         end do
       end do
@@ -64,13 +68,16 @@ contains
     !$omp & if (n .ne. 6)map (from: n) map (alloc: a(2:o)) default(shared) &
     !$omp & private (p) firstprivate (q) shared (n) reduction (+: r) &
     !$omp & thread_limit (n * 2) dist_schedule (static, 4) num_threads (n + 4) &
-    !$omp & proc_bind (master) lastprivate (s) schedule (static, 8)
+    !$omp & proc_bind (master) lastprivate (s) ordered schedule (static, 8)
       do i = 1, 10
         do j = 1, 10
           r = r + 1
           p = q
           call dosomething (a, n, p + q)
         end do
+        !$omp ordered
+          p = q
+        !$omp end ordered
 	s = i * 10
       end do
     !$omp end target teams distribute parallel do
@@ -161,7 +168,7 @@ contains
     !$omp end target
     !$omp target device (n + 1) if (n .ne. 6)map (from: n) map (alloc: a(2:o))
     !$omp teams distribute parallel do num_teams (n + 4) &
-    !$omp & if (n .ne. 6) default(shared) schedule (static, 8) &
+    !$omp & if (n .ne. 6) default(shared) ordered schedule (static, 8) &
     !$omp & private (p) firstprivate (q) shared (n) reduction (+: r) &
     !$omp & thread_limit (n * 2) dist_schedule (static, 4) collapse (2) &
     !$omp & num_threads (n + 4) proc_bind (spread) lastprivate (s)
@@ -170,6 +177,9 @@ contains
           r = r + 1
           p = q
           call dosomething (a, n, p + q)
+	  !$omp ordered
+	    p = q
+	  !$omp end ordered
 	  s = i * 10 + j
         end do
       end do
@@ -178,13 +188,16 @@ contains
     !$omp teams distribute parallel do num_teams (n + 4)if(n.ne.6)default(shared)&
     !$omp & private (p) firstprivate (q) shared (n) reduction (+: r) &
     !$omp & thread_limit (n * 2) dist_schedule (static, 4) num_threads (n + 4) &
-    !$omp & proc_bind (master) lastprivate (s) schedule (static, 8)
+    !$omp & proc_bind (master) lastprivate (s) ordered schedule (static, 8)
       do i = 1, 10
         do j = 1, 10
           r = r + 1
           p = q
           call dosomething (a, n, p + q)
         end do
+        !$omp ordered
+          p = q
+        !$omp end ordered
 	s = i * 10
       end do
     !$omp end teams distribute parallel do
@@ -273,7 +286,7 @@ contains
     !$omp & map (alloc: a(2:o)) num_teams (n + 4) thread_limit (n * 2) &
     !$omp & default(shared) shared(n) private (p) reduction(+:r)
     !$omp distribute parallel do if (n .ne. 6) default(shared) &
-    !$omp & schedule (static, 8) private (p) firstprivate (q) &
+    !$omp & ordered schedule (static, 8) private (p) firstprivate (q) &
     !$omp & shared(n)reduction(+:r)dist_schedule(static,4)collapse(2)&
     !$omp & num_threads (n + 4) proc_bind (spread) lastprivate (s)
       do i = 1, 10
@@ -281,6 +294,9 @@ contains
           r = r + 1
           p = q
           call dosomething (a, n, p + q)
+	  !$omp ordered
+	    p = q
+	  !$omp end ordered
 	  s = i * 10 + j
         end do
       end do
@@ -291,13 +307,16 @@ contains
     !$omp distribute parallel do if(n.ne.6)default(shared)&
     !$omp & private (p) firstprivate (q) shared (n) reduction (+: r) &
     !$omp & dist_schedule (static, 4) num_threads (n + 4) &
-    !$omp & proc_bind (master) lastprivate (s) schedule (static, 8)
+    !$omp & proc_bind (master) lastprivate (s) ordered schedule (static, 8)
       do i = 1, 10
         do j = 1, 10
           r = r + 1
           p = q
           call dosomething (a, n, p + q)
         end do
+        !$omp ordered
+          p = q
+        !$omp end ordered
 	s = i * 10
       end do
     !$omp end distribute parallel do
@@ -400,7 +419,7 @@ contains
     !$omp & map (alloc: a(2:o)) num_teams (n + 4) thread_limit (n * 2) &
     !$omp & default(shared) shared(n) private (p) reduction(+:r)
     !$omp distribute parallel do if (n .ne. 6) default(shared) &
-    !$omp & schedule (static, 8) private (p) firstprivate (q) &
+    !$omp & ordered schedule (static, 8) private (p) firstprivate (q) &
     !$omp & shared(n)reduction(+:r)dist_schedule(static,4)collapse(2)&
     !$omp & num_threads (n + 4) proc_bind (spread) lastprivate (s)
       do i = 1, 10
@@ -408,6 +427,9 @@ contains
           r = r + 1
           p = q
           call dosomething (a, n, p + q)
+	  !$omp ordered
+	    p = q
+	  !$omp end ordered
 	  s = i * 10 + j
         end do
       end do
@@ -418,13 +440,16 @@ contains
     !$omp distribute parallel do if(n.ne.6)default(shared)&
     !$omp & private (p) firstprivate (q) shared (n) reduction (+: r) &
     !$omp & dist_schedule (static, 4) num_threads (n + 4) &
-    !$omp & proc_bind (master) lastprivate (s) schedule (static, 8)
+    !$omp & proc_bind (master) lastprivate (s) ordered schedule (static, 8)
       do i = 1, 10
         do j = 1, 10
           r = r + 1
           p = q
           call dosomething (a, n, p + q)
         end do
+        !$omp ordered
+          p = q
+        !$omp end ordered
 	s = i * 10
       end do
     !$omp end distribute parallel do

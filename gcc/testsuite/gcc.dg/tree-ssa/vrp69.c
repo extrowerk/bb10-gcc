@@ -35,3 +35,4 @@ void test5(unsigned int i)
 int main() {}
 
 /* { dg-final { scan-tree-dump-times "link_error" 0 "vrp1" } } */
+/* { dg-final { cleanup-tree-dump "vrp1" } } */

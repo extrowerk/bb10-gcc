@@ -1,5 +1,4 @@
 // { dg-do compile }
-// { dg-additional-options "-Wno-return-type" }
 
 typedef __SIZE_TYPE__ size_t;
 
@@ -47,7 +46,7 @@ class c5 : public c2 {
 };
 
 class c6 {
-  public: int get() const { return 0; };
+  public: int get() const {};
 };
 
 class c7 {

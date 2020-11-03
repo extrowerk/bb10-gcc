@@ -2,6 +2,7 @@
    with -Os.  */
 /* { dg-do compile }  */
 /* { dg-options "-Os" } */
+/* { dg-skip-if "" { "sh*-*-*" } { "-m5*"} { "" } }  */
 /* { dg-final { scan-assembler-times "tst" 2 } }  */
 /* { dg-final { scan-assembler-not "cmp" } }  */
 

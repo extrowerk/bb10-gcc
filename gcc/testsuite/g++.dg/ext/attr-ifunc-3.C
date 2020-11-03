@@ -6,29 +6,22 @@
 
 struct Klass
 {
-  int a[4];
-
   int implementation ();
   int magic ();
-
-  typedef int Func (Klass*);
-
-  static Func* resolver ();
+  static void *resolver ();
 };
 
 int Klass::implementation (void)
 {
   printf ("'ere I am JH\n");
-  return a[0] + a[1] + a[2] + a[3];
+  return 0;
 }
 
-Klass::Func* Klass::resolver ()
+void *Klass::resolver (void)
 {
-  /* GCC guarantees this conversion to be safe and the resulting pointer
-     usable to call the member function using ordinary (i.e., non-member)
-     function call syntax.  */
-
-  return reinterpret_cast<Func*>(&Klass::implementation);
+  int (Klass::*pmf) () = &Klass::implementation;
+  
+  return (void *)(int (*)(Klass *))(((Klass *)0)->*pmf);
 }
 
 int Klass::magic (void) __attribute__ ((ifunc ("_ZN5Klass8resolverEv")));
@@ -41,11 +34,6 @@ int Foo (Klass &obj, int (Klass::*pmf) ())
 int main ()
 {
   Klass obj;
-
-  obj.a[0] = 1;
-  obj.a[1] = 2;
-  obj.a[2] = 3;
-  obj.a[3] = 4;
-
-  return Foo (obj, &Klass::magic) != 10;
+  
+  return Foo (obj, &Klass::magic) != 0;
 }

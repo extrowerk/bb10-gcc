@@ -5,3 +5,4 @@
 
 #include "pr60023.cc"
 
+// { dg-final { cleanup-tree-dump "vect" } }

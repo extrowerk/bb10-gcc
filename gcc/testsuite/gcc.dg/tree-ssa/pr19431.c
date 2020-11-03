@@ -25,3 +25,4 @@ int f(int k, int i1, int j1)
 }
 
 /* { dg-final { scan-tree-dump "\[^\r\n\]*_. = PHI <i1_\[^,\]*, j1_\[^>\]*>" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

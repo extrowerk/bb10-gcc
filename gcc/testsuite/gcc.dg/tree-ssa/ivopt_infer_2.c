@@ -23,3 +23,4 @@ void foo (unsigned int i_width, TYPE dst)
 }
 
 /* { dg-final { scan-tree-dump-times "\[^:\]*if \\(.*j_\[0-9\]+.*\\)" 1 "ivopts"} } */
+/* { dg-final { cleanup-tree-dump "ivopts" } } */

@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-ivopts" } */
-/* { dg-skip-if "PR68644" { hppa*-*-* powerpc*-*-* } } */
+/* { dg-skip-if "PR68644" { hppa*-*-* } { "*" } { "" } } */
 
 void
 f1 (int *p, unsigned int i)
@@ -18,3 +18,4 @@ f1 (int *p, unsigned int i)
 /* { dg-final { scan-tree-dump-times "PHI" 1 "ivopts" } } */
 /* { dg-final { scan-tree-dump-times "PHI <p_" 1 "ivopts"} } */
 /* { dg-final { scan-tree-dump-times "p_\[0-9\]* <" 1 "ivopts" } } */
+/* { dg-final { cleanup-tree-dump "ivopts" } } */

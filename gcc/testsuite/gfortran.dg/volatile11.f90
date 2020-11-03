@@ -37,3 +37,4 @@ end subroutine
 ! { dg-final { scan-tree-dump "NotOptimizedAway1" "optimized" } } */
 ! { dg-final { scan-tree-dump "NotOptimizedAway2" "optimized" } } */
 ! { dg-final { scan-tree-dump-not "IsOptimizedAway" "optimized" } } */
+! { dg-final { cleanup-tree-dump "optimized" } } */

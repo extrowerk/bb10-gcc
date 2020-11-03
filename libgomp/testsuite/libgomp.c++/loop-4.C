@@ -1,6 +1,5 @@
 extern "C" void abort (void);
 
-int
 main()
 {
   int i, a;

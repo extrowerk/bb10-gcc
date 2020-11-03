@@ -22,6 +22,7 @@ Boston, MA 02110-1301, USA.  */
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
 #include "quadmath-printf.h"
 
 /* Read a simple integer from a string and update the string pointer.

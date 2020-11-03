@@ -13,16 +13,16 @@ program pr28439
    integer myfunc
       
    if (myfunc(0)) 10, 20, 30  ! Should go to 30
-10 STOP 1
-20 STOP 2
+10 call abort
+20 call abort
 
 30 if (myfunc(0)) 40, 50, 60  ! Should go to 50
-40 STOP 3
-60 STOP 4
+40 call abort
+60 call abort
 
 50 if (myfunc(0)) 70, 80, 90  ! Should go to 70
-80 STOP 5
-90 STOP 6
+80 call abort
+90 call abort
 
 70 continue
 

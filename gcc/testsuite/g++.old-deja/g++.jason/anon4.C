@@ -3,7 +3,6 @@
 // PRMS Id: 5371
 // Bug: g++ screws up the alignment of buff and dies.
 
-int
 main()
 {
   union {
@@ -12,5 +11,4 @@ main()
   };
 
   void *p = buff;
-  return 0;
 }

@@ -13,3 +13,4 @@ char *bar (char *x)
 }
 
 /* { dg-final { scan-tree-dump-times "return x;" 2 "original" } } */
+/* { dg-final { cleanup-tree-dump "original" } } */

@@ -1,5 +1,5 @@
 /* Definitions for Linux for S/390.
-   Copyright (C) 1999-2018 Free Software Foundation, Inc.
+   Copyright (C) 1999-2015 Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
 
@@ -24,12 +24,9 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Target specific type definitions.  */
 
-/* For 31 bit our size type differs from most other targets (where it
-   is "unsigned int").  The difference tends to cause trouble e.g.:
-   Glibc BZ #16712, GCC BZ #79358 but cannot be changed due to ABI
-   issues.  */
+/* ??? Do we really want long as size_t on 31-bit?  */
 #undef  SIZE_TYPE
-#define SIZE_TYPE "long unsigned int"
+#define SIZE_TYPE (TARGET_64BIT ? "long unsigned int" : "long unsigned int")
 #undef  PTRDIFF_TYPE
 #define PTRDIFF_TYPE (TARGET_64BIT ? "long int" : "int")
 
@@ -50,19 +47,9 @@ along with GCC; see the file COPYING3.  If not see
 
 
 /* Target specific assembler settings.  */
-/* Rewrite -march=arch* options to the original CPU name in order to
-   make it work with older binutils.  */
+
 #undef  ASM_SPEC
-#define ASM_SPEC					\
-  "%{m31&m64}%{mesa&mzarch}%{march=z*}"			\
-  "%{march=arch3:-march=g5}"				\
-  "%{march=arch5:-march=z900}"				\
-  "%{march=arch6:-march=z990}"				\
-  "%{march=arch7:-march=z9-ec}"				\
-  "%{march=arch8:-march=z10}"				\
-  "%{march=arch9:-march=z196}"				\
-  "%{march=arch10:-march=zEC12}"			\
-  "%{march=arch11:-march=z13}"
+#define ASM_SPEC "%{m31&m64}%{mesa&mzarch}%{march=*}"
 
 
 /* Target specific linker settings.  */
@@ -82,11 +69,10 @@ along with GCC; see the file COPYING3.  If not see
    %{shared:-shared} \
    %{!shared: \
       %{static:-static} \
-      %{!static:%{!static-pie: \
+      %{!static: \
 	%{rdynamic:-export-dynamic} \
 	%{m31:-dynamic-linker " GNU_USER_DYNAMIC_LINKER32 "} \
-	%{m64:-dynamic-linker " GNU_USER_DYNAMIC_LINKER64 "}}}} \
-   %{static-pie:-static -pie --no-dynamic-linker -z text}"
+	%{m64:-dynamic-linker " GNU_USER_DYNAMIC_LINKER64 "}}}"
 
 #define CPP_SPEC "%{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
 

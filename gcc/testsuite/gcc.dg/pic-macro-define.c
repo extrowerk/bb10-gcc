@@ -1,5 +1,4 @@
-/* { dg-do run } */
-/* { dg-require-effective-target fpic } */
+/* { dg-do run { target "i?86-*-*-darwin" powerpc*-*-darwin* } } */
 /* { dg-options "-fPIC" } */
 
 #if defined __PIC__ 

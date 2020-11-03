@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-additional-options "-ftrapv -fno-ipa-vrp" } */
+/* { dg-additional-options "-ftrapv" } */
 /* { dg-require-effective-target trapping } */
 /* { dg-require-fork "" } */
 

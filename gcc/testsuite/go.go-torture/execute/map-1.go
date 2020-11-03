@@ -26,7 +26,7 @@ func main() {
   if len(v) != 2 {
     panic(6)
   }
-  delete(v, 0)
+  v[0] = 0, false;
   if len(v) != 1 {
     panic(7)
   }

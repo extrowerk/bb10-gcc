@@ -15,3 +15,4 @@ foo ()
 }
 
 /* { dg-final { scan-tree-dump-times "__builtin___asan_report_store4" 1 "sanopt" } } */
+/* { dg-final { cleanup-tree-dump "sanopt" } } */

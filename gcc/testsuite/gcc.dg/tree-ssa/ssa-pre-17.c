@@ -15,3 +15,4 @@ int foo(U *u, int b, int i)
 }
 
 /* { dg-final { scan-tree-dump "Eliminated: 1" "pre" } } */
+/* { dg-final { cleanup-tree-dump "pre" } } */

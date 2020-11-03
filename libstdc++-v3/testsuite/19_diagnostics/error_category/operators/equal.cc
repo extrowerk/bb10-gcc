@@ -1,8 +1,8 @@
-// { dg-do run { target c++11 } }
+// { dg-options "-std=gnu++11" }
 // { dg-additional-options "-static-libgcc" { target *-*-mingw* } }
 // 2007-08-22 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2007-2018 Free Software Foundation, Inc.
+// Copyright (C) 2007-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -24,6 +24,8 @@
 
 int main()
 {
+  bool test __attribute__((unused)) = true;
+
   __gnu_test::test_category c1;
   __gnu_test::test_derived_category c2;
   VERIFY( c1 == c1 );

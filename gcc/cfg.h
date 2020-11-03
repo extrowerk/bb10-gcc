@@ -1,5 +1,5 @@
 /* Control flow graph manipulation code header file.
-   Copyright (C) 2014-2018 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -19,8 +19,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef GCC_CFG_H
 #define GCC_CFG_H
-
-#include "dominance.h"
 
 /* What sort of profiling information we have.  */
 enum profile_status_d
@@ -71,14 +69,11 @@ struct GTY(()) control_flow_graph {
   /* Maximal number of entities in the single jumptable.  Used to estimate
      final flowgraph size.  */
   int max_jumptable_ents;
-
-  /* Maximal count of BB in function.  */
-  profile_count count_max;
 };
 
 
-extern void init_flow (function *);
-extern void clear_edges (function *);
+extern void init_flow (struct function *);
+extern void clear_edges (void);
 extern basic_block alloc_block (void);
 extern void link_block (basic_block, basic_block);
 extern void unlink_block (basic_block);
@@ -92,7 +87,7 @@ extern void remove_edge_raw (edge);
 extern void redirect_edge_succ (edge, basic_block);
 extern void redirect_edge_pred (edge, basic_block);
 extern void clear_bb_flags (void);
-extern void dump_edge_info (FILE *, edge, dump_flags_t, int);
+extern void dump_edge_info (FILE *, edge, int, int);
 extern void debug (edge_def &ref);
 extern void debug (edge_def *ptr);
 extern void alloc_aux_for_blocks (int);
@@ -104,16 +99,14 @@ extern void clear_aux_for_edges (void);
 extern void free_aux_for_edges (void);
 extern void debug_bb (basic_block);
 extern basic_block debug_bb_n (int);
-extern void dump_bb_info (FILE *, basic_block, int, dump_flags_t, bool, bool);
-extern void brief_dump_cfg (FILE *, dump_flags_t);
-extern void update_bb_profile_for_threading (basic_block, profile_count, edge);
-extern void scale_bbs_frequencies_profile_count (basic_block *, int,
-					     profile_count, profile_count);
-extern void scale_bbs_frequencies (basic_block *, int, profile_probability);
+extern void dump_bb_info (FILE *, basic_block, int, int, bool, bool);
+extern void brief_dump_cfg (FILE *, int);
+extern void update_bb_profile_for_threading (basic_block, int, gcov_type, edge);
+extern void scale_bbs_frequencies_int (basic_block *, int, int, int);
+extern void scale_bbs_frequencies_gcov_type (basic_block *, int, gcov_type,
+					     gcov_type);
 extern void initialize_original_copy_tables (void);
-extern void reset_original_copy_tables (void);
 extern void free_original_copy_tables (void);
-extern bool original_copy_tables_initialized_p (void);
 extern void set_bb_original (basic_block, basic_block);
 extern basic_block get_bb_original (basic_block);
 extern void set_bb_copy (basic_block, basic_block);

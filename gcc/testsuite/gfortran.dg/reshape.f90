@@ -17,17 +17,17 @@ program resh
   b = (/(i,i=1,12)/)
   a = reshape(b(1:12:2),shape(a),order=(/2,1/))
   c = reshape(b(1:12:2),shape(a),order=(/2,1/))
-  if (any (a /= c)) STOP 1
+  if (any (a /= c)) call abort
 
   ! Test generic reshape
   br%r = b
   ar = reshape(br(1:12:2),shape(a),order=(/2,1/))
-  if (any (ar%r /= a)) STOP 2
+  if (any (ar%r /= a)) call abort
 
   ! Test callee-allocated memory with a write statement
   write (line1,'(6F8.3)') reshape(b(1:12:2),shape(a),order=(/2,1/))
   write (line2,'(6F8.3)') a
-  if (line1 /= line2 ) STOP 3
+  if (line1 /= line2 ) call abort
   write (line3,'(6F8.3)') reshape(br(1:12:2),shape(ar),order=(/2,1/))
-  if (line1 /= line3 ) STOP 4
+  if (line1 /= line3 ) call abort
 end

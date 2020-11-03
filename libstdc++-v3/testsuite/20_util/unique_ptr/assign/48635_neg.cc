@@ -1,6 +1,7 @@
-// { dg-do compile { target c++11 } }
+// { dg-options "-std=gnu++11" }
+// { dg-do compile }
 
-// Copyright (C) 2011-2018 Free Software Foundation, Inc.
+// Copyright (C) 2011-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -23,7 +24,7 @@ struct D;
 
 struct B
 {
- B& operator=(D&) = delete;
+ B& operator=(D&) = delete; // { dg-error "declared here" }
 
  template<class T>
    void operator()(T*) const {}
@@ -38,14 +39,12 @@ void f()
   D d;
 
   std::unique_ptr<int, B&> ub(nullptr, b);
-  std::unique_ptr<int, B> ub2(nullptr, b);
   std::unique_ptr<int, D&> ud(nullptr, d);
-  ub = std::move(ud); // { dg-error "no match" }
-  ub2 = ud; // { dg-error "no match" }
-// { dg-error "no type" "" { target *-*-* } 307 }
+  ub = std::move(ud);
+// { dg-error "use of deleted function" "" { target *-*-* } 272 }
 
   std::unique_ptr<int[], B&> uba(nullptr, b);
   std::unique_ptr<int[], D&> uda(nullptr, d);
-  uba = std::move(uda); // { dg-error "no match" }
-// { dg-error "no type" "" { target *-*-* } 566 }
+  uba = std::move(uda);
+// { dg-error "use of deleted function" "" { target *-*-* } 517 }
 }

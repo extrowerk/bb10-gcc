@@ -29,11 +29,11 @@ program test
   type(base_type) :: a, b
   call dict_put(t, a, b)
 
-  if (.NOT. allocated(t%key)) STOP 1
+  if (.NOT. allocated(t%key)) call abort()
   select type (x => t%key)
     type is (base_type)
     class default
-      STOP 2
+      call abort()
   end select
   deallocate(t%key)
 end

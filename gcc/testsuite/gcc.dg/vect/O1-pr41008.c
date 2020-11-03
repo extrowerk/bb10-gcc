@@ -19,4 +19,5 @@ void map_do()
   foo (jsav, ksav);
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */
 

@@ -1,7 +1,7 @@
 @ libgcc routines for ARM cpu.
 @ Division routines, written by Richard Earnshaw, (rearnsha@armltd.co.uk)
 
-/* Copyright (C) 1995-2018 Free Software Foundation, Inc.
+/* Copyright (C) 1995-2015 Free Software Foundation, Inc.
 
 This file is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -108,8 +108,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 # define __ARM_ARCH__ 7
 #endif
 
-#if defined(__ARM_ARCH_8A__) || defined(__ARM_ARCH_8M_BASE__) \
-	|| defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8R__)
+#if defined(__ARM_ARCH_8A__)
 # define __ARM_ARCH__ 8
 #endif
 
@@ -125,12 +124,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
      && !defined(__thumb2__)		\
      && (!defined(__THUMB_INTERWORK__)	\
 	 || defined (__OPTIMIZE_SIZE__)	\
-	 || !__ARM_ARCH_ISA_ARM))
+	 || defined(__ARM_ARCH_6M__)))
 # define __prefer_thumb__
-#endif
-
-#if !__ARM_ARCH_ISA_ARM && __ARM_ARCH_ISA_THUMB == 1
-#define NOT_ISA_TARGET_32BIT 1
 #endif
 
 /* How to return from a function call depends on the architecture variant.  */
@@ -310,14 +305,35 @@ LSYM(Lend_fde):
 
 #ifdef __ARM_EABI__
 .macro THUMB_LDIV0 name signed
-#ifdef NOT_ISA_TARGET_32BIT
-
-	push	{r0, lr}
+#if defined(__ARM_ARCH_6M__)
+	.ifc \signed, unsigned
+	cmp	r0, #0
+	beq	1f
 	mov	r0, #0
-	bl	SYM(__aeabi_idiv0)
+	mvn	r0, r0		@ 0xffffffff
+1:
+	.else
+	cmp	r0, #0
+	beq	2f
+	blt	3f
+	mov	r0, #0
+	mvn	r0, r0
+	lsr	r0, r0, #1	@ 0x7fffffff
+	b	2f
+3:	mov	r0, #0x80
+	lsl	r0, r0, #24	@ 0x80000000
+2:
+	.endif
+	push	{r0, r1, r2}
+	ldr	r0, 4f
+	adr	r1, 4f
+	add	r0, r1
+	str	r0, [sp, #8]
 	@ We know we are not on armv4t, so pop pc is safe.
-	pop	{r1, pc}
-
+	pop	{r0, r1, pc}
+	.align	2
+4:
+	.word	__aeabi_idiv0 - 4b
 #elif defined(__thumb2__)
 	.syntax unified
 	.ifc \signed, unsigned
@@ -467,7 +483,7 @@ _L__\name:
 
 #else /* !(__INTERWORKING_STUBS__ || __thumb2__) */
 
-#ifdef NOT_ISA_TARGET_32BIT
+#ifdef __ARM_ARCH_6M__
 #define EQUIV .thumb_set
 #else
 .macro	ARM_FUNC_START name sp_section=
@@ -499,7 +515,7 @@ SYM (__\name):
 #endif
 .endm
 
-#ifndef NOT_ISA_TARGET_32BIT
+#ifndef __ARM_ARCH_6M__
 .macro	ARM_FUNC_ALIAS new old
 	.globl	SYM (__\new)
 	EQUIV	SYM (__\new), SYM (__\old)
@@ -934,170 +950,7 @@ LSYM(Lover7):
 	add	dividend, work
   .endif
 LSYM(Lgot_result):
-.endm
-
-/* If performance is preferred, the following functions are provided.  */
-#if defined(__prefer_thumb__) && !defined(__OPTIMIZE_SIZE__)
-
-/* Branch to div(n), and jump to label if curbit is lo than divisior.  */
-.macro BranchToDiv n, label
-	lsr	curbit, dividend, \n
-	cmp	curbit, divisor
-	blo	\label
-.endm
-
-/* Body of div(n).  Shift the divisor in n bits and compare the divisor
-   and dividend.  Update the dividend as the substruction result.  */
-.macro DoDiv n
-	lsr	curbit, dividend, \n
-	cmp	curbit, divisor
-	bcc	1f
-	lsl	curbit, divisor, \n
-	sub	dividend, dividend, curbit
-
-1:	adc	result, result
-.endm
-
-/* The body of division with positive divisor.  Unless the divisor is very
-   big, shift it up in multiples of four bits, since this is the amount of
-   unwinding in the main division loop.  Continue shifting until the divisor
-   is larger than the dividend.  */
-.macro THUMB1_Div_Positive
-	mov	result, #0
-	BranchToDiv #1, LSYM(Lthumb1_div1)
-	BranchToDiv #4, LSYM(Lthumb1_div4)
-	BranchToDiv #8, LSYM(Lthumb1_div8)
-	BranchToDiv #12, LSYM(Lthumb1_div12)
-	BranchToDiv #16, LSYM(Lthumb1_div16)
-LSYM(Lthumb1_div_large_positive):
-	mov	result, #0xff
-	lsl	divisor, divisor, #8
-	rev	result, result
-	lsr	curbit, dividend, #16
-	cmp	curbit, divisor
-	blo	1f
-	asr	result, #8
-	lsl	divisor, divisor, #8
-	beq	LSYM(Ldivbyzero_waypoint)
-
-1:	lsr	curbit, dividend, #12
-	cmp	curbit, divisor
-	blo	LSYM(Lthumb1_div12)
-	b	LSYM(Lthumb1_div16)
-LSYM(Lthumb1_div_loop):
-	lsr	divisor, divisor, #8
-LSYM(Lthumb1_div16):
-	Dodiv	#15
-	Dodiv	#14
-	Dodiv	#13
-	Dodiv	#12
-LSYM(Lthumb1_div12):
-	Dodiv	#11
-	Dodiv	#10
-	Dodiv	#9
-	Dodiv	#8
-	bcs	LSYM(Lthumb1_div_loop)
-LSYM(Lthumb1_div8):
-	Dodiv	#7
-	Dodiv	#6
-	Dodiv	#5
-LSYM(Lthumb1_div5):
-	Dodiv	#4
-LSYM(Lthumb1_div4):
-	Dodiv	#3
-LSYM(Lthumb1_div3):
-	Dodiv	#2
-LSYM(Lthumb1_div2):
-	Dodiv	#1
-LSYM(Lthumb1_div1):
-	sub	divisor, dividend, divisor
-	bcs	1f
-	cpy	divisor, dividend
-
-1:	adc	result, result
-	cpy	dividend, result
-	RET
-
-LSYM(Ldivbyzero_waypoint):
-	b	LSYM(Ldiv0)
-.endm
-
-/* The body of division with negative divisor.  Similar with
-   THUMB1_Div_Positive except that the shift steps are in multiples
-   of six bits.  */
-.macro THUMB1_Div_Negative
-	lsr	result, divisor, #31
-	beq	1f
-	neg	divisor, divisor
-
-1:	asr	curbit, dividend, #32
-	bcc	2f
-	neg	dividend, dividend
-
-2:	eor	curbit, result
-	mov	result, #0
-	cpy	ip, curbit
-	BranchToDiv #4, LSYM(Lthumb1_div_negative4)
-	BranchToDiv #8, LSYM(Lthumb1_div_negative8)
-LSYM(Lthumb1_div_large):
-	mov	result, #0xfc
-	lsl	divisor, divisor, #6
-	rev	result, result
-	lsr	curbit, dividend, #8
-	cmp	curbit, divisor
-	blo	LSYM(Lthumb1_div_negative8)
-
-	lsl	divisor, divisor, #6
-	asr	result, result, #6
-	cmp	curbit, divisor
-	blo	LSYM(Lthumb1_div_negative8)
-
-	lsl	divisor, divisor, #6
-	asr	result, result, #6
-	cmp	curbit, divisor
-	blo	LSYM(Lthumb1_div_negative8)
-
-	lsl	divisor, divisor, #6
-	beq	LSYM(Ldivbyzero_negative)
-	asr	result, result, #6
-	b	LSYM(Lthumb1_div_negative8)
-LSYM(Lthumb1_div_negative_loop):
-	lsr	divisor, divisor, #6
-LSYM(Lthumb1_div_negative8):
-	DoDiv	#7
-	DoDiv	#6
-	DoDiv	#5
-	DoDiv	#4
-LSYM(Lthumb1_div_negative4):
-	DoDiv	#3
-	DoDiv	#2
-	bcs	LSYM(Lthumb1_div_negative_loop)
-	DoDiv	#1
-	sub	divisor, dividend, divisor
-	bcs	1f
-	cpy	divisor, dividend
-
-1:	cpy	curbit, ip
-	adc	result, result
-	asr	curbit, curbit, #1
-	cpy	dividend, result
-	bcc	2f
-	neg	dividend, dividend
-	cmp	curbit, #0
-
-2:	bpl	3f
-	neg	divisor, divisor
-
-3:	RET
-
-LSYM(Ldivbyzero_negative):
-	cpy	curbit, ip
-	asr	curbit, curbit, #1
-	bcc	LSYM(Ldiv0)
-	neg	dividend, dividend
-.endm
-#endif /* ARM Thumb version.  */
-
+.endm	
 /* ------------------------------------------------------------------------ */
 /*		Start of the Real Functions				    */
 /* ------------------------------------------------------------------------ */
@@ -1107,7 +960,6 @@ LSYM(Ldivbyzero_negative):
 
 	FUNC_START udivsi3
 	FUNC_ALIAS aeabi_uidiv udivsi3
-#if defined(__OPTIMIZE_SIZE__)
 
 	cmp	divisor, #0
 	beq	LSYM(Ldiv0)
@@ -1124,14 +976,6 @@ LSYM(udivsi3_skip_div0_test):
 	mov	r0, result
 	pop	{ work }
 	RET
-
-/* Implementation of aeabi_uidiv for ARMv6m.  This version is only
-   used in ARMv6-M when we need an efficient implementation.  */
-#else
-LSYM(udivsi3_skip_div0_test):
-	THUMB1_Div_Positive
-
-#endif /* __OPTIMIZE_SIZE__ */
 
 #elif defined(__ARM_ARCH_EXT_IDIV__)
 
@@ -1184,21 +1028,12 @@ LSYM(udivsi3_skip_div0_test):
 FUNC_START aeabi_uidivmod
 	cmp	r1, #0
 	beq	LSYM(Ldiv0)
-# if defined(__OPTIMIZE_SIZE__)
 	push	{r0, r1, lr}
 	bl	LSYM(udivsi3_skip_div0_test)
 	POP	{r1, r2, r3}
 	mul	r2, r0
 	sub	r1, r1, r2
 	bx	r3
-# else
-	/* Both the quotient and remainder are calculated simultaneously
-	   in THUMB1_Div_Positive.  There is no need to calculate the
-	   remainder again here.  */
-	b	LSYM(udivsi3_skip_div0_test)
-	RET
-# endif /* __OPTIMIZE_SIZE__ */
-
 #elif defined(__ARM_ARCH_EXT_IDIV__)
 ARM_FUNC_START aeabi_uidivmod
 	cmp	r1, #0
@@ -1224,7 +1059,7 @@ ARM_FUNC_START aeabi_uidivmod
 /* ------------------------------------------------------------------------ */
 #ifdef L_umodsi3
 
-#if defined(__ARM_ARCH_EXT_IDIV__) && __ARM_ARCH_ISA_THUMB != 1
+#ifdef __ARM_ARCH_EXT_IDIV__
 
 	ARM_FUNC_START umodsi3
 
@@ -1254,7 +1089,7 @@ LSYM(Lover10):
 	RET
 	
 #else  /* ARM version.  */
-
+	
 	FUNC_START umodsi3
 
 	subs	r2, r1, #1			@ compare divisor with 1
@@ -1279,9 +1114,8 @@ LSYM(Lover10):
 
 #if defined(__prefer_thumb__)
 
-	FUNC_START divsi3
+	FUNC_START divsi3	
 	FUNC_ALIAS aeabi_idiv divsi3
-#if defined(__OPTIMIZE_SIZE__)
 
 	cmp	divisor, #0
 	beq	LSYM(Ldiv0)
@@ -1304,7 +1138,7 @@ LSYM(Lover11):
 	blo	LSYM(Lgot_result)
 
 	THUMB_DIV_MOD_BODY 0
-
+	
 	mov	r0, result
 	mov	work, ip
 	cmp	work, #0
@@ -1313,22 +1147,6 @@ LSYM(Lover11):
 LSYM(Lover12):
 	pop	{ work }
 	RET
-
-/* Implementation of aeabi_idiv for ARMv6m.  This version is only
-   used in ARMv6-M when we need an efficient implementation.  */
-#else
-LSYM(divsi3_skip_div0_test):
-	cpy	curbit, dividend
-	orr	curbit, divisor
-	bmi	LSYM(Lthumb1_div_negative)
-
-LSYM(Lthumb1_div_positive):
-	THUMB1_Div_Positive
-
-LSYM(Lthumb1_div_negative):
-	THUMB1_Div_Negative
-
-#endif /* __OPTIMIZE_SIZE__ */
 
 #elif defined(__ARM_ARCH_EXT_IDIV__)
 
@@ -1341,8 +1159,8 @@ LSYM(Lthumb1_div_negative):
 	RET
 
 #else /* ARM/Thumb-2 version.  */
-
-	ARM_FUNC_START divsi3
+	
+	ARM_FUNC_START divsi3	
 	ARM_FUNC_ALIAS aeabi_idiv divsi3
 
 	cmp	r1, #0
@@ -1396,21 +1214,12 @@ LSYM(divsi3_skip_div0_test):
 FUNC_START aeabi_idivmod
 	cmp	r1, #0
 	beq	LSYM(Ldiv0)
-# if defined(__OPTIMIZE_SIZE__)
 	push	{r0, r1, lr}
 	bl	LSYM(divsi3_skip_div0_test)
 	POP	{r1, r2, r3}
 	mul	r2, r0
 	sub	r1, r1, r2
 	bx	r3
-# else
-	/* Both the quotient and remainder are calculated simultaneously
-	   in THUMB1_Div_Positive and THUMB1_Div_Negative.  There is no
-	   need to calculate the remainder again here.  */
-	b	LSYM(divsi3_skip_div0_test)
-	RET
-# endif /* __OPTIMIZE_SIZE__ */
-
 #elif defined(__ARM_ARCH_EXT_IDIV__)
 ARM_FUNC_START aeabi_idivmod
 	cmp 	r1, #0
@@ -1436,7 +1245,7 @@ ARM_FUNC_START aeabi_idivmod
 /* ------------------------------------------------------------------------ */
 #ifdef L_modsi3
 
-#if defined(__ARM_ARCH_EXT_IDIV__) && __ARM_ARCH_ISA_THUMB != 1
+#if defined(__ARM_ARCH_EXT_IDIV__)
 
 	ARM_FUNC_START modsi3
 
@@ -1532,30 +1341,23 @@ LSYM(Lover12):
 #define SIGFPE	8
 
 #ifdef __ARM_EABI__
-	cfi_start	__aeabi_ldiv0, LSYM(Lend_aeabi_ldiv0)
 	WEAK aeabi_idiv0
 	WEAK aeabi_ldiv0
 	ARM_FUNC_START aeabi_idiv0
 	ARM_FUNC_START aeabi_ldiv0
-	do_push	{r1, lr}
-98:	cfi_push 98b - __aeabi_ldiv0, 0xe, -0x4, 0x8
 #else
-	cfi_start	__div0, LSYM(Lend_div0)
 	ARM_FUNC_START div0
-	do_push	{r1, lr}
-98:	cfi_push 98b - __div0, 0xe, -0x4, 0x8
 #endif
 
+	do_push	{r1, lr}
 	mov	r0, #SIGFPE
 	bl	SYM(raise) __PLT__
-	RETLDM	r1 unwind=98b
+	RETLDM	r1
 
 #ifdef __ARM_EABI__
-	cfi_end	LSYM(Lend_aeabi_ldiv0)
 	FUNC_END aeabi_ldiv0
 	FUNC_END aeabi_idiv0
 #else
-	cfi_end	LSYM(Lend_div0)
 	FUNC_END div0
 #endif
 	
@@ -1731,15 +1533,14 @@ LSYM(Lover12):
 
 #endif /* __symbian__ */
 
-#if (__ARM_ARCH_ISA_THUMB == 2	\
-     || (__ARM_ARCH_ISA_ARM	\
-	 && (__ARM_ARCH__ > 5	\
-	     || (__ARM_ARCH__ == 5 && __ARM_ARCH_ISA_THUMB))))
+#if ((__ARM_ARCH__ > 5) && !defined(__ARM_ARCH_6M__)) \
+    || defined(__ARM_ARCH_5E__) || defined(__ARM_ARCH_5TE__) \
+    || defined(__ARM_ARCH_5TEJ__)
 #define HAVE_ARM_CLZ 1
 #endif
 
 #ifdef L_clzsi2
-#ifdef NOT_ISA_TARGET_32BIT
+#if defined(__ARM_ARCH_6M__)
 FUNC_START clzsi2
 	mov	r1, #28
 	mov	r3, #1
@@ -1800,7 +1601,7 @@ ARM_FUNC_START clzsi2
 #ifdef L_clzdi2
 #if !defined(HAVE_ARM_CLZ)
 
-# ifdef NOT_ISA_TARGET_32BIT
+# if defined(__ARM_ARCH_6M__)
 FUNC_START clzdi2
 	push	{r4, lr}
 # else
@@ -1825,7 +1626,7 @@ ARM_FUNC_START clzdi2
 	bl	__clzsi2
 # endif
 2:
-# ifdef NOT_ISA_TARGET_32BIT
+# if defined(__ARM_ARCH_6M__)
 	pop	{r4, pc}
 # else
 	RETLDM	r4
@@ -1847,7 +1648,7 @@ ARM_FUNC_START clzdi2
 #endif /* L_clzdi2 */
 
 #ifdef L_ctzsi2
-#ifdef NOT_ISA_TARGET_32BIT
+#if defined(__ARM_ARCH_6M__)
 FUNC_START ctzsi2
 	neg	r1, r0
 	and	r0, r0, r1
@@ -1962,7 +1763,7 @@ ARM_FUNC_START ctzsi2
 
 /* Don't bother with the old interworking routines for Thumb-2.  */
 /* ??? Maybe only omit these on "m" variants.  */
-#if !defined(__thumb2__) && __ARM_ARCH_ISA_ARM
+#if !defined(__thumb2__) && !defined(__ARM_ARCH_6M__)
 
 #if defined L_interwork_call_via_rX
 
@@ -2196,23 +1997,12 @@ LSYM(Lchange_\register):
 
 #endif /* Arch supports thumb.  */
 
-.macro CFI_START_FUNCTION
-	.cfi_startproc
-	.cfi_remember_state
-.endm
-
-.macro CFI_END_FUNCTION
-	.cfi_restore_state
-	.cfi_endproc
-.endm
-
 #ifndef __symbian__
-/* The condition here must match the one in gcc/config/arm/elf.h.  */
-#ifndef NOT_ISA_TARGET_32BIT
+#ifndef __ARM_ARCH_6M__
 #include "ieee754-df.S"
 #include "ieee754-sf.S"
 #include "bpabi.S"
-#else /* NOT_ISA_TARGET_32BIT */
+#else /* __ARM_ARCH_6M__ */
 #include "bpabi-v6m.S"
-#endif /* NOT_ISA_TARGET_32BIT */
+#endif /* __ARM_ARCH_6M__ */
 #endif /* !__symbian__ */

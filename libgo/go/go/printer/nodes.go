@@ -12,9 +12,6 @@ import (
 	"bytes"
 	"go/ast"
 	"go/token"
-	"strconv"
-	"strings"
-	"unicode"
 	"unicode/utf8"
 )
 
@@ -398,33 +395,22 @@ func (p *printer) fieldList(fields *ast.FieldList, isStruct, isIncomplete bool) 
 			// no blank between keyword and {} in this case
 			p.print(lbrace, token.LBRACE, rbrace, token.RBRACE)
 			return
-		} else if p.isOneLineFieldList(list) {
+		} else if isStruct && p.isOneLineFieldList(list) { // for now ignore interfaces
 			// small enough - print on one line
 			// (don't use identList and ignore source line breaks)
 			p.print(lbrace, token.LBRACE, blank)
 			f := list[0]
-			if isStruct {
-				for i, x := range f.Names {
-					if i > 0 {
-						// no comments so no need for comma position
-						p.print(token.COMMA, blank)
-					}
-					p.expr(x)
+			for i, x := range f.Names {
+				if i > 0 {
+					// no comments so no need for comma position
+					p.print(token.COMMA, blank)
 				}
-				if len(f.Names) > 0 {
-					p.print(blank)
-				}
-				p.expr(f.Type)
-			} else { // interface
-				if ftyp, isFtyp := f.Type.(*ast.FuncType); isFtyp {
-					// method
-					p.expr(f.Names[0])
-					p.signature(ftyp.Params, ftyp.Results)
-				} else {
-					// embedded interface
-					p.expr(f.Type)
-				}
+				p.expr(x)
 			}
+			if len(f.Names) > 0 {
+				p.print(blank)
+			}
+			p.expr(f.Type)
 			p.print(blank, rbrace, token.RBRACE)
 			return
 		}
@@ -744,7 +730,7 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 
 	case *ast.FuncLit:
 		p.expr(x.Type)
-		p.funcBody(p.distanceFrom(x.Type.Pos()), blank, x.Body)
+		p.adjBlock(p.distanceFrom(x.Type.Pos()), blank, x.Body)
 
 	case *ast.ParenExpr:
 		if _, hasParens := x.X.(*ast.ParenExpr); hasParens {
@@ -758,7 +744,13 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 		}
 
 	case *ast.SelectorExpr:
-		p.selectorExpr(x, depth, false)
+		p.expr1(x.X, token.HighestPrec, depth)
+		p.print(token.PERIOD)
+		if line := p.lineFor(x.Sel.Pos()); p.pos.IsValid() && p.pos.Line < line {
+			p.print(indent, newline, x.Sel.Pos(), x.Sel, unindent)
+		} else {
+			p.print(x.Sel.Pos(), x.Sel)
+		}
 
 	case *ast.TypeAssertExpr:
 		p.expr1(x.X, token.HighestPrec, depth)
@@ -785,35 +777,20 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 		if x.Max != nil {
 			indices = append(indices, x.Max)
 		}
-		// determine if we need extra blanks around ':'
-		var needsBlanks bool
-		if depth <= 1 {
-			var indexCount int
-			var hasBinaries bool
-			for _, x := range indices {
-				if x != nil {
-					indexCount++
-					if isBinary(x) {
-						hasBinaries = true
-					}
-				}
-			}
-			if indexCount > 1 && hasBinaries {
-				needsBlanks = true
-			}
-		}
-		for i, x := range indices {
+		for i, y := range indices {
 			if i > 0 {
-				if indices[i-1] != nil && needsBlanks {
-					p.print(blank)
-				}
-				p.print(token.COLON)
-				if x != nil && needsBlanks {
-					p.print(blank)
+				// blanks around ":" if both sides exist and either side is a binary expression
+				// TODO(gri) once we have committed a variant of a[i:j:k] we may want to fine-
+				//           tune the formatting here
+				x := indices[i-1]
+				if depth <= 1 && x != nil && y != nil && (isBinary(x) || isBinary(y)) {
+					p.print(blank, token.COLON, blank)
+				} else {
+					p.print(token.COLON)
 				}
 			}
-			if x != nil {
-				p.expr0(x, depth+1)
+			if y != nil {
+				p.expr0(y, depth+1)
 			}
 		}
 		p.print(x.Rbrack, token.RBRACK)
@@ -822,14 +799,13 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 		if len(x.Args) > 1 {
 			depth++
 		}
-		var wasIndented bool
 		if _, ok := x.Fun.(*ast.FuncType); ok {
 			// conversions to literal function types require parentheses around the type
 			p.print(token.LPAREN)
-			wasIndented = p.possibleSelectorExpr(x.Fun, token.HighestPrec, depth)
+			p.expr1(x.Fun, token.HighestPrec, depth)
 			p.print(token.RPAREN)
 		} else {
-			wasIndented = p.possibleSelectorExpr(x.Fun, token.HighestPrec, depth)
+			p.expr1(x.Fun, token.HighestPrec, depth)
 		}
 		p.print(x.Lparen, token.LPAREN)
 		if x.Ellipsis.IsValid() {
@@ -842,16 +818,12 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 			p.exprList(x.Lparen, x.Args, depth, commaTerm, x.Rparen)
 		}
 		p.print(x.Rparen, token.RPAREN)
-		if wasIndented {
-			p.print(unindent)
-		}
 
 	case *ast.CompositeLit:
 		// composite literal elements that are composite literals themselves may have the type omitted
 		if x.Type != nil {
 			p.expr1(x.Type, token.HighestPrec, depth)
 		}
-		p.level++
 		p.print(x.Lbrace, token.LBRACE)
 		p.exprList(x.Lbrace, x.Elts, 1, commaTerm, x.Rbrace)
 		// do not insert extra line break following a /*-style comment
@@ -863,10 +835,7 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 		if len(x.Elts) > 0 {
 			mode |= noExtraBlank
 		}
-		// need the initial indent to print lone comments with
-		// the proper level of indentation
-		p.print(indent, unindent, mode, x.Rbrace, token.RBRACE, mode)
-		p.level--
+		p.print(mode, x.Rbrace, token.RBRACE, mode)
 
 	case *ast.Ellipsis:
 		p.print(token.ELLIPSIS)
@@ -915,30 +884,8 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 	default:
 		panic("unreachable")
 	}
-}
 
-func (p *printer) possibleSelectorExpr(expr ast.Expr, prec1, depth int) bool {
-	if x, ok := expr.(*ast.SelectorExpr); ok {
-		return p.selectorExpr(x, depth, true)
-	}
-	p.expr1(expr, prec1, depth)
-	return false
-}
-
-// selectorExpr handles an *ast.SelectorExpr node and returns whether x spans
-// multiple lines.
-func (p *printer) selectorExpr(x *ast.SelectorExpr, depth int, isMethod bool) bool {
-	p.expr1(x.X, token.HighestPrec, depth)
-	p.print(token.PERIOD)
-	if line := p.lineFor(x.Sel.Pos()); p.pos.IsValid() && p.pos.Line < line {
-		p.print(indent, newline, x.Sel.Pos(), x.Sel)
-		if !isMethod {
-			p.print(unindent)
-		}
-		return true
-	}
-	p.print(x.Sel.Pos(), x.Sel)
-	return false
+	return
 }
 
 func (p *printer) expr0(x ast.Expr, depth int) {
@@ -1213,9 +1160,6 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 			case *ast.BlockStmt, *ast.IfStmt:
 				p.stmt(s.Else, nextIsRBrace)
 			default:
-				// This can only happen with an incorrectly
-				// constructed AST. Permit it but print so
-				// that it can be parsed without errors.
 				p.print(token.LBRACE, indent, formfeed)
 				p.stmt(s.Else, true)
 				p.print(unindent, formfeed, token.RBRACE)
@@ -1294,6 +1238,8 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 	default:
 		panic("unreachable")
 	}
+
+	return
 }
 
 // ----------------------------------------------------------------------------
@@ -1388,49 +1334,6 @@ func (p *printer) valueSpec(s *ast.ValueSpec, keepType bool) {
 	}
 }
 
-func sanitizeImportPath(lit *ast.BasicLit) *ast.BasicLit {
-	// Note: An unmodified AST generated by go/parser will already
-	// contain a backward- or double-quoted path string that does
-	// not contain any invalid characters, and most of the work
-	// here is not needed. However, a modified or generated AST
-	// may possibly contain non-canonical paths. Do the work in
-	// all cases since it's not too hard and not speed-critical.
-
-	// if we don't have a proper string, be conservative and return whatever we have
-	if lit.Kind != token.STRING {
-		return lit
-	}
-	s, err := strconv.Unquote(lit.Value)
-	if err != nil {
-		return lit
-	}
-
-	// if the string is an invalid path, return whatever we have
-	//
-	// spec: "Implementation restriction: A compiler may restrict
-	// ImportPaths to non-empty strings using only characters belonging
-	// to Unicode's L, M, N, P, and S general categories (the Graphic
-	// characters without spaces) and may also exclude the characters
-	// !"#$%&'()*,:;<=>?[\]^`{|} and the Unicode replacement character
-	// U+FFFD."
-	if s == "" {
-		return lit
-	}
-	const illegalChars = `!"#$%&'()*,:;<=>?[\]^{|}` + "`\uFFFD"
-	for _, r := range s {
-		if !unicode.IsGraphic(r) || unicode.IsSpace(r) || strings.ContainsRune(illegalChars, r) {
-			return lit
-		}
-	}
-
-	// otherwise, return the double-quoted path
-	s = strconv.Quote(s)
-	if s == lit.Value {
-		return lit // nothing wrong with lit
-	}
-	return &ast.BasicLit{ValuePos: lit.ValuePos, Kind: token.STRING, Value: s}
-}
-
 // The parameter n is the number of specs in the group. If doIndent is set,
 // multi-line identifier lists in the spec are indented when the first
 // linebreak is encountered.
@@ -1443,7 +1346,7 @@ func (p *printer) spec(spec ast.Spec, n int, doIndent bool) {
 			p.expr(s.Name)
 			p.print(blank)
 		}
-		p.expr(sanitizeImportPath(s.Path))
+		p.expr(s.Path)
 		p.setComment(s.Comment)
 		p.print(s.EndPos)
 
@@ -1470,9 +1373,6 @@ func (p *printer) spec(spec ast.Spec, n int, doIndent bool) {
 			p.print(blank)
 		} else {
 			p.print(vtab)
-		}
-		if s.Assign.IsValid() {
-			p.print(token.ASSIGN, blank)
 		}
 		p.expr(s.Type)
 		p.setComment(s.Comment)
@@ -1560,16 +1460,6 @@ func (p *printer) nodeSize(n ast.Node, maxSize int) (size int) {
 	return
 }
 
-// numLines returns the number of lines spanned by node n in the original source.
-func (p *printer) numLines(n ast.Node) int {
-	if from := n.Pos(); from.IsValid() {
-		if to := n.End(); to.IsValid() {
-			return p.lineFor(to) - p.lineFor(from) + 1
-		}
-	}
-	return infinity
-}
-
 // bodySize is like nodeSize but it is specialized for *ast.BlockStmt's.
 func (p *printer) bodySize(b *ast.BlockStmt, maxSize int) int {
 	pos1 := b.Pos()
@@ -1596,22 +1486,17 @@ func (p *printer) bodySize(b *ast.BlockStmt, maxSize int) int {
 	return bodySize
 }
 
-// funcBody prints a function body following a function header of given headerSize.
+// adjBlock prints an "adjacent" block (e.g., a for-loop or function body) following
+// a header (e.g., a for-loop control clause or function signature) of given headerSize.
 // If the header's and block's size are "small enough" and the block is "simple enough",
 // the block is printed on the current line, without line breaks, spaced from the header
 // by sep. Otherwise the block's opening "{" is printed on the current line, followed by
 // lines for the block's statements and its closing "}".
 //
-func (p *printer) funcBody(headerSize int, sep whiteSpace, b *ast.BlockStmt) {
+func (p *printer) adjBlock(headerSize int, sep whiteSpace, b *ast.BlockStmt) {
 	if b == nil {
 		return
 	}
-
-	// save/restore composite literal nesting level
-	defer func(level int) {
-		p.level = level
-	}(p.level)
-	p.level = 0
 
 	const maxSize = 100
 	if headerSize+p.bodySize(b, maxSize) <= maxSize {
@@ -1657,7 +1542,7 @@ func (p *printer) funcDecl(d *ast.FuncDecl) {
 	}
 	p.expr(d.Name)
 	p.signature(d.Type.Params, d.Type.Results)
-	p.funcBody(p.distanceFrom(d.Pos()), vtab, d.Body)
+	p.adjBlock(p.distanceFrom(d.Pos()), vtab, d.Body)
 }
 
 func (p *printer) decl(decl ast.Decl) {
@@ -1706,9 +1591,7 @@ func (p *printer) declList(list []ast.Decl) {
 			if prev != tok || getDoc(d) != nil {
 				min = 2
 			}
-			// start a new section if the next declaration is a function
-			// that spans multiple lines (see also issue #19544)
-			p.linebreak(p.lineFor(d.Pos()), min, ignore, tok == token.FUNC && p.numLines(d) > 1)
+			p.linebreak(p.lineFor(d.Pos()), min, ignore, false)
 		}
 		p.decl(d)
 	}

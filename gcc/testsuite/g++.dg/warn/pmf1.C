@@ -15,5 +15,4 @@ int
 a::f() const
 {
   int (a::* b)() const = &f; // { dg-error "&a::f" }
-  return 0;
 }

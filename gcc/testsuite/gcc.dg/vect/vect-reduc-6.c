@@ -1,5 +1,4 @@
-/* { dg-require-effective-target vect_float_strict } */
-/* { dg-additional-options "-fno-fast-math" } */
+/* { dg-require-effective-target vect_float } */
 
 #include <stdarg.h>
 #include "tree-vect.h"
@@ -49,5 +48,7 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times {using an in-order \(fold-left\) reduction} 1 "vect" } } */
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
+/* need -ffast-math to vectorizer these loops.  */
+/* ARM NEON passes -ffast-math to these tests, so expect this to fail.  */
+/* { dg-final { scan-tree-dump-times "vectorized 0 loops" 1 "vect" { xfail arm_neon_ok } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

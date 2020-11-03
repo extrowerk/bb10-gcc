@@ -16,7 +16,6 @@ int bar3() { return 43; }
 
 int A::foo() { return 42; }
 
-int
 main() {
   return A::foo() - 42;
 }

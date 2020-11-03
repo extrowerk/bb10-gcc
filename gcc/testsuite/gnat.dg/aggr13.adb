@@ -20,3 +20,4 @@ begin
 end;
 
 -- { dg-final { scan-tree-dump-not "= {}" "gimple" } }
+-- { dg-final { cleanup-tree-dump "gimple" } }

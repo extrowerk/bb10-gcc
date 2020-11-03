@@ -1,6 +1,6 @@
 // Compiler should not generate too many lexical blocks for this function.
 // { dg-do compile { target { i?86-*-* x86_64-*-* } } }
-// { dg-options "-O0 -fno-exceptions -gdwarf-2 -dA" }
+// { dg-options "-O0 -fno-exceptions -g -dA" }
 
 union UElement {
     void* pointer;

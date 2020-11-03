@@ -8,36 +8,18 @@ template <class _Tp> class AutoPtr
 public:
   explicit AutoPtr(_Tp* __p = 0)  : _M_ptr(__p) {}
 
-  ~AutoPtr()
-#if __cplusplus <= 201402L
-  throw(int)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#else
-  noexcept(false)
-#endif
-  { delete _M_ptr; }
+  ~AutoPtr() { delete _M_ptr; }
 };
 
 struct A
 {
   A() { }
-  ~A()
-#if __cplusplus <= 201402L
-  throw(int)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#else
-  noexcept(false)
-#endif
-  { throw 1; }
+  ~A() { throw 1.0; }
 };
 
 struct B
 {
-  virtual ~B()
-#if __cplusplus <= 201402L
-  throw(int)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++17 } } } }
-#else
-  noexcept(false)
-#endif
-  ;
+  virtual ~B();
 };
 
 B* f (const A &s) { throw 1; }

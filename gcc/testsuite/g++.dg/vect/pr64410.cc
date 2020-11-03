@@ -50,3 +50,4 @@ main(int argc, char** argv)
 }
 
 // { dg-final { scan-tree-dump "vectorized 1 loops in function" "vect" } }
+// { dg-final { cleanup-tree-dump "vect" } }

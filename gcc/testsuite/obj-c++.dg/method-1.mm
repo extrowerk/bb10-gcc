@@ -22,10 +22,9 @@
 @end
 
 int main(void) {
-  id i = [(Int2 *)[Int1 classMethod1] int2Method]; /* { dg-line i_def } */
-	/* { dg-bogus "may not respond to" "" { target *-*-* } i_def } */
+  id i = [(Int2 *)[Int1 classMethod1] int2Method];   /* { dg-bogus "may not respond to" } */
   int j = [(Int2 *)[Int2 classMethod2] instanceMethod: 45];  /* { dg-bogus "multiple methods" } */
-	/* { dg-bogus "invalid conversion" "" { target *-*-* } i_def } */
-	/* { dg-bogus "invalid conversion" "" { target *-*-* } i_def } */
+	/* { dg-bogus "invalid conversion" "" { target *-*-* } 25 } */
+	/* { dg-bogus "invalid conversion" "" { target *-*-* } 25 } */
   return j;
 }

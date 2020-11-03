@@ -22,4 +22,5 @@ void dacP98FillRGBMap (unsigned char *pBuffer)
 
 /* { dg-final { scan-tree-dump-times "vectorization not profitable" 1 "vect" { target vect_interleave
 } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */
 

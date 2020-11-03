@@ -24,7 +24,7 @@ contains
     call pptr2 (i)
     pptr2 => sub2
     call pptr2 (i)
-    if (i .ne. 22) STOP 1
+    if (i .ne. 22) call abort
   end subroutine test
   subroutine sub2(arg)
     integer arg

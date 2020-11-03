@@ -29,8 +29,6 @@ main ()
 
   node.prev = (void *)head;
 
-  asm("":"=m"(node.prev));
-
   head->first = &node;
 
   struct node *n = head->first;
@@ -49,3 +47,4 @@ main ()
 }
 
 /* { dg-final { scan-tree-dump-not "Removing basic block" "pre"} } */
+/* { dg-final { cleanup-tree-dump "pre" } } */

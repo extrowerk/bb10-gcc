@@ -8,3 +8,4 @@ foo (int x, int y)
 }
 
 /* { dg-final { scan-tree-dump "x < y" "original"  { xfail *-*-* } } } */
+/* { dg-final { cleanup-tree-dump "original" } } */

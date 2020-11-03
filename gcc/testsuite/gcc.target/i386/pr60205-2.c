@@ -1,5 +1,4 @@
 /* PR target/60205 */
-/* { dg-do compile } */
 /* { dg-options "-O2 -mno-avx512f" } */
 /* { dg-skip-if "no AVX512F vector" { *-*-mingw* } } */
 

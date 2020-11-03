@@ -33,22 +33,22 @@ end module pr22146
 
 ! Check the various combinations of scalar and array.
   call foobar (x, y)
-  if (any(y.ne.-x)) STOP 1
+  if (any(y.ne.-x)) call abort ()
 
   call foobar (u, y)
-  if (any(y.ne.-42.0)) STOP 2
+  if (any(y.ne.-42.0)) call abort ()
 
   call foobar (u, v)
-  if (v.ne.-42.0) STOP 3
+  if (v.ne.-42.0) call abort ()
 
   v = 2.0
   call foobar (v, x)
-  if (any(x /= -2.0)) STOP 4
+  if (any(x /= -2.0)) call abort ()
 
 ! Test an expression in the INTENT(IN) argument
   x = (/1.0, 2.0/)
   call foobar (cos (x) + u, y)
-  if (any(abs (y + cos (x) + u) .gt. 4.0e-6)) STOP 5
+  if (any(abs (y + cos (x) + u) .gt. 4.0e-6)) call abort ()
 
 contains
 

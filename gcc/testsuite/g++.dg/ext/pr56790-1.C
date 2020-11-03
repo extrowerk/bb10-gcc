@@ -14,3 +14,4 @@ vec f (void)
 
 /* { dg-final { scan-tree-dump "{ 5, 13 }" "ccp1" } } */
 /* { dg-final { scan-tree-dump-not "VEC_COND_EXPR" "ccp1" } } */
+/* { dg-final { cleanup-tree-dump "ccp1" } } */

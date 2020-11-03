@@ -44,13 +44,13 @@
     ka(6:6) = Z'777'
   end if
 !$omp end parallel
-  if (v) STOP 1
+  if (v) call abort
   if (cnt .eq. 3) then
     ta = (/Z'f0ff03', Z'f0af03', Z'f0af01', Z'f0af01', Z'f0af01', Z'f0ff0f'/)
-    if (i .ne. Z'777f07' .or. any (ia .ne. ta)) STOP 2
+    if (i .ne. Z'777f07' .or. any (ia .ne. ta)) call abort
     ta = (/Z'f5a01', Z'f5a09', Z'f5a09', Z'f5a08', Z'f5f08', Z'f5f00'/)
-    if (j .ne. Z'fff80' .or. any (ja .ne. ta)) STOP 3
+    if (j .ne. Z'fff80' .or. any (ja .ne. ta)) call abort
     ta = (/Z'5a5a5', Z'5a5a5', Z'aaba2', Z'aaba2', Z'5aaaa', Z'5addd'/)
-    if (k .ne. Z'54a8f' .or. any (ka .ne. ta)) STOP 4
+    if (k .ne. Z'54a8f' .or. any (ka .ne. ta)) call abort
   end if
 end

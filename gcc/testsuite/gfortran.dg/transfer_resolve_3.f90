@@ -16,4 +16,5 @@ intg = transfer (para%ptr, intg)
 end
 
 ! { dg-final { scan-tree-dump-times "intg = 0;" 2 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }
 

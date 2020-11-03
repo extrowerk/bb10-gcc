@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-additional-options "-fstrict-overflow" } */
+/* { dg-options "-fstrict-overflow" } */
 
 int main (void)
 {

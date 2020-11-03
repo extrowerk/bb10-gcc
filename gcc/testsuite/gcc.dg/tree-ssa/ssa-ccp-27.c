@@ -21,3 +21,4 @@ f2 ()
 }
 
 /* { dg-final { scan-tree-dump-times "memcpy\[^\n\]*123456" 2 "ccp1" } } */
+/* { dg-final { cleanup-tree-dump "ccp1" } } */

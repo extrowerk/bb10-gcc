@@ -21,3 +21,5 @@ contains
     class(athlete) ,intent(in) :: this
   end function
 end module 
+
+! { dg-final { cleanup-modules "athlete_module" } }

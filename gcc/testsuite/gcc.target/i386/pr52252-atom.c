@@ -1,4 +1,5 @@
 /* { dg-do compile } */
+/* { dg-require-effective-target ssse3 } */
 /* { dg-options "-O2 -ftree-vectorize -mssse3 -mtune=slm" } */
 #define byte unsigned char
 

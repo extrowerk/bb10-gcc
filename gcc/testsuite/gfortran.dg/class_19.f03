@@ -20,11 +20,11 @@ subroutine foo_checkit()
   type(foo_outer),allocatable :: try2
   class(foo_outer), allocatable :: try3
   
-  if (allocated(try%int)) STOP 1
+  if (allocated(try%int)) call abort()
   allocate(foo_outer :: try3)
-  if (allocated(try3%int)) STOP 2
+  if (allocated(try3%int)) call abort()
   allocate(try2)
-  if (allocated(try2%int)) STOP 3
+  if (allocated(try2%int)) call abort()
  
 end subroutine foo_checkit
 end module foo_mod
@@ -40,3 +40,4 @@ program main
 end program main
 
 ! { dg-final { scan-tree-dump-times "__builtin_free" 12 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

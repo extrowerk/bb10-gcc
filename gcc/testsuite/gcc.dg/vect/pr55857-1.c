@@ -14,3 +14,4 @@ foo (int *data, unsigned len, const int qlp_coeff[], int lp, int residual[])
     }    
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

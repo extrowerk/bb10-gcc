@@ -13,5 +13,5 @@ program unlimited
      & "abcdefg",iarray, i,"jklmnop"
    end do
    if (string.ne."iarray =abcdefg,1,2,3,4,5,6,7,8,9,10,10,jklmnop") &
-   & STOP 1
+   & call abort
 end program unlimited

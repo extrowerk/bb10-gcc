@@ -5,12 +5,9 @@
 package time
 
 import (
-	"errors"
 	"sync"
 	"syscall"
 )
-
-//go:generate env ZONEINFO=$GOROOT/lib/time/zoneinfo.zip go run genzabbrs.go -output zoneinfo_abbrs_windows.go
 
 // A Location maps time instants to the zone in use at that time.
 // Typically, the Location represents the collection of time offsets
@@ -24,7 +21,7 @@ type Location struct {
 	// To avoid the binary search through tx, keep a
 	// static one-element cache that gives the correct
 	// zone for the time when the Location was created.
-	// if cacheStart <= t < cacheEnd,
+	// if cacheStart <= t <= cacheEnd,
 	// lookup can return cacheZone.
 	// The units for cacheStart and cacheEnd are seconds
 	// since January 1, 1970 UTC, to match the argument
@@ -82,7 +79,7 @@ func (l *Location) get() *Location {
 }
 
 // String returns a descriptive name for the time zone information,
-// corresponding to the name argument to LoadLocation or FixedZone.
+// corresponding to the argument to LoadLocation.
 func (l *Location) String() string {
 	return l.get().name
 }
@@ -223,7 +220,7 @@ func (l *Location) firstZoneUsed() bool {
 // lookupName returns information about the time zone with
 // the given name (such as "EST") at the given pseudo-Unix time
 // (what the given time of day would be in UTC).
-func (l *Location) lookupName(name string, unix int64) (offset int, ok bool) {
+func (l *Location) lookupName(name string, unix int64) (offset int, isDST bool, ok bool) {
 	l = l.get()
 
 	// First try for a zone with the right name that was actually
@@ -235,9 +232,9 @@ func (l *Location) lookupName(name string, unix int64) (offset int, ok bool) {
 	for i := range l.zone {
 		zone := &l.zone[i]
 		if zone.name == name {
-			nam, offset, _, _, _ := l.lookup(unix - int64(zone.offset))
+			nam, offset, isDST, _, _ := l.lookup(unix - int64(zone.offset))
 			if nam == zone.name {
-				return offset, true
+				return offset, isDST, true
 			}
 		}
 	}
@@ -246,7 +243,7 @@ func (l *Location) lookupName(name string, unix int64) (offset int, ok bool) {
 	for i := range l.zone {
 		zone := &l.zone[i]
 		if zone.name == name {
-			return zone.offset, true
+			return zone.offset, zone.isDST, true
 		}
 	}
 
@@ -257,10 +254,7 @@ func (l *Location) lookupName(name string, unix int64) (offset int, ok bool) {
 // NOTE(rsc): Eventually we will need to accept the POSIX TZ environment
 // syntax too, but I don't feel like implementing it today.
 
-var errLocation = errors.New("time: invalid location name")
-
-var zoneinfo *string
-var zoneinfoOnce sync.Once
+var zoneinfo, _ = syscall.Getenv("ZONEINFO")
 
 // LoadLocation returns the Location with the given name.
 //
@@ -283,34 +277,11 @@ func LoadLocation(name string) (*Location, error) {
 	if name == "Local" {
 		return Local, nil
 	}
-	if containsDotDot(name) || name[0] == '/' || name[0] == '\\' {
-		// No valid IANA Time Zone name contains a single dot,
-		// much less dot dot. Likewise, none begin with a slash.
-		return nil, errLocation
-	}
-	zoneinfoOnce.Do(func() {
-		env, _ := syscall.Getenv("ZONEINFO")
-		zoneinfo = &env
-	})
-	if *zoneinfo != "" {
-		if zoneData, err := loadTzinfoFromDirOrZip(*zoneinfo, name); err == nil {
-			if z, err := LoadLocationFromTZData(name, zoneData); err == nil {
-				return z, nil
-			}
+	if zoneinfo != "" {
+		if z, err := loadZoneFile(zoneinfo, name); err == nil {
+			z.name = name
+			return z, nil
 		}
 	}
-	return loadLocation(name, zoneSources)
-}
-
-// containsDotDot reports whether s contains "..".
-func containsDotDot(s string) bool {
-	if len(s) < 2 {
-		return false
-	}
-	for i := 0; i < len(s)-1; i++ {
-		if s[i] == '.' && s[i+1] == '.' {
-			return true
-		}
-	}
-	return false
+	return loadLocation(name)
 }

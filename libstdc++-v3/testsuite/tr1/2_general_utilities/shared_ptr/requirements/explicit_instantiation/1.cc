@@ -1,4 +1,4 @@
-// Copyright (C) 2006-2018 Free Software Foundation, Inc.
+// Copyright (C) 2006-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -23,7 +23,8 @@
 // { dg-do compile }
 
 using namespace __gnu_test;
-template class std::tr1::shared_ptr<int>;
-template class std::tr1::shared_ptr<void>;
-template class std::tr1::shared_ptr<ClassType>;
-template class std::tr1::shared_ptr<IncompleteClass>;
+using std::tr1::shared_ptr;
+template class shared_ptr<int>;
+template class shared_ptr<void>;
+template class shared_ptr<ClassType>;
+template class shared_ptr<IncompleteClass>;

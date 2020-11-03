@@ -78,3 +78,4 @@ foo ()
 
 /* Verify no statements get the location of the foo () decl.  */
 /* { dg-final { scan-tree-dump-not " : 65:1\\\]" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

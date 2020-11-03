@@ -1,8 +1,7 @@
-extern void abort(void);
-typedef void (*frob)();
+extern int abort();
+typedef int (*frob)();
 frob f[] = {abort};
-
-int main(void)
+main()
 {
   exit(0);
 }

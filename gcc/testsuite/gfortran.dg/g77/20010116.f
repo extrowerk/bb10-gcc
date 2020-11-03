@@ -36,6 +36,6 @@ c     Should not reach here, but need a statement
       PRINT*
   90  IF ( I .NE. 4 ) THEN
          PRINT*,'I =', I, ' but should be 4'
-         STOP 1
+         CALL ABORT()
       END IF
       END

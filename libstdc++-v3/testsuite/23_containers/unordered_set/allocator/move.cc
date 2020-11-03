@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2018 Free Software Foundation, Inc.
+// Copyright (C) 2013-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,7 +15,7 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// { dg-do run { target c++11 } }
+// { dg-options "-std=gnu++11" }
 
 #include <unordered_set>
 #include <testsuite_hooks.h>
@@ -39,6 +39,7 @@ using __gnu_test::uneq_allocator;
 
 void test01()
 {
+  bool test __attribute__((unused)) = true;
   typedef uneq_allocator<T> alloc_type;
   typedef std::unordered_set<T, hash, equal_to, alloc_type> test_type;
   test_type v1(alloc_type(1));
@@ -52,6 +53,7 @@ void test01()
 
 void test02()
 {
+  bool test __attribute__((unused)) = true;
   typedef uneq_allocator<T> alloc_type;
   typedef std::unordered_set<T, hash, equal_to, alloc_type> test_type;
   test_type v1(alloc_type(1));

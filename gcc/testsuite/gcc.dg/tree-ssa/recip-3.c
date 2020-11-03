@@ -24,3 +24,4 @@ float h ()
 }
 
 /* { dg-final { scan-tree-dump-times " / " 1 "recip" } } */
+/* { dg-final { cleanup-tree-dump "recip" } } */

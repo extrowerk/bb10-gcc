@@ -8,3 +8,4 @@ foo (int x, int y)
   return x + y;
 }
 
+/* { dg-final { cleanup-ipa-dump "cgraph" } } */

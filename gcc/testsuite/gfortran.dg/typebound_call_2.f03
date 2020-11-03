@@ -42,7 +42,7 @@ CONTAINS
     CLASS(trueOrFalse), INTENT(INOUT) :: me1, me2
 
     IF (.NOT. me1%val .OR. me2%val) THEN
-      STOP 1
+      CALL abort ()
     END IF
     
     me1%val = .FALSE.
@@ -61,12 +61,12 @@ CONTAINS
     adder%wrong = 0
     adder%val = 42
     IF (adder%func (8) /= 50) THEN
-      STOP 2
+      CALL abort ()
     END IF
 
     CALL adder%sub (x, 8)
     IF (x /=  50) THEN
-      STOP 3
+      CALL abort ()
     END IF
 
     t%val = .TRUE.
@@ -76,7 +76,7 @@ CONTAINS
     CALL f%swap (t)
 
     IF (.NOT. t%val .OR. f%val) THEN
-      STOP 4
+      CALL abort ()
     END IF
   END SUBROUTINE test
 

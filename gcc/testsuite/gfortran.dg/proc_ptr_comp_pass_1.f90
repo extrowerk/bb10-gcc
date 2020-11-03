@@ -40,6 +40,6 @@ program Test_03
 
     call m%seti(6)
 
-    if (m%i/=6) STOP 1
+    if (m%i/=6) call abort()
 
 end program Test_03

@@ -5,7 +5,7 @@
 int main (int argc, char *argv[])
 {
   +;
-              /* { dg-error "expected expression" "error test" { xfail *-*-* } .-1 } */
+              /* { dg-error "expected expression" "error test" { xfail *-*-* } 7 } */
   return 0;
 }
 /* { dg-excess-errors "expect failure" { xfail *-*-* } } */

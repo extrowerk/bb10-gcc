@@ -10,9 +10,9 @@ program bug
   l = .true.
   strg = "false"
   read (strg,*) l
-  if (l) STOP 1
+  if (l) call abort()
   strg = "true"
   read (strg,*) l
-  if (.not.l) STOP 2
+  if (.not.l) call abort()
   end
 

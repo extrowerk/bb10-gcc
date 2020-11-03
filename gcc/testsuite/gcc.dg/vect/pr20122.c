@@ -36,16 +36,12 @@ int main (int argc, char **argv)
 {
     check_vect ();
 
-    short Kernel[8][24];
+    short Kernel[8][24] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
     int k,i;
 
     for (k = 0; k<8; k++)
-      for (i = 0; i<24; i++)
-	{
-	  Kernel[k][i] = 0;
-	  /* Don't get into the game of versioning vs. peeling.  */
-	  __asm__ volatile ("" : : : "memory");
-	}
+        for (i = 0; i<24; i++)
+            Kernel[k][i] = 0;
 
     VecBug(Kernel);
     VecBug2(Kernel);
@@ -53,6 +49,8 @@ int main (int argc, char **argv)
     return 0;
 }
 
-/* The loops in VecBug and VecBug2 require versioning for alignment.  */
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" } } */
+/* The loops in VecBug and VecBug2 require versioning for alignment.
+   The loop in main is aligned.  */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 3 "vect" } } */
 /*  { dg-final { scan-tree-dump-times "Alignment of access forced using versioning" 2 "vect" { target { vect_no_align && { ! vect_hw_misalign } } } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

@@ -4,11 +4,7 @@
 
 /* Tests various macro abuse is correctly expanded.  */
 
-#if DEBUG
 extern int puts (const char *);
-#else
-#define puts(X)
-#endif
 extern void abort (void);
 extern int strcmp(const char *s1, const char *s2);
 

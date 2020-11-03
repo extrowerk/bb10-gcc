@@ -1,5 +1,5 @@
 /* Optimization statistics functions.
-   Copyright (C) 2008-2018 Free Software Foundation, Inc.
+   Copyright (C) 2008-2015 Free Software Foundation, Inc.
    Contributed by Richard Guenther  <rguenther@suse.de>
 
 This file is part of GCC.
@@ -21,40 +21,51 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "function.h"
 #include "tree-pass.h"
+#include "tree-dump.h"
+#include "statistics.h"
+#include "hash-table.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "context.h"
 #include "pass_manager.h"
 
 static int statistics_dump_nr;
-static dump_flags_t statistics_dump_flags;
+static int statistics_dump_flags;
 static FILE *statistics_dump_file;
 
 /* Statistics entry.  A integer counter associated to a string ID
    and value.  */
 
-struct statistics_counter {
+typedef struct statistics_counter_s {
   const char *id;
   int val;
   bool histogram_p;
   unsigned HOST_WIDE_INT count;
   unsigned HOST_WIDE_INT prev_dumped_count;
-};
+} statistics_counter_t;
 
 /* Hashtable helpers.  */
 
-struct stats_counter_hasher : pointer_hash <statistics_counter>
+struct stats_counter_hasher
 {
-  static inline hashval_t hash (const statistics_counter *);
-  static inline bool equal (const statistics_counter *,
-			    const statistics_counter *);
-  static inline void remove (statistics_counter *);
+  typedef statistics_counter_t value_type;
+  typedef statistics_counter_t compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+  static inline void remove (value_type *);
 };
 
 /* Hash a statistic counter by its string ID.  */
 
 inline hashval_t
-stats_counter_hasher::hash (const statistics_counter *c)
+stats_counter_hasher::hash (const value_type *c)
 {
   return htab_hash_string (c->id) + c->val;
 }
@@ -62,8 +73,7 @@ stats_counter_hasher::hash (const statistics_counter *c)
 /* Compare two statistic counters by their string IDs.  */
 
 inline bool
-stats_counter_hasher::equal (const statistics_counter *c1,
-			     const statistics_counter *c2)
+stats_counter_hasher::equal (const value_type *c1, const compare_type *c2)
 {
   return c1->val == c2->val && strcmp (c1->id, c2->id) == 0;
 }
@@ -71,7 +81,7 @@ stats_counter_hasher::equal (const statistics_counter *c1,
 /* Free a statistics entry.  */
 
 inline void
-stats_counter_hasher::remove (statistics_counter *v)
+stats_counter_hasher::remove (value_type *v)
 {
   free (CONST_CAST (char *, v->id));
   free (v);
@@ -117,10 +127,10 @@ curr_statistics_hash (void)
    since the last dump for the pass dump files.  */
 
 int
-statistics_fini_pass_1 (statistics_counter **slot,
+statistics_fini_pass_1 (statistics_counter_t **slot,
 			void *data ATTRIBUTE_UNUSED)
 {
-  statistics_counter *counter = *slot;
+  statistics_counter_t *counter = *slot;
   unsigned HOST_WIDE_INT count = counter->count - counter->prev_dumped_count;
   if (count == 0)
     return 1;
@@ -138,10 +148,10 @@ statistics_fini_pass_1 (statistics_counter **slot,
    since the last dump for the statistics dump.  */
 
 int
-statistics_fini_pass_2 (statistics_counter **slot,
+statistics_fini_pass_2 (statistics_counter_t **slot,
 			void *data ATTRIBUTE_UNUSED)
 {
-  statistics_counter *counter = *slot;
+  statistics_counter_t *counter = *slot;
   unsigned HOST_WIDE_INT count = counter->count - counter->prev_dumped_count;
   if (count == 0)
     return 1;
@@ -169,10 +179,10 @@ statistics_fini_pass_2 (statistics_counter **slot,
 /* Helper for statistics_fini_pass, reset the counters.  */
 
 int
-statistics_fini_pass_3 (statistics_counter **slot,
+statistics_fini_pass_3 (statistics_counter_t **slot,
 			void *data ATTRIBUTE_UNUSED)
 {
-  statistics_counter *counter = *slot;
+  statistics_counter_t *counter = *slot;
   counter->prev_dumped_count = counter->count;
   return 1;
 }
@@ -189,7 +199,7 @@ statistics_fini_pass (void)
       && dump_flags & TDF_STATS)
     {
       fprintf (dump_file, "\n");
-      fprintf (dump_file, "Pass statistics of \"%s\": ", current_pass->name);
+      fprintf (dump_file, "Pass statistics:\n");
       fprintf (dump_file, "----------------\n");
       curr_statistics_hash ()
 	->traverse_noresize <void *, statistics_fini_pass_1> (NULL);
@@ -207,9 +217,9 @@ statistics_fini_pass (void)
 /* Helper for printing summary information.  */
 
 int
-statistics_fini_1 (statistics_counter **slot, opt_pass *pass)
+statistics_fini_1 (statistics_counter_t **slot, opt_pass *pass)
 {
-  statistics_counter *counter = *slot;
+  statistics_counter_t *counter = *slot;
   if (counter->count == 0)
     return 1;
   if (counter->histogram_p)
@@ -259,7 +269,7 @@ statistics_early_init (void)
 {
   gcc::dump_manager *dumps = g->get_dumps ();
   statistics_dump_nr = dumps->dump_register (".statistics", "statistics",
-					     "statistics", DK_tree,
+					     "statistics", TDF_TREE,
 					     OPTGROUP_NONE,
 					     false);
 }
@@ -277,18 +287,18 @@ statistics_init (void)
 /* Lookup or add a statistics counter in the hashtable HASH with ID, VAL
    and HISTOGRAM_P.  */
 
-static statistics_counter *
+static statistics_counter_t *
 lookup_or_add_counter (stats_counter_table_type *hash, const char *id, int val,
 		       bool histogram_p)
 {
-  statistics_counter **counter;
-  statistics_counter c;
+  statistics_counter_t **counter;
+  statistics_counter_t c;
   c.id = id;
   c.val = val;
   counter = hash->find_slot (&c, INSERT);
   if (!*counter)
     {
-      *counter = XNEW (statistics_counter);
+      *counter = XNEW (struct statistics_counter_s);
       (*counter)->id = xstrdup (id);
       (*counter)->val = val;
       (*counter)->histogram_p = histogram_p;
@@ -305,15 +315,14 @@ lookup_or_add_counter (stats_counter_table_type *hash, const char *id, int val,
 void
 statistics_counter_event (struct function *fn, const char *id, int incr)
 {
-  statistics_counter *counter;
+  statistics_counter_t *counter;
 
   if ((!(dump_flags & TDF_STATS)
        && !statistics_dump_file)
       || incr == 0)
     return;
 
-  if (current_pass
-      && current_pass->static_pass_number != -1)
+  if (current_pass->static_pass_number != -1)
     {
       counter = lookup_or_add_counter (curr_statistics_hash (), id, 0, false);
       gcc_assert (!counter->histogram_p);
@@ -326,8 +335,8 @@ statistics_counter_event (struct function *fn, const char *id, int incr)
 
   fprintf (statistics_dump_file,
 	   "%d %s \"%s\" \"%s\" %d\n",
-	   current_pass ? current_pass->static_pass_number : -1,
-	   current_pass ? current_pass->name : "none",
+	   current_pass->static_pass_number,
+	   current_pass->name,
 	   id,
 	   function_name (fn),
 	   incr);
@@ -340,7 +349,7 @@ statistics_counter_event (struct function *fn, const char *id, int incr)
 void
 statistics_histogram_event (struct function *fn, const char *id, int val)
 {
-  statistics_counter *counter;
+  statistics_counter_t *counter;
 
   if (!(dump_flags & TDF_STATS)
       && !statistics_dump_file)

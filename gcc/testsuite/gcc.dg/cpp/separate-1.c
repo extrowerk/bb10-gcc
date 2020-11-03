@@ -14,3 +14,4 @@ int FOO(
 int baz FOO /* { dg-error "parse error|syntax error|expected" "error on this line" } */
 ;
 
+/* { dg-final { cleanup-saved-temps } } */

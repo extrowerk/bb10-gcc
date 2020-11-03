@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
 #define NDEBUG
 #include <assert.h>
 #include "quadmath-rounding-mode.h"

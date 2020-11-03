@@ -1,8 +1,9 @@
-// { dg-do compile { target c++11 } }
+// { dg-options "-std=gnu++11" }
+// { dg-do compile }
 
 // 2005-01-24  Paolo Carlini  <pcarlini@suse.de>
 //
-// Copyright (C) 2005-2018 Free Software Foundation, Inc.
+// Copyright (C) 2005-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -49,7 +50,6 @@ void test01()
   static_assert(test_category<is_unsigned, double>(false), "");
   static_assert(test_category<is_unsigned, long double>(false), "");
 
-#ifndef __STRICT_ANSI__
   // GNU Extensions.
 #ifdef _GLIBCXX_USE_INT128
   static_assert(test_category<is_unsigned, unsigned __int128>(true), "");
@@ -58,7 +58,6 @@ void test01()
 
 #ifdef _GLIBCXX_USE_FLOAT128
   static_assert(test_category<is_unsigned, __float128>(false), "");
-#endif
 #endif
 
   // Sanity check.

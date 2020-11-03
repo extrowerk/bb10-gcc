@@ -6,42 +6,42 @@
 ! for Fortran 2003.
 !
 subroutine foo() bind(c)
-contains ! { dg-error "Fortran 2008: CONTAINS statement" }
+contains
   subroutine bar() bind (c) ! { dg-error "may not be specified for an internal" }
   end subroutine bar ! { dg-error "Expected label" }
-end subroutine foo
+end subroutine foo ! { dg-error "Fortran 2008: CONTAINS statement" }
 
 subroutine foo2() bind(c)
   use iso_c_binding
-contains ! { dg-error "Fortran 2008: CONTAINS statement" }
+contains
   integer(c_int) function barbar() bind (c) ! { dg-error "may not be specified for an internal" }
   end function barbar ! { dg-error "Expecting END SUBROUTINE" }
-end subroutine foo2
+end subroutine foo2 ! { dg-error "Fortran 2008: CONTAINS statement" }
 
 function one() bind(c)
   use iso_c_binding
   integer(c_int) :: one
   one = 1
-contains ! { dg-error "Fortran 2008: CONTAINS statement" }
+contains
   integer(c_int) function two() bind (c) ! { dg-error "may not be specified for an internal" }
   end function two ! { dg-error "Expected label" }
-end function one
+end function one ! { dg-error "Fortran 2008: CONTAINS statement" }
 
 function one2() bind(c)
   use iso_c_binding
   integer(c_int) :: one2
   one2 = 1
-contains ! { dg-error "Fortran 2008: CONTAINS statement" }
+contains
   subroutine three() bind (c) ! { dg-error "may not be specified for an internal" }
   end subroutine three ! { dg-error "Expecting END FUNCTION statement" }
-end function one2
+end function one2 ! { dg-error "Fortran 2008: CONTAINS statement" }
 
 program main
   use iso_c_binding
   implicit none
-contains ! { dg-error "Fortran 2008: CONTAINS statement" }
+contains
   subroutine test() bind(c) ! { dg-error "may not be specified for an internal" }
   end subroutine test ! { dg-error "Expecting END PROGRAM" }
   integer(c_int) function test2() bind (c) ! { dg-error "may not be specified for an internal" }
   end function test2  ! { dg-error "Expecting END PROGRAM" }
-end program main
+end program main ! { dg-error "Fortran 2008: CONTAINS statement" }

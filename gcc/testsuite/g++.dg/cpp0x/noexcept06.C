@@ -1,7 +1,6 @@
 // Test that checking of a nothrow specification uses the one on the
 // definition.
 // { dg-do run { target c++11 } }
-// { dg-options "-Wno-terminate" }
 
 #include <exception>
 #include <cstdlib>

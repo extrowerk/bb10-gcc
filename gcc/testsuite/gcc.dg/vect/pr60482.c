@@ -17,3 +17,4 @@ foo (double *x, int n)
 }
 
 /* { dg-final { scan-tree-dump-not "epilog loop required" "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

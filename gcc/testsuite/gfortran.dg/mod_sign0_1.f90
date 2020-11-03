@@ -21,34 +21,34 @@ program mod_sign0_1
 
   r = mod (4., 2.)
   t = sign (1., r)
-  if (t < 0.) STOP 1
+  if (t < 0.) call abort
 
   r = modulo (4., 2.)
   t = sign (1., r)
-  if (t < 0.) STOP 2
+  if (t < 0.) call abort
 
   r = mod (-4., 2.)
   t = sign (1., r)
-  if (t > 0.) STOP 3
+  if (t > 0.) call abort
 
   r = modulo (-4., 2.)
   t = sign (1., r)
-  if (t < 0.) STOP 4
+  if (t < 0.) call abort
 
   r = mod (4., -2.)
   t = sign (1., r)
-  if (t < 0.) STOP 5
+  if (t < 0.) call abort
 
   r = modulo (4., -2.)
   t = sign (1., r)
-  if (t > 0.) STOP 6
+  if (t > 0.) call abort
 
   r = mod (-4., -2.)
   t = sign (1., r)
-  if (t > 0.) STOP 7
+  if (t > 0.) call abort
 
   r = modulo (-4., -2.)
   t = sign (1., r)
-  if (t > 0.) STOP 8
+  if (t > 0.) call abort
 
 end program mod_sign0_1

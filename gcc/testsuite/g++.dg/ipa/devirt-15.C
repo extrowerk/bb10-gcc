@@ -30,11 +30,13 @@ m(void)
 {
   b->foo();
 }
-int main()
+main()
 {
   m();
 }
 
 /* { dg-final { scan-ipa-dump "speculatively devirtualizing call" "devirt"} } */
+/* { dg-final { cleanup-ipa-dump "devirt" } } */
 /* Match if (PROF_6 == foo) to verify that the speculation survived.  */
 /* { dg-final { scan-tree-dump "== foo" "optimized"} } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

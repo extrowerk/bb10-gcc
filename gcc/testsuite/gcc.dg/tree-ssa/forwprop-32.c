@@ -14,3 +14,5 @@ int bar (int x)
 
 /* { dg-final { scan-tree-dump "x_.\\(D\\) / 15" "forwprop1" } } */
 /* { dg-final { scan-tree-dump "return 0;" "ccp1" } } */
+/* { dg-final { cleanup-tree-dump "forwprop1" } } */
+/* { dg-final { cleanup-tree-dump "ccp1" } } */

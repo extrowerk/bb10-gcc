@@ -12,3 +12,4 @@ void test1(void)
 
 /* { dg-final { scan-tree-dump-times "free" 1 "optimized" } } */
 /* { dg-final { scan-tree-dump-times "malloc" 1 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

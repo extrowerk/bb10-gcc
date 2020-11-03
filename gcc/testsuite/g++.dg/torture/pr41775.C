@@ -1,5 +1,4 @@
 /* { dg-do compile } */
-/* { dg-additional-options "-Wno-return-type" } */
 /* { dg-require-visibility "" } */
 
 typedef unsigned int size_t;

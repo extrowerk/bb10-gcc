@@ -19,3 +19,4 @@ foo (struct A *x)
     }
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

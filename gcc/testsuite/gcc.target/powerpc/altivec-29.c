@@ -20,3 +20,4 @@ int *baz (int *vector __attribute__((unused)))
   return vector;
 }
 
+/* { dg-final { cleanup-saved-temps } } */

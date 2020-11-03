@@ -8,6 +8,8 @@
 char cb[N];
 char cc[N];
 
+volatile int y = 0;
+
 __attribute__ ((noinline)) int
 main1 (void)
 {
@@ -18,7 +20,9 @@ main1 (void)
     cb[i] = i + 2;
     cc[i] = i + 1;
     check_diff += (cb[i] - cc[i]);
-    asm volatile ("" ::: "memory");
+    /* Avoid vectorization.  */
+    if (y)
+      abort ();
   }
 
   /* Cross-iteration cycle.  */
@@ -41,5 +45,6 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_unpack } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */
 
 

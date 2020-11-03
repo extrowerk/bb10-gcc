@@ -1,7 +1,7 @@
 // { dg-do compile }
 // { dg-options "-O -fpartial-inlining -flto -fconserve-stack -fcompare-debug" }
 // { dg-require-effective-target lto }
-// { dg-xfail-if "" { powerpc-ibm-aix* } }
+// { dg-xfail-if "" { powerpc-ibm-aix* } { "*" } { "" } }
 
 void end (int, int) __attribute__ ((__noreturn__));
 
@@ -22,14 +22,12 @@ inline bool
 baz (S s1, S)
 {
   while (f (&s1));
-
-  return true;
 }
 
 inline bool
 bar (S s1, S s2, S)
 {
-  return baz (s1, s2);
+  baz (s1, s2);
 }
 
 S getS ();
@@ -37,5 +35,5 @@ S getS ();
 bool
 foo ()
 {
-  return bar (getS (), getS (), getS ());
+  bar (getS (), getS (), getS ());
 }

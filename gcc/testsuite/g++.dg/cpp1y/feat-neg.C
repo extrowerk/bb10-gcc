@@ -1,5 +1,5 @@
 // { dg-do compile }
-// { dg-options "-fno-rtti -fno-exceptions -fno-threadsafe-statics" }
+// { dg-options "-fno-rtti -fno-exceptions" }
 
 //  C++98 features with explicit opt-out:
 
@@ -9,10 +9,4 @@
 
 #ifndef __cpp_exceptions
 #  error "__cpp_exceptions" // { dg-error "error" }
-#endif
-
-//  C++11 features with explicit opt-out:
-
-#ifndef __cpp_threadsafe_static_init
-#  error "__cpp_threadsafe_static_init" // { dg-error "error" }
 #endif

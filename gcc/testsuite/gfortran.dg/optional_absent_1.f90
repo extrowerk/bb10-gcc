@@ -1,5 +1,5 @@
 ! { dg-do run }
-! { dg-options "-std=f2008 " }
+! { dg-options "-std=f2008 -fall-intrinsics" }
 !
 ! Passing a null pointer or deallocated variable to an
 ! optional, non-pointer, non-allocatable dummy.
@@ -30,19 +30,19 @@ program test
 contains
   subroutine scalar(a)
     integer, optional :: a
-    if (present(a)) STOP 1
+    if (present(a)) call abort()
   end subroutine scalar
   subroutine assumed_size(a)
     integer, optional :: a(*)
-    if (present(a)) STOP 2
+    if (present(a)) call abort()
   end subroutine assumed_size
   subroutine assumed_shape(a)
     integer, optional :: a(:)
-    if (present(a)) STOP 3
+    if (present(a)) call abort()
   end subroutine assumed_shape
   subroutine ptr_func(is_psnt, a)
     integer, optional, pointer :: a
     logical :: is_psnt
-    if (is_psnt .neqv. present(a)) STOP 4
+    if (is_psnt .neqv. present(a)) call abort()
   end subroutine ptr_func
 end program test

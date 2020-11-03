@@ -15,17 +15,17 @@ program p
   a = 0
   a = foo((/ 1, 1 /), null())
 !  print *, a
-  if (any(a /= 2)) STOP 1
+  if (any(a /= 2)) call abort
 
   a = 0
   a = bar((/ 1, 1 /), null())
 !  print *, a
-  if (any(a /= 2)) STOP 2
+  if (any(a /= 2)) call abort
 
   b = 0
   b = bar(1, null())
 !  print *, b
-  if (b /= 2) STOP 3
+  if (b /= 2) call abort
 
 contains
 
@@ -34,7 +34,7 @@ contains
     integer, optional :: b(:)
     integer           :: foo(size(a))
 
-    if (present(b)) STOP 4
+    if (present(b)) call abort
 
     foo = 2
   end function foo

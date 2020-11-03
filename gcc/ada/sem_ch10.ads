@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -24,7 +24,6 @@
 ------------------------------------------------------------------------------
 
 with Types; use Types;
-
 package Sem_Ch10 is
    procedure Analyze_Compilation_Unit                   (N : Node_Id);
    procedure Analyze_With_Clause                        (N : Node_Id);
@@ -34,12 +33,23 @@ package Sem_Ch10 is
    procedure Analyze_Protected_Body_Stub                (N : Node_Id);
    procedure Analyze_Subunit                            (N : Node_Id);
 
-   procedure Install_Context (N : Node_Id; Chain : Boolean := True);
+   procedure Analyze_Subprogram_Body_Stub_Contract (Stub_Id : Entity_Id);
+   --  Analyze all delayed aspects chained on the contract of a subprogram body
+   --  stub Stub_Id as if they appeared at the end of a declarative region. The
+   --  aspects in question are:
+   --    Contract_Cases
+   --    Depends
+   --    Global
+   --    Postcondition
+   --    Precondition
+   --    Refined_Depends
+   --    Refined_Global
+   --    Test_Case
+
+   procedure Install_Context (N : Node_Id);
    --  Installs the entities from the context clause of the given compilation
    --  unit into the visibility chains. This is done before analyzing a unit.
-   --  For a child unit, install context of parents as well. The flag Chain is
-   --  used to control the "chaining" or linking of use-type and use-package
-   --  clauses to avoid circularities when reinstalling context clauses.
+   --  For a child unit, install context of parents as well.
 
    procedure Install_Private_With_Clauses (P : Entity_Id);
    --  Install the private with_clauses of a compilation unit, when compiling

@@ -23,7 +23,7 @@ template<>
   operator"" _abc<'6','6','6'>()
   { return 21; }
 
-void
+int
 test1()
 {
   int i = operator"" _abc<'1','2','3'>();

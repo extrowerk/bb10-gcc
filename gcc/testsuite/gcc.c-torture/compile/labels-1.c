@@ -1,5 +1,4 @@
-/* { dg-require-effective-target label_values } */
-
+#ifndef NO_LABEL_VALUES
 f ()
 {
   void *x = &&L2;
@@ -9,3 +8,6 @@ f ()
  L2: abort ();
  L3:;
 }
+#else
+int x;
+#endif

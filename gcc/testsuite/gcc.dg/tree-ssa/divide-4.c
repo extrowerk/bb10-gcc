@@ -9,5 +9,6 @@ int f(int a)
 /* { dg-final { scan-tree-dump-times "-a" 0 "optimized"} } */
 /* { dg-final { scan-tree-dump-times "a_..D. / 10" 1 "optimized"} } */
 
+/* { dg-final { cleanup-tree-dump "optimized" } } */
 
 

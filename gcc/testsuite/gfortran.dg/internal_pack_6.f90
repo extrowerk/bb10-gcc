@@ -19,7 +19,7 @@ CONTAINS
    do j = 1, i
      subsum = subsum + data(j)
    end do
-   if (abs(subsum - chksum) > 1e-6) STOP 1
+   if (abs(subsum - chksum) > 1e-6) call abort
  END SUBROUTINE S1
 END MODULE
 
@@ -55,3 +55,4 @@ END SUBROUTINE S2
  call s2
 end
 ! { dg-final { scan-tree-dump-times "_gfortran_internal_pack" 0 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

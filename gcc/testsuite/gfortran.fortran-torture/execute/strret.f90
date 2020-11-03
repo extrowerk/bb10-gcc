@@ -18,8 +18,8 @@ program strret
    character(len=5) :: test2
 
    s = test ()
-   if (s .ne. "World") STOP 1
+   if (s .ne. "World") call abort
 
    s = "Hello " // test ()
-   if (s .ne. test2 () //" World") STOP 2
+   if (s .ne. test2 () //" World") call abort
 end

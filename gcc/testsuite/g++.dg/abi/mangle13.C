@@ -1,4 +1,4 @@
-// { dg-options "-fabi-version=10" }
+// { dg-options "-fabi-version=0" }
 
 struct A {
   template <typename T> int f ();

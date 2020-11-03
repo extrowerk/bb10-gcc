@@ -1,6 +1,6 @@
 // PR c++/
 // { dg-do run }
-// { dg-additional-options "-std=c++0x" }
+// { dg-options "-std=c++0x -fopenmp" }
 
 extern "C" void abort ();
 int cnt;

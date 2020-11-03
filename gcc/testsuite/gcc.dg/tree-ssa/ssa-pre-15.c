@@ -13,3 +13,4 @@ __SIZE_TYPE__ mystrlen (const char *s)
 }
 
 /* { dg-final { scan-rtl-dump "PART.. = 0" "expand" } } */
+/* { dg-final { cleanup-rtl-dump "expand" } } */

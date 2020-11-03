@@ -1,6 +1,5 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -Wall" } */
-/* { dg-require-effective-target label_values } */
 
 extern void foo(void *here);
 extern inline void bar(void)

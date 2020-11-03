@@ -1,6 +1,6 @@
 // Allocators -*- C++ -*-
 
-// Copyright (C) 2001-2018 Free Software Foundation, Inc.
+// Copyright (C) 2001-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -49,11 +49,6 @@
 #include <type_traits>
 #endif
 
-#define __cpp_lib_incomplete_container_elements 201505
-#if __cplusplus >= 201103L
-# define __cpp_lib_allocator_is_always_equal 201411
-#endif
-
 namespace std _GLIBCXX_VISIBILITY(default)
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
@@ -75,24 +70,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       typedef void        value_type;
 
       template<typename _Tp1>
-	struct rebind
-	{ typedef allocator<_Tp1> other; };
+        struct rebind
+        { typedef allocator<_Tp1> other; };
 
 #if __cplusplus >= 201103L
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // 2103. std::allocator propagate_on_container_move_assignment
       typedef true_type propagate_on_container_move_assignment;
-
-      typedef true_type is_always_equal;
-
-      template<typename _Up, typename... _Args>
-	void
-	construct(_Up* __p, _Args&&... __args)
-	{ ::new((void *)__p) _Up(std::forward<_Args>(__args)...); }
-
-      template<typename _Up>
-	void
-	destroy(_Up* __p) { __p->~_Up(); }
 #endif
     };
 
@@ -105,7 +89,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *  @tparam  _Tp  Type of allocated object.
    */
   template<typename _Tp>
-    class allocator : public __allocator_base<_Tp>
+    class allocator: public __allocator_base<_Tp>
     {
    public:
       typedef size_t     size_type;
@@ -117,15 +101,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       typedef _Tp        value_type;
 
       template<typename _Tp1>
-	struct rebind
-	{ typedef allocator<_Tp1> other; };
+        struct rebind
+        { typedef allocator<_Tp1> other; };
 
 #if __cplusplus >= 201103L
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // 2103. std::allocator propagate_on_container_move_assignment
       typedef true_type propagate_on_container_move_assignment;
-
-      typedef true_type is_always_equal;
 #endif
 
       allocator() throw() { }
@@ -134,7 +116,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       : __allocator_base<_Tp>(__a) { }
 
       template<typename _Tp1>
-	allocator(const allocator<_Tp1>&) throw() { }
+        allocator(const allocator<_Tp1>&) throw() { }
 
       ~allocator() throw() { }
 
@@ -164,32 +146,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     operator!=(const allocator<_Tp>&, const allocator<_Tp>&)
     _GLIBCXX_USE_NOEXCEPT
     { return false; }
-
-  // Invalid allocator<cv T> partial specializations.
-  // allocator_traits::rebind_alloc can be used to form a valid allocator type.
-  template<typename _Tp>
-    class allocator<const _Tp>
-    {
-    public:
-      typedef _Tp value_type;
-      template<typename _Up> allocator(const allocator<_Up>&) { }
-    };
-
-  template<typename _Tp>
-    class allocator<volatile _Tp>
-    {
-    public:
-      typedef _Tp value_type;
-      template<typename _Up> allocator(const allocator<_Up>&) { }
-    };
-
-  template<typename _Tp>
-    class allocator<const volatile _Tp>
-    {
-    public:
-      typedef _Tp value_type;
-      template<typename _Up> allocator(const allocator<_Up>&) { }
-    };
 
   /// @} group allocator
 

@@ -17,8 +17,8 @@
 
     allocate(some_local_object, source=foobar)
 
-    if (.not. allocated(foobar)) STOP 1
-    if (.not. allocated(some_local_object)) STOP 2
+    if (.not. allocated(foobar)) call abort()
+    if (.not. allocated(some_local_object)) call abort()
 
     deallocate(some_local_object)
     deallocate(foobar)

@@ -8,7 +8,7 @@ program ret_pointer_1
   a => NULL()
   a => foo()
   p => b
-  if (.not. associated (a, p)) STOP 1
+  if (.not. associated (a, p)) call abort
 contains
 subroutine bar(p)
   integer, pointer, dimension(:) :: p

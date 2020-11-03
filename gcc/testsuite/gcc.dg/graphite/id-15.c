@@ -117,3 +117,4 @@ mul_double (l1, h1, l2, h2, lv, hv)
     }
   return (*hv < 0 ? ~(toplow & tophigh) : toplow | tophigh) != 0;
 }
+

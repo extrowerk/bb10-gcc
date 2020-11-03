@@ -20,3 +20,4 @@ int main()
    of the loop.  */
 
 /* { dg-final { scan-tree-dump-not "abort" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

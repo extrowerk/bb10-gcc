@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2018 Free Software Foundation, Inc.
+// Copyright (C) 2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,8 +15,7 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// { dg-options "-DUSE_FILESYSTEM_TS -lstdc++fs" }
-// { dg-do run { target c++11 } }
+// { dg-options "-std=gnu++11 -lstdc++fs" }
 // { dg-require-filesystem-ts "" }
 
 #include <experimental/filesystem>
@@ -28,6 +27,7 @@ namespace fs = std::experimental::filesystem;
 void
 test01()
 {
+  bool test __attribute__((unused)) = false;
   std::error_code ec;
 
   // Test empty path.
@@ -50,6 +50,7 @@ test01()
   VERIFY( !ec );
   VERIFY( !b );
   b = create_directory(p);
+  VERIFY( !ec );
   VERIFY( !b );
 
   remove_all(p, ec);

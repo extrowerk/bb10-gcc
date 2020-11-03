@@ -13,3 +13,4 @@ foo (int y)
 }
 
 /* { dg-final { scan-tree-dump-times "z = 5" 1 "pre"} } */
+/* { dg-final { cleanup-tree-dump "pre" } } */

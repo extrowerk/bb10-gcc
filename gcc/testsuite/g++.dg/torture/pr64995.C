@@ -20,7 +20,6 @@ inline int *A::m_fn2() {
     a = acos(c);
     double d = m_fn1(b);
     acos(d);
-    return 0;
 }
 
 void passTime() {

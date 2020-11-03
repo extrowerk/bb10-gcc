@@ -8,20 +8,20 @@
       x = 12.34
       write(line,10) x
  10   format(tr2,tl2,g11.4)
-      if (line.ne.'  12.34        ') STOP 1
+      if (line.ne.'  12.34        ') call abort()
       write(line,20) x
  20   format(tr5,tl3,g11.4)
-      if (line.ne.'    12.34      ') STOP 2
+      if (line.ne.'    12.34      ') call abort()
       write(line,30) x
  30   format(tr5,tl3,tl3,g11.4)
-      if (line.ne.'  12.34        ') STOP 3
+      if (line.ne.'  12.34        ') call abort()
       write(line,40) x
  40   format(tr25,tl35,f11.4)
-      if (line.ne.'    12.3400    ') STOP 4
+      if (line.ne.'    12.3400    ') call abort()
       write(line,50) x
  50   format(tl5,tr3,f11.4)
-      if (line.ne.'       12.3400 ') STOP 5
+      if (line.ne.'       12.3400 ') call abort()
       write(line,60) x
  60   format(t5,tl3,f11.4)
-      if (line.ne.'     12.3400   ') STOP 6
+      if (line.ne.'     12.3400   ') call abort()
       end

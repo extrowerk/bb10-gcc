@@ -4,7 +4,7 @@
     integer :: n
     character (len = n) :: v(n)
     v = ''
-    if (any (v /= '')) STOP 1
+    if (any (v /= '')) call abort
   end subroutine foo
 
   call foo(7)

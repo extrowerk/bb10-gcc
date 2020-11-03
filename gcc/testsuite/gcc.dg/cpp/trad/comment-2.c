@@ -8,4 +8,4 @@
 
 /*
 
- /* { dg-warning "2: within comment" } */
+ /* { dg-warning "within comment" } */

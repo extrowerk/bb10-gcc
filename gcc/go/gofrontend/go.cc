@@ -7,7 +7,6 @@
 #include "go-system.h"
 
 #include "go-c.h"
-#include "go-diagnostics.h"
 
 #include "lex.h"
 #include "parse.h"
@@ -21,29 +20,25 @@ static Gogo* gogo;
 
 GO_EXTERN_C
 void
-go_create_gogo(const struct go_create_gogo_args* args)
+go_create_gogo(int int_type_size, int pointer_size, const char *pkgpath,
+	       const char *prefix, const char *relative_import_path,
+	       bool check_divide_by_zero, bool check_divide_overflow)
 {
   go_assert(::gogo == NULL);
-  ::gogo = new Gogo(args->backend, args->linemap, args->int_type_size,
-		    args->pointer_size);
+  Linemap* linemap = go_get_linemap();
+  ::gogo = new Gogo(go_get_backend(), linemap, int_type_size, pointer_size);
 
-  if (args->pkgpath != NULL)
-    ::gogo->set_pkgpath(args->pkgpath);
-  else if (args->prefix != NULL)
-    ::gogo->set_prefix(args->prefix);
+  if (pkgpath != NULL)
+    ::gogo->set_pkgpath(pkgpath);
+  else if (prefix != NULL)
+    ::gogo->set_prefix(prefix);
 
-  if (args->relative_import_path != NULL)
-    ::gogo->set_relative_import_path(args->relative_import_path);
-  ::gogo->set_check_divide_by_zero(args->check_divide_by_zero);
-  ::gogo->set_check_divide_overflow(args->check_divide_overflow);
-  if (args->compiling_runtime)
-    ::gogo->set_compiling_runtime(args->compiling_runtime);
-  if (args->c_header != NULL)
-    ::gogo->set_c_header(args->c_header);
-  ::gogo->set_debug_escape_level(args->debug_escape_level);
-  if (args->debug_escape_hash != NULL)
-    ::gogo->set_debug_escape_hash(args->debug_escape_hash);
-  ::gogo->set_nil_check_size_threshold(args->nil_check_size_threshold);
+  if (relative_import_path != NULL)
+    ::gogo->set_relative_import_path(relative_import_path);
+  if (check_divide_by_zero)
+    ::gogo->set_check_divide_by_zero(check_divide_by_zero);
+  if (check_divide_overflow)
+    ::gogo->set_check_divide_overflow(check_divide_overflow);
 }
 
 // Parse the input files.
@@ -55,7 +50,6 @@ go_parse_input_files(const char** filenames, unsigned int filename_count,
 {
   go_assert(filename_count > 0);
 
-  Lex::Linknames all_linknames;
   for (unsigned int i = 0; i < filename_count; ++i)
     {
       if (i > 0)
@@ -69,8 +63,8 @@ go_parse_input_files(const char** filenames, unsigned int filename_count,
 	{
 	  file = fopen(filename, "r");
 	  if (file == NULL)
-	    go_fatal_error(Linemap::unknown_location(),
-			   "cannot open %s: %m", filename);
+	    fatal_error(Linemap::unknown_location(),
+			"cannot open %s: %m", filename);
 	}
 
       Lex lexer(filename, file, ::gogo->linemap());
@@ -80,21 +74,6 @@ go_parse_input_files(const char** filenames, unsigned int filename_count,
 
       if (strcmp(filename, "-") != 0)
 	fclose(file);
-
-      Lex::Linknames* linknames = lexer.get_and_clear_linknames();
-      if (linknames != NULL)
-	{
-	  if (!::gogo->current_file_imported_unsafe())
-	    {
-	      for (Lex::Linknames::const_iterator p = linknames->begin();
-		   p != linknames->end();
-		   ++p)
-		go_error_at(p->second.loc,
-			    ("//go:linkname only allowed in Go files that "
-			     "import \"unsafe\""));
-	    }
-	  all_linknames.insert(linknames->begin(), linknames->end());
-	}
     }
 
   ::gogo->linemap()->stop();
@@ -104,13 +83,6 @@ go_parse_input_files(const char** filenames, unsigned int filename_count,
   // If the global predeclared names are referenced but not defined,
   // define them now.
   ::gogo->define_global_names();
-
-  // Apply any go:linkname directives.
-  for (Lex::Linknames::const_iterator p = all_linknames.begin();
-       p != all_linknames.end();
-       ++p)
-    ::gogo->add_linkname(p->first, p->second.is_exported, p->second.ext_name,
-			 p->second.loc);
 
   // Finalize method lists and build stub methods for named types.
   ::gogo->finalize_methods();
@@ -138,8 +110,6 @@ go_parse_input_files(const char** filenames, unsigned int filename_count,
   if (only_check_syntax)
     return;
 
-  ::gogo->analyze_escape();
-
   // Export global identifiers as appropriate.
   ::gogo->do_exports();
 
@@ -161,14 +131,8 @@ go_parse_input_files(const char** filenames, unsigned int filename_count,
   // Write out queued up functions for hash and comparison of types.
   ::gogo->write_specific_type_functions();
 
-  // Add write barriers.
-  ::gogo->add_write_barriers();
-
   // Flatten the parse tree.
   ::gogo->flatten();
-
-  // Reclaim memory of escape analysis Nodes.
-  ::gogo->reclaim_escape_nodes();
 
   // Dump ast, use filename[0] as the base name
   ::gogo->dump_ast(filenames[0]);

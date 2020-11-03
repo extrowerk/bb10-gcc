@@ -23,3 +23,4 @@ foo (unsigned int n)
 }
 
 /* { dg-final { scan-tree-dump "# of iterations \[^\n\r]*, bounded by 8" "sccp" } } */
+/* { dg-final { cleanup-tree-dump "sccp" } } */

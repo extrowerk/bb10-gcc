@@ -17,4 +17,5 @@ void SexiALI_Convert(void *vdest, void *vsrc, unsigned int frames)
   *dest++ = tmp;
  }
 }
+/* { dg-final { cleanup-tree-dump "vect" } } */
 

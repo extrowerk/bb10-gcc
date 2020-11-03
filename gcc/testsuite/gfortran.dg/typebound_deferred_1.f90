@@ -19,3 +19,5 @@ contains
   end subroutine inter
 
 end module m 
+
+! { dg-final { cleanup-modules "m" } }

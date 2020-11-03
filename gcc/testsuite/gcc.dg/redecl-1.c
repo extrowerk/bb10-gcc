@@ -52,14 +52,13 @@ void test3(void)
 
 void prime4(void)
 {
-  bar4(); /* { dg-line implicit_bar4 } */
-  /* { dg-warning "implicit declaration of function" "implicit" { target *-*-* } implicit_bar4 } */
+  bar4();			/* { dg-warning "implicit declaration of function" "implicit" } */
 }
 
 void test4(void)
 {
   extern double bar4(double);	/* { dg-error "conflict" } */
-/* { dg-message "note: previous implicit declaration" "previous" { target *-*-* } implicit_bar4 } */
+/* { dg-message "note: previous implicit declaration" "previous" { target *-*-* } 55 } */
 }
 
 /* Implicit decl, clashing with extern at previous function scope.  */
@@ -67,16 +66,16 @@ void test4(void)
 void prime5(void)
 {
   extern double bar5(double);	/* { dg-message "note: previous declaration" "previous 1" } */
-} /* { dg-message "note: previous implicit declaration" "previous 2" { target *-*-* } .-1 } */
+} /* { dg-message "note: previous implicit declaration" "previous 2" { target *-*-* } 68 } */
 
 void test5(void)
 {
   bar5(1);			/* { dg-warning "implicit declaration of function" } */
-} /* { dg-error "incompatible implicit declaration" "" { target *-*-* } .-1 } */
+} /* { dg-error "incompatible implicit declaration" "" { target *-*-* } 73 } */
 
 /* Extern then static, both at file scope.  */
 
-extern int test6(int);		/* { dg-message "note: previous" } */
+extern int test6(int);		/* { dg-message "note: previous" "" } */
 static int test6(int x)		/* { dg-error "follows non-static" } */
 { return x; }
 
@@ -85,7 +84,7 @@ static int test6(int x)		/* { dg-error "follows non-static" } */
 
 void prime7(void)
 {
-  extern int test7(int);	/* { dg-message "note: previous" } */
+  extern int test7(int);	/* { dg-message "note: previous" "" } */
 }
 
 static int test7(int x)		/* { dg-error "follows non-static" } */
@@ -95,8 +94,8 @@ static int test7(int x)		/* { dg-error "follows non-static" } */
 
 void prime8(void)
 {
-  test8();			/* { dg-message "note: previous" } */
-                                /* { dg-warning "implicit" "implicit" { target *-*-* } .-1 } */
+  test8();			/* { dg-message "note: previous" "" } */
+                                /* { dg-warning "implicit" "implicit" { target *-*-* } 97 } */
 }
 
 static int test8(int x)		/* { dg-error "follows non-static" } */

@@ -1,7 +1,7 @@
 ! { dg-do run }
 ! { dg-options "-fno-range-check" }
 ! { dg-add-options ieee }
-! { dg-skip-if "NaN not supported" { spu-*-* } }
+! { dg-skip-if "NaN not supported" { spu-*-* } { "*" } { "" } }
 !
 ! PR fortran/34319
 !
@@ -15,32 +15,32 @@ program main
 
   str = "nan"
   read(str,*) r
-  if (.not.isnan(r)) STOP 1
+  if (.not.isnan(r)) call abort()
   str = "(nan,4.0)"
   read(str,*) z
-  if (.not.isnan(real(z)) .or. aimag(z) /= 4.0) STOP 2
+  if (.not.isnan(real(z)) .or. aimag(z) /= 4.0) call abort()
   str = "(7.0,nan)"
   read(str,*) z
-  if (.not.isnan(aimag(z)) .or. real(z) /= 7.0) STOP 3
+  if (.not.isnan(aimag(z)) .or. real(z) /= 7.0) call abort()
 
   str = "inFinity"
   read(str,*) r
-  if (r <= huge(r)) STOP 4
+  if (r <= huge(r)) call abort()
   str = "(+inFinity,4.0)"
   read(str,*) z
-  if ((real(z) <= huge(r)) .or. aimag(z) /= 4.0) STOP 5
+  if ((real(z) <= huge(r)) .or. aimag(z) /= 4.0) call abort()
   str = "(7.0,-inFinity)"
   read(str,*) z
-  if ((aimag(z) >= -huge(r)) .or. real(z) /= 7.0) STOP 6
+  if ((aimag(z) >= -huge(r)) .or. real(z) /= 7.0) call abort()
 
   str = "inf"
   read(str,*) r
-  if (r <= huge(r)) STOP 7
+  if (r <= huge(r)) call abort()
   str = "(+inf,4.0)"
   read(str,*) z
-  if ((real(z) <= huge(r)) .or. aimag(z) /= 4.0) STOP 8
+  if ((real(z) <= huge(r)) .or. aimag(z) /= 4.0) call abort()
   str = "(7.0,-inf)"
   read(str,*) z
-  if ((aimag(z) >= -huge(r)) .or. real(z) /= 7.0) STOP 9
+  if ((aimag(z) >= -huge(r)) .or. real(z) /= 7.0) call abort()
 
 end program main

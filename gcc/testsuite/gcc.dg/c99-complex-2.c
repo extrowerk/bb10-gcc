@@ -11,12 +11,12 @@ _Complex double
 foo (_Complex double z)
 {
   z++; /* { dg-bogus "warning" "warning in place of error" } */
-  /* { dg-error "complex" "postinc" { target *-*-* } .-1 } */
+  /* { dg-error "complex" "postinc" { target *-*-* } 13 } */
   ++z; /* { dg-bogus "warning" "warning in place of error" } */
-  /* { dg-error "complex" "preinc" { target *-*-* } .-1 } */
+  /* { dg-error "complex" "preinc" { target *-*-* } 15 } */
   z--; /* { dg-bogus "warning" "warning in place of error" } */
-  /* { dg-error "complex" "postdec" { target *-*-* } .-1 } */
+  /* { dg-error "complex" "postdec" { target *-*-* } 17 } */
   --z; /* { dg-bogus "warning" "warning in place of error" } */
-  /* { dg-error "complex" "predec" { target *-*-* } .-1 } */
+  /* { dg-error "complex" "predec" { target *-*-* } 19 } */
   return z;
 }

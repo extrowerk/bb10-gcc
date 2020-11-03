@@ -27,3 +27,4 @@ foo (int *a, int b, float *d, float *e, int *f)
       f[i] = e[i] + bar (a[i], d[i]);
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

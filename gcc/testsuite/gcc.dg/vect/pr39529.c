@@ -16,5 +16,6 @@ foo (void)
     } while (p < p2);
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */
 
 

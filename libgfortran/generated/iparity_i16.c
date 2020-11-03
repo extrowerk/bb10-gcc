@@ -1,5 +1,5 @@
 /* Implementation of the IPARITY intrinsic
-   Copyright (C) 2010-2018 Free Software Foundation, Inc.
+   Copyright (C) 2010-2015 Free Software Foundation, Inc.
    Contributed by Tobias Burnus <burnus@net-b.de>
 
 This file is part of the GNU Fortran runtime library (libgfortran).
@@ -24,6 +24,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
 #include "libgfortran.h"
+#include <stdlib.h>
+#include <assert.h>
 
 
 #if defined (HAVE_GFC_INTEGER_16) && defined (HAVE_GFC_INTEGER_16)
@@ -51,20 +53,9 @@ iparity_i16 (gfc_array_i16 * const restrict retarray,
   index_type dim;
   int continue_loop;
 
-#ifdef HAVE_BACK_ARG
-  assert(back == 0);
-#endif
-
   /* Make dim zero based to avoid confusion.  */
-  rank = GFC_DESCRIPTOR_RANK (array) - 1;
   dim = (*pdim) - 1;
-
-  if (unlikely (dim < 0 || dim > rank))
-    {
-      runtime_error ("Dim argument incorrect in IPARITY intrinsic: "
- 		     "is %ld, should be between 1 and %ld",
-		     (long int) dim + 1, (long int) rank + 1);
-    }
+  rank = GFC_DESCRIPTOR_RANK (array) - 1;
 
   len = GFC_DESCRIPTOR_EXTENT(array,dim);
   if (len < 0)
@@ -104,7 +95,7 @@ iparity_i16 (gfc_array_i16 * const restrict retarray,
 	}
 
       retarray->offset = 0;
-      retarray->dtype.rank = rank;
+      retarray->dtype = (array->dtype & ~GFC_DTYPE_RANK_MASK) | rank;
 
       alloc_size = GFC_DESCRIPTOR_STRIDE(retarray,rank-1) * extent[rank-1];
 
@@ -178,9 +169,9 @@ iparity_i16 (gfc_array_i16 * const restrict retarray,
 	  base -= sstride[n] * extent[n];
 	  dest -= dstride[n] * extent[n];
 	  n++;
-	  if (n >= rank)
+	  if (n == rank)
 	    {
-	      /* Break out of the loop.  */
+	      /* Break out of the look.  */
 	      continue_loop = 0;
 	      break;
 	    }
@@ -214,27 +205,16 @@ miparity_i16 (gfc_array_i16 * const restrict retarray,
   GFC_INTEGER_16 * restrict dest;
   const GFC_INTEGER_16 * restrict base;
   const GFC_LOGICAL_1 * restrict mbase;
-  index_type rank;
-  index_type dim;
+  int rank;
+  int dim;
   index_type n;
   index_type len;
   index_type delta;
   index_type mdelta;
   int mask_kind;
 
-#ifdef HAVE_BACK_ARG
-  assert (back == 0);
-#endif
   dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
-
-
-  if (unlikely (dim < 0 || dim > rank))
-    {
-      runtime_error ("Dim argument incorrect in IPARITY intrinsic: "
- 		     "is %ld, should be between 1 and %ld",
-		     (long int) dim + 1, (long int) rank + 1);
-    }
 
   len = GFC_DESCRIPTOR_EXTENT(array,dim);
   if (len <= 0)
@@ -294,7 +274,7 @@ miparity_i16 (gfc_array_i16 * const restrict retarray,
       alloc_size = GFC_DESCRIPTOR_STRIDE(retarray,rank-1) * extent[rank-1];
 
       retarray->offset = 0;
-      retarray->dtype.rank = rank;
+      retarray->dtype = (array->dtype & ~GFC_DTYPE_RANK_MASK) | rank;
 
       if (alloc_size == 0)
 	{
@@ -366,9 +346,9 @@ miparity_i16 (gfc_array_i16 * const restrict retarray,
 	  mbase -= mstride[n] * extent[n];
 	  dest -= dstride[n] * extent[n];
 	  n++;
-	  if (n >= rank)
+	  if (n == rank)
 	    {
-	      /* Break out of the loop.  */
+	      /* Break out of the look.  */
 	      base = NULL;
 	      break;
 	    }
@@ -406,23 +386,12 @@ siparity_i16 (gfc_array_i16 * const restrict retarray,
 
   if (*mask)
     {
-#ifdef HAVE_BACK_ARG
-      iparity_i16 (retarray, array, pdim, back);
-#else
       iparity_i16 (retarray, array, pdim);
-#endif
       return;
     }
   /* Make dim zero based to avoid confusion.  */
   dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
-
-  if (unlikely (dim < 0 || dim > rank))
-    {
-      runtime_error ("Dim argument incorrect in IPARITY intrinsic: "
- 		     "is %ld, should be between 1 and %ld",
-		     (long int) dim + 1, (long int) rank + 1);
-    }
 
   for (n = 0; n < dim; n++)
     {
@@ -457,7 +426,7 @@ siparity_i16 (gfc_array_i16 * const restrict retarray,
 	}
 
       retarray->offset = 0;
-      retarray->dtype.rank = rank;
+      retarray->dtype = (array->dtype & ~GFC_DTYPE_RANK_MASK) | rank;
 
       alloc_size = GFC_DESCRIPTOR_STRIDE(retarray,rank-1) * extent[rank-1];
 
@@ -517,7 +486,7 @@ siparity_i16 (gfc_array_i16 * const restrict retarray,
 	     frequently used path so probably not worth it.  */
 	  dest -= dstride[n] * extent[n];
 	  n++;
-	  if (n >= rank)
+	  if (n == rank)
 	    return;
 	  else
 	    {

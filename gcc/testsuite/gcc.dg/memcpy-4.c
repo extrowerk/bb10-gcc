@@ -11,3 +11,4 @@ f1 (char *p)
 }
 
 /* { dg-final { scan-rtl-dump "mem/u.*mem/u" "expand" { target mips*-*-* } } } */
+/* { dg-final { cleanup-rtl-dump "expand" } } */

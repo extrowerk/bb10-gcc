@@ -27,3 +27,4 @@ void setup_foo(void)
 /* { dg-final { scan-tree-dump-times "thefoo.* = 1" 1 "gimple"} } */
 /* { dg-final { scan-tree-dump-times "thefoo.* = 5" 1 "gimple"} } */
 /* { dg-final { scan-tree-dump-times "theotherfoo = volinit" 1 "gimple"} } */
+/* { dg-final { cleanup-tree-dump "gimple" } } */

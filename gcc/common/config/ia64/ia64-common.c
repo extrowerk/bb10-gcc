@@ -1,5 +1,5 @@
 /* Common hooks for IA64.
-   Copyright (C) 1999-2018 Free Software Foundation, Inc.
+   Copyright (C) 1999-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,7 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "diagnostic-core.h"
 #include "tm.h"
-#include "memmodel.h"
 #include "tm_p.h"
 #include "common/common-target.h"
 #include "common/common-target-def.h"
@@ -33,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Implement overriding of the optimization options.  */
 static const struct default_options ia64_option_optimization_table[] =
   {
+    { OPT_LEVELS_1_PLUS, OPT_fomit_frame_pointer, NULL, 1 },
 #ifdef SUBTARGET_OPTIMIZATION_OPTIONS
     SUBTARGET_OPTIMIZATION_OPTIONS,
 #endif

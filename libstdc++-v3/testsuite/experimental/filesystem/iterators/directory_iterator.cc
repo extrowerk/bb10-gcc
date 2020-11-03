@@ -1,4 +1,4 @@
-// Copyright (C) 2015-2018 Free Software Foundation, Inc.
+// Copyright (C) 2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,8 +15,7 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// { dg-options "-DUSE_FILESYSTEM_TS -lstdc++fs" }
-// { dg-do run { target c++11 } }
+// { dg-options "-std=gnu++11 -lstdc++fs" }
 // { dg-require-filesystem-ts "" }
 
 #include <experimental/filesystem>
@@ -28,20 +27,21 @@ namespace fs = std::experimental::filesystem;
 void
 test01()
 {
+  bool test __attribute__((unused)) = false;
   std::error_code ec;
 
   // Test non-existent path.
   const auto p = __gnu_test::nonexistent_path();
   fs::directory_iterator iter(p, ec);
   VERIFY( ec );
-  VERIFY( iter == end(iter) );
+  VERIFY( iter != fs::directory_iterator() );
 
   // Test empty directory.
   create_directory(p, fs::current_path(), ec);
   VERIFY( !ec );
   iter = fs::directory_iterator(p, ec);
   VERIFY( !ec );
-  VERIFY( iter == end(iter) );
+  VERIFY( iter == fs::directory_iterator() );
 
   // Test non-empty directory.
   create_directory_symlink(p, p / "l", ec);
@@ -51,20 +51,20 @@ test01()
   VERIFY( iter != fs::directory_iterator() );
   VERIFY( iter->path() == p/"l" );
   ++iter;
-  VERIFY( iter == end(iter) );
+  VERIFY( iter == fs::directory_iterator() );
 
   // Test inaccessible directory.
   permissions(p, fs::perms::none, ec);
   VERIFY( !ec );
   iter = fs::directory_iterator(p, ec);
   VERIFY( ec );
-  VERIFY( iter == end(iter) );
+  VERIFY( iter != fs::directory_iterator() );
 
   // Test inaccessible directory, skipping permission denied.
   const auto opts = fs::directory_options::skip_permission_denied;
   iter = fs::directory_iterator(p, opts, ec);
   VERIFY( !ec );
-  VERIFY( iter == end(iter) );
+  VERIFY( iter == fs::directory_iterator() );
 
   permissions(p, fs::perms::owner_all, ec);
   remove_all(p, ec);
@@ -73,6 +73,8 @@ test01()
 void
 test02()
 {
+  bool test __attribute__((unused)) = false;
+
   std::error_code ec;
   const auto p = __gnu_test::nonexistent_path();
   create_directory(p, fs::current_path(), ec);
@@ -82,12 +84,12 @@ test02()
   // Test post-increment (libstdc++/71005)
   auto iter = fs::directory_iterator(p, ec);
   VERIFY( !ec );
-  VERIFY( iter != end(iter) );
+  VERIFY( iter != fs::directory_iterator() );
   const auto entry1 = *iter;
   const auto entry2 = *iter++;
   VERIFY( entry1 == entry2 );
   VERIFY( entry1.path() == p/"l" );
-  VERIFY( iter == end(iter) );
+  VERIFY( iter == fs::directory_iterator() );
 
   remove_all(p, ec);
 }
@@ -95,6 +97,8 @@ test02()
 void
 test03()
 {
+  bool test __attribute__((unused)) = false;
+
   std::error_code ec;
   const auto p = __gnu_test::nonexistent_path();
   create_directories(p / "longer_than_small_string_buffer", ec);
@@ -112,6 +116,8 @@ test03()
 void
 test04()
 {
+  bool test __attribute__((unused)) = false;
+
   const fs::directory_iterator it;
   VERIFY( it == fs::directory_iterator() );
 }
@@ -119,6 +125,8 @@ test04()
 void
 test05()
 {
+  bool test __attribute__((unused)) = false;
+
   auto p = __gnu_test::nonexistent_path();
   create_directory(p);
   create_directory_symlink(p, p / "l");
@@ -127,9 +135,6 @@ test05()
   static_assert( noexcept(begin(it)), "begin is noexcept" );
   VERIFY( end(it) == endit );
   static_assert( noexcept(end(it)), "end is noexcept" );
-
-  std::error_code ec;
-  remove_all(p, ec);
 }
 
 int

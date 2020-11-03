@@ -46,18 +46,16 @@ int bizr (void)
   return i + 1;
 }
 
-/* This might be regarded as pure and folded, rather than inlined,
-   but because it's pure evil it's diagnosed and the noreturn attribute
-   is dropped.  The const attribute is dropped as well because it's
-   mutually exclusive with pure.  */
+/* This might be regarded as pure and folded, rather than inlined.
+   It's pure evil.  */
 static int __attribute__ ((pure, const, noreturn))
-barf (void) {
-  /* { dg-warning "ignoring attribute .const." "const" { target *-*-* } .-1 } */
-  /* { dg-warning "ignoring attribute .noreturn." "noreturn" { target *-*-* } .-2 } */
+barf (void)
+{
 } /* { dg-warning "does return" } */
 
 static int __attribute__ ((pure, const))
-bark (void) {   /* { dg-warning "ignoring attribute .const." } */
+bark (void)
+{
   barf ();
 }
 

@@ -7,4 +7,7 @@ package bytes
 // Export func for testing
 var IndexBytePortable = indexBytePortable
 var EqualPortable = equalPortable
-var CountGeneric = countGeneric
+
+func (b *Buffer) Cap() int {
+	return cap(b.buf)
+}

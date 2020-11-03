@@ -1,6 +1,6 @@
-// { dg-do run { target c++11 } }
+// { dg-options "-std=gnu++11" }
 
-// Copyright (C) 2009-2018 Free Software Foundation, Inc.
+// Copyright (C) 2009-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -47,6 +47,8 @@ namespace std
 // libstdc++/39881
 void test01()
 {
+  bool test __attribute__((unused)) = true;
+
   std::error_condition ec1(my_err);
   VERIFY( ec1 == make_error_condition(my_err) );
 }

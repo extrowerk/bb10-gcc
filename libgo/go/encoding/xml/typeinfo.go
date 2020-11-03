@@ -1,4 +1,4 @@
-// Copyright 2011 The Go Authors. All rights reserved.
+// Copyright 2011 The Go Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -31,7 +31,6 @@ type fieldFlags int
 const (
 	fElement fieldFlags = 1 << iota
 	fAttr
-	fCDATA
 	fCharData
 	fInnerXml
 	fComment
@@ -39,23 +38,24 @@ const (
 
 	fOmitEmpty
 
-	fMode = fElement | fAttr | fCDATA | fCharData | fInnerXml | fComment | fAny
-
-	xmlName = "XMLName"
+	fMode = fElement | fAttr | fCharData | fInnerXml | fComment | fAny
 )
 
-var tinfoMap sync.Map // map[reflect.Type]*typeInfo
+var tinfoMap = make(map[reflect.Type]*typeInfo)
+var tinfoLock sync.RWMutex
 
 var nameType = reflect.TypeOf(Name{})
 
 // getTypeInfo returns the typeInfo structure with details necessary
-// for marshaling and unmarshaling typ.
+// for marshalling and unmarshalling typ.
 func getTypeInfo(typ reflect.Type) (*typeInfo, error) {
-	if ti, ok := tinfoMap.Load(typ); ok {
-		return ti.(*typeInfo), nil
+	tinfoLock.RLock()
+	tinfo, ok := tinfoMap[typ]
+	tinfoLock.RUnlock()
+	if ok {
+		return tinfo, nil
 	}
-
-	tinfo := &typeInfo{}
+	tinfo = &typeInfo{}
 	if typ.Kind() == reflect.Struct && typ != nameType {
 		n := typ.NumField()
 		for i := 0; i < n; i++ {
@@ -93,7 +93,7 @@ func getTypeInfo(typ reflect.Type) (*typeInfo, error) {
 				return nil, err
 			}
 
-			if f.Name == xmlName {
+			if f.Name == "XMLName" {
 				tinfo.xmlname = finfo
 				continue
 			}
@@ -104,9 +104,10 @@ func getTypeInfo(typ reflect.Type) (*typeInfo, error) {
 			}
 		}
 	}
-
-	ti, _ := tinfoMap.LoadOrStore(typ, tinfo)
-	return ti.(*typeInfo), nil
+	tinfoLock.Lock()
+	tinfoMap[typ] = tinfo
+	tinfoLock.Unlock()
+	return tinfo, nil
 }
 
 // structFieldInfo builds and returns a fieldInfo for f.
@@ -129,8 +130,6 @@ func structFieldInfo(typ reflect.Type, f *reflect.StructField) (*fieldInfo, erro
 			switch flag {
 			case "attr":
 				finfo.flags |= fAttr
-			case "cdata":
-				finfo.flags |= fCDATA
 			case "chardata":
 				finfo.flags |= fCharData
 			case "innerxml":
@@ -149,8 +148,8 @@ func structFieldInfo(typ reflect.Type, f *reflect.StructField) (*fieldInfo, erro
 		switch mode := finfo.flags & fMode; mode {
 		case 0:
 			finfo.flags |= fElement
-		case fAttr, fCDATA, fCharData, fInnerXml, fComment, fAny, fAny | fAttr:
-			if f.Name == xmlName || tag != "" && mode != fAttr {
+		case fAttr, fCharData, fInnerXml, fComment, fAny:
+			if f.Name == "XMLName" || tag != "" && mode != fAttr {
 				valid = false
 			}
 		default:
@@ -175,7 +174,7 @@ func structFieldInfo(typ reflect.Type, f *reflect.StructField) (*fieldInfo, erro
 			f.Name, typ, f.Tag.Get("xml"))
 	}
 
-	if f.Name == xmlName {
+	if f.Name == "XMLName" {
 		// The XMLName field records the XML element name. Don't
 		// process it as usual because its name should default to
 		// empty rather than to the field name.
@@ -212,7 +211,7 @@ func structFieldInfo(typ reflect.Type, f *reflect.StructField) (*fieldInfo, erro
 	}
 
 	// If the field type has an XMLName field, the names must match
-	// so that the behavior of both marshaling and unmarshaling
+	// so that the behavior of both marshalling and unmarshalling
 	// is straightforward and unambiguous.
 	if finfo.flags&fElement != 0 {
 		ftyp := f.Type
@@ -237,11 +236,11 @@ func lookupXMLName(typ reflect.Type) (xmlname *fieldInfo) {
 	}
 	for i, n := 0, typ.NumField(); i < n; i++ {
 		f := typ.Field(i)
-		if f.Name != xmlName {
+		if f.Name != "XMLName" {
 			continue
 		}
 		finfo, err := structFieldInfo(typ, &f)
-		if err == nil && finfo.name != "" {
+		if finfo.name != "" && err == nil {
 			return finfo
 		}
 		// Also consider errors as a non-existent field tag
@@ -332,7 +331,7 @@ Loop:
 	return nil
 }
 
-// A TagPathError represents an error in the unmarshaling process
+// A TagPathError represents an error in the unmarshalling process
 // caused by the use of field tags with conflicting paths.
 type TagPathError struct {
 	Struct       reflect.Type

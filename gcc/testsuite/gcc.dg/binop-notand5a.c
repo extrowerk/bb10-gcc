@@ -8,3 +8,4 @@ foo (long a, unsigned long b)
 }
 
 /* { dg-final { scan-tree-dump-times "return 0" 1 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

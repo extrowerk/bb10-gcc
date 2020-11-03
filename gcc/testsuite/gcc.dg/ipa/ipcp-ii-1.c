@@ -31,3 +31,4 @@ int main (int argc, int *argv[])
 }
 
 /* { dg-final { scan-ipa-dump "hooray\[^\\n\]*inline copy in hiphip.constprop"  "inline"  } } */
+/* { dg-final { cleanup-ipa-dump "inline" } } */

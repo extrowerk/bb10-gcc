@@ -80,3 +80,4 @@ main (int argc, char *argv[])
   return 0;
 }
 
+/* { dg-final { cleanup-saved-temps } } */

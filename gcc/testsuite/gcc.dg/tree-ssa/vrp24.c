@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fno-tree-forwprop -fdump-tree-vrp1-details -fdump-tree-optimized" } */
+/* { dg-options "-O2 -fdump-tree-vrp1-details" } */
 
 
 struct rtx_def;
@@ -86,8 +86,11 @@ L7:
 
 /* The first n_sets > 0 test can be simplfiied into n_sets == 1 since
    n_sets can only have the values [0, 1] as it's the result of a
-   boolean operation.  */
+   boolean operation.
 
-/* { dg-final { scan-tree-dump-times "Simplified relational" 1 "vrp1" } } */
-/* { dg-final { scan-tree-dump-times "if " 4 "optimized" } } */
+   The second n_sets > 0 test can also be simplified into n_sets == 1
+   as the only way to reach the tests is when n_sets <= 1 and the only
+   value which satisfies both conditions is n_sets == 1.  */
+/* { dg-final { scan-tree-dump-times "Simplified relational" 2 "vrp1" } } */
+/* { dg-final { cleanup-tree-dump "vrp1" } } */
 

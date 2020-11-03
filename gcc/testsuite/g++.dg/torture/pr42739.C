@@ -1,5 +1,4 @@
 /* { dg-do compile } */
-/* { dg-require-effective-target indirect_jumps } */
 
 struct s { ~s() { s(); } };
 

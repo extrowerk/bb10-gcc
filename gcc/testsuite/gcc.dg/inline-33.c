@@ -20,3 +20,4 @@ int foo (i)
 }
 
 /* { dg-final { scan-tree-dump-times "bar"  2 "optimized"  } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

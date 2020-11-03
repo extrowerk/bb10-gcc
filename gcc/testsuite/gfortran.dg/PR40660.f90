@@ -11,4 +11,5 @@ PROGRAM test
 end program test
 
 ! { dg-final { scan-tree-dump-times ": 3\] _gfortran" 0 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }
 

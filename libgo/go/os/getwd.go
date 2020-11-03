@@ -20,23 +20,23 @@ var getwdCache struct {
 var useSyscallwd = func(error) bool { return true }
 
 // Getwd returns a rooted path name corresponding to the
-// current directory. If the current directory can be
+// current directory.  If the current directory can be
 // reached via multiple paths (due to symbolic links),
 // Getwd may return any one of them.
 func Getwd() (dir string, err error) {
-	if runtime.GOOS == "windows" || runtime.GOOS == "plan9" {
+	if runtime.GOOS == "windows" {
 		return syscall.Getwd()
 	}
 
 	// Clumsy but widespread kludge:
 	// if $PWD is set and matches ".", use it.
-	dot, err := statNolog(".")
+	dot, err := Stat(".")
 	if err != nil {
 		return "", err
 	}
 	dir = Getenv("PWD")
 	if len(dir) > 0 && dir[0] == '/' {
-		d, err := statNolog(dir)
+		d, err := Stat(dir)
 		if err == nil && SameFile(dot, d) {
 			return dir, nil
 		}
@@ -56,7 +56,7 @@ func Getwd() (dir string, err error) {
 	dir = getwdCache.dir
 	getwdCache.Unlock()
 	if len(dir) > 0 {
-		d, err := statNolog(dir)
+		d, err := Stat(dir)
 		if err == nil && SameFile(dot, d) {
 			return dir, nil
 		}
@@ -64,7 +64,7 @@ func Getwd() (dir string, err error) {
 
 	// Root is a special case because it has no parent
 	// and ends in a slash.
-	root, err := statNolog("/")
+	root, err := Stat("/")
 	if err != nil {
 		// Can't stat root - no hope.
 		return "", err
@@ -74,14 +74,14 @@ func Getwd() (dir string, err error) {
 	}
 
 	// General algorithm: find name in parent
-	// and then find name of parent. Each iteration
+	// and then find name of parent.  Each iteration
 	// adds /name to the beginning of dir.
 	dir = ""
 	for parent := ".."; ; parent = "../" + parent {
 		if len(parent) >= 1024 { // Sanity check
 			return "", syscall.ENAMETOOLONG
 		}
-		fd, err := openFileNolog(parent, O_RDONLY, 0)
+		fd, err := Open(parent)
 		if err != nil {
 			return "", err
 		}
@@ -93,7 +93,7 @@ func Getwd() (dir string, err error) {
 				return "", err
 			}
 			for _, name := range names {
-				d, _ := lstatNolog(parent + "/" + name)
+				d, _ := Lstat(parent + "/" + name)
 				if SameFile(d, dot) {
 					dir = "/" + name + dir
 					goto Found

@@ -1,8 +1,7 @@
 /* { dg-do compile } */
-/* { dg-require-effective-target arm_fp_ok } */
+/* { dg-require-effective-target arm_vfp_ok } */
 /* { dg-skip-if "need fp instructions" { *-*-* } { "-mfloat-abi=soft" } { "" } } */
-/* { dg-options "-O2" } */
-/* { dg-add-options arm_fp } */
+/* { dg-options "-O2 -mfpu=vfp -mfloat-abi=softfp" } */
 
 void
 foo (float *p, float a, float b, int n)

@@ -13,7 +13,6 @@
 
 #include CHECK_H
 
-#define __NO_MATH_INLINES
 #include <math.h>
 
 extern float roundf (float);

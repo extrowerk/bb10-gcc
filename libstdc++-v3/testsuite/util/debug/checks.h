@@ -1,4 +1,4 @@
-// Copyright (C) 2010-2018 Free Software Foundation, Inc.
+// Copyright (C) 2010-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -53,26 +53,13 @@ namespace __gnu_test
       }
     };
 
-  template<>
-    struct generate_unique<bool>
-    {
-      typedef bool value_type;
-
-      value_type build()
-      {
-	static value_type _S_;
-	_S_ = !_S_;
-	return _S_;
-      }
-    };
-
   template<typename _Tp1, typename _Tp2>
     struct generate_unique<std::pair<_Tp1, _Tp2> >
     {
       typedef _Tp1 first_type;
       typedef _Tp2 second_type;
       typedef std::pair<_Tp1, _Tp2> pair_type;
-
+      
       pair_type build()
       {
 	static first_type _S_1;
@@ -88,6 +75,8 @@ namespace __gnu_test
     void
     check_assign1()
     {
+      bool test __attribute__((unused)) = true;
+
       typedef _Tp cont_type;
       typedef typename cont_type::value_type cont_val_type;
       typedef typename CopyableValueType<cont_val_type>::value_type val_type;
@@ -116,6 +105,8 @@ namespace __gnu_test
     void
     check_assign2()
     {
+      bool test __attribute__((unused)) = true;
+
       typedef _Tp cont_type;
       typedef typename cont_type::value_type cont_val_type;
       typedef typename CopyableValueType<cont_val_type>::value_type val_type;
@@ -143,6 +134,8 @@ namespace __gnu_test
     void
     check_assign3()
     {
+      bool test __attribute__((unused)) = true;
+
       typedef _Tp cont_type;
       typedef typename cont_type::value_type cont_val_type;
       typedef typename CopyableValueType<cont_val_type>::value_type val_type;
@@ -170,6 +163,8 @@ namespace __gnu_test
     void
     check_construct1()
     {
+      bool test __attribute__((unused)) = true;
+
       typedef _Tp cont_type;
       typedef typename cont_type::value_type cont_val_type;
       typedef typename CopyableValueType<cont_val_type>::value_type val_type;
@@ -186,13 +181,15 @@ namespace __gnu_test
       val_type *last = first + 2;
 
       cont_type c(last, first); // Expected failure
-    }
+    } 
 
   // Check that invalid range of debug random iterators is detected
   template<typename _Tp>
     void
     check_construct2()
     {
+      bool test __attribute__((unused)) = true;
+
       typedef _Tp cont_type;
       typedef typename cont_type::value_type cont_val_type;
       typedef typename CopyableValueType<cont_val_type>::value_type val_type;
@@ -216,6 +213,8 @@ namespace __gnu_test
     void
     check_construct3()
     {
+      bool test __attribute__((unused)) = true;
+
       typedef _Tp cont_type;
       typedef typename cont_type::value_type cont_val_type;
       typedef typename CopyableValueType<cont_val_type>::value_type val_type;
@@ -288,6 +287,8 @@ namespace __gnu_test
     void
     check_insert1()
     {
+      bool test __attribute__((unused)) = true;
+
       typedef _Tp cont_type;
       typedef typename cont_type::value_type cont_val_type;
       typedef typename CopyableValueType<cont_val_type>::value_type val_type;
@@ -315,6 +316,8 @@ namespace __gnu_test
     void
     check_insert2()
     {
+      bool test __attribute__((unused)) = true;
+
       typedef _Tp cont_type;
       typedef typename cont_type::value_type cont_val_type;
       typedef typename CopyableValueType<cont_val_type>::value_type val_type;
@@ -342,6 +345,8 @@ namespace __gnu_test
     void
     check_insert3()
     {
+      bool test __attribute__((unused)) = true;
+
       typedef _Tp cont_type;
       typedef typename cont_type::value_type cont_val_type;
       typedef typename CopyableValueType<cont_val_type>::value_type val_type;
@@ -369,6 +374,8 @@ namespace __gnu_test
     void
     check_insert4()
     {
+      bool test __attribute__((unused)) = true;
+
       typedef _Tp cont_type;
       typedef typename cont_type::value_type cont_val_type;
       typedef typename CopyableValueType<cont_val_type>::value_type val_type;
@@ -394,6 +401,8 @@ namespace __gnu_test
   template<typename _Tp>
     void use_invalid_iterator()
     {
+      bool test __attribute__((unused)) = true;
+
       typedef _Tp cont_type;
       typedef typename cont_type::value_type cont_val_type;
       typedef typename CopyableValueType<cont_val_type>::value_type val_type;

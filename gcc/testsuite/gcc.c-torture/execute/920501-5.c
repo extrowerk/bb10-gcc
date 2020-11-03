@@ -1,5 +1,4 @@
-/* { dg-require-effective-target label_values } */
-
+#ifndef NO_LABEL_VALUES
 x (int i)
 {
   void *j[] = {&&x, &&y, &&z};
@@ -15,3 +14,6 @@ main ()
     abort();
   exit(0);
 }
+#else
+main(){ exit (0); }
+#endif

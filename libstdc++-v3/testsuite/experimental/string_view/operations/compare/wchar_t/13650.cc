@@ -1,6 +1,6 @@
-// { dg-do run { target c++14 } }
+// { dg-options "-std=gnu++14" }
 
-// Copyright (C) 2013-2018 Free Software Foundation, Inc.
+// Copyright (C) 2013-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,6 +27,7 @@ void
 test01()
 {
   using namespace std::experimental;
+  bool test [[gnu::unused]] = true;
 
   const wchar_t lit_01[] = { L'w', L'e', L'\0', L'r', L'd' };
   const wchar_t lit_02[] = { L'w', L'e', L'i', L'\0', L'd' };

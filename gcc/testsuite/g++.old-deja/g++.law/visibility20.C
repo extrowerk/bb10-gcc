@@ -8,7 +8,7 @@
 
 class Base {
 protected:
-      void protectedBaseFunction() {} // { dg-message "" } protected
+      void protectedBaseFunction() {} // { dg-error "" } protected
 public:
     Base() {}
 };
@@ -31,6 +31,6 @@ int main() {
     Base b;
     Derived d;
     d.noticeThisFunction(&b);
-    printf("gpptest run\n");// { dg-error "5:'printf' was not declared" } .*
+    printf("gpptest run\n");// { dg-error "" } .*
 }
 

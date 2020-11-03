@@ -1,5 +1,4 @@
 /* { dg-do compile } */
-/* { dg-require-stack-check "" } */
 /* { dg-options "-O -fstack-check" } */
 
 void foo (int n)

@@ -88,7 +88,6 @@ CXXFLAGS="$save_CXXFLAGS"
 # up critical shell variables.
 GLIBCXX_CONFIGURE
 
-# Libtool setup.
 if test "x${with_newlib}" != "xyes"; then
   AC_LIBTOOL_DLOPEN
 fi
@@ -102,39 +101,6 @@ if test "$enable_vtable_verify" = yes; then
   postdep_objects_CXX="${postdep_objects_CXX} ${glibcxx_builddir}/../libgcc/vtv_end.o"
 fi
 
-
-# libtool variables for C++ shared and position-independent compiles.
-#
-# Use glibcxx_lt_pic_flag to designate the automake variable
-# used to encapsulate the default libtool approach to creating objects
-# with position-independent code. Default: -prefer-pic.
-#
-# Use glibcxx_compiler_shared_flag to designate a compile-time flags for
-# creating shared objects. Default: -D_GLIBCXX_SHARED.
-#
-# Use glibcxx_compiler_pic_flag to designate a compile-time flags for
-# creating position-independent objects. This varies with the target
-# hardware and operating system, but is often: -DPIC -fPIC.
-if test "$enable_shared" = yes; then
-  glibcxx_lt_pic_flag="-prefer-pic"
-  glibcxx_compiler_pic_flag="$lt_prog_compiler_pic_CXX"
-  glibcxx_compiler_shared_flag="-D_GLIBCXX_SHARED"
-
-else
-  glibcxx_lt_pic_flag=
-  glibcxx_compiler_pic_flag=
-  glibcxx_compiler_shared_flag=
-fi
-AC_SUBST(glibcxx_lt_pic_flag)
-AC_SUBST(glibcxx_compiler_pic_flag)
-AC_SUBST(glibcxx_compiler_shared_flag)
-
-# Override the libtool's pic_flag and pic_mode.
-# Do this step after AM_PROG_LIBTOOL, but before AC_OUTPUT.
-# NB: this impacts --with-pic and --without-pic.
-lt_prog_compiler_pic_CXX="$glibcxx_compiler_pic_flag $glibcxx_compiler_shared_flag"
-pic_mode='default'
-
 # Eliminate -lstdc++ addition to postdeps for cross compiles.
 postdeps_CXX=`echo " $postdeps_CXX " | sed 's, -lstdc++ ,,g'`
 
@@ -147,6 +113,7 @@ GLIBCXX_ENABLE_HOSTED
 GLIBCXX_ENABLE_VERBOSE
 
 # Enable compiler support that doesn't require linking.
+GLIBCXX_ENABLE_SJLJ_EXCEPTIONS
 GLIBCXX_ENABLE_PCH($is_hosted)
 GLIBCXX_ENABLE_THREADS
 GLIBCXX_ENABLE_ATOMIC_BUILTINS
@@ -182,7 +149,6 @@ GLIBCXX_ENABLE_VTABLE_VERIFY([no])
 GLIBCXX_CHECK_STDIO_PROTO
 GLIBCXX_CHECK_MATH11_PROTO
 GLIBCXX_CHECK_SYSTEM_ERROR
-GLIBCXX_CHECK_UCHAR_H
 
 # For the streamoff typedef.
 GLIBCXX_CHECK_INT64_T
@@ -237,13 +203,7 @@ AC_CHECK_HEADERS([endian.h execinfo.h float.h fp.h ieeefp.h inttypes.h \
 locale.h machine/endian.h machine/param.h nan.h stdint.h stdlib.h string.h \
 strings.h sys/ipc.h sys/isa_defs.h sys/machine.h sys/param.h \
 sys/resource.h sys/sem.h sys/stat.h sys/time.h sys/types.h unistd.h \
-wchar.h wctype.h linux/types.h])
-
-AC_CHECK_HEADERS([linux/random.h], [], [],
-[[#ifdef HAVE_LINUX_TYPES_H
-# include <linux/types.h>
-#endif
-]])
+wchar.h wctype.h])
 
 # Only do link tests if native. Else, hardcode.
 if $GLIBCXX_IS_NATIVE; then
@@ -261,8 +221,7 @@ if $GLIBCXX_IS_NATIVE; then
   # For TLS support.
   GCC_CHECK_TLS
 
-  AC_CHECK_FUNCS(__cxa_thread_atexit_impl __cxa_thread_atexit)
-  AC_CHECK_FUNCS(aligned_alloc posix_memalign memalign _aligned_malloc)
+  AC_CHECK_FUNCS(__cxa_thread_atexit_impl)
 
   # For iconv support.
   AM_ICONV
@@ -330,7 +289,6 @@ else
     AC_DEFINE(HAVE_TANHF)
 
     AC_DEFINE(HAVE_ICONV)
-    AC_DEFINE(HAVE_MEMALIGN)
   else
     GLIBCXX_CROSSCONFIG
   fi
@@ -381,7 +339,6 @@ GLIBCXX_ENABLE_LIBSTDCXX_DUAL_ABI([yes])
 GLIBCXX_DEFAULT_ABI
 
 ac_ldbl_compat=no
-LONG_DOUBLE_COMPAT_FLAGS="-mlong-double-64"
 case "$target" in
   powerpc*-*-linux* | \
   sparc*-*-linux* | \
@@ -396,17 +353,12 @@ case "$target" in
     AC_DEFINE([_GLIBCXX_LONG_DOUBLE_COMPAT],1,
 	      [Define if compatibility should be provided for -mlong-double-64.])
     port_specific_symbol_files="\$(top_srcdir)/config/os/gnu-linux/ldbl-extra.ver"
-    case "$target" in
-      powerpc*-*-linux*)
-	LONG_DOUBLE_COMPAT_FLAGS="$LONG_DOUBLE_COMPAT_FLAGS -mno-gnu-attribute" ;;
-    esac
   fi
 esac
-AC_SUBST(LONG_DOUBLE_COMPAT_FLAGS)
 GLIBCXX_CONDITIONAL(GLIBCXX_LDBL_COMPAT, test $ac_ldbl_compat = yes)
 
 # Check if assembler supports disabling hardware capability support.
-GCC_CHECK_ASSEMBLER_HWCAP
+GLIBCXX_CHECK_ASSEMBLER_HWCAP
 
 # Check if assembler supports rdrand opcode.
 GLIBCXX_CHECK_X86_RDRAND
@@ -421,12 +373,6 @@ GLIBCXX_CHECK_GTHREADS
 AC_CHECK_HEADERS([fcntl.h dirent.h sys/statvfs.h utime.h])
 GLIBCXX_ENABLE_FILESYSTEM_TS
 GLIBCXX_CHECK_FILESYSTEM_DEPS
-
-# For Transactional Memory TS
-GLIBCXX_CHECK_SIZE_T_MANGLING
-
-# Check which release added std::exception_ptr for the target
-GLIBCXX_CHECK_EXCEPTION_PTR_SYMVER
 
 # Define documentation rules conditionally.
 
@@ -473,12 +419,6 @@ AM_CONDITIONAL(BUILD_PDF,
 	       test $ac_cv_prog_DBLATEX = "yes" &&
 	       test $ac_cv_prog_PDFLATEX = "yes")
 
-case "$build" in
- *-*-darwin* ) glibcxx_include_dir_notparallel=yes ;;
- * ) glibcxx_include_dir_notparallel=no ;;
-esac
-AM_CONDITIONAL(INCLUDE_DIR_NOTPARALLEL,
-               test $glibcxx_include_dir_notparallel = "yes")
 
 # Propagate the target-specific source directories through the build chain.
 ATOMICITY_SRCDIR=config/${atomicity_dir}
@@ -501,13 +441,6 @@ AC_SUBST(CPU_OPT_EXT_RANDOM)
 AC_SUBST(CPU_OPT_BITS_RANDOM)
 
 
-# Add CET specific flags if Intel CET is enabled.
-GCC_CET_FLAGS(CET_FLAGS)
-EXTRA_CXX_FLAGS="$EXTRA_CXX_FLAGS $CET_FLAGS"
-EXTRA_CFLAGS="$EXTRA_CFLAGS $CET_FLAGS"
-AC_SUBST(EXTRA_CFLAGS)
-AC_SUBST(EXTRA_CXX_FLAGS)
-
 # Determine cross-compile flags and AM_CONDITIONALs.
 #AC_SUBST(GLIBCXX_IS_NATIVE)
 #AM_CONDITIONAL(CANADIAN, test $CANADIAN = yes)
@@ -528,8 +461,12 @@ GLIBCXX_EXPORT_INSTALL_INFO
 GLIBCXX_EXPORT_INCLUDES
 GLIBCXX_EXPORT_FLAGS
 
-# Determine what GCC version number to use in filesystem paths.
-GCC_BASE_VER
+if test "$enable_shared" = yes; then
+  PIC_CXXFLAGS="-prefer-pic"
+else
+  PIC_CXXFLAGS=
+fi
+AC_SUBST(PIC_CXXFLAGS)
 
 dnl In autoconf 2.5x, AC_OUTPUT is replaced by four AC_CONFIG_* macros,
 dnl which can all be called multiple times as needed, plus one (different)

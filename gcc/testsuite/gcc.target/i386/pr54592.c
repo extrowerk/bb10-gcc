@@ -1,6 +1,7 @@
 /* PR target/54592 */
 /* { dg-do compile } */
 /* { dg-options "-Os -msse2" } */
+/* { dg-require-effective-target sse2 } */
 
 #include <emmintrin.h>
 

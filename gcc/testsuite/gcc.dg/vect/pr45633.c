@@ -12,3 +12,4 @@ foo (void)
     t[i] -= s[i];
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

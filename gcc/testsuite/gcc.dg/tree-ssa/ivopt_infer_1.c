@@ -22,3 +22,4 @@ void foo (int i_width, TYPE dst, TYPE src1, TYPE src2)
 }
 
 /* { dg-final { scan-tree-dump-times "Replacing" 1 "ivopts"} } */
+/* { dg-final { cleanup-tree-dump "ivopts" } } */

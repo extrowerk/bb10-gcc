@@ -1,5 +1,5 @@
 // PR c++/54410
-// { dg-options "-gdwarf-2 -dA" }
+// { dg-options "-g -dA" }
 // { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_type_param" 1 } }
 
 namespace N {

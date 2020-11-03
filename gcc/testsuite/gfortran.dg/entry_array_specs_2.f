@@ -9,9 +9,9 @@
       real a(10)
       a(1) = 999.
       call x
-      if (j .ne. 1) STOP 1
+      if (j .ne. 1) call abort ()
       call y(a,10)
-      if (j .ne. 2) STOP 2
+      if (j .ne. 2) call abort ()
       stop
       end 
       subroutine x

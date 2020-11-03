@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, FreeBSD/arm version.
-   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Wasabi Systems, Inc.
 
    This file is part of GCC.
@@ -112,17 +112,19 @@
 #undef  WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE BITS_PER_WORD
 
-/* FreeBSD 10 does not support unaligned access for armv6 and up.
-   Unaligned access support was added in FreeBSD 11.  */
-#if FBSD_MAJOR < 11
-#define SUBTARGET_OVERRIDE_INTERNAL_OPTIONS				\
-do {									\
-    if (opts_set->x_unaligned_access == 1)				\
-        warning (0, "target OS does not support unaligned accesses");	\
-    if (opts->x_unaligned_access)					\
-	opts->x_unaligned_access = 0;					\
-} while (0)
+#if defined (TARGET_FREEBSD_ARMv6)
+#undef  SUBTARGET_CPU_DEFAULT
+#define SUBTARGET_CPU_DEFAULT TARGET_CPU_arm1176jzs
+#else
+#undef  SUBTARGET_CPU_DEFAULT
+#define SUBTARGET_CPU_DEFAULT   TARGET_CPU_arm9
 #endif
+
+#define SUBTARGET_OVERRIDE_OPTIONS		\
+do {						\
+    if (unaligned_access)			\
+	unaligned_access = 0;			\
+} while (0)
 
 #undef MAX_SYNC_LIBFUNC_SIZE
 #define MAX_SYNC_LIBFUNC_SIZE 4 /* UNITS_PER_WORD not defined yet.  */

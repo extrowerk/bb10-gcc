@@ -5,7 +5,7 @@ int i_am_pure(char *c, int n)
 {
   char *d=__builtin_alloca (n);
   int i;
-  int sum = 0;
+  int sum;
   for (i=0;i<n;i++)
     d[i] = c[i];
   for (i=0;i<n;i++)
@@ -26,3 +26,5 @@ main(void)
 }
 /* { dg-final { scan-tree-dump "found to be pure: i_am_pure" "local-pure-const1"} } */
 /* { dg-final { scan-tree-dump-not "i_am_pure" "optimized"} } */
+/* { dg-final { cleanup-tree-dump "local-pure-const1" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

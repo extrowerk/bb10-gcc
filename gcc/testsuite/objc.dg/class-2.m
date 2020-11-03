@@ -11,4 +11,4 @@
 @end
 
 @implementation class1 : supclass2 /* { dg-error "conflicting super class name" } */
-@end /* { dg-error "previous declaration" "" { target *-*-* } .-1 } */
+@end /* { dg-error "previous declaration" "" { target *-*-* } 13 } */

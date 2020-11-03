@@ -13,3 +13,4 @@ int bar(int y)
 
 /* { dg-final { scan-tree-dump-times "x \\^ -5" 1 "original" } } */
 /* { dg-final { scan-tree-dump-times "y \\^ -5" 1 "original" } } */
+/* { dg-final { cleanup-tree-dump "original" } } */

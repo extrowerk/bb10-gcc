@@ -1,6 +1,5 @@
 /* { dg-do run } */
 /* { dg-options "-Os" } */
-/* { dg-require-effective-target int32plus } */
 
 union U
 {

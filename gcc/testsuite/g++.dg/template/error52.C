@@ -9,11 +9,11 @@ namespace H {
     struct B {};
     }
 
-A a;             // { dg-error "template|no match" }
-H::B b;          // { dg-error "template|no match" }
+A a;             // { dg-error "template" }
+H::B b;          // { dg-error "template" }
 
 int main() {
-    A a;         // { dg-error "template|no match" }
-    H::B b;      // { dg-error "template|no match" }
+    A a;         // { dg-error "template" }
+    H::B b;      // { dg-error "template" }
     return 0;
     }

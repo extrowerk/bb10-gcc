@@ -5,7 +5,7 @@
 
 extern void callme (void) throw();
 
-void
+int
 bar (int i)
 {
   try {
@@ -16,3 +16,4 @@ bar (int i)
 }
 
 /* { dg-final { scan-tree-dump-times "resx" 1 "eh" } } */
+/* { dg-final { cleanup-tree-dump "eh" } } */

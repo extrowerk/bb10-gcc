@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package strconv implements conversions to and from string representations
+// of basic data types.
 package strconv
 
 // decimal to binary floating point conversion.
@@ -245,9 +247,7 @@ func readFloat(s string) (mantissa uint64, exp int, neg, trunc, ok bool) {
 		return
 	}
 
-	if mantissa != 0 {
-		exp = dp - ndMant
-	}
+	exp = dp - ndMant
 	ok = true
 	return
 
@@ -536,10 +536,11 @@ func atof64(s string) (f float64, err error) {
 // If s is syntactically well-formed but is more than 1/2 ULP
 // away from the largest floating point number of the given size,
 // ParseFloat returns f = ±Inf, err.Err = ErrRange.
-func ParseFloat(s string, bitSize int) (float64, error) {
+func ParseFloat(s string, bitSize int) (f float64, err error) {
 	if bitSize == 32 {
-		f, err := atof32(s)
-		return float64(f), err
+		f1, err1 := atof32(s)
+		return float64(f1), err1
 	}
-	return atof64(s)
+	f1, err1 := atof64(s)
+	return f1, err1
 }

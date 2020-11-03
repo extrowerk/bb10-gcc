@@ -22,3 +22,4 @@ begin
 end;
 
 -- { dg-final { scan-tree-dump-not "VIEW_CONVERT_EXPR" "optimized" } }
+-- { dg-final { cleanup-tree-dump "optimized" } }

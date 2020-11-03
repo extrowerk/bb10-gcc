@@ -87,7 +87,7 @@ name`'rtype_qual`_'atype_code (rtype * const restrict retarray,
         }
 
       retarray->offset = 0;
-      retarray->dtype.rank = rank;
+      retarray->dtype = (array->dtype & ~GFC_DTYPE_RANK_MASK) | rank;
 
       alloc_size = GFC_DESCRIPTOR_STRIDE(retarray,rank-1) * extent[rank-1];
 
@@ -184,9 +184,9 @@ define(FINISH_ARRAY_FUNCTION,
           base -= sstride[n] * extent[n];
           dest -= dstride[n] * extent[n];
           n++;
-          if (n >= rank)
+          if (n == rank)
             {
-              /* Break out of the loop.  */
+              /* Break out of the look.  */
               continue_loop = 0;
               break;
             }

@@ -35,17 +35,17 @@ ptr1 => bar1(2)
 ptr2 => bar2(2)
 
 bar1 = x%gen(1)
-if (ptr1 /= 11) STOP 1
+if (ptr1 /= 11) call abort()
 bar1 = x%foo(2)
-if (ptr1 /= 12) STOP 2
+if (ptr1 /= 12) call abort()
 bar2 = x%gen(3)
-if (ptr2 /= 13) STOP 3
+if (ptr2 /= 13) call abort()
 bar2 = x%foo(4)
-if (ptr2 /= 14) STOP 4
+if (ptr2 /= 14) call abort()
 bar2(:) = x%gen(5)
-if (ptr2 /= 15) STOP 5
+if (ptr2 /= 15) call abort()
 bar2(:) = x%foo(6)
-if (ptr2 /= 16) STOP 6
+if (ptr2 /= 16) call abort()
 
 call test()
 end
@@ -59,9 +59,9 @@ integer, target :: bar(2)
 integer, pointer :: ptr
 bar = [1,2]
 ptr => bar(2)
-if (ptr /= 2) STOP 7
+if (ptr /= 2) call abort()
 bar = gen()
-if (ptr /= 77) STOP 8
+if (ptr /= 77) call abort()
 contains
   function foo()
     integer, allocatable :: foo(:)

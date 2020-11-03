@@ -12,3 +12,4 @@ struct A {
 void f(A);
 void g(A *a) { f(*a); }
 
+// { dg-final { cleanup-tree-dump gimple } }

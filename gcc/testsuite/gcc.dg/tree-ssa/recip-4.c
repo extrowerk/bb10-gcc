@@ -42,3 +42,4 @@ float g ()
 }
 
 /* { dg-final { scan-tree-dump-not "reciptmp" "recip" } } */
+/* { dg-final { cleanup-tree-dump "recip" } } */

@@ -19,3 +19,4 @@ void gl_GetDoublev( GLcontext *ctx, GLenum pname, GLdouble *params ) {
     params[i] = (GLint) ctx->TextureMatrix[i];
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

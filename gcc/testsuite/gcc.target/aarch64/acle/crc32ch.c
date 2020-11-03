@@ -12,3 +12,4 @@ test_crc32ch (uint32_t arg0, uint16_t arg1)
 }
 
 /* { dg-final { scan-assembler "crc32ch\tw..?, w..?, w..?\n" } } */
+/* { dg-final { cleanup-saved-temps } } */

@@ -1,6 +1,6 @@
 // 2000-08-02 bkoz
 
-// Copyright (C) 2000-2018 Free Software Foundation, Inc.
+// Copyright (C) 2000-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -74,6 +74,8 @@
 // Make sure all the standard streams are defined.
 void test01()
 {
+  bool test __attribute__((unused)) = true;
+
   char array1[20];
   typedef std::ios::traits_type ctraits_type;
   ctraits_type::int_type i = 15;

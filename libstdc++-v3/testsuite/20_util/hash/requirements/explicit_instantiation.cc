@@ -1,6 +1,7 @@
-// { dg-do compile { target c++11 } }
+// { dg-options "-std=gnu++11" }
+// { dg-do compile }
 
-// Copyright (C) 2007-2018 Free Software Foundation, Inc.
+// Copyright (C) 2007-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -40,9 +41,6 @@ template class std::hash<long double>;
 template class std::hash<void*>;
 template class std::hash<std::string>;
 template class std::hash<std::error_code>;
-#if __cplusplus > 201402L
-template class std::hash<std::error_condition>;
-#endif
 
 #ifdef _GLIBCXX_USE_WCHAR_T
 template class std::hash<wchar_t>;

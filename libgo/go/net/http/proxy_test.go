@@ -18,7 +18,7 @@ var UseProxyTests = []struct {
 	match bool
 }{
 	// Never proxy localhost:
-	{"localhost", false},
+	{"localhost:80", false},
 	{"127.0.0.1", false},
 	{"127.0.0.2", false},
 	{"[::1]", false},
@@ -75,13 +75,7 @@ func TestCacheKeys(t *testing.T) {
 
 func ResetProxyEnv() {
 	for _, v := range []string{"HTTP_PROXY", "http_proxy", "NO_PROXY", "no_proxy"} {
-		os.Unsetenv(v)
+		os.Setenv(v, "")
 	}
 	ResetCachedEnvironment()
-}
-
-func TestInvalidNoProxy(t *testing.T) {
-	ResetProxyEnv()
-	os.Setenv("NO_PROXY", ":1")
-	useProxy("example.com:80") // should not panic
 }

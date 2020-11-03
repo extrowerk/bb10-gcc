@@ -12,3 +12,4 @@ SUBROUTINE KEEL(RBOUND)
 END SUBROUTINE KEEL
 
 ! { dg-final { scan-tree-dump-times "vectorized 0 loops" 1 "vect" } }
+! { dg-final { cleanup-tree-dump "vect" } }

@@ -1,5 +1,5 @@
 /* Definitions for SOM assembler support.
-   Copyright (C) 1999-2018 Free Software Foundation, Inc.
+   Copyright (C) 1999-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -119,11 +119,11 @@ do {								\
 	     for (parm = DECL_ARGUMENTS (DECL), i = 0; parm && i < 4;	\
 		  parm = DECL_CHAIN (parm))				\
 	       {							\
-		 tree type = DECL_ARG_TYPE (parm);			\
-		 machine_mode mode = TYPE_MODE (type);			\
-		 if (mode == SFmode && ! TARGET_SOFT_FLOAT)		\
+		 if (TYPE_MODE (DECL_ARG_TYPE (parm)) == SFmode		\
+		     && ! TARGET_SOFT_FLOAT)				\
 		   fprintf (FILE, ",ARGW%d=FR", i++);			\
-		 else if (mode == DFmode && ! TARGET_SOFT_FLOAT)	\
+		 else if (TYPE_MODE (DECL_ARG_TYPE (parm)) == DFmode	\
+			  && ! TARGET_SOFT_FLOAT)			\
 		   {							\
 		     if (i <= 2)					\
 		       {						\
@@ -135,10 +135,13 @@ do {								\
 		   }							\
 		 else							\
 		   {							\
-		     int arg_size = pa_function_arg_size (mode, type);	\
+		     int arg_size =					\
+		       FUNCTION_ARG_SIZE (TYPE_MODE (DECL_ARG_TYPE (parm)),\
+					  DECL_ARG_TYPE (parm));	\
 		     /* Passing structs by invisible reference uses	\
 			one general register.  */			\
-		     if (arg_size > 2 || TREE_ADDRESSABLE (type))	\
+		     if (arg_size > 2					\
+			 || TREE_ADDRESSABLE (DECL_ARG_TYPE (parm)))	\
 		       arg_size = 1;					\
 		     if (arg_size == 2 && i <= 2)			\
 		       {						\
@@ -337,11 +340,6 @@ do {						\
    this suffix when generating constructor/destructor names.  */ 
 #define SHLIB_SUFFIX ".sl"
 
-/* We don't have named sections.  */
 #define TARGET_HAVE_NAMED_SECTIONS false
 
 #define TARGET_ASM_TM_CLONE_TABLE_SECTION pa_som_tm_clone_table_section
-
-/* Generate specially named labels to identify DWARF 2 frame unwind
-   information.  */
-#define EH_FRAME_THROUGH_COLLECT2

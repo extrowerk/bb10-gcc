@@ -1,6 +1,5 @@
 // { dg-do compile }
 // { dg-options "-O -fstrict-aliasing -ftree-pre -fno-tree-fre -fno-tree-sra" }
-// { dg-additional-options "-Wno-return-type" }
 
 typedef __SIZE_TYPE__ size_t;
 namespace std 
@@ -435,7 +434,7 @@ template < typename Const_Node_Iterator, typename Node_Iterator, typename, typen
 	return ((m_p_nd->m_p_right));
       }
       bool operator == (bin_search_tree_const_node_it_)
-      { return true; }
+      {}
       node_pointer m_p_nd;
     };
     template
@@ -705,7 +704,7 @@ typedef
   int,
   null_mapped_type,
   less < int >, rb_tree_tag, tree_order_statistics_node_update > set_t;
-int main ()
+main ()
 {
   set_t s;
   s.insert (12);

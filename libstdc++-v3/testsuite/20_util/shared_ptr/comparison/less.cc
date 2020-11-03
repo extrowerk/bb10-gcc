@@ -1,6 +1,6 @@
-// { dg-do run { target c++11 } }
+// { dg-options "-std=gnu++11" }
 
-// Copyright (C) 2008-2018 Free Software Foundation, Inc.
+// Copyright (C) 2008-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -41,6 +41,8 @@ namespace std
 int
 test01()
 {
+  bool test __attribute__((unused)) = true;
+
   std::less<std::shared_ptr<A>> less;
   // test empty shared_ptrs compare equivalent
   std::shared_ptr<A> p1;
@@ -55,6 +57,8 @@ test01()
 int
 test02()
 {
+  bool test __attribute__((unused)) = true;
+
   std::less<std::shared_ptr<A>> less;
 
   std::shared_ptr<A> empty;
@@ -77,6 +81,8 @@ test02()
 int
 test03()
 {
+  bool test __attribute__((unused)) = true;
+
   std::less<std::shared_ptr<A>> less;
 
   A a;

@@ -21,3 +21,4 @@ P foo (P x)
 }
 
 /* { dg-final { scan-tree-dump-times "return slot optimization" 1 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

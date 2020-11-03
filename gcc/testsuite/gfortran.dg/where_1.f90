@@ -17,7 +17,7 @@
   elsewhere
     la = .true.
   end where
-  if (any(la .eqv. lb)) STOP 1
+  if (any(la .eqv. lb)) call abort()
 CONTAINS
   subroutine PR35759
     integer UDA1L(6)
@@ -31,7 +31,7 @@ CONTAINS
     ELSEWHERE
       UDA1L(2:6) = UDA1R(6:2:-1)
     ENDWHERE
-    if (any (expected /= uda1l)) STOP 1
+    if (any (expected /= uda1l)) call abort
   END subroutine
 
   SUBROUTINE PR35756
@@ -49,7 +49,7 @@ CONTAINS
     ELSEWHERE
       ILA = R_MY_MIN_I(ILA)
     ENDWHERE
-    IF (any (CLA /= ILA)) STOP 2
+    IF (any (CLA /= ILA)) call abort
   end subroutine
 
   INTEGER FUNCTION R_MY_MAX_I(A)

@@ -1,9 +1,9 @@
-// { dg-do run { target c++11 } }
+// { dg-options "-std=gnu++11" }
 // { dg-require-cstdint "" }
 //
 // 2012-10-12  Edward M. Smith-Rowland <3dw4rd@verizon.net>
 //
-// Copyright (C) 2012-2018 Free Software Foundation, Inc.
+// Copyright (C) 2012-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -26,6 +26,8 @@
 void
 test01()
 {
+  bool test __attribute__((unused)) = true;
+
   __gnu_cxx::hoyt_distribution<> u(0.05, 3.0);
   VERIFY( u.q() == 0.05 );
   VERIFY( u.omega() == 3.0 );
@@ -34,20 +36,9 @@ test01()
   VERIFY( u.max() == std::numeric_limits<result_type>::max() );
 }
 
-void
-test02()
-{
-  using param_type = __gnu_cxx::hoyt_distribution<>::param_type;
-  const param_type p(0.05, 3.0);
-  __gnu_cxx::hoyt_distribution<> u(p);
-  VERIFY( u.param() == p );
-  VERIFY( u.param() != param_type{} );
-  typedef __gnu_cxx::hoyt_distribution<>::result_type result_type;
-  VERIFY( u.max() == std::numeric_limits<result_type>::max() );
-}
-
-int main()
+int
+main()
 {
   test01();
-  test02();
+  return 0;
 }

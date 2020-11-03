@@ -1,5 +1,5 @@
 /* Common hooks for IBM RS/6000.
-   Copyright (C) 1991-2018 Free Software Foundation, Inc.
+   Copyright (C) 1991-2015 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -31,8 +31,7 @@
 /* Implement TARGET_OPTION_OPTIMIZATION_TABLE.  */
 static const struct default_options rs6000_option_optimization_table[] =
   {
-    /* Enable -fsched-pressure for first pass instruction scheduling.  */
-    { OPT_LEVELS_1_PLUS, OPT_fsched_pressure, NULL, 1 },
+    { OPT_LEVELS_1_PLUS, OPT_fomit_frame_pointer, NULL, 1 },
     { OPT_LEVELS_NONE, 0, NULL, 0 }
   };
 
@@ -49,15 +48,6 @@ rs6000_option_init_struct (struct gcc_options *opts)
   /* Enable section anchors by default.  */
   if (!TARGET_MACHO)
     opts->x_flag_section_anchors = 1;
-
-  /* By default, always emit DWARF-2 unwind info.  This allows debugging
-     without maintaining a stack frame back-chain.  It also allows the
-     debugger to find out where on-entry register values are stored at any
-     point in a function, without having to analyze the executable code (which
-     isn't even possible to do in the general case).  */
-#ifdef OBJECT_FORMAT_ELF
-  opts->x_flag_asynchronous_unwind_tables = 1;
-#endif
 }
 
 /* Implement TARGET_OPTION_DEFAULT_PARAMS.  */
@@ -215,6 +205,15 @@ rs6000_handle_option (struct gcc_options *opts, struct gcc_options *opts_set,
       break;
 #endif
 
+    case OPT_mabi_altivec:
+      /* Enabling the AltiVec ABI turns off the SPE ABI.  */
+      opts->x_rs6000_spe_abi = 0;
+      break;
+
+    case OPT_mabi_spe:
+      opts->x_rs6000_altivec_abi = 0;
+      break;
+
     case OPT_mlong_double_:
       if (value != 64 && value != 128)
 	{
@@ -289,31 +288,6 @@ rs6000_handle_option (struct gcc_options *opts, struct gcc_options *opts_set,
   return true;
 }
 
-/* -fsplit-stack uses a field in the TCB, available with glibc-2.19.
-   We also allow 2.18 because alignment padding guarantees that the
-   space is available there too.  */
-
-static bool
-rs6000_supports_split_stack (bool report,
-			     struct gcc_options *opts ATTRIBUTE_UNUSED)
-{
-#ifndef TARGET_GLIBC_MAJOR
-#define TARGET_GLIBC_MAJOR 0
-#endif
-#ifndef TARGET_GLIBC_MINOR
-#define TARGET_GLIBC_MINOR 0
-#endif
-  /* Note: Can't test DEFAULT_ABI here, it isn't set until later.  */
-  if (TARGET_GLIBC_MAJOR * 1000 + TARGET_GLIBC_MINOR >= 2018
-      && TARGET_64BIT
-      && TARGET_ELF)
-    return true;
-
-  if (report)
-    error ("%<-fsplit-stack%> currently only supported on PowerPC64 GNU/Linux with glibc-2.18 or later");
-  return false;
-}
-
 #undef TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION rs6000_handle_option
 
@@ -325,8 +299,5 @@ rs6000_supports_split_stack (bool report,
 
 #undef TARGET_OPTION_OPTIMIZATION_TABLE
 #define TARGET_OPTION_OPTIMIZATION_TABLE rs6000_option_optimization_table
-
-#undef TARGET_SUPPORTS_SPLIT_STACK
-#define TARGET_SUPPORTS_SPLIT_STACK rs6000_supports_split_stack
 
 struct gcc_targetm_common targetm_common = TARGETM_COMMON_INITIALIZER;

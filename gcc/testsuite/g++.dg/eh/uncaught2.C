@@ -1,6 +1,6 @@
 // { dg-do compile }
 // { dg-final { scan-assembler-not "__cxa_get_exception" } }
-// { dg-options "-fno-use-cxa-get-exception-ptr -Wno-deprecated" }
+// { dg-options "-fno-use-cxa-get-exception-ptr" }
 
 #include <exception>
 #include <cstdlib>

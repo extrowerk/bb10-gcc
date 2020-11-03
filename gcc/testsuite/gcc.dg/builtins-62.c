@@ -38,3 +38,4 @@ double test4 (double x)
 }
 
 /* { dg-final { scan-tree-dump-times "cexpi" 3 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build aix darwin dragonfly freebsd linux nacl netbsd openbsd solaris windows
+// +build darwin dragonfly freebsd linux nacl netbsd openbsd solaris windows
 
 package signal
 
@@ -11,10 +11,9 @@ import (
 	"syscall"
 )
 
-// Defined by the runtime package.
+// In assembly.
 func signal_disable(uint32)
 func signal_enable(uint32)
-func signal_ignore(uint32)
 func signal_recv() uint32
 
 func loop() {
@@ -51,8 +50,4 @@ func enableSignal(sig int) {
 
 func disableSignal(sig int) {
 	signal_disable(uint32(sig))
-}
-
-func ignoreSignal(sig int) {
-	signal_ignore(uint32(sig))
 }

@@ -40,3 +40,4 @@ test(struct a *a)
   do_something (a);
 }
 /* { dg-final { scan-tree-dump-times "do_inc" 12 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

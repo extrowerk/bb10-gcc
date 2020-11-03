@@ -51,10 +51,33 @@
 #include <sys/prctl.h>
 #include <cpuid.h>
 #include "mpxrt-utils.h"
-#include "mpxrt.h"
+
+#ifdef __i386__
+
+/* i386 directory size is 4MB */
+#define NUM_L1_BITS    20
+
+#define REG_IP_IDX      REG_EIP
+#define REX_PREFIX
+
+#define XSAVE_OFFSET_IN_FPMEM    sizeof (struct _libc_fpstate)
+
+#else /* __i386__ */
+
+/* x86_64 directory size is 2GB */
+#define NUM_L1_BITS   28
+
+#define REG_IP_IDX    REG_RIP
+#define REX_PREFIX    "0x48, "
+
+#define XSAVE_OFFSET_IN_FPMEM    0
+
+#endif /* !__i386__ */
 
 #define MPX_ENABLE_BIT_NO 0
 #define BNDPRESERVE_BIT_NO 1
+
+const size_t MPX_L1_SIZE = (1UL << NUM_L1_BITS) * sizeof (void *);
 
 struct xsave_hdr_struct
 {
@@ -129,8 +152,13 @@ xgetbv (uint32_t index)
 static uint64_t
 read_mpx_status_sig (ucontext_t *uctxt)
 {
-  uint8_t *regs = (uint8_t *)uctxt->uc_mcontext.fpregs + XSAVE_OFFSET_IN_FPMEM;
-  struct xsave_struct *xsave_buf = (struct xsave_struct *)regs;
+  uint8_t __attribute__ ((__aligned__ (64))) buffer[4096];
+  struct xsave_struct *xsave_buf = (struct xsave_struct *)buffer;
+
+  memset (buffer, 0, sizeof (buffer));
+  memcpy (buffer,
+	  (uint8_t *)uctxt->uc_mcontext.fpregs + XSAVE_OFFSET_IN_FPMEM,
+	  sizeof (struct xsave_struct));
   return xsave_buf->bndcsr.status_reg;
 }
 
@@ -252,7 +280,7 @@ handler (int sig __attribute__ ((unused)),
 	  uctxt->uc_mcontext.gregs[REG_IP_IDX] =
 	    (greg_t)get_next_inst_ip ((uint8_t *)ip);
 	  if (__mpxrt_mode () == MPX_RT_STOP)
-	    __mpxrt_stop ();
+	    exit (255);
 	  return;
 
 	default:
@@ -269,7 +297,7 @@ handler (int sig __attribute__ ((unused)),
       __mpxrt_write (VERB_ERROR, ", ip = 0x");
       __mpxrt_write_uint (VERB_ERROR, ip, 16);
       __mpxrt_write (VERB_ERROR, "\n");
-      __mpxrt_stop ();
+      exit (255);
     }
   else
     {
@@ -278,7 +306,7 @@ handler (int sig __attribute__ ((unused)),
       __mpxrt_write (VERB_ERROR, "! at 0x");
       __mpxrt_write_uint (VERB_ERROR, ip, 16);
       __mpxrt_write (VERB_ERROR, "\n");
-      __mpxrt_stop ();
+      exit (255);
     }
 }
 
@@ -484,11 +512,4 @@ mpxrt_cleanup (void)
   __mpxrt_print_summary (num_bnd_chk, MPX_L1_SIZE);
   __mpxrt_utils_free ();
   process_specific_finish ();
-}
-
-/* Get address of bounds directory.  */
-void *
-get_bd ()
-{
-  return l1base;
 }

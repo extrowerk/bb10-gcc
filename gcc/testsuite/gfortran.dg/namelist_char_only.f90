@@ -24,6 +24,6 @@
   READ(11,*) a
   CLOSE(11)
 
-  if (a /= "alls_well") STOP 1
+  if (a /= "alls_well") call abort ()
 
 END

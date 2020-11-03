@@ -20,6 +20,6 @@ program forall_6
 
 
   do i = 1,5
-    if (q(i)%p .ne. t(6 - i)) STOP 1
+    if (q(i)%p .ne. t(6 - i)) call abort
   end do
 end

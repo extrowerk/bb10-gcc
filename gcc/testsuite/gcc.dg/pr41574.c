@@ -12,3 +12,4 @@ f(double x)
 }
 
 /* { dg-final { scan-rtl-dump-not "\\(plus:DF \\(mult:DF" "combine" } } */
+/* { dg-final { cleanup-rtl-dump "combine*" } } */

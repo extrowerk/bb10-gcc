@@ -19,7 +19,6 @@
 #include "asan_report.h"
 #include "asan_stack.h"
 #include "sanitizer_common/sanitizer_libc.h"
-#include "sanitizer_common/sanitizer_posix.h"
 #include "sanitizer_common/sanitizer_procmaps.h"
 
 #include <pthread.h>
@@ -31,10 +30,26 @@
 
 namespace __asan {
 
-void AsanOnDeadlySignal(int signo, void *siginfo, void *context) {
-  StartReportDeadlySignal();
-  SignalContext sig(siginfo, context);
-  ReportDeadlySignal(sig);
+void AsanOnSIGSEGV(int, void *siginfo, void *context) {
+  ScopedDeadlySignal signal_scope(GetCurrentThread());
+  uptr addr = (uptr)((siginfo_t*)siginfo)->si_addr;
+  int code = (int)((siginfo_t*)siginfo)->si_code;
+  // Write the first message using the bullet-proof write.
+  if (13 != internal_write(2, "ASAN:SIGSEGV\n", 13)) Die();
+  uptr pc, sp, bp;
+  GetPcSpBp(context, &pc, &sp, &bp);
+
+  // Access at a reasonable offset above SP, or slightly below it (to account
+  // for x86_64 or PowerPC redzone, ARM push of multiple registers, etc) is
+  // probably a stack overflow.
+  // We also check si_code to filter out SEGV caused by something else other
+  // then hitting the guard page or unmapped memory, like, for example,
+  // unaligned memory access.
+  if (addr + 512 > sp && addr < sp + 0xFFFF &&
+      (code == si_SEGV_MAPERR || code == si_SEGV_ACCERR))
+    ReportStackOverflow(pc, sp, bp, context, addr);
+  else
+    ReportSIGSEGV("SEGV", pc, sp, bp, context, addr);
 }
 
 // ---------------------- TSD ---------------- {{{1

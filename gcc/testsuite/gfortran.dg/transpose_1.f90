@@ -15,7 +15,7 @@
   a(2,2) = 11
   call foo
   call bar
-  if (any (c .ne. b)) STOP 1
+  if (any (c .ne. b)) call abort
 contains
   subroutine foo
     b = cos(transpose(a))

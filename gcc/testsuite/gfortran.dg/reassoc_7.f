@@ -13,3 +13,4 @@
 ! There should be two multiplies following un-distribution.
 
 ! { dg-final { scan-tree-dump-times " \\\* " 2 "optimized" } }
+! { dg-final { cleanup-tree-dump "optimized" } }

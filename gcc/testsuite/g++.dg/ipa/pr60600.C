@@ -32,3 +32,4 @@ void test(top& t)
 }
 
 /* { dg-final { scan-ipa-dump "Type inconsistent devirtualization" "cp" } } */
+/* { dg-final { cleanup-ipa-dump "cp" } } */

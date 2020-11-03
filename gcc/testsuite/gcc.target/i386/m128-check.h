@@ -108,12 +108,8 @@ CHECK_EXP (union128d, double, "%f")
 
 CHECK_EXP (union128, float, "%f")
 
-#ifndef ESP_FLOAT
 #define ESP_FLOAT 0.000001
-#endif
-#ifndef ESP_DOUBLE
 #define ESP_DOUBLE 0.000001
-#endif
 #define CHECK_ARRAY(ARRAY, TYPE, FMT)                   \
 static int                                              \
 __attribute__((noinline, unused))                       \

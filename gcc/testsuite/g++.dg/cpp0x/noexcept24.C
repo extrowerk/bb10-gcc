@@ -13,12 +13,7 @@ void a(A<T>) noexcept {}
 template<typename T>
 void f()
 {
-#if __cplusplus <= 201402L
-  const bool val = false;
-#else
-  const bool val = true;
-#endif
-  static_assert(val == noexcept(a(A<T>{})), "");
+  static_assert(!noexcept(a(A<T>{})), "");
 }
 
 void g()

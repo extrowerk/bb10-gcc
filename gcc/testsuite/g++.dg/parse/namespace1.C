@@ -2,6 +2,6 @@ namespace foo {
 void baz(int);
 }
 
-void bar(int foo) {
+int bar(int foo) {
   foo::baz (3);
 }

@@ -18,3 +18,4 @@ int main()
 }
 
 /* { dg-final { scan-assembler-not "_ITM_getTMCloneOrIrrevocable" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

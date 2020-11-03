@@ -17,3 +17,4 @@ void test_crc32d (void)
 }
 
 /* { dg-final { scan-assembler-times "crc32w\t...?, ...?, ...?\n" 2 } } */
+/* { dg-final { cleanup-saved-temps } } */

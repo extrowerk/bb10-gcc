@@ -25,3 +25,4 @@ void foo(int n)
 }
 
 /* { dg-final { scan-tree-dump "vectorized 1 loops in function" "vect" { target { vect_float && vect_intfloat_cvt } } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

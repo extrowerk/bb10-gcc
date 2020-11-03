@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2013-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 2013-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -203,14 +203,10 @@ package body Set_Targ is
 
    begin
       case T is
-         when S_Float
-            | S_Short_Float
-         =>
+         when S_Short_Float | S_Float =>
             return "float";
-
          when S_Long_Float =>
             return "double";
-
          when S_Long_Long_Float =>
             if Long_Double_Index >= 0
               and then FPT_Mode_Table (Long_Double_Index).DIGS <= Max_HW_Digs
@@ -306,8 +302,8 @@ package body Set_Targ is
             Write_Str ("pragma Float_Representation (");
 
             case Float_Rep is
-               when AAMP        => Write_Str ("AAMP");
                when IEEE_Binary => Write_Str ("IEEE");
+               when AAMP        => Write_Str ("AAMP");
             end case;
 
             Write_Line (", " & T (1 .. Last) & ");");
@@ -529,8 +525,10 @@ package body Set_Targ is
             AddC (' ');
 
             case E.FLOAT_REP is
-               when AAMP        => AddC ('A');
-               when IEEE_Binary => AddC ('I');
+               when IEEE_Binary =>
+                  AddC ('I');
+               when AAMP        =>
+                  AddC ('A');
             end case;
 
             AddC (' ');
@@ -580,7 +578,6 @@ package body Set_Targ is
       --  Checks that we have one or more spaces and skips them
 
       procedure FailN (S : String);
-      pragma No_Return (FailN);
       --  Calls Fail adding " name in file xxx", where name is the currently
       --  gathered name in Nam_Buf, surrounded by quotes, and xxx is the
       --  name of the file.
@@ -701,8 +698,6 @@ package body Set_Targ is
 
       Buflen := Read (File_Desc, Buffer'Address, Buffer'Length);
 
-      Close (File_Desc);
-
       if Buflen = Buffer'Length then
          Fail ("file is too long: " & File_Name);
       end if;
@@ -784,10 +779,8 @@ package body Set_Targ is
             case Buffer (N) is
                when 'I'    =>
                   E.FLOAT_REP := IEEE_Binary;
-
                when 'A'    =>
                   E.FLOAT_REP := AAMP;
-
                when others =>
                   FailN ("bad float rep field for");
             end case;
@@ -953,21 +946,21 @@ begin
                T : FPT_Mode_Entry renames
                  FPT_Mode_Table (FPT_Mode_Index_For (S_Float));
             begin
-               Float_Size := Pos (T.SIZE);
+               Float_Size := Int (T.SIZE);
             end;
 
             declare
                T : FPT_Mode_Entry renames
                  FPT_Mode_Table (FPT_Mode_Index_For (S_Long_Float));
             begin
-               Double_Size := Pos (T.SIZE);
+               Double_Size := Int (T.SIZE);
             end;
 
             declare
                T : FPT_Mode_Entry renames
                  FPT_Mode_Table (FPT_Mode_Index_For (S_Long_Long_Float));
             begin
-               Long_Double_Size := Pos (T.SIZE);
+               Long_Double_Size := Int (T.SIZE);
             end;
 
          end if;

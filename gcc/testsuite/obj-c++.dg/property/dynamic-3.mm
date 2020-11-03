@@ -46,4 +46,4 @@
   return self.b;
 }
 @end /* { dg-warning "incomplete implementation" } */
-/* { dg-warning "method definition for .-setB:. not found" "" { target *-*-* } .-1 } */
+/* { dg-warning "method definition for .-setB:. not found" "" { target *-*-* } 48 } */

@@ -13,7 +13,7 @@ program bug
     call foo(a)
   end associate
 ! write(*,*) i
-  if (i(1) /= 2) STOP 1
+  if (i(1) /= 2) call abort
 contains
   subroutine foo(v)
     integer, dimension(*) :: v
@@ -22,3 +22,4 @@ contains
 end program bug
 
 ! { dg-final { scan-tree-dump-times "foo ..integer.kind=4..0:. . restrict. a.data.;" 1 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

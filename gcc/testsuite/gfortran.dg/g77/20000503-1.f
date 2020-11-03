@@ -10,7 +10,7 @@ c { dg-do run }
       I = SLASQX( N ) 
       IF ( I .NE. 2*N ) THEN
          WRITE(6,*) 'I = ', I, ' but should be ', 2*N
-         STOP 1
+         CALL ABORT()
       END IF
       END
 

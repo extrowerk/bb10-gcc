@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build aix darwin dragonfly freebsd linux netbsd openbsd solaris nacl
+// +build darwin dragonfly freebsd linux netbsd openbsd solaris
 
 // Read system port mappings from /etc/services
 
@@ -10,26 +10,31 @@ package net
 
 import "sync"
 
+// services contains minimal mappings between services names and port
+// numbers for platforms that don't have a complete list of port numbers
+// (some Solaris distros).
+var services = map[string]map[string]int{
+	"tcp": {"http": 80},
+}
+var servicesError error
 var onceReadServices sync.Once
 
 func readServices() {
-	file, err := open("/etc/services")
-	if err != nil {
+	var file *file
+	if file, servicesError = open("/etc/services"); servicesError != nil {
 		return
 	}
-	defer file.close()
-
 	for line, ok := file.readLine(); ok; line, ok = file.readLine() {
 		// "http 80/tcp www www-http # World Wide Web HTTP"
 		if i := byteIndex(line, '#'); i >= 0 {
-			line = line[:i]
+			line = line[0:i]
 		}
 		f := getFields(line)
 		if len(f) < 2 {
 			continue
 		}
 		portnet := f[1] // "80/tcp"
-		port, j, ok := dtoi(portnet)
+		port, j, ok := dtoi(portnet, 0)
 		if !ok || port <= 0 || j >= len(portnet) || portnet[j] != '/' {
 			continue
 		}
@@ -45,10 +50,24 @@ func readServices() {
 			}
 		}
 	}
+	file.close()
 }
 
 // goLookupPort is the native Go implementation of LookupPort.
 func goLookupPort(network, service string) (port int, err error) {
 	onceReadServices.Do(readServices)
-	return lookupPortMap(network, service)
+
+	switch network {
+	case "tcp4", "tcp6":
+		network = "tcp"
+	case "udp4", "udp6":
+		network = "udp"
+	}
+
+	if m, ok := services[network]; ok {
+		if port, ok = m[service]; ok {
+			return
+		}
+	}
+	return 0, &AddrError{"unknown port", network + "/" + service}
 }

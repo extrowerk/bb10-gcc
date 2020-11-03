@@ -1,4 +1,4 @@
-#   Copyright (C) 2009-2018 Free Software Foundation, Inc.
+#   Copyright (C) 2009-2015 Free Software Foundation, Inc.
 #   Written by Ian Lance Taylor <iant@google.com>.
 
 # This program is free software; you can redistribute it and/or modify
@@ -213,26 +213,28 @@ proc go-set-goarch { } {
 		#error FOO
 		#endif
 	    }] {
-		set goarch "mips"
+		set goarch "mipso32"
 	    } elseif [check_no_compiler_messages mipsn32 assembly {
 		#if _MIPS_SIM != _ABIN32
 		#error FOO
 		#endif
 	    }] {
-		set goarch "mips64p32"
+		set goarch "mipsn32"
 	    } elseif [check_no_compiler_messages mipsn64 assembly {
 		#if _MIPS_SIM != _ABI64
 		#error FOO
 		#endif
 	    }] {
-		set goarch "mips64"
+		set goarch "mipsn64"
+	    } elseif [check_no_compiler_messages mipso64 assembly {
+		#if _MIPS_SIM != _ABIO64
+		#error FOO
+		#endif
+	    }] {
+		set goarch "mipso64"
 	    } else {
 		perror "$target_triplet: unrecognized MIPS ABI"
 		return ""
-	    }
-
-	    if [istarget "mips*el-*-*"] {
-		append goarch "le"
 	    }
 	}
 	"powerpc*-*-*" {
@@ -246,15 +248,11 @@ proc go-set-goarch { } {
 		}
 	    }
 	}
-	"riscv64-*-*" {
-	    set goarch "riscv64"
+	"s390-*-*" {
+	    set goarch "s390"
 	}
-	"s390*-*-*" {
-	    if [check_effective_target_ilp32] {
-		set goarch "s390"
-	    } else {
-		set goarch "s390x"
-	    }
+	"s390x-*-*" {
+	    set goarch "s390x"
 	}
 	"sparc*-*-*" {
 	    if [check_effective_target_ilp32] {
@@ -398,11 +396,6 @@ proc go-gc-tests { } {
 		untested $test
 		continue
 	    }
-	}
-
-	if [check_effective_target_pie_enabled] {
-	    untested $test
-	    continue
 	}
 
 	if { [file tail $test] == "init1.go" } {

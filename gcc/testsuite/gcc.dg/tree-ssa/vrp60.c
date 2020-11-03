@@ -28,3 +28,4 @@ int bar (int x, int b)
 }
 
 /* { dg-final { scan-tree-dump-not "12345" "vrp1" } } */
+/* { dg-final { cleanup-tree-dump "vrp1" } } */

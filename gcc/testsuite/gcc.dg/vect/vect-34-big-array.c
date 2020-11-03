@@ -10,6 +10,8 @@ struct {
 } s;
 char cb[N];
 
+volatile int y = 0;
+
 __attribute__ ((noinline))
 int main1 ()
 {
@@ -18,7 +20,9 @@ int main1 ()
   for (i = 0; i < N; i++)
     {
       cb[i] = i*3;
-      asm volatile ("" ::: "memory");
+      /* To avoid vectorization.  */
+      if (y)
+	abort ();
     }
   for (i = 0; i < N; i++)
     {
@@ -43,3 +47,4 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

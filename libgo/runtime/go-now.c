@@ -8,25 +8,16 @@
 
 #include "runtime.h"
 
-// Return current time.  This is the implementation of time.walltime().
+// Return current time.  This is the implementation of time.now().
 
-struct walltime_ret
+struct time_now_ret
+now()
 {
-  int64_t sec;
-  int32_t nsec;
-};
+  struct timeval tv;
+  struct time_now_ret ret;
 
-struct walltime_ret now(void) __asm__ (GOSYM_PREFIX "runtime.walltime")
-  __attribute__ ((no_split_stack));
-
-struct walltime_ret
-now(void)
-{
-  struct timespec ts;
-  struct walltime_ret ret;
-
-  clock_gettime (CLOCK_REALTIME, &ts);
-  ret.sec = ts.tv_sec;
-  ret.nsec = ts.tv_nsec;
+  gettimeofday (&tv, NULL);
+  ret.sec = tv.tv_sec;
+  ret.nsec = tv.tv_usec * 1000;
   return ret;
 }

@@ -1,4 +1,4 @@
-/* Copyright (C) 1997-2018 Free Software Foundation, Inc.
+/* Copyright (C) 1997-2015 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
 This file is part of GCC.
@@ -17,41 +17,72 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-#define IN_TARGET_CODE 1
-
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
-#include "target.h"
-#include "rtl.h"
+#include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
-#include "df.h"
-#include "memmodel.h"
-#include "tm_p.h"
-#include "stringpool.h"
-#include "attribs.h"
-#include "optabs.h"
-#include "regs.h"
-#include "emit-rtl.h"
-#include "recog.h"
-#include "diagnostic-core.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "stor-layout.h"
+#include "stringpool.h"
+#include "regs.h"
+#include "hard-reg-set.h"
+#include "rtl.h"
+#include "insn-config.h"
+#include "conditions.h"
+#include "insn-flags.h"
 #include "output.h"
 #include "insn-attr.h"
+#include "flags.h"
+#include "recog.h"
+#include "reload.h"
+#include "hashtab.h"
+#include "function.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
 #include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
+#include "obstack.h"
+#include "except.h"
+#include "insn-codes.h"
+#include "optabs.h"
+#include "diagnostic-core.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
+#include "basic-block.h"
+#include "tm_p.h"
+#include "ggc.h"
+#include "target.h"
+#include "target-def.h"
+#include "targhooks.h"
 #include "langhooks.h"
+#include "df.h"
 #include "dumpfile.h"
 #include "builtins.h"
 #include "ifcvt.h"
 #include "rtl-iter.h"
-
-/* This file should be included last.  */
-#include "target-def.h"
 
 #ifndef FRV_INLINE
 #define FRV_INLINE inline
@@ -137,7 +168,9 @@ struct frv_io {
 
 /* Loop with REG set to each hard register in rtx X.  */
 #define FOR_EACH_REGNO(REG, X)						\
-  for (REG = REGNO (X); REG < END_REGNO (X); REG++)
+  for (REG = REGNO (X);							\
+       REG < REGNO (X) + HARD_REGNO_NREGS (REGNO (X), GET_MODE (X));	\
+       REG++)
 
 /* This structure contains machine specific function data.  */
 struct GTY(()) machine_function
@@ -264,7 +297,7 @@ static int frv_default_flags_for_cpu		(void);
 static int frv_string_begins_with		(const char *, const char *);
 static FRV_INLINE bool frv_small_data_reloc_p	(rtx, int);
 static void frv_print_operand			(FILE *, rtx, int);
-static void frv_print_operand_address		(FILE *, machine_mode, rtx);
+static void frv_print_operand_address		(FILE *, rtx);
 static bool frv_print_operand_punct_valid_p	(unsigned char code);
 static void frv_print_operand_memory_reference_reg
 						(FILE *, rtx);
@@ -348,8 +381,8 @@ static void frv_reorg_packet 			(void);
 static void frv_register_nop			(rtx);
 static void frv_reorg 				(void);
 static void frv_pack_insns			(void);
-static void frv_function_prologue		(FILE *);
-static void frv_function_epilogue		(FILE *);
+static void frv_function_prologue		(FILE *, HOST_WIDE_INT);
+static void frv_function_epilogue		(FILE *, HOST_WIDE_INT);
 static bool frv_assemble_integer		(rtx, unsigned, int);
 static void frv_init_builtins			(void);
 static rtx frv_expand_builtin			(tree, rtx, rtx, machine_mode, int);
@@ -362,8 +395,8 @@ static void frv_setup_incoming_varargs		(cumulative_args_t,
 						 tree, int *, int);
 static rtx frv_expand_builtin_saveregs		(void);
 static void frv_expand_builtin_va_start		(tree, rtx);
-static bool frv_rtx_costs			(rtx, machine_mode, int, int,
-						 int*, bool);
+static bool frv_rtx_costs			(rtx, int, int, int, int*,
+						 bool);
 static int frv_register_move_cost		(machine_mode,
 						 reg_class_t, reg_class_t);
 static int frv_memory_move_cost			(machine_mode,
@@ -399,9 +432,6 @@ static bool frv_can_eliminate			(const int, const int);
 static void frv_conditional_register_usage	(void);
 static void frv_trampoline_init			(rtx, tree, rtx);
 static bool frv_class_likely_spilled_p 		(reg_class_t);
-static unsigned int frv_hard_regno_nregs	(unsigned int, machine_mode);
-static bool frv_hard_regno_mode_ok		(unsigned int, machine_mode);
-static bool frv_modes_tieable_p			(machine_mode, machine_mode);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_PRINT_OPERAND
@@ -496,9 +526,6 @@ static bool frv_modes_tieable_p			(machine_mode, machine_mode);
 #undef  TARGET_SECONDARY_RELOAD
 #define TARGET_SECONDARY_RELOAD frv_secondary_reload
 
-#undef TARGET_LRA_P
-#define TARGET_LRA_P hook_bool_void_false
-
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P frv_legitimate_address_p
 
@@ -518,15 +545,6 @@ static bool frv_modes_tieable_p			(machine_mode, machine_mode);
 #define TARGET_FUNCTION_VALUE frv_function_value
 #undef TARGET_LIBCALL_VALUE
 #define TARGET_LIBCALL_VALUE frv_libcall_value
-
-#undef TARGET_HARD_REGNO_NREGS
-#define TARGET_HARD_REGNO_NREGS frv_hard_regno_nregs
-#undef TARGET_HARD_REGNO_MODE_OK
-#define TARGET_HARD_REGNO_MODE_OK frv_hard_regno_mode_ok
-#undef TARGET_MODES_TIEABLE_P
-#define TARGET_MODES_TIEABLE_P frv_modes_tieable_p
-#undef TARGET_CONSTANT_ALIGNMENT
-#define TARGET_CONSTANT_ALIGNMENT constant_alignment_word_strings
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1190,7 +1208,7 @@ frv_stack_info (void)
 	}
     }
 
-  /* Set up the sizes of each field in the frame body, making the sizes
+  /* Set up the sizes of each each field in the frame body, making the sizes
      of each be divisible by the size of a dword if dword operations might
      be used, or the size of a word otherwise.  */
   alignment = (TARGET_DWORD? 2 * UNITS_PER_WORD : UNITS_PER_WORD);
@@ -1413,8 +1431,10 @@ frv_function_contains_far_jump (void)
    will return correctly.  It also does the VLIW packing.  */
 
 static void
-frv_function_prologue (FILE *file)
+frv_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
+  rtx_insn *insn, *next, *last_call;
+
   /* If no frame was created, check whether the function uses a call
      instruction to implement a far jump.  If so, save the link in gr3 and
      replace all returns to LR with returns to GR3.  GR3 is used because it
@@ -1455,6 +1475,32 @@ frv_function_prologue (FILE *file)
 
   /* Allow the garbage collector to free the nops created by frv_reorg.  */
   memset (frv_nops, 0, sizeof (frv_nops));
+
+  /* Locate CALL_ARG_LOCATION notes that have been misplaced
+     and move them back to where they should be located.  */
+  last_call = NULL;
+  for (insn = get_insns (); insn; insn = next)
+    {
+      next = NEXT_INSN (insn);
+      if (CALL_P (insn)
+	  || (INSN_P (insn) && GET_CODE (PATTERN (insn)) == SEQUENCE
+	      && CALL_P (XVECEXP (PATTERN (insn), 0, 0))))
+	last_call = insn;
+
+      if (!NOTE_P (insn) || NOTE_KIND (insn) != NOTE_INSN_CALL_ARG_LOCATION)
+	continue;
+
+      if (NEXT_INSN (last_call) == insn)
+	continue;
+
+      SET_NEXT_INSN (PREV_INSN (insn)) = NEXT_INSN (insn);
+      SET_PREV_INSN (NEXT_INSN (insn)) = PREV_INSN (insn);
+      SET_PREV_INSN (insn) = last_call;
+      SET_NEXT_INSN (insn) = NEXT_INSN (last_call);
+      SET_PREV_INSN (NEXT_INSN (insn)) = insn;
+      SET_NEXT_INSN (PREV_INSN (insn)) = insn;
+      last_call = insn;
+    }
 }
 
 
@@ -1488,7 +1534,7 @@ frv_alloc_temp_reg (
 	}
     }
 
-  nr = hard_regno_nregs (regno, mode);
+  nr = HARD_REGNO_NREGS (regno, mode);
   info->next_reg[ (int)rclass ] = regno + nr;
 
   if (mark_as_used)
@@ -1547,7 +1593,8 @@ frv_frame_mem (machine_mode mode, rtx base, int offset)
 static rtx
 frv_dwarf_store (rtx reg, int offset)
 {
-  rtx set = gen_rtx_SET (gen_rtx_MEM (GET_MODE (reg),
+  rtx set = gen_rtx_SET (VOIDmode,
+			 gen_rtx_MEM (GET_MODE (reg),
 				      plus_constant (Pmode, stack_pointer_rtx,
 						     offset)),
 			 reg);
@@ -1600,8 +1647,8 @@ frv_frame_access (frv_frame_accessor_t *accessor, rtx reg, int stack_offset)
       if (SPR_P (REGNO (reg)))
 	{
 	  rtx temp = gen_rtx_REG (mode, TEMP_REGNO);
-	  emit_insn (gen_rtx_SET (temp, mem));
-	  emit_insn (gen_rtx_SET (reg, temp));
+	  emit_insn (gen_rtx_SET (VOIDmode, temp, mem));
+	  emit_insn (gen_rtx_SET (VOIDmode, reg, temp));
 	}
       else
 	{
@@ -1618,7 +1665,7 @@ frv_frame_access (frv_frame_accessor_t *accessor, rtx reg, int stack_offset)
 					    XEXP (XEXP (mem, 0), 1)));
 	      mem = gen_rtx_MEM (DImode, temp);
 	    }
-	  emit_insn (gen_rtx_SET (reg, mem));
+	  emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
 	}
       emit_use (reg);
     }
@@ -1627,8 +1674,8 @@ frv_frame_access (frv_frame_accessor_t *accessor, rtx reg, int stack_offset)
       if (SPR_P (REGNO (reg)))
 	{
 	  rtx temp = gen_rtx_REG (mode, TEMP_REGNO);
-	  emit_insn (gen_rtx_SET (temp, reg));
-	  frv_frame_insn (gen_rtx_SET (mem, temp),
+	  emit_insn (gen_rtx_SET (VOIDmode, temp, reg));
+	  frv_frame_insn (gen_rtx_SET (Pmode, mem, temp),
 			  frv_dwarf_store (reg, stack_offset));
 	}
       else if (mode == DImode)
@@ -1652,12 +1699,12 @@ frv_frame_access (frv_frame_accessor_t *accessor, rtx reg, int stack_offset)
 	      mem = gen_rtx_MEM (DImode, temp);
 	    }
 
-	  frv_frame_insn (gen_rtx_SET (mem, reg),
+	  frv_frame_insn (gen_rtx_SET (Pmode, mem, reg),
 			  gen_rtx_PARALLEL (VOIDmode,
 					    gen_rtvec (2, set1, set2)));
 	}
       else
-	frv_frame_insn (gen_rtx_SET (mem, reg),
+	frv_frame_insn (gen_rtx_SET (Pmode, mem, reg),
 			frv_dwarf_store (reg, stack_offset));
     }
 }
@@ -1772,7 +1819,9 @@ frv_expand_prologue (void)
     rtx dwarf_offset = GEN_INT (-info->total_size);
 
     frv_frame_insn (gen_stack_adjust (sp, sp, asm_offset),
-		    gen_rtx_SET (sp, gen_rtx_PLUS (Pmode, sp, dwarf_offset)));
+		    gen_rtx_SET (Pmode,
+				 sp,
+				 gen_rtx_PLUS (Pmode, sp, dwarf_offset)));
   }
 
   /* If the frame pointer is needed, store the old one at (sp + FP_OFFSET)
@@ -1792,8 +1841,8 @@ frv_expand_prologue (void)
       frv_frame_access (&accessor, fp, fp_offset);
 
       /* Set up the new frame pointer.  */
-      frv_frame_insn (gen_rtx_SET (fp, asm_src),
-		      gen_rtx_SET (fp, dwarf_src));
+      frv_frame_insn (gen_rtx_SET (VOIDmode, fp, asm_src),
+		      gen_rtx_SET (VOIDmode, fp, dwarf_src));
 
       /* Access region C from the frame pointer.  */
       accessor.base = fp;
@@ -1825,7 +1874,8 @@ frv_expand_prologue (void)
    this function provides a convenient place to do cleanup.  */
 
 static void
-frv_function_epilogue (FILE *)
+frv_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
+                       HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
   frv_stack_cache = (frv_stack_t *)0;
 
@@ -1885,7 +1935,7 @@ frv_expand_epilogue (bool emit_return)
 
       /* Load the old link register into a GPR.  */
       return_addr = gen_rtx_REG (Pmode, TEMP_REGNO);
-      emit_insn (gen_rtx_SET (return_addr, mem));
+      emit_insn (gen_rtx_SET (VOIDmode, return_addr, mem));
     }
   else
     return_addr = gen_rtx_REG (Pmode, LR_REGNO);
@@ -1894,7 +1944,7 @@ frv_expand_epilogue (bool emit_return)
      the load is preserved.  */
   if (frame_pointer_needed)
     {
-      emit_insn (gen_rtx_SET (fp, gen_rtx_MEM (Pmode, fp)));
+      emit_insn (gen_rtx_SET (VOIDmode, fp, gen_rtx_MEM (Pmode, fp)));
       emit_use (fp);
     }
 
@@ -2064,8 +2114,9 @@ frv_can_eliminate (const int from, const int to)
           : true);
 }
 
-/* This function returns the initial difference between the specified
-   pair of registers.  */
+/* This macro is similar to `INITIAL_FRAME_POINTER_OFFSET'.  It specifies the
+   initial difference between the specified pair of registers.  This macro must
+   be defined if `ELIMINABLE_REGS' is defined.  */
 
 /* See frv_stack_info for more details on the frv stack frame.  */
 
@@ -2250,8 +2301,8 @@ frv_expand_block_move (rtx operands[])
       tmp_reg = gen_reg_rtx (mode);
       src_mem = change_address (orig_src, mode, src_addr);
       dest_mem = change_address (orig_dest, mode, dest_addr);
-      emit_insn (gen_rtx_SET (tmp_reg, src_mem));
-      stores[num_reg++] = gen_rtx_SET (dest_mem, tmp_reg);
+      emit_insn (gen_rtx_SET (VOIDmode, tmp_reg, src_mem));
+      stores[num_reg++] = gen_rtx_SET (VOIDmode, dest_mem, tmp_reg);
 
       if (num_reg >= MAX_MOVE_REG)
 	{
@@ -2330,7 +2381,7 @@ frv_expand_block_clear (rtx operands[])
 
       clear_bytes = GET_MODE_SIZE (mode);
       dest_mem = change_address (orig_dest, mode, dest_addr);
-      emit_insn (gen_rtx_SET (dest_mem, const0_rtx));
+      emit_insn (gen_rtx_SET (VOIDmode, dest_mem, const0_rtx));
     }
 
   return TRUE;
@@ -2457,7 +2508,7 @@ frv_index_memory (rtx memref, machine_mode mode, int index)
 
 /* Print a memory address as an operand to reference that memory location.  */
 static void
-frv_print_operand_address (FILE * stream, machine_mode /* mode */, rtx x)
+frv_print_operand_address (FILE * stream, rtx x)
 {
   if (GET_CODE (x) == MEM)
     x = XEXP (x, 0);
@@ -2605,6 +2656,7 @@ frv_print_operand_jump_hint (rtx_insn *insn)
   rtx note;
   rtx labelref;
   int ret;
+  int prob = -1;
   enum { UNKNOWN, BACKWARD, FORWARD } jump_type = UNKNOWN;
 
   gcc_assert (JUMP_P (insn));
@@ -2630,8 +2682,8 @@ frv_print_operand_jump_hint (rtx_insn *insn)
 
       else
 	{
-	  ret = ((profile_probability::from_reg_br_prob_note (XINT (note, 0))
-		  >= profile_probability::even ())
+	  prob = XINT (note, 0);
+	  ret = ((prob >= (REG_BR_PROB_BASE / 2))
 		 ? FRV_JUMP_LIKELY
 		 : FRV_JUMP_NOT_LIKELY);
 	}
@@ -2671,7 +2723,7 @@ comparison_string (enum rtx_code code, rtx op0)
   bool is_nz_p = GET_MODE (op0) == CC_NZmode;
   switch (code)
     {
-    default:  output_operand_lossage ("bad condition code"); return "";
+    default:  output_operand_lossage ("bad condition code");
     case EQ:  return "eq";
     case NE:  return "ne";
     case LT:  return is_nz_p ? "n" : "lt";
@@ -2735,9 +2787,11 @@ frv_print_operand (FILE * file, rtx x, int code)
     {
       if (GET_MODE (x) == SFmode)
 	{
+	  REAL_VALUE_TYPE rv;
 	  long l;
 
-	  REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (x), l);
+	  REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
+	  REAL_VALUE_TO_TARGET_SINGLE (rv, l);
 	  value = l;
 	}
 
@@ -2989,10 +3043,10 @@ frv_print_operand (FILE * file, rtx x, int code)
 	frv_output_const_unspec (file, &unspec);
 
       else if (GET_CODE (x) == MEM)
-        frv_print_operand_address (file, GET_MODE (x), XEXP (x, 0));
+        frv_print_operand_address (file, XEXP (x, 0));
 
       else if (CONSTANT_ADDRESS_P (x))
-        frv_print_operand_address (file, VOIDmode, x);
+        frv_print_operand_address (file, x);
 
       else
         fatal_insn ("bad insn in frv_print_operand, 0 case", x);
@@ -3554,7 +3608,9 @@ frv_legitimize_tls_address (rtx addr, enum tls_model model)
 	  }
 
 	reg = gen_reg_rtx (Pmode);
-	emit_insn (gen_rtx_SET (reg, gen_rtx_PLUS (Pmode, retval, tp)));
+	emit_insn (gen_rtx_SET (VOIDmode, reg,
+				gen_rtx_PLUS (Pmode,
+					      retval, tp)));
 
 	dest = gen_tlsmoff (addr, reg);
 
@@ -3877,10 +3933,10 @@ condexec_memory_operand (rtx op, machine_mode mode)
     default:
       return FALSE;
 
-    case E_QImode:
-    case E_HImode:
-    case E_SImode:
-    case E_SFmode:
+    case QImode:
+    case HImode:
+    case SImode:
+    case SFmode:
       break;
     }
 
@@ -3919,16 +3975,16 @@ frv_emit_move (machine_mode mode, rtx dest, rtx src)
 
   switch (mode)
     {
-    case E_SImode:
+    case SImode:
       if (frv_emit_movsi (dest, src))
 	return;
       break;
 
-    case E_QImode:
-    case E_HImode:
-    case E_DImode:
-    case E_SFmode:
-    case E_DFmode:
+    case QImode:
+    case HImode:
+    case DImode:
+    case SFmode:
+    case DFmode:
       if (!reload_in_progress
 	  && !reload_completed
 	  && !register_operand (dest, mode)
@@ -3940,7 +3996,7 @@ frv_emit_move (machine_mode mode, rtx dest, rtx src)
       gcc_unreachable ();
     }
 
-  emit_insn (gen_rtx_SET (dest, src));
+  emit_insn (gen_rtx_SET (VOIDmode, dest, src));
 }
 
 /* Emit code to handle a MOVSI, adding in the small data register or pic
@@ -3967,7 +4023,7 @@ frv_emit_movsi (rtx dest, rtx src)
 			   FIRST_VIRTUAL_REGISTER,
 			   LAST_VIRTUAL_POINTER_REGISTER))))
     {
-      emit_insn (gen_rtx_SET (dest, copy_to_mode_reg (SImode, src)));
+      emit_insn (gen_rtx_SET (VOIDmode, dest, copy_to_mode_reg (SImode, src)));
       return TRUE;
     }
 
@@ -4233,14 +4289,14 @@ output_move_single (rtx operands[], rtx insn)
 		default:
 		  break;
 
-		case E_QImode:
+		case QImode:
 		  return "ldsb%I1%U1 %M1,%0";
 
-		case E_HImode:
+		case HImode:
 		  return "ldsh%I1%U1 %M1,%0";
 
-		case E_SImode:
-		case E_SFmode:
+		case SImode:
+		case SFmode:
 		  return "ld%I1%U1 %M1, %0";
 		}
 	    }
@@ -4256,10 +4312,11 @@ output_move_single (rtx operands[], rtx insn)
 
 	      else if (mode == SFmode)
 		{
+		  REAL_VALUE_TYPE rv;
 		  long l;
 
-		  REAL_VALUE_TO_TARGET_SINGLE
-		    (*CONST_DOUBLE_REAL_VALUE (src), l);
+		  REAL_VALUE_FROM_CONST_DOUBLE (rv, src);
+		  REAL_VALUE_TO_TARGET_SINGLE (rv, l);
 		  value = l;
 		}
 
@@ -4307,14 +4364,14 @@ output_move_single (rtx operands[], rtx insn)
 		default:
 		  break;
 
-		case E_QImode:
+		case QImode:
 		  return "ldbf%I1%U1 %M1,%0";
 
-		case E_HImode:
+		case HImode:
 		  return "ldhf%I1%U1 %M1,%0";
 
-		case E_SImode:
-		case E_SFmode:
+		case SImode:
+		case SFmode:
 		  return "ldf%I1%U1 %M1, %0";
 		}
 	    }
@@ -4352,14 +4409,14 @@ output_move_single (rtx operands[], rtx insn)
 		default:
 		  break;
 
-		case E_QImode:
+		case QImode:
 		  return "stb%I0%U0 %1, %M0";
 
-		case E_HImode:
+		case HImode:
 		  return "sth%I0%U0 %1, %M0";
 
-		case E_SImode:
-		case E_SFmode:
+		case SImode:
+		case SFmode:
 		  return "st%I0%U0 %1, %M0";
 		}
 	    }
@@ -4371,14 +4428,14 @@ output_move_single (rtx operands[], rtx insn)
 		default:
 		  break;
 
-		case E_QImode:
+		case QImode:
 		  return "stbf%I0%U0 %1, %M0";
 
-		case E_HImode:
+		case HImode:
 		  return "sthf%I0%U0 %1, %M0";
 
-		case E_SImode:
-		case E_SFmode:
+		case SImode:
+		case SFmode:
 		  return "stf%I0%U0 %1, %M0";
 		}
 	    }
@@ -4391,14 +4448,14 @@ output_move_single (rtx operands[], rtx insn)
 	    default:
 	      break;
 
-	    case E_QImode:
+	    case QImode:
 	      return "stb%I0%U0 %., %M0";
 
-	    case E_HImode:
+	    case HImode:
 	      return "sth%I0%U0 %., %M0";
 
-	    case E_SImode:
-	    case E_SFmode:
+	    case SImode:
+	    case SFmode:
 	      return "st%I0%U0 %., %M0";
 	    }
 	}
@@ -4575,14 +4632,14 @@ output_condmove_single (rtx operands[], rtx insn)
 		default:
 		  break;
 
-		case E_QImode:
+		case QImode:
 		  return "cldsb%I3%U3 %M3, %2, %1, %e0";
 
-		case E_HImode:
+		case HImode:
 		  return "cldsh%I3%U3 %M3, %2, %1, %e0";
 
-		case E_SImode:
-		case E_SFmode:
+		case SImode:
+		case SFmode:
 		  return "cld%I3%U3 %M3, %2, %1, %e0";
 		}
 	    }
@@ -4636,14 +4693,14 @@ output_condmove_single (rtx operands[], rtx insn)
 		default:
 		  break;
 
-		case E_QImode:
+		case QImode:
 		  return "cstb%I2%U2 %3, %M2, %1, %e0";
 
-		case E_HImode:
+		case HImode:
 		  return "csth%I2%U2 %3, %M2, %1, %e0";
 
-		case E_SImode:
-		case E_SFmode:
+		case SImode:
+		case SFmode:
 		  return "cst%I2%U2 %3, %M2, %1, %e0";
 		}
 	    }
@@ -4660,14 +4717,14 @@ output_condmove_single (rtx operands[], rtx insn)
 	    default:
 	      break;
 
-	    case E_QImode:
+	    case QImode:
 	      return "cstb%I2%U2 %., %M2, %1, %e0";
 
-	    case E_HImode:
+	    case HImode:
 	      return "csth%I2%U2 %., %M2, %1, %e0";
 
-	    case E_SImode:
-	    case E_SFmode:
+	    case SImode:
+	    case SFmode:
 	      return "cst%I2%U2 %., %M2, %1, %e0";
 	    }
 	}
@@ -4699,7 +4756,8 @@ frv_emit_comparison (enum rtx_code test, rtx op0, rtx op1)
 	    : gen_rtx_REG (cc_mode,
 			   (cc_mode == CC_FPmode) ? FCC_FIRST : ICC_FIRST));
 
-  emit_insn (gen_rtx_SET (cc_reg, gen_rtx_COMPARE (cc_mode, op0, op1)));
+  emit_insn (gen_rtx_SET (VOIDmode, cc_reg,
+			  gen_rtx_COMPARE (cc_mode, op0, op1)));
 
   return cc_reg;
 }
@@ -4727,7 +4785,7 @@ frv_emit_cond_branch (rtx operands[])
   label_ref = gen_rtx_LABEL_REF (VOIDmode, operands[3]);
   test_rtx = gen_rtx_fmt_ee (test, cc_mode, cc_reg, const0_rtx);
   if_else = gen_rtx_IF_THEN_ELSE (cc_mode, test_rtx, label_ref, pc_rtx);
-  emit_jump_insn (gen_rtx_SET (pc_rtx, if_else));
+  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, if_else));
   return TRUE;
 }
 
@@ -4748,7 +4806,7 @@ frv_emit_scc (rtx operands[])
 	(parallel [(set <target> (<test>, <cc_reg>, (const_int 0))
 		   (clobber (<ccr_reg>))])  */
   test_rtx = gen_rtx_fmt_ee (test, SImode, cc_reg, const0_rtx);
-  set = gen_rtx_SET (operands[0], test_rtx);
+  set = gen_rtx_SET (VOIDmode, operands[0], test_rtx);
 
   cr_reg = ((TARGET_ALLOC_CC)
 	    ? gen_reg_rtx (CC_CCRmode)
@@ -4774,7 +4832,8 @@ frv_split_scc (rtx dest, rtx test, rtx cc_reg, rtx cr_reg, HOST_WIDE_INT value)
   start_sequence ();
 
   /* Set the appropriate CCR bit.  */
-  emit_insn (gen_rtx_SET (cr_reg,
+  emit_insn (gen_rtx_SET (VOIDmode,
+			  cr_reg,
 			  gen_rtx_fmt_ee (GET_CODE (test),
 					  GET_MODE (cr_reg),
 					  cc_reg,
@@ -4788,7 +4847,7 @@ frv_split_scc (rtx dest, rtx test, rtx cc_reg, rtx cr_reg, HOST_WIDE_INT value)
 				gen_rtx_EQ (GET_MODE (cr_reg),
 					    cr_reg,
 					    const0_rtx),
-				gen_rtx_SET (dest, const0_rtx)));
+				gen_rtx_SET (VOIDmode, dest, const0_rtx)));
 
   /* Finish up, return sequence.  */
   ret = get_insns ();
@@ -4862,7 +4921,7 @@ frv_emit_cond_move (rtx dest, rtx test_rtx, rtx src1, rtx src2)
   test2 = gen_rtx_fmt_ee (test, cc_mode, cc_reg, const0_rtx);
   if_rtx = gen_rtx_IF_THEN_ELSE (GET_MODE (dest), test2, src1, src2);
 
-  set = gen_rtx_SET (dest, if_rtx);
+  set = gen_rtx_SET (VOIDmode, dest, if_rtx);
 
   cr_reg = ((TARGET_ALLOC_CC)
 	    ? gen_reg_rtx (CC_CCRmode)
@@ -4893,7 +4952,8 @@ frv_split_cond_move (rtx operands[])
   start_sequence ();
 
   /* Set the appropriate CCR bit.  */
-  emit_insn (gen_rtx_SET (cr_reg,
+  emit_insn (gen_rtx_SET (VOIDmode,
+			  cr_reg,
 			  gen_rtx_fmt_ee (GET_CODE (test),
 					  GET_MODE (cr_reg),
 					  cc_reg,
@@ -4913,7 +4973,7 @@ frv_split_cond_move (rtx operands[])
 	  emit_insn (gen_rtx_COND_EXEC (VOIDmode,
 					gen_rtx_NE (cr_mode, cr_reg,
 						    const0_rtx),
-					gen_rtx_SET (dest, src1)));
+					gen_rtx_SET (VOIDmode, dest, src1)));
 	}
 
       else if (value2 == 0)
@@ -4922,7 +4982,7 @@ frv_split_cond_move (rtx operands[])
 	  emit_insn (gen_rtx_COND_EXEC (VOIDmode,
 					gen_rtx_EQ (cr_mode, cr_reg,
 						    const0_rtx),
-					gen_rtx_SET (dest, src2)));
+					gen_rtx_SET (VOIDmode, dest, src2)));
 	}
 
       /* If the first value is within an addi range and also the difference
@@ -4940,7 +5000,8 @@ frv_split_cond_move (rtx operands[])
 	  emit_insn (gen_rtx_COND_EXEC (VOIDmode,
 					gen_rtx_NE (cr_mode, cr_reg,
 						    const0_rtx),
-					gen_rtx_SET (dest_si, const0_rtx)));
+					gen_rtx_SET (VOIDmode, dest_si,
+						     const0_rtx)));
 	  emit_insn (gen_addsi3 (dest_si, dest_si, src1));
 	}
 
@@ -4953,13 +5014,13 @@ frv_split_cond_move (rtx operands[])
       if (! rtx_equal_p (dest, src1))
 	emit_insn (gen_rtx_COND_EXEC (VOIDmode,
 				      gen_rtx_NE (cr_mode, cr_reg, const0_rtx),
-				      gen_rtx_SET (dest, src1)));
+				      gen_rtx_SET (VOIDmode, dest, src1)));
 
       /* Emit the conditional move for the test being false if needed.  */
       if (! rtx_equal_p (dest, src2))
 	emit_insn (gen_rtx_COND_EXEC (VOIDmode,
 				      gen_rtx_EQ (cr_mode, cr_reg, const0_rtx),
-				      gen_rtx_SET (dest, src2)));
+				      gen_rtx_SET (VOIDmode, dest, src2)));
     }
 
   /* Finish up, return sequence.  */
@@ -5056,14 +5117,18 @@ frv_split_minmax (rtx operands[])
     }
 
   /* Issue the compare instruction.  */
-  emit_insn (gen_rtx_SET (cc_reg, gen_rtx_COMPARE (GET_MODE (cc_reg),
-						   src1, src2)));
+  emit_insn (gen_rtx_SET (VOIDmode,
+			  cc_reg,
+			  gen_rtx_COMPARE (GET_MODE (cc_reg),
+					   src1, src2)));
 
   /* Set the appropriate CCR bit.  */
-  emit_insn (gen_rtx_SET (cr_reg, gen_rtx_fmt_ee (test_code,
-						  GET_MODE (cr_reg),
-						  cc_reg,
-						  const0_rtx)));
+  emit_insn (gen_rtx_SET (VOIDmode,
+			  cr_reg,
+			  gen_rtx_fmt_ee (test_code,
+					  GET_MODE (cr_reg),
+					  cc_reg,
+					  const0_rtx)));
 
   /* If are taking the min/max of a nonzero constant, load that first, and
      then do a conditional move of the other value.  */
@@ -5074,7 +5139,7 @@ frv_split_minmax (rtx operands[])
       emit_move_insn (dest, src2);
       emit_insn (gen_rtx_COND_EXEC (VOIDmode,
 				    gen_rtx_NE (cr_mode, cr_reg, const0_rtx),
-				    gen_rtx_SET (dest, src1)));
+				    gen_rtx_SET (VOIDmode, dest, src1)));
     }
 
   /* Otherwise, do each half of the move.  */
@@ -5084,13 +5149,13 @@ frv_split_minmax (rtx operands[])
       if (! rtx_equal_p (dest, src1))
 	emit_insn (gen_rtx_COND_EXEC (VOIDmode,
 				      gen_rtx_NE (cr_mode, cr_reg, const0_rtx),
-				      gen_rtx_SET (dest, src1)));
+				      gen_rtx_SET (VOIDmode, dest, src1)));
 
       /* Emit the conditional move for the test being false if needed.  */
       if (! rtx_equal_p (dest, src2))
 	emit_insn (gen_rtx_COND_EXEC (VOIDmode,
 				      gen_rtx_EQ (cr_mode, cr_reg, const0_rtx),
-				      gen_rtx_SET (dest, src2)));
+				      gen_rtx_SET (VOIDmode, dest, src2)));
     }
 
   /* Finish up, return sequence.  */
@@ -5115,11 +5180,14 @@ frv_split_abs (rtx operands[])
   start_sequence ();
 
   /* Issue the compare < 0 instruction.  */
-  emit_insn (gen_rtx_SET (cc_reg, gen_rtx_COMPARE (CCmode, src, const0_rtx)));
+  emit_insn (gen_rtx_SET (VOIDmode,
+			  cc_reg,
+			  gen_rtx_COMPARE (CCmode, src, const0_rtx)));
 
   /* Set the appropriate CCR bit.  */
-  emit_insn (gen_rtx_SET (cr_reg, gen_rtx_fmt_ee (LT, CC_CCRmode,
-						  cc_reg, const0_rtx)));
+  emit_insn (gen_rtx_SET (VOIDmode,
+			  cr_reg,
+			  gen_rtx_fmt_ee (LT, CC_CCRmode, cc_reg, const0_rtx)));
 
   /* Emit the conditional negate if the value is negative.  */
   emit_insn (gen_rtx_COND_EXEC (VOIDmode,
@@ -5130,7 +5198,7 @@ frv_split_abs (rtx operands[])
   if (! rtx_equal_p (dest, src))
     emit_insn (gen_rtx_COND_EXEC (VOIDmode,
 				  gen_rtx_EQ (CC_CCRmode, cr_reg, const0_rtx),
-				  gen_rtx_SET (dest, src)));
+				  gen_rtx_SET (VOIDmode, dest, src)));
 
   /* Finish up, return sequence.  */
   ret = get_insns ();
@@ -5508,8 +5576,8 @@ frv_ifcvt_modify_tests (ce_if_block *ce_info, rtx *p_true, rtx *p_false)
       code_false = EQ;
     }
 
-  check_insn = gen_rtx_SET (cr, gen_rtx_fmt_ee (code, CC_CCRmode,
-						cc, const0_rtx));
+  check_insn = gen_rtx_SET (VOIDmode, cr,
+			    gen_rtx_fmt_ee (code, CC_CCRmode, cc, const0_rtx));
 
   /* Record the check insn to be inserted later.  */
   frv_ifcvt_add_insn (check_insn, BB_END (test_bb), TRUE);
@@ -5637,7 +5705,7 @@ frv_ifcvt_modify_multiple_tests (ce_if_block *ce_info,
   compare = gen_rtx_fmt_ee (GET_CODE (test_expr), CC_CCRmode, cc, const0_rtx);
   if_else = gen_rtx_IF_THEN_ELSE (CC_CCRmode, old_test, compare, const0_rtx);
 
-  check_insn = gen_rtx_SET (new_cr, if_else);
+  check_insn = gen_rtx_SET (VOIDmode, new_cr, if_else);
 
   /* Add the new check insn to the list of check insns that need to be
      inserted.  */
@@ -5720,7 +5788,7 @@ frv_ifcvt_load_value (rtx value, rtx insn ATTRIBUTE_UNUSED)
     }
 
   frv_ifcvt.cur_scratch_regs++;
-  frv_ifcvt.scratch_regs[num_alloc] = gen_rtx_SET (reg, value);
+  frv_ifcvt.scratch_regs[num_alloc] = gen_rtx_SET (VOIDmode, reg, value);
 
   if (dump_file)
     {
@@ -5914,9 +5982,9 @@ frv_ifcvt_modify_insn (ce_if_block *ce_info,
 	      op1 = frv_ifcvt_load_value (op1, insn);
 	      if (op1)
 		COND_EXEC_CODE (pattern)
-		  = gen_rtx_SET (dest, gen_rtx_fmt_ee (GET_CODE (src),
-						       GET_MODE (src),
-						       op0, op1));
+		  = gen_rtx_SET (VOIDmode, dest, gen_rtx_fmt_ee (GET_CODE (src),
+								 GET_MODE (src),
+								 op0, op1));
 	      else
 		goto fail;
 	    }
@@ -5936,7 +6004,8 @@ frv_ifcvt_modify_insn (ce_if_block *ce_info,
 		{
 		  op1 = gen_rtx_SIGN_EXTEND (DImode, op1);
 		  COND_EXEC_CODE (pattern)
-		    = gen_rtx_SET (dest, gen_rtx_MULT (DImode, op0, op1));
+		    = gen_rtx_SET (VOIDmode, dest,
+				   gen_rtx_MULT (DImode, op0, op1));
 		}
 	      else
 		goto fail;
@@ -6026,7 +6095,7 @@ frv_ifcvt_modify_insn (ce_if_block *ce_info,
 
 	  /* If either src or destination changed, redo SET.  */
 	  if (changed_p)
-	    COND_EXEC_CODE (pattern) = gen_rtx_SET (dest, src);
+	    COND_EXEC_CODE (pattern) = gen_rtx_SET (VOIDmode, dest, src);
 	}
 
       /* Rewrite a nested set cccr in terms of IF_THEN_ELSE.  Also deal with
@@ -6048,7 +6117,7 @@ frv_ifcvt_modify_insn (ce_if_block *ce_info,
 	    }
 
 	  if_else = gen_rtx_IF_THEN_ELSE (CC_CCRmode, test, src, const0_rtx);
-	  pattern = gen_rtx_SET (dest, if_else);
+	  pattern = gen_rtx_SET (VOIDmode, dest, if_else);
 	}
 
       /* Remap a nested compare instruction to use the paired CC/CR reg.  */
@@ -6062,7 +6131,7 @@ frv_ifcvt_modify_insn (ce_if_block *ce_info,
 	{
 	  PUT_MODE (frv_ifcvt.nested_cc_reg, GET_MODE (dest));
 	  COND_EXEC_CODE (pattern)
-	    = gen_rtx_SET (frv_ifcvt.nested_cc_reg, copy_rtx (src));
+	    = gen_rtx_SET (VOIDmode, frv_ifcvt.nested_cc_reg, copy_rtx (src));
 	}
     }
 
@@ -6225,7 +6294,7 @@ frv_trampoline_init (rtx m_tramp, tree fndecl, rtx static_chain)
   rtx sc_reg = force_reg (Pmode, static_chain);
 
   emit_library_call (gen_rtx_SYMBOL_REF (SImode, "__trampoline_setup"),
-		     LCT_NORMAL, VOIDmode,
+		     LCT_NORMAL, VOIDmode, 4,
 		     addr, Pmode,
 		     GEN_INT (frv_trampoline_size ()), SImode,
 		     fnaddr, Pmode,
@@ -6465,8 +6534,7 @@ int
 frv_adjust_field_align (tree field, int computed)
 {
   /* Make sure that the bitfield is not wider than the type.  */
-  if (field
-      && DECL_BIT_FIELD (field)
+  if (DECL_BIT_FIELD (field)
       && !DECL_ARTIFICIAL (field))
     {
       tree parent = DECL_CONTEXT (field);
@@ -6501,25 +6569,77 @@ frv_adjust_field_align (tree field, int computed)
 }
 
 
-/* Implement TARGET_HARD_REGNO_MODE_OK.  */
+/* A C expression that is nonzero if it is permissible to store a value of mode
+   MODE in hard register number REGNO (or in several registers starting with
+   that one).  For a machine where all registers are equivalent, a suitable
+   definition is
 
-static bool
-frv_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
+        #define HARD_REGNO_MODE_OK(REGNO, MODE) 1
+
+   It is not necessary for this macro to check for the numbers of fixed
+   registers, because the allocation mechanism considers them to be always
+   occupied.
+
+   On some machines, double-precision values must be kept in even/odd register
+   pairs.  The way to implement that is to define this macro to reject odd
+   register numbers for such modes.
+
+   The minimum requirement for a mode to be OK in a register is that the
+   `movMODE' instruction pattern support moves between the register and any
+   other hard register for which the mode is OK; and that moving a value into
+   the register and back out not alter it.
+
+   Since the same instruction used to move `SImode' will work for all narrower
+   integer modes, it is not necessary on any machine for `HARD_REGNO_MODE_OK'
+   to distinguish between these modes, provided you define patterns `movhi',
+   etc., to take advantage of this.  This is useful because of the interaction
+   between `HARD_REGNO_MODE_OK' and `MODES_TIEABLE_P'; it is very desirable for
+   all integer modes to be tieable.
+
+   Many machines have special registers for floating point arithmetic.  Often
+   people assume that floating point machine modes are allowed only in floating
+   point registers.  This is not true.  Any registers that can hold integers
+   can safely *hold* a floating point machine mode, whether or not floating
+   arithmetic can be done on it in those registers.  Integer move instructions
+   can be used to move the values.
+
+   On some machines, though, the converse is true: fixed-point machine modes
+   may not go in floating registers.  This is true if the floating registers
+   normalize any value stored in them, because storing a non-floating value
+   there would garble it.  In this case, `HARD_REGNO_MODE_OK' should reject
+   fixed-point machine modes in floating registers.  But if the floating
+   registers do not automatically normalize, if you can store any bit pattern
+   in one and retrieve it unchanged without a trap, then any machine mode may
+   go in a floating register, so you can define this macro to say so.
+
+   The primary significance of special floating registers is rather that they
+   are the registers acceptable in floating point arithmetic instructions.
+   However, this is of no concern to `HARD_REGNO_MODE_OK'.  You handle it by
+   writing the proper constraints for those instructions.
+
+   On some machines, the floating registers are especially slow to access, so
+   that it is better to store a value in a stack frame than in such a register
+   if floating point arithmetic is not being done.  As long as the floating
+   registers are not in class `GENERAL_REGS', they will not be used unless some
+   pattern's constraint asks for one.  */
+
+int
+frv_hard_regno_mode_ok (int regno, machine_mode mode)
 {
   int base;
   int mask;
 
   switch (mode)
     {
-    case E_CCmode:
-    case E_CC_UNSmode:
-    case E_CC_NZmode:
+    case CCmode:
+    case CC_UNSmode:
+    case CC_NZmode:
       return ICC_P (regno) || GPR_P (regno);
 
-    case E_CC_CCRmode:
+    case CC_CCRmode:
       return CR_P (regno) || GPR_P (regno);
 
-    case E_CC_FPmode:
+    case CC_FPmode:
       return FCC_P (regno) || GPR_P (regno);
 
     default:
@@ -6556,38 +6676,38 @@ frv_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
 
 	  /* Fill in the table.  */
 	  else
-	    return false;
+	    return 0;
 
 	  /* Anything smaller than an SI is OK in any word-sized register.  */
 	  if (GET_MODE_SIZE (mode) < 4)
-	    return true;
+	    return 1;
 
 	  mask = (GET_MODE_SIZE (mode) / 4) - 1;
 	}
       return (((regno - base) & mask) == 0);
     }
 
-  return false;
-}
-
-/* Implement TARGET_MODES_TIEABLE_P.  */
-
-static bool
-frv_modes_tieable_p (machine_mode mode1, machine_mode mode2)
-{
-  return mode1 == mode2;
+  return 0;
 }
 
 
-/* Implement TARGET_HARD_REGNO_NREGS.
+/* A C expression for the number of consecutive hard registers, starting at
+   register number REGNO, required to hold a value of mode MODE.
 
-   On the FRV, make the CC_FP mode take 3 words in the integer registers, so
+   On a machine where all registers are exactly one word, a suitable definition
+   of this macro is
+
+        #define HARD_REGNO_NREGS(REGNO, MODE)            \
+           ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1)  \
+            / UNITS_PER_WORD))  */
+
+/* On the FRV, make the CC_FP mode take 3 words in the integer registers, so
    that we can build the appropriate instructions to properly reload the
    values.  Also, make the byte-sized accumulator guards use one guard
    for each byte.  */
 
-static unsigned int
-frv_hard_regno_nregs (unsigned int regno, machine_mode mode)
+int
+frv_hard_regno_nregs (int regno, machine_mode mode)
 {
   if (ACCG_P (regno))
     return GET_MODE_SIZE (mode);
@@ -6596,7 +6716,17 @@ frv_hard_regno_nregs (unsigned int regno, machine_mode mode)
 }
 
 
-/* Implement CLASS_MAX_NREGS.  */
+/* A C expression for the maximum number of consecutive registers of
+   class RCLASS needed to hold a value of mode MODE.
+
+   This is closely related to the macro `HARD_REGNO_NREGS'.  In fact, the value
+   of the macro `CLASS_MAX_NREGS (RCLASS, MODE)' should be the maximum value of
+   `HARD_REGNO_NREGS (REGNO, MODE)' for all REGNO values in the class RCLASS.
+
+   This macro helps control the handling of multiple-word values in
+   the reload pass.
+
+   This declaration is required.  */
 
 int
 frv_class_max_nregs (enum reg_class rclass, machine_mode mode)
@@ -7516,7 +7646,7 @@ static void
 frv_reorder_packet (void)
 {
   unsigned int cursor[NUM_GROUPS];
-  rtx_insn *insns[ARRAY_SIZE (frv_unit_groups)];
+  rtx insns[ARRAY_SIZE (frv_unit_groups)];
   unsigned int unit, to, from;
   enum frv_insn_group group;
   struct frv_packet_group *packet_group;
@@ -7719,8 +7849,8 @@ frv_optimize_membar_local (basic_block bb, struct frv_io *next_io,
 			   rtx_insn **last_membar)
 {
   HARD_REG_SET used_regs;
-  rtx set;
-  rtx_insn *insn, *next_membar;
+  rtx next_membar, set;
+  rtx_insn *insn;
   bool next_is_end_p;
 
   /* NEXT_IO is the next I/O operation to be performed after the current
@@ -8541,13 +8671,13 @@ frv_matching_accg_mode (machine_mode mode)
 {
   switch (mode)
     {
-    case E_V4SImode:
+    case V4SImode:
       return V4QImode;
 
-    case E_DImode:
+    case DImode:
       return HImode;
 
-    case E_SImode:
+    case SImode:
       return QImode;
 
     default:
@@ -8611,7 +8741,7 @@ frv_read_iacc_argument (machine_mode mode, tree call,
      avoid creating lots of unnecessary call_insn rtl when IACCs aren't
      being used.  */
   regno = INTVAL (op) + IACC_FIRST;
-  for (i = 0; i < hard_regno_nregs (regno, mode); i++)
+  for (i = 0; i < HARD_REGNO_NREGS (regno, mode); i++)
     global_regs[regno + i] = 1;
 
   return gen_rtx_REG (mode, regno);
@@ -8815,7 +8945,7 @@ frv_expand_voidbinop_builtin (enum insn_code icode, tree call)
       if (! offsettable_address_p (0, mode0, op0))
 	{
 	  reg = gen_reg_rtx (Pmode);
-	  emit_insn (gen_rtx_SET (reg, op0));
+	  emit_insn (gen_rtx_SET (VOIDmode, reg, op0));
 	}
 
       op0 = gen_rtx_MEM (SImode, reg);
@@ -9354,14 +9484,12 @@ frv_in_small_data_p (const_tree decl)
 
 static bool
 frv_rtx_costs (rtx x,
-               machine_mode mode,
-               int outer_code,
+               int code ATTRIBUTE_UNUSED,
+               int outer_code ATTRIBUTE_UNUSED,
 	       int opno ATTRIBUTE_UNUSED,
                int *total,
 	       bool speed ATTRIBUTE_UNUSED)
 {
-  int code = GET_CODE (x);
-
   if (outer_code == MEM)
     {
       /* Don't differentiate between memory addresses.  All the ones
@@ -9399,16 +9527,16 @@ frv_rtx_costs (rtx x,
     case NOT:
     case NEG:
     case COMPARE:
-      if (mode == SImode)
+      if (GET_MODE (x) == SImode)
 	*total = COSTS_N_INSNS (1);
-      else if (mode == DImode)
+      else if (GET_MODE (x) == DImode)
         *total = COSTS_N_INSNS (2);
       else
         *total = COSTS_N_INSNS (3);
       return true;
 
     case MULT:
-      if (mode == SImode)
+      if (GET_MODE (x) == SImode)
         *total = COSTS_N_INSNS (2);
       else
         *total = COSTS_N_INSNS (6);	/* guess */

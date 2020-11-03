@@ -38,8 +38,8 @@ program tsave
   integer :: info
   
   call bar_foo_ab(info) 
-  if (info .ne. 0) STOP 1
+  if (info .ne. 0) call abort ()
   call bar_foo_ab(info) 
-  if (info .ne. 10) STOP 2
+  if (info .ne. 10) call abort ()
   
 end program tsave

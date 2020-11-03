@@ -20,7 +20,7 @@ A bar()
   return l;
 }
 
-int main()
+main()
 {
   A a = bar ();
 

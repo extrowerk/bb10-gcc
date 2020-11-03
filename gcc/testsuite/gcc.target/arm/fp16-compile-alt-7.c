@@ -1,5 +1,4 @@
 /* { dg-do compile } */
-/* { dg-require-effective-target arm_fp16_alternative_ok } */
 /* { dg-options "-mfp16-format=alternative -pedantic" } */
 
 /* This number overflows the range of the alternative encoding.  Since this

@@ -1,5 +1,5 @@
 /* Convert a program in SSA form into Normal form.
-   Copyright (C) 2004-2018 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
    Contributed by Andrew Macleod <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -21,42 +21,76 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "backend.h"
-#include "rtl.h"
+#include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
-#include "gimple.h"
-#include "cfghooks.h"
-#include "ssa.h"
-#include "memmodel.h"
-#include "emit-rtl.h"
-#include "gimple-pretty-print.h"
-#include "diagnostic-core.h"
+#include "fold-const.h"
 #include "stor-layout.h"
+#include "predict.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
+#include "basic-block.h"
+#include "gimple-pretty-print.h"
+#include "bitmap.h"
+#include "sbitmap.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
 #include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
 #include "gimple-iterator.h"
+#include "gimple-ssa.h"
 #include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
 #include "dumpfile.h"
+#include "diagnostic-core.h"
 #include "tree-ssa-live.h"
 #include "tree-ssa-ter.h"
 #include "tree-ssa-coalesce.h"
 #include "tree-outof-ssa.h"
-#include "dojump.h"
 
 /* FIXME: A lot of code here deals with expanding to RTL.  All that code
    should be in cfgexpand.c.  */
+#include "hashtab.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
 #include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 
 /* Return TRUE if expression STMT is suitable for replacement.  */
 
 bool
-ssa_is_replaceable_p (gimple *stmt)
+ssa_is_replaceable_p (gimple stmt)
 {
   use_operand_p use_p;
   tree def;
-  gimple *use_stmt;
+  gimple use_stmt;
 
   /* Only consider modify stmts.  */
   if (!is_gimple_assign (stmt))
@@ -127,27 +161,24 @@ ssa_is_replaceable_p (gimple *stmt)
    rarely more than 6, and in the bootstrap of gcc, the maximum number
    of nodes encountered was 12.  */
 
-struct elim_graph
-{
-  elim_graph (var_map map);
-
+typedef struct _elim_graph {
   /* Size of the elimination vectors.  */
   int size;
 
   /* List of nodes in the elimination graph.  */
-  auto_vec<int> nodes;
+  vec<int> nodes;
 
   /*  The predecessor and successor edge list.  */
-  auto_vec<int> edge_list;
+  vec<int> edge_list;
 
   /* Source locus on each edge */
-  auto_vec<source_location> edge_locus;
+  vec<source_location> edge_locus;
 
   /* Visited vector.  */
-  auto_sbitmap visited;
+  sbitmap visited;
 
   /* Stack for visited nodes.  */
-  auto_vec<int> stack;
+  vec<int> stack;
 
   /* The variable partition map.  */
   var_map map;
@@ -156,12 +187,12 @@ struct elim_graph
   edge e;
 
   /* List of constant copies to emit.  These are pushed on in pairs.  */
-  auto_vec<int> const_dests;
-  auto_vec<tree> const_copies;
+  vec<int> const_dests;
+  vec<tree> const_copies;
 
   /* Source locations for any constant copies.  */
-  auto_vec<source_location> copy_locus;
-};
+  vec<source_location> copy_locus;
+} *elim_graph;
 
 
 /* For an edge E find out a good source location to associate with
@@ -187,7 +218,7 @@ set_location_for_edge (edge e)
 	{
 	  for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi); gsi_prev (&gsi))
 	    {
-	      gimple *stmt = gsi_stmt (gsi);
+	      gimple stmt = gsi_stmt (gsi);
 	      if (is_gimple_debug (stmt))
 		continue;
 	      if (gimple_has_location (stmt) || gimple_block (stmt))
@@ -211,9 +242,11 @@ set_location_for_edge (edge e)
    SRC/DEST might be BLKmode memory locations SIZEEXP is a tree from
    which we deduce the size to copy in that case.  */
 
-static inline rtx_insn *
+static inline rtx
 emit_partition_copy (rtx dest, rtx src, int unsignedsrcp, tree sizeexp)
 {
+  rtx seq;
+
   start_sequence ();
 
   if (GET_MODE (src) != VOIDmode && GET_MODE (src) != GET_MODE (dest))
@@ -225,9 +258,8 @@ emit_partition_copy (rtx dest, rtx src, int unsignedsrcp, tree sizeexp)
     }
   else
     emit_move_insn (dest, src);
-  do_pending_stack_adjust ();
 
-  rtx_insn *seq = get_insns ();
+  seq = get_insns ();
   end_sequence ();
 
   return seq;
@@ -239,10 +271,11 @@ static void
 insert_partition_copy_on_edge (edge e, int dest, int src, source_location locus)
 {
   tree var;
+  rtx seq;
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file,
-	       "Inserting a partition copy on edge BB%d->BB%d : "
+	       "Inserting a partition copy on edge BB%d->BB%d :"
 	       "PART.%d = PART.%d",
 	       e->src->index,
 	       e->dest->index, dest, src);
@@ -258,10 +291,10 @@ insert_partition_copy_on_edge (edge e, int dest, int src, source_location locus)
     set_curr_insn_location (locus);
 
   var = partition_to_var (SA.map, src);
-  rtx_insn *seq = emit_partition_copy (copy_rtx (SA.partition_to_pseudo[dest]),
-				       copy_rtx (SA.partition_to_pseudo[src]),
-				       TYPE_UNSIGNED (TREE_TYPE (var)),
-				       var);
+  seq = emit_partition_copy (copy_rtx (SA.partition_to_pseudo[dest]),
+			     copy_rtx (SA.partition_to_pseudo[src]),
+			     TYPE_UNSIGNED (TREE_TYPE (var)),
+			     var);
 
   insert_insn_on_edge (seq, e);
 }
@@ -275,6 +308,7 @@ insert_value_copy_on_edge (edge e, int dest, tree src, source_location locus)
   rtx dest_rtx, seq, x;
   machine_mode dest_mode, src_mode;
   int unsignedp;
+  tree var;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -296,12 +330,12 @@ insert_value_copy_on_edge (edge e, int dest, tree src, source_location locus)
 
   start_sequence ();
 
-  tree name = partition_to_var (SA.map, dest);
+  var = SSA_NAME_VAR (partition_to_var (SA.map, dest));
   src_mode = TYPE_MODE (TREE_TYPE (src));
   dest_mode = GET_MODE (dest_rtx);
-  gcc_assert (src_mode == TYPE_MODE (TREE_TYPE (name)));
+  gcc_assert (src_mode == TYPE_MODE (TREE_TYPE (var)));
   gcc_assert (!REG_P (dest_rtx)
-	      || dest_mode == promote_ssa_mode (name, &unsignedp));
+	      || dest_mode == promote_decl_mode (var, &unsignedp));
 
   if (src_mode != dest_mode)
     {
@@ -311,15 +345,13 @@ insert_value_copy_on_edge (edge e, int dest, tree src, source_location locus)
   else if (src_mode == BLKmode)
     {
       x = dest_rtx;
-      store_expr (src, x, 0, false, false);
+      store_expr (src, x, 0, false);
     }
   else
     x = expand_expr (src, dest_rtx, dest_mode, EXPAND_NORMAL);
 
   if (x != dest_rtx)
     emit_move_insn (dest_rtx, x);
-  do_pending_stack_adjust ();
-
   seq = get_insns ();
   end_sequence ();
 
@@ -333,6 +365,7 @@ static void
 insert_rtx_to_part_on_edge (edge e, int dest, rtx src, int unsignedsrcp,
 			    source_location locus)
 {
+  rtx seq;
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file,
@@ -354,9 +387,9 @@ insert_rtx_to_part_on_edge (edge e, int dest, rtx src, int unsignedsrcp,
      mems.  Usually we give the source.  As we result from SSA names
      the left and right size should be the same (and no WITH_SIZE_EXPR
      involved), so it doesn't matter.  */
-  rtx_insn *seq = emit_partition_copy (copy_rtx (SA.partition_to_pseudo[dest]),
-				       src, unsignedsrcp,
-				       partition_to_var (SA.map, dest));
+  seq = emit_partition_copy (copy_rtx (SA.partition_to_pseudo[dest]),
+			     src, unsignedsrcp,
+			     partition_to_var (SA.map, dest));
 
   insert_insn_on_edge (seq, e);
 }
@@ -368,6 +401,7 @@ static void
 insert_part_to_rtx_on_edge (edge e, rtx dest, int src, source_location locus)
 {
   tree var;
+  rtx seq;
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file,
@@ -386,28 +420,41 @@ insert_part_to_rtx_on_edge (edge e, rtx dest, int src, source_location locus)
     set_curr_insn_location (locus);
 
   var = partition_to_var (SA.map, src);
-  rtx_insn *seq = emit_partition_copy (dest,
-				       copy_rtx (SA.partition_to_pseudo[src]),
-				       TYPE_UNSIGNED (TREE_TYPE (var)),
-				       var);
+  seq = emit_partition_copy (dest,
+			     copy_rtx (SA.partition_to_pseudo[src]),
+			     TYPE_UNSIGNED (TREE_TYPE (var)),
+			     var);
 
   insert_insn_on_edge (seq, e);
 }
 
 
-/* Create an elimination graph for map.  */
+/* Create an elimination graph with SIZE nodes and associated data
+   structures.  */
 
-elim_graph::elim_graph (var_map map) :
-  nodes (30), edge_list (20), edge_locus (10), visited (map->num_partitions),
-  stack (30), map (map), const_dests (20), const_copies (20), copy_locus (10)
+static elim_graph
+new_elim_graph (int size)
 {
+  elim_graph g = (elim_graph) xmalloc (sizeof (struct _elim_graph));
+
+  g->nodes.create (30);
+  g->const_dests.create (20);
+  g->const_copies.create (20);
+  g->copy_locus.create (10);
+  g->edge_list.create (20);
+  g->edge_locus.create (10);
+  g->stack.create (30);
+
+  g->visited = sbitmap_alloc (size);
+
+  return g;
 }
 
 
 /* Empty elimination graph G.  */
 
 static inline void
-clear_elim_graph (elim_graph *g)
+clear_elim_graph (elim_graph g)
 {
   g->nodes.truncate (0);
   g->edge_list.truncate (0);
@@ -415,10 +462,28 @@ clear_elim_graph (elim_graph *g)
 }
 
 
+/* Delete elimination graph G.  */
+
+static inline void
+delete_elim_graph (elim_graph g)
+{
+  sbitmap_free (g->visited);
+  g->stack.release ();
+  g->edge_list.release ();
+  g->const_copies.release ();
+  g->const_dests.release ();
+  g->nodes.release ();
+  g->copy_locus.release ();
+  g->edge_locus.release ();
+
+  free (g);
+}
+
+
 /* Return the number of nodes in graph G.  */
 
 static inline int
-elim_graph_size (elim_graph *g)
+elim_graph_size (elim_graph g)
 {
   return g->nodes.length ();
 }
@@ -427,7 +492,7 @@ elim_graph_size (elim_graph *g)
 /* Add NODE to graph G, if it doesn't exist already.  */
 
 static inline void
-elim_graph_add_node (elim_graph *g, int node)
+elim_graph_add_node (elim_graph g, int node)
 {
   int x;
   int t;
@@ -442,7 +507,7 @@ elim_graph_add_node (elim_graph *g, int node)
 /* Add the edge PRED->SUCC to graph G.  */
 
 static inline void
-elim_graph_add_edge (elim_graph *g, int pred, int succ, source_location locus)
+elim_graph_add_edge (elim_graph g, int pred, int succ, source_location locus)
 {
   g->edge_list.safe_push (pred);
   g->edge_list.safe_push (succ);
@@ -454,7 +519,7 @@ elim_graph_add_edge (elim_graph *g, int pred, int succ, source_location locus)
    return the successor node.  -1 is returned if there is no such edge.  */
 
 static inline int
-elim_graph_remove_succ_edge (elim_graph *g, int node, source_location *locus)
+elim_graph_remove_succ_edge (elim_graph g, int node, source_location *locus)
 {
   int y;
   unsigned x;
@@ -516,7 +581,7 @@ do {									\
 /* Add T to elimination graph G.  */
 
 static inline void
-eliminate_name (elim_graph *g, int T)
+eliminate_name (elim_graph g, int T)
 {
   elim_graph_add_node (g, T);
 }
@@ -543,7 +608,7 @@ queue_phi_copy_p (var_map map, tree t)
    G->e.  */
 
 static void
-eliminate_build (elim_graph *g)
+eliminate_build (elim_graph g)
 {
   tree Ti;
   int p0, pi;
@@ -592,7 +657,7 @@ eliminate_build (elim_graph *g)
 /* Push successors of T onto the elimination stack for G.  */
 
 static void
-elim_forward (elim_graph *g, int T)
+elim_forward (elim_graph g, int T)
 {
   int S;
   source_location locus;
@@ -610,7 +675,7 @@ elim_forward (elim_graph *g, int T)
 /* Return 1 if there unvisited predecessors of T in graph G.  */
 
 static int
-elim_unvisited_predecessor (elim_graph *g, int T)
+elim_unvisited_predecessor (elim_graph g, int T)
 {
   int P;
   source_location locus;
@@ -626,7 +691,7 @@ elim_unvisited_predecessor (elim_graph *g, int T)
 /* Process predecessors first, and insert a copy.  */
 
 static void
-elim_backward (elim_graph *g, int T)
+elim_backward (elim_graph g, int T)
 {
   int P;
   source_location locus;
@@ -648,12 +713,13 @@ elim_backward (elim_graph *g, int T)
 static rtx
 get_temp_reg (tree name)
 {
-  tree type = TREE_TYPE (name);
+  tree var = TREE_CODE (name) == SSA_NAME ? SSA_NAME_VAR (name) : name;
+  tree type = TREE_TYPE (var);
   int unsignedp;
-  machine_mode reg_mode = promote_ssa_mode (name, &unsignedp);
+  machine_mode reg_mode = promote_decl_mode (var, &unsignedp);
   rtx x = gen_reg_rtx (reg_mode);
   if (POINTER_TYPE_P (type))
-    mark_reg_pointer (x, TYPE_ALIGN (TREE_TYPE (type)));
+    mark_reg_pointer (x, TYPE_ALIGN (TREE_TYPE (TREE_TYPE (var))));
   return x;
 }
 
@@ -661,7 +727,7 @@ get_temp_reg (tree name)
    region, and create a temporary to break the cycle if one is found.  */
 
 static void
-elim_create (elim_graph *g, int T)
+elim_create (elim_graph g, int T)
 {
   int P, S;
   source_location locus;
@@ -697,7 +763,7 @@ elim_create (elim_graph *g, int T)
 /* Eliminate all the phi nodes on edge E in graph G.  */
 
 static void
-eliminate_phi (edge e, elim_graph *g)
+eliminate_phi (edge e, elim_graph g)
 {
   int x;
 
@@ -773,7 +839,7 @@ remove_gimple_phi_args (gphi *phi)
 	  SET_USE (arg_p, NULL_TREE);
 	  if (has_zero_uses (arg))
 	    {
-	      gimple *stmt;
+	      gimple stmt;
 	      gimple_stmt_iterator gsi;
 
 	      stmt = SSA_NAME_DEF_STMT (arg);
@@ -808,23 +874,24 @@ eliminate_useless_phis (void)
 	  result = gimple_phi_result (phi);
 	  if (virtual_operand_p (result))
 	    {
+#ifdef ENABLE_CHECKING
+	      size_t i;
 	      /* There should be no arguments which are not virtual, or the
 	         results will be incorrect.  */
-	      if (flag_checking)
-		for (size_t i = 0; i < gimple_phi_num_args (phi); i++)
-		  {
-		    tree arg = PHI_ARG_DEF (phi, i);
-		    if (TREE_CODE (arg) == SSA_NAME
-			&& !virtual_operand_p (arg))
-		      {
-			fprintf (stderr, "Argument of PHI is not virtual (");
-			print_generic_expr (stderr, arg, TDF_SLIM);
-			fprintf (stderr, "), but the result is :");
-			print_gimple_stmt (stderr, phi, 0, TDF_SLIM);
-			internal_error ("SSA corruption");
-		      }
-		  }
-
+	      for (i = 0; i < gimple_phi_num_args (phi); i++)
+	        {
+		  tree arg = PHI_ARG_DEF (phi, i);
+		  if (TREE_CODE (arg) == SSA_NAME
+		      && !virtual_operand_p (arg))
+		    {
+		      fprintf (stderr, "Argument of PHI is not virtual (");
+		      print_generic_expr (stderr, arg, TDF_SLIM);
+		      fprintf (stderr, "), but the result is :");
+		      print_gimple_stmt (stderr, phi, 0, TDF_SLIM);
+		      internal_error ("SSA corruption");
+		    }
+		}
+#endif
 	      remove_phi_node (&gsi, true);
 	    }
           else
@@ -850,11 +917,9 @@ eliminate_useless_phis (void)
    variable.  */
 
 static void
-rewrite_trees (var_map map)
+rewrite_trees (var_map map ATTRIBUTE_UNUSED)
 {
-  if (!flag_checking)
-    return;
-
+#ifdef ENABLE_CHECKING
   basic_block bb;
   /* Search for PHIs where the destination has no partition, but one
      or more arguments has a partition.  This should not happen and can
@@ -886,6 +951,7 @@ rewrite_trees (var_map map)
 	    }
 	}
     }
+#endif
 }
 
 /* Given the out-of-ssa info object SA (with prepared partitions)
@@ -897,7 +963,8 @@ void
 expand_phi_nodes (struct ssaexpand *sa)
 {
   basic_block bb;
-  elim_graph g (sa->map);
+  elim_graph g = new_elim_graph (sa->map->num_partitions);
+  g->map = sa->map;
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb,
 		  EXIT_BLOCK_PTR_FOR_FN (cfun), next_bb)
@@ -906,7 +973,7 @@ expand_phi_nodes (struct ssaexpand *sa)
 	edge e;
 	edge_iterator ei;
 	FOR_EACH_EDGE (e, ei, bb->preds)
-	  eliminate_phi (e, &g);
+	  eliminate_phi (e, g);
 	set_phi_nodes (bb, NULL);
 	/* We can't redirect EH edges in RTL land, so we need to do this
 	   here.  Redirection happens only when splitting is necessary,
@@ -932,6 +999,8 @@ expand_phi_nodes (struct ssaexpand *sa)
 	      ei_next (&ei);
 	  }
       }
+
+  delete_elim_graph (g);
 }
 
 
@@ -944,12 +1013,13 @@ remove_ssa_form (bool perform_ter, struct ssaexpand *sa)
 {
   bitmap values = NULL;
   var_map map;
+  unsigned i;
 
   map = coalesce_ssa_name ();
 
   /* Return to viewing the variable list as just all reference variables after
      coalescing has been performed.  */
-  partition_view_normal (map);
+  partition_view_normal (map, false);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -968,8 +1038,17 @@ remove_ssa_form (bool perform_ter, struct ssaexpand *sa)
 
   sa->map = map;
   sa->values = values;
-  sa->partitions_for_parm_default_defs = get_parm_default_def_partitions (map);
-  sa->partitions_for_undefined_values = get_undefined_value_partitions (map);
+  sa->partition_has_default_def = BITMAP_ALLOC (NULL);
+  for (i = 1; i < num_ssa_names; i++)
+    {
+      tree t = ssa_name (i);
+      if (t && SSA_NAME_IS_DEFAULT_DEF (t))
+	{
+	  int p = var_to_partition (map, t);
+	  if (p != NO_PARTITION)
+	    bitmap_set_bit (sa->partition_has_default_def, p);
+	}
+    }
 }
 
 
@@ -987,7 +1066,7 @@ maybe_renumber_stmts_bb (basic_block bb)
   bb->aux = NULL;
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple *stmt = gsi_stmt (gsi);
+      gimple stmt = gsi_stmt (gsi);
       gimple_set_uid (stmt, i);
       i++;
     }
@@ -1003,7 +1082,7 @@ trivially_conflicts_p (basic_block bb, tree result, tree arg)
 {
   use_operand_p use;
   imm_use_iterator imm_iter;
-  gimple *defa = SSA_NAME_DEF_STMT (arg);
+  gimple defa = SSA_NAME_DEF_STMT (arg);
 
   /* If ARG isn't defined in the same block it's too complicated for
      our little mind.  */
@@ -1012,7 +1091,7 @@ trivially_conflicts_p (basic_block bb, tree result, tree arg)
 
   FOR_EACH_IMM_USE_FAST (use, imm_iter, result)
     {
-      gimple *use_stmt = USE_STMT (use);
+      gimple use_stmt = USE_STMT (use);
       if (is_gimple_debug (use_stmt))
 	continue;
       /* Now, if there's a use of RESULT that lies outside this basic block,
@@ -1083,7 +1162,7 @@ insert_backedge_copies (void)
 		{
 		  tree name;
 		  gassign *stmt;
-		  gimple *last = NULL;
+		  gimple last = NULL;
 		  gimple_stmt_iterator gsi2;
 
 		  gsi2 = gsi_last_bb (gimple_phi_arg_edge (phi, i)->src);
@@ -1144,8 +1223,7 @@ finish_out_of_ssa (struct ssaexpand *sa)
   if (sa->values)
     BITMAP_FREE (sa->values);
   delete_var_map (sa->map);
-  BITMAP_FREE (sa->partitions_for_parm_default_defs);
-  BITMAP_FREE (sa->partitions_for_undefined_values);
+  BITMAP_FREE (sa->partition_has_default_def);
   memset (sa, 0, sizeof *sa);
 }
 

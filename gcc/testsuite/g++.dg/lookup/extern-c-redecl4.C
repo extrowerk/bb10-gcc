@@ -3,6 +3,7 @@
 
 // { dg-options "" }
 // { dg-do compile }
+// { dg-final { scan-assembler "call\[\t \]+\[^\$\]*?_Z4forkv" { target i?86-*-* x86_64-*-* } } }
 
 class frok
 {
@@ -13,5 +14,5 @@ class frok
 void
 foo ()
 {
-  fork (); // { dg-error "was not declared in this scope" }
+  fork ();
 }

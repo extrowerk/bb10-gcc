@@ -13,8 +13,8 @@ namespace Outer {
   namespace Core = Core_Real;
 
   namespace Core_Real {
-    template<class T> void Foo (T *) {}
+    template<class T> void Foo (T *) {} // { dg-error "definition" }
   }
 
-  template<> void Core::Foo<> (Render_Real::Type *) {} // { dg-error "" "" { target c++98_only } }
+  template<> void Core::Foo<> (Render_Real::Type *) {} // { dg-error "" }
 }  

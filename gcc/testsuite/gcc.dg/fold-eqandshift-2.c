@@ -18,4 +18,5 @@ void baz (unsigned int b)
 
 /* { dg-final { scan-tree-dump-times "\\(a \& 4\\) != 0" 1 "original" } } */
 /* { dg-final { scan-tree-dump-times "\\(b \& 4\\) == 0" 1 "original" } } */
+/* { dg-final { cleanup-tree-dump "original" } } */
 

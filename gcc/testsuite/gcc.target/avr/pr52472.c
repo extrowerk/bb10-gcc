@@ -1,4 +1,4 @@
-/* { dg-do compile { target { ! avr_tiny } } } */
+/* { dg-do compile } */
 /* { dg-options "-Os -g -Wno-pointer-to-int-cast" } */
 
 /* This testcase exposes PR52472. expand_debug_expr mistakenly

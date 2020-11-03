@@ -1,6 +1,6 @@
 // 1999-06-08 bkoz
 
-// Copyright (C) 1999-2018 Free Software Foundation, Inc.
+// Copyright (C) 1999-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -26,9 +26,10 @@
 
 // boundary condition:  a zero-sized set
 // libstdc++/6282
-void test02(void)
+bool test02(void)
 {
   using std::char_traits;  using std::allocator;
+  bool test __attribute__((unused)) = true;
 
   std::bitset<0>  z1;
   VERIFY( z1.any() == false );
@@ -52,6 +53,7 @@ void test02(void)
 
   VERIFY( z1.to_ulong() == 0 );
   VERIFY( (z1.to_string<char,char_traits<char>,allocator<char> >().empty() ));
+  return test;
 }
 
 int main()

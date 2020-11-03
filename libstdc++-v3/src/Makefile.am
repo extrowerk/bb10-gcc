@@ -1,6 +1,6 @@
 ## Makefile for the C++11 sources of the GNU C++ Standard library.
 ##
-## Copyright (C) 1997-2018 Free Software Foundation, Inc.
+## Copyright (C) 1997-2015 Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ## Process this file with automake to produce Makefile.in.
@@ -77,7 +77,7 @@ cxx98_sources = \
 	compatibility.cc \
 	compatibility-debug_list.cc \
 	compatibility-debug_list-2.cc \
-	${ldbl_compat_sources}
+	${ldbl_compat_sources} 
 
 cxx11_sources = \
 	compatibility-c++0x.cc \
@@ -109,9 +109,9 @@ libstdc___la_LINK = $(CXXLINK) $(libstdc___la_LDFLAGS)
 # pass -mlong-double-64.
 if GLIBCXX_LDBL_COMPAT
 compatibility-ldbl.lo: compatibility-ldbl.cc
-	$(LTCXXCOMPILE) $(LONG_DOUBLE_COMPAT_FLAGS) -c $<
+	$(LTCXXCOMPILE) -mlong-double-64 -c $<
 compatibility-ldbl.o: compatibility-ldbl.cc
-	$(CXXCOMPILE) $(LONG_DOUBLE_COMPAT_FLAGS) -c $<
+	$(CXXCOMPILE) -mlong-double-64 -c $<
 endif
 
 # Use special rules for C++11 files/objects.
@@ -140,42 +140,22 @@ compatibility-condvar.lo: compatibility-condvar.cc
 compatibility-condvar.o: compatibility-condvar.cc
 	$(CXXCOMPILE) -std=gnu++11 -c $<
 
-# A note on compatibility and static libraries.
-#
-# static lib == linked against only this version, should not need compat
-# shared lib == linked against potentially all compat versions
-#
-# Thus, the shared libs have more compat symbols, which can be found
-# segregated in the sources with -D_GLIBCXX_SHARED.
-#
-# In the sub-directories of libsupc++, src/c++98, src/c++11, only
-# -prefer-pic objects are generated for the convenience libraries.
-#
-# In the main src directory, make shared and static objects just for
-# the compat libraries. Shared objects are compiled with -prefer-pic
-# -D_GLIBCXX_SHARED and in the .libs sub-directory, static objects are
-# compiled with -prefer-pic (ie, -fPIC but not -D_GLIBCXX_SHARED) and
-# the main src directory.
-#
-# Why are objects destined for libstdc++.a compiled with -fPIC? First,
-# because -fPIC is not harmful to use for objects destined for static
-# libraries. In addition, using -fPIC will allow the use of static
-# libstdc++.a in the creation of other C++ shared libraries.
-
-# AM_CXXFLAGS needs to be in each sub-directory so that it can be
+# AM_CXXFLAGS needs to be in each subdirectory so that it can be
 # modified in a per-library or per-sub-library way.  Need to manually
 # set this option because CONFIG_CXXFLAGS has to be after
 # OPTIMIZE_CXXFLAGS on the compile line so that -O2 can be overridden
 # as the occasion calls for it.
 AM_CXXFLAGS = \
-	-std=gnu++98 \
-	$(glibcxx_compiler_pic_flag) \
 	$(XTEMPLATE_FLAGS) $(VTV_CXXFLAGS) \
 	$(WARN_CXXFLAGS) $(OPTIMIZE_CXXFLAGS) $(CONFIG_CXXFLAGS)
 
 # Libtool notes
 
-# 1) In general, libtool expects an argument such as `--tag=CXX' when
+# 1) Need to explicitly set LTCXXCOMPILE so that AM_CXXFLAGS is
+# last. (That way, things like -O2 passed down from the toplevel can
+# be overridden by --enable-debug.)
+
+# 2) In general, libtool expects an argument such as `--tag=CXX' when
 # using the C++ compiler, because that will enable the settings
 # detected when C++ support was being configured.  However, when no
 # such flag is given in the command line, libtool attempts to figure
@@ -187,7 +167,7 @@ AM_CXXFLAGS = \
 # correct solution is to add `--tag CXX' to LTCXXCOMPILE and maybe
 # CXXLINK, just after $(LIBTOOL), so that libtool doesn't have to
 # attempt to infer which configuration to use.
-#
+# 
 # The second tag argument, `--tag disable-shared` means that libtool
 # only compiles each source once, for static objects. In actuality,
 # glibcxx_lt_pic_flag and glibcxx_compiler_shared_flag are added to

@@ -1,6 +1,6 @@
 /* { dg-lto-do link } */
 /* { dg-require-effective-target fpic } */
-/* { dg-lto-options {{-fPIC -r -nostdlib -flto -O2 -g -Wno-return-type}} } */
+/* { dg-lto-options {{-fPIC -r -nostdlib -flto -O2 -g}} } */
 
 void frexp (int, int *);
 namespace std

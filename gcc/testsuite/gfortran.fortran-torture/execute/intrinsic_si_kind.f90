@@ -10,26 +10,26 @@ Program test_si_kind
   t = huge (i1)
   t = log10 (t)
   res = selected_int_kind (int (t))
-  if (res .ne. 1) STOP 1
+  if (res .ne. 1) call abort
 
   t = huge (i2)
   t = log10 (t)
   res = selected_int_kind (int (t))
-  if (res .ne. 2) STOP 2
+  if (res .ne. 2) call abort
 
   t = huge (i4)
   t = log10 (t)
   res = selected_int_kind (int (t))
-  if (res .ne. 4) STOP 3
+  if (res .ne. 4) call abort
 
   t = huge (i8)
   t = log10 (t)
   res = selected_int_kind (int (t))
-  if (res .ne. 8) STOP 4
+  if (res .ne. 8) call abort
 
   i4 = huge (i4)
   res = selected_int_kind (i4)
-  if (res .ne. (-1)) STOP 5
+  if (res .ne. (-1)) call abort
 
 end program
 

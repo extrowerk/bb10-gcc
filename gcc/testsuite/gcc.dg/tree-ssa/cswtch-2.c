@@ -18,3 +18,4 @@ int h1 (X x)
 }
 
 /* { dg-final { scan-tree-dump-times "CSWTCH" 0 "switchconv" } } */
+/* { dg-final { cleanup-tree-dump "switchconv" } } */

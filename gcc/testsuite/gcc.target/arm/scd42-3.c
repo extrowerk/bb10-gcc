@@ -2,8 +2,7 @@
 /* { dg-do compile } */
 /* { dg-skip-if "Test is specific to Xscale" { arm*-*-* } { "-march=*" } { "-march=xscale" } } */
 /* { dg-skip-if "Test is specific to Xscale" { arm*-*-* } { "-mcpu=*" } { "-mcpu=xscale" } } */
-/* { dg-skip-if "do not override -mfloat-abi" { *-*-* } { "-mfloat-abi=*" } { "-mfloat-abi=softfp" } } */
-/* { dg-options "-mcpu=xscale -O -mfloat-abi=softfp" } */
+/* { dg-options "-mcpu=xscale -O" } */
 
 unsigned load4(void) __attribute__ ((naked));
 unsigned load4(void)

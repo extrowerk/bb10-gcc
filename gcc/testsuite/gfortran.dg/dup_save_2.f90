@@ -1,21 +1,21 @@
 ! { dg-do compile }
-! { dg-options " -std=f95" }
+! { dg-options "-fall-intrinsics -std=f95" }
 program save_2
   implicit none
   integer i
   integer foo1, foo2, foo3, foo4
   do i=1,10
      if (foo1().ne.i) then
-        STOP 1
+        call abort
      end if
      if (foo2().ne.i) then
-        STOP 2
+        call abort
      end if
      if (foo3().ne.i) then
-        STOP 3
+        call abort
      end if
      if (foo4().ne.i) then
-        STOP 4
+        call abort
      end if
   end do
 end program save_2

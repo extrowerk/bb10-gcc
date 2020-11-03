@@ -1,4 +1,4 @@
-// Copyright (C) 2004-2018 Free Software Foundation, Inc.
+// Copyright (C) 2004-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -24,8 +24,10 @@
 #include <locale>
 #include <testsuite_hooks.h>
 
-void test09()
+bool test09()
 {
+  bool test __attribute__((unused)) = true;
+
   std::wstring st(L"2.456e3-+0.567e-2");
   std::wstringbuf sb(st);
   std::wistream is(&sb);
@@ -34,9 +36,10 @@ void test09()
   (is >> std::ws) >> f1;
   (is >> std::ws) >> c;
   (is >> std::ws) >> f2;
-  VERIFY( f1 == 2456 );
+  test = f1 == 2456;
   VERIFY( f2 == 0.00567 );
   VERIFY( c == L'-' );
+  return test;
 }
 
 int main()

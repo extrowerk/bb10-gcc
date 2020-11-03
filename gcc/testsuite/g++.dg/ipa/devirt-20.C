@@ -28,3 +28,4 @@ main(void)
   return 0;
 }
 /* { dg-final { scan-tree-dump-not "abort" "release_ssa"  } } */
+/* { dg-final { cleanup-tree-dump "release_ssa" } } */

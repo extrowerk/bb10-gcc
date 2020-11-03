@@ -7,7 +7,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2000-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 2000-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -86,7 +86,7 @@ pragma Style_Checks ("M32766");
  ** a number of non-POSIX but useful/required features.
  **/
 
-#if defined (__linux__) || defined (__ANDROID__)
+#if defined (__linux__)
 
 /* Define _XOPEN_SOURCE to get IOV_MAX */
 # if !defined (_XOPEN_SOURCE)
@@ -157,8 +157,7 @@ pragma Style_Checks ("M32766");
 # include <_types.h>
 #endif
 
-#if defined (__linux__) || defined (__ANDROID__) || defined (__QNX__) \
-  || defined (__rtems__)
+#if defined (__linux__) || defined (__rtems__)
 # include <pthread.h>
 # include <signal.h>
 #endif
@@ -403,7 +402,7 @@ CND(FNDELAY, "Nonblocking")
 
 /* ioctl(2) requests are "int" in UNIX, but "unsigned long" on FreeBSD */
 
-#if defined (__FreeBSD__) || defined (__DragonFly__)
+#ifdef __FreeBSD__
 # define CNI CNU
 # define IOCTL_Req_T "unsigned"
 #else
@@ -1015,7 +1014,7 @@ CNU(RTS_CONTROL_ENABLE, "Enable RTS flow ctrl")
 
 */
 
-#if defined (__FreeBSD__) || defined (__linux__) || defined (__DragonFly__)
+#if defined (__FreeBSD__) || defined (linux)
 # define PTY_Library "-lutil"
 #else
 # define PTY_Library ""
@@ -1192,7 +1191,7 @@ CND(MSG_WAITALL, "Wait for full reception")
 #endif
 CND(MSG_NOSIGNAL, "No SIGPIPE on send")
 
-#if defined (__linux__) || defined (__ANDROID__) || defined (__QNX__)
+#ifdef __linux__
 # define MSG_Forced_Flags "MSG_NOSIGNAL"
 #else
 # define MSG_Forced_Flags "0"
@@ -1265,11 +1264,6 @@ CND(SO_RCVTIMEO, "Reception timeout")
 #endif
 CND(SO_ERROR, "Get/clear error status")
 
-#ifndef SO_BUSY_POLL
-# define SO_BUSY_POLL -1
-#endif
-CND(SO_BUSY_POLL, "Busy polling")
-
 #ifndef IP_MULTICAST_IF
 # define IP_MULTICAST_IF -1
 #endif
@@ -1327,7 +1321,7 @@ CND(SIZEOF_tv_usec, "tv_usec")
  ** hard-wired limit of 100 million.
  ** On IA64 HP-UX the limit is 2**31 - 1.
  **/
-#if defined (__sun__)
+#if defined (sun)
 # define MAX_tv_sec "100_000_000"
 
 #elif defined (__hpux__)
@@ -1362,7 +1356,7 @@ CND(SIZEOF_struct_hostent, "struct hostent")
 #define SIZEOF_struct_servent (sizeof (struct servent))
 CND(SIZEOF_struct_servent, "struct servent")
 
-#if defined (__linux__) || defined (__ANDROID__) || defined (__QNX__)
+#if defined (__linux__)
 #define SIZEOF_sigset (sizeof (sigset_t))
 CND(SIZEOF_sigset, "sigset")
 #endif
@@ -1441,9 +1435,7 @@ CND(CLOCK_FASTEST, "Fastest clock")
 #endif
 CND(CLOCK_THREAD_CPUTIME_ID, "Thread CPU clock")
 
-#if defined(__linux__) || defined(__FreeBSD__) \
- || (defined(_AIX) && defined(_AIXVERSION_530)) \
- || defined(__DragonFly__) || defined(__QNX__)
+#if defined(__FreeBSD__) || (defined(_AIX) && defined(_AIXVERSION_530))
 /** On these platforms use system provided monotonic clock instead of
  ** the default CLOCK_REALTIME. We then need to set up cond var attributes
  ** appropriately (see thread.c).
@@ -1464,8 +1456,8 @@ CND(CLOCK_THREAD_CPUTIME_ID, "Thread CPU clock")
 CNS(CLOCK_RT_Ada, "")
 #endif
 
-#if defined (__APPLE__) || defined (__linux__) || defined (__ANDROID__) \
-  || defined (__QNX__) || defined (__rtems__) || defined (DUMMY)
+#if defined (__APPLE__) || defined (__linux__) || defined (__rtems__) || \
+  defined (DUMMY)
 /*
 
    --  Sizes of pthread data types
@@ -1508,7 +1500,7 @@ CND(PTHREAD_RWLOCKATTR_SIZE, "pthread_rwlockattr_t")
 CND(PTHREAD_RWLOCK_SIZE,     "pthread_rwlock_t")
 CND(PTHREAD_ONCE_SIZE,       "pthread_once_t")
 
-#endif /* __APPLE__ || __linux__ || __ANDROID__ || __rtems__ */
+#endif /* __APPLE__ || __linux__ || __rtems__*/
 
 /*
 

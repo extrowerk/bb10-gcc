@@ -4,13 +4,13 @@
 ! Subroutine/function ambiguity in generics.
 !
      interface q
-       subroutine qr(f)  ! { dg-error "Ambiguous interfaces" }
+       subroutine qr(f)
          implicit real(f)
          external f
        end subroutine
-       subroutine qc(f)  ! { dg-error "Ambiguous interfaces" }
+       subroutine qc(f)
          implicit complex(f)
          external f
-       end subroutine
+       end subroutine ! { dg-error "Ambiguous interfaces" }
      end interface q
    end

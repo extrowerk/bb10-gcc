@@ -1,5 +1,5 @@
 ! { dg-do run }
-! { dg-options "-std=f2003 " }
+! { dg-options "-std=f2003 -fall-intrinsics" }
 ! PR65596 Namelist reads too far.
 integer ,parameter :: CL=80
 integer ,parameter :: AL=4
@@ -29,13 +29,13 @@ dogs(:) = '________'
 
 read (27, nml=theList, iostat=ierr)
 
-if (ierr .ne. 0) STOP 1
+if (ierr .ne. 0) call abort
 
 rslt = ['Rover   ','Spot    ','________','________']
-if (any(dogs.ne.rslt)) STOP 2
+if (any(dogs.ne.rslt)) call abort
 
 rslt = ['Fluffy  ','Hairball','________','________']
-if (any(cats.ne.rslt)) STOP 3
+if (any(cats.ne.rslt)) call abort
 
 close(27)
 

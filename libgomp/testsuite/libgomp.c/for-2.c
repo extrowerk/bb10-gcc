@@ -1,4 +1,4 @@
-/* { dg-additional-options "-std=gnu99" } */
+/* { dg-options "-std=gnu99 -fopenmp" } */
 
 extern void abort (void);
 

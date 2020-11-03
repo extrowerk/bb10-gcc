@@ -27,11 +27,11 @@ program alloc_scalar_01
     if (mystuff == 4) then
 !      write(*,*) 'OK'
     else 
-      STOP 1
+      call abort()
 !     write(*,*) 'FAIL 1'
     end if
   class default
-    STOP 2
+    call abort()
 !    write(*,*) 'FAIL 2'
   end select
 end program

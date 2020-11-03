@@ -9,7 +9,7 @@ procedure(character(len=5)), pointer :: pp
 pp => abc
 print *,pp()
 str = pp()
-if (str/='abcde') STOP 1
+if (str/='abcde') call abort()
 contains
  function abc()
   character(len=5) :: abc

@@ -37,3 +37,4 @@ int main (void)
 /* { dg-final { scan-tree-dump-times "\\mbar\\M" 4 "optimized"} } */
 /* { dg-final { scan-tree-dump-times "\\mbaz\\M" 4 "optimized"} } */
 
+/* { dg-final { cleanup-tree-dump "optimized" } } */

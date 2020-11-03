@@ -1,4 +1,4 @@
-// Copyright (C) 2015-2018 Free Software Foundation, Inc.
+// Copyright (C) 2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,9 +15,10 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// { dg-do compile { target c++11 } }
 // { dg-require-atomic-builtins "" }
 // { dg-require-cstdint "" }
+// { dg-options "-std=gnu++11" }
+// { dg-do compile }
 
 #include <atomic>
 #include <cstdint>
@@ -43,7 +44,7 @@ struct power_of_two_obj {
 
 std::atomic<power_of_two_obj> obj1;
 
-static_assert( __alignof__(obj1) >= alignof(int64_t),
+static_assert( alignof(obj1) >= alignof(int64_t),
                "std::atomic not suitably aligned" );
 
 struct container_struct {
@@ -53,5 +54,5 @@ struct container_struct {
 
 container_struct obj2;
 
-static_assert( __alignof__(obj2.ao) >= alignof(int64_t),
+static_assert( alignof(obj2.ao) >= alignof(int64_t),
                "std::atomic not suitably aligned" );

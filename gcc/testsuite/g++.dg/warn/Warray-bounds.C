@@ -11,7 +11,6 @@ static inline int n(void) {
 
 void g(int *p);
 void h(int p);
-void bar (void *);
 
 int* f(void) {
     int b[10];
@@ -28,7 +27,6 @@ int* f(void) {
     a[ 9] = 0;
     a[10] = 0;             /* { dg-warning "array subscript" } */
     a[11] = 0;             /* { dg-warning "array subscript" } */
-    bar (a);
     a[2 * n() - 11] = 1;    /* { dg-warning "array subscript" } */
     a[2 * n() - 10] = 1;
     a[2 * n() -  1] = 1;
@@ -40,7 +38,6 @@ int* f(void) {
     b[ 9] = 0;
     b[10] = 0;             /* { dg-warning "array subscript" } */
     b[11] = 0;             /* { dg-warning "array subscript" } */
-    bar (b);
     b[2 * n() - 11] = 1;    /* { dg-warning "array subscript" } */
     b[2 * n() - 10] = 1;
     b[2 * n() -  1] = 1;
@@ -52,7 +49,6 @@ int* f(void) {
     c.c[ 9] = 0;
     c.c[10] = 0;           /* { dg-warning "array subscript" } */
     c.c[11] = 0;           /* { dg-warning "array subscript" } */
-    bar (&c);
     c.c[2 * n() - 11] = 1;  /* { dg-warning "array subscript" } */
     c.c[2 * n() - 10] = 1;
     c.c[2 * n() -  1] = 1;
@@ -91,8 +87,6 @@ int* f(void) {
     if (-1 >= 0)
        c.c[-1] = 0;
 
-    bar (b);
-    bar (&c);
     return a;
 }
 

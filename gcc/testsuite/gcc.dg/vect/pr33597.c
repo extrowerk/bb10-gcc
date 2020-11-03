@@ -21,3 +21,4 @@ rgb15to24_C (const uint8_t * src, uint8_t * dst, long src_size)
     }
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

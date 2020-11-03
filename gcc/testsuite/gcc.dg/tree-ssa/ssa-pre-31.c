@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdump-tree-pre -fno-ipa-sra" } */
+/* { dg-options "-O2 -fdump-tree-pre" } */
 
 typedef struct {
     unsigned int key;
@@ -43,4 +43,5 @@ int foo (S1 *root, int N)
   return 0;
 } 
 
-/* { dg-final { scan-tree-dump-times "key" 3 "pre" } } */
+/* { dg-final { scan-tree-dump-times "key" 4 "pre" } } */
+/* { dg-final { cleanup-tree-dump "pre" } } */

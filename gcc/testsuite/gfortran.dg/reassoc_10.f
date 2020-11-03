@@ -14,3 +14,4 @@
 ! and power expansion.
 
 ! { dg-final { scan-tree-dump-times " \\\* " 5 "optimized" } }
+! { dg-final { cleanup-tree-dump "optimized" } }

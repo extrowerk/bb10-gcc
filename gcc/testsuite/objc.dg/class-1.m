@@ -1,21 +1,20 @@
 /* Redeclarations of class names.  */
 /* { dg-do compile } */
 
-typedef int foo; /* { dg-line foo_def } */
+typedef int foo;
 
 @class foo;  /* { dg-error "redeclared as different kind of symbol" } */
-/* { dg-error "previous declaration of" "" { target *-*-* } foo_def } */
+/* { dg-error "previous declaration of" "" { target *-*-* } 4 } */
 
-typedef int bar; /* { dg-line bar_def } */
+typedef int bar;
 
 @interface bar
 @end  /* { dg-error "redeclared as different kind of symbol" } */
-/* { dg-error "previous declaration of" "" { target *-*-* } bar_def } */
+/* { dg-error "previous declaration of" "" { target *-*-* } 9 } */
 
-int glob; /* { dg-line glob_def } */
+int glob;
 
 @implementation glob
-@end /* { dg-line glob_impl_end } */
-/* { dg-error "redeclared as different kind of symbol" "" { target *-*-* } glob_impl_end } */
-/* { dg-error "previous declaration of" "" { target *-*-* } glob_def } */
-/* { dg-warning "annot find interface declaration" "" { target *-*-* } glob_impl_end } */
+@end  /* { dg-error "redeclared as different kind of symbol" } */
+/* { dg-error "previous declaration of" "" { target *-*-* } 15 } */
+/* { dg-warning "annot find interface declaration" "" { target *-*-* } 18 } */

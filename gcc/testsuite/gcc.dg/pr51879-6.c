@@ -24,3 +24,4 @@ foo (int y)
 }
 
 /* { dg-final { scan-tree-dump-times "bar \\(" 1 "pre"} } */
+/* { dg-final { cleanup-tree-dump "pre" } } */

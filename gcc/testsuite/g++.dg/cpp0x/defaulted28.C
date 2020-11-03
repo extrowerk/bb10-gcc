@@ -6,10 +6,10 @@ struct A {
   A() = default;
 
 private:
-  A(A const&) = default;	// { dg-message "private" }
+  A(A const&) = default;	// { dg-error "private" }
 };
 
-int f(...) { return 0; }
+int f(...) { }
 int main() {
   A a;
   f(a); 			// { dg-error "this context" }

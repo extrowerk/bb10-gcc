@@ -1,6 +1,5 @@
 /* { dg-do run } */
 /* { dg-options "-O2 -fmodulo-sched -funroll-loops -fdump-rtl-sms --param sms-min-sc=1 -fmodulo-sched-allow-regmoves" } */
-/* { dg-options "-O2 -fmodulo-sched -funroll-loops -fdump-rtl-sms --param sms-min-sc=1 -fmodulo-sched-allow-regmoves -fno-sched-pressure" { target powerpc*-*-* } } */
 
 extern void abort (void);
 
@@ -40,4 +39,5 @@ main ()
 }
 
 /* { dg-final { scan-rtl-dump-times "SMS succeeded" 1 "sms" { target spu-*-* powerpc*-*-* } } } */
+/* { dg-final { cleanup-rtl-dump "sms" } } */
 

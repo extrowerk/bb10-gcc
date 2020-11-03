@@ -21,3 +21,4 @@ void Compute(void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops in function" 1 "vect" { target { vect_float && vect_perm } } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

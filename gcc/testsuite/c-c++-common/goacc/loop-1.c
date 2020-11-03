@@ -1,3 +1,5 @@
+/* { dg-skip-if "not yet" { c++ } } */
+
 int test1()
 {
   int i, j, k, b[10];
@@ -36,16 +38,16 @@ int test1()
       i = d;
       a[i] = 1;
     }
-  #pragma acc loop /* { dg-error "loop directive must be associated with an OpenACC compute region" } */
+  #pragma acc loop
   for (i = 1; i < 30; i++ )
     if (i == 16) break; /* { dg-error "break statement used" } */
 
 /* different types of for loop are allowed */
-  #pragma acc loop /* { dg-error "loop directive must be associated with an OpenACC compute region" } */
+  #pragma acc loop
   for (i = 1; i < 10; i++)
     {
     }
-  #pragma acc loop /* { dg-error "loop directive must be associated with an OpenACC compute region" } */
+  #pragma acc loop
   for (i = 1; i < 10; i+=2)
     {
       a[i] = i;
@@ -67,10 +69,4 @@ int test1()
     }
   return 0;
 }
-
-// PR64765
-void PR64765(float *f, double *r) {
-  int i;
-  #pragma acc kernels loop create(f) copy(r)
-  for(i = 64; i < 76; i += 5) {}
-}
+/* { dg-prune-output "sorry, unimplemented: directive not yet implemented" } */

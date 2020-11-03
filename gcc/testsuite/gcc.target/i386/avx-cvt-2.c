@@ -10,3 +10,4 @@
 /* { dg-final { scan-assembler "vcvttps2dq\[^\n\r\]*ymm" } } */
 /* { dg-final { scan-assembler "vcvtdq2pd\[^\n\r\]*(%xmm\[^\n\r\]*%ymm|ymm\[^\n\r\]*xmm)" } } */
 /* { dg-final { scan-assembler "vcvtpd2ps(y\[^\n\r\]*%xmm|\[^\n\r\]*xmm\[^\n\r\]*YMMWORD PTR)" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

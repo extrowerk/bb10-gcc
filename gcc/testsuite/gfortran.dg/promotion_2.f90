@@ -1,5 +1,5 @@
 ! { dg-do compile }
-! { dg-options "-fdefault-real-8 -fexternal-blas -fdump-tree-original -finline-matmul-limit=0" }
+! { dg-options "-fdefault-real-8 -fexternal-blas -fdump-tree-original" }
 !
 ! PR fortran/54463
 !
@@ -13,3 +13,4 @@ end program test
 
 ! { dg-final { scan-tree-dump-times "sgemm_" 0 "original" } }
 ! { dg-final { scan-tree-dump-times "dgemm_" 1 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

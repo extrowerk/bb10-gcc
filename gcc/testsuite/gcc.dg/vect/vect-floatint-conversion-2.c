@@ -36,4 +36,5 @@ main (void)
   return main1 ();
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_doubleint_cvt } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_floatint_cvt } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

@@ -8,3 +8,4 @@ foo (_Complex float x)
 }
 
 /* { dg-final { scan-tree-dump-times "COMPLEX_EXPR" 0 "original" } } */
+/* { dg-final { cleanup-tree-dump "original" } } */

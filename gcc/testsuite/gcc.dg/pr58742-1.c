@@ -10,3 +10,4 @@ fx (int *b, int *e)
 }
 
 /* { dg-final { scan-tree-dump "return e" "cddce1" } } */
+/* { dg-final { cleanup-tree-dump "cddce1" } } */

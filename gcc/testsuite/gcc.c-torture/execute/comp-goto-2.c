@@ -1,7 +1,3 @@
-/* { dg-require-effective-target label_values } */
-/* { dg-require-effective-target trampolines } */
-/* { dg-add-options stack_size } */
-
 /* A slight variation of 920501-7.c.  */
 
 #ifdef STACK_SIZE
@@ -10,6 +6,7 @@
 #define DEPTH 1000
 #endif
 
+#if ! defined (NO_LABEL_VALUES) && !defined (NO_TRAMPOLINES)
 x(a)
 {
   __label__ xlab;
@@ -27,12 +24,13 @@ x(a)
  xlab:;
   return a;
 }
+#endif
 
 main ()
 {
-
+#if ! defined (NO_LABEL_VALUES) && !defined (NO_TRAMPOLINES)
   if (x (DEPTH) != DEPTH)
     abort ();
-
+#endif
   exit (0);
 }

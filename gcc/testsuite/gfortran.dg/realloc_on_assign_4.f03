@@ -20,20 +20,20 @@ end module
   use m
   character (:), allocatable :: lhs
   lhs = foo ("foo calling ")
-  if (lhs .ne. "foo") STOP 1
-  if (len (lhs) .ne. 3) STOP 2
+  if (lhs .ne. "foo") call abort
+  if (len (lhs) .ne. 3) call abort
   deallocate (lhs)
   lhs = bar ("bar calling - baaaa!")
-  if (lhs .ne. "bar calling") STOP 3
-  if (len (lhs) .ne. 12) STOP 4
+  if (lhs .ne. "bar calling") call abort
+  if (len (lhs) .ne. 12) call abort
   deallocate (lhs)
   lhs = mfoo ("mfoo calling ")
-  if (lhs .ne. "foo") STOP 5
-  if (len (lhs) .ne. 3) STOP 6
+  if (lhs .ne. "foo") call abort
+  if (len (lhs) .ne. 3) call abort
   deallocate (lhs)
   lhs = mbar ("mbar calling - baaaa!")
-  if (lhs .ne. "bar calling") STOP 7
-  if (len (lhs) .ne. 12) STOP 8
+  if (lhs .ne. "bar calling") call abort
+  if (len (lhs) .ne. 12) call abort
 contains
   function foo (carg) result(res)
     character (:), allocatable :: res

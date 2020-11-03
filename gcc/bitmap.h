@@ -1,5 +1,5 @@
 /* Functions to support general ended bitmaps.
-   Copyright (C) 1997-2018 Free Software Foundation, Inc.
+   Copyright (C) 1997-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -86,7 +86,7 @@ along with GCC; see the file COPYING3.  If not see
      * set_disjuction		: bitmap_xor_comp / bitmap_xor_comp_into
      * set_compare		: bitmap_equal_p
 
-   Some operations on 3 sets that occur frequently in data flow problems
+   Some operations on 3 sets that occur frequently in in data flow problems
    are also implemented:
 
      * A | (B & C)		: bitmap_ior_and_into
@@ -127,66 +127,9 @@ along with GCC; see the file COPYING3.  If not see
    bad for persistent sets, so persistent sets should be allocated on an
    obstack whenever possible.  */
 
+#include "hashtab.h"
+#include "statistics.h"
 #include "obstack.h"
-
-/* Bitmap memory usage.  */
-struct bitmap_usage: public mem_usage
-{
-  /* Default contructor.  */
-  bitmap_usage (): m_nsearches (0), m_search_iter (0) {}
-  /* Constructor.  */
-  bitmap_usage (size_t allocated, size_t times, size_t peak,
-	     uint64_t nsearches, uint64_t search_iter)
-    : mem_usage (allocated, times, peak),
-    m_nsearches (nsearches), m_search_iter (search_iter) {}
-
-  /* Sum the usage with SECOND usage.  */
-  bitmap_usage
-  operator+ (const bitmap_usage &second)
-  {
-    return bitmap_usage (m_allocated + second.m_allocated,
-			     m_times + second.m_times,
-			     m_peak + second.m_peak,
-			     m_nsearches + second.m_nsearches,
-			     m_search_iter + second.m_search_iter);
-  }
-
-  /* Dump usage coupled to LOC location, where TOTAL is sum of all rows.  */
-  inline void
-  dump (mem_location *loc, mem_usage &total) const
-  {
-    char *location_string = loc->to_string ();
-
-    fprintf (stderr, "%-48s %10" PRIu64 ":%5.1f%%"
-	     "%10" PRIu64 "%10" PRIu64 ":%5.1f%%"
-	     "%12" PRIu64 "%12" PRIu64 "%10s\n",
-	     location_string, (uint64_t)m_allocated,
-	     get_percent (m_allocated, total.m_allocated),
-	     (uint64_t)m_peak, (uint64_t)m_times,
-	     get_percent (m_times, total.m_times),
-	     m_nsearches, m_search_iter,
-	     loc->m_ggc ? "ggc" : "heap");
-
-    free (location_string);
-  }
-
-  /* Dump header with NAME.  */
-  static inline void
-  dump_header (const char *name)
-  {
-    fprintf (stderr, "%-48s %11s%16s%17s%12s%12s%10s\n", name, "Leak", "Peak",
-	     "Times", "N searches", "Search iter", "Type");
-    print_dash_line ();
-  }
-
-  /* Number search operations.  */
-  uint64_t m_nsearches;
-  /* Number of search iterations.  */
-  uint64_t m_search_iter;
-};
-
-/* Bitmap memory description.  */
-extern mem_alloc_description<bitmap_usage> bitmap_mem_desc;
 
 /* Fundamental storage type for bitmap.  */
 
@@ -255,9 +198,6 @@ extern void bitmap_clear (bitmap);
 /* Copy a bitmap to another bitmap.  */
 extern void bitmap_copy (bitmap, const_bitmap);
 
-/* Move a bitmap to another bitmap.  */
-extern void bitmap_move (bitmap, bitmap);
-
 /* True if two bitmaps are identical.  */
 extern bool bitmap_equal_p (const_bitmap, const_bitmap);
 
@@ -279,9 +219,6 @@ extern bool bitmap_single_bit_set_p (const_bitmap);
 
 /* Count the number of bits set in the bitmap.  */
 extern unsigned long bitmap_count_bits (const_bitmap);
-
-/* Count the number of unique bits set across the two bitmaps.  */
-extern unsigned long bitmap_count_unique_bits (const_bitmap, const_bitmap);
 
 /* Boolean operations on bitmaps.  The _into variants are two operand
    versions that modify the first source operand.  The other variants
@@ -335,19 +272,20 @@ extern void dump_bitmap_statistics (void);
    to allocate from, NULL for GC'd bitmap.  */
 
 static inline void
-bitmap_initialize (bitmap head, bitmap_obstack *obstack CXX_MEM_STAT_INFO)
+bitmap_initialize_stat (bitmap head, bitmap_obstack *obstack MEM_STAT_DECL)
 {
   head->first = head->current = NULL;
   head->obstack = obstack;
   if (GATHER_STATISTICS)
     bitmap_register (head PASS_MEM_STAT);
 }
+#define bitmap_initialize(h,o) bitmap_initialize_stat (h,o MEM_STAT_INFO)
 
 /* Allocate and free bitmaps from obstack, malloc and gc'd memory.  */
-extern bitmap bitmap_alloc (bitmap_obstack *obstack CXX_MEM_STAT_INFO);
-#define BITMAP_ALLOC bitmap_alloc
-extern bitmap bitmap_gc_alloc (ALONE_CXX_MEM_STAT_INFO);
-#define BITMAP_GGC_ALLOC bitmap_gc_alloc
+extern bitmap bitmap_obstack_alloc_stat (bitmap_obstack *obstack MEM_STAT_DECL);
+#define bitmap_obstack_alloc(t) bitmap_obstack_alloc_stat (t MEM_STAT_INFO)
+extern bitmap bitmap_gc_alloc_stat (ALONE_MEM_STAT_DECL);
+#define bitmap_gc_alloc() bitmap_gc_alloc_stat (ALONE_MEM_STAT_INFO)
 extern void bitmap_obstack_free (bitmap);
 
 /* A few compatibility/functions macros for compatibility with sbitmaps */
@@ -363,6 +301,12 @@ extern unsigned bitmap_last_set_bit (const_bitmap);
 
 /* Compute bitmap hash (for purposes of hashing etc.)  */
 extern hashval_t bitmap_hash (const_bitmap);
+
+/* Allocate a bitmap from a bit obstack.  */
+#define BITMAP_ALLOC(OBSTACK) bitmap_obstack_alloc (OBSTACK)
+
+/* Allocate a gc'd bitmap.  */
+#define BITMAP_GGC_ALLOC() bitmap_gc_alloc ()
 
 /* Do any cleanup needed on a bitmap when it is no longer used.  */
 #define BITMAP_FREE(BITMAP) \
@@ -611,9 +555,6 @@ bmp_iter_set (bitmap_iterator *bi, unsigned *bit_no)
 	  bi->word_no++;
 	}
 
-      /* Make sure we didn't remove the element while iterating.  */
-      gcc_checking_assert (bi->elt1->indx != -1U);
-
       /* Advance to the next element.  */
       bi->elt1 = bi->elt1->next;
       if (!bi->elt1)
@@ -660,9 +601,6 @@ bmp_iter_and (bitmap_iterator *bi, unsigned *bit_no)
       /* Advance to the next identical element.  */
       do
 	{
-	  /* Make sure we didn't remove the element while iterating.  */
-	  gcc_checking_assert (bi->elt1->indx != -1U);
-
 	  /* Advance elt1 while it is less than elt2.  We always want
 	     to advance one elt.  */
 	  do
@@ -672,9 +610,6 @@ bmp_iter_and (bitmap_iterator *bi, unsigned *bit_no)
 		return false;
 	    }
 	  while (bi->elt1->indx < bi->elt2->indx);
-
-	  /* Make sure we didn't remove the element while iterating.  */
-	  gcc_checking_assert (bi->elt2->indx != -1U);
 
 	  /* Advance elt2 to be no less than elt1.  This might not
 	     advance.  */
@@ -728,16 +663,10 @@ bmp_iter_and_compl (bitmap_iterator *bi, unsigned *bit_no)
 	  bi->word_no++;
 	}
 
-      /* Make sure we didn't remove the element while iterating.  */
-      gcc_checking_assert (bi->elt1->indx != -1U);
-
       /* Advance to the next element of elt1.  */
       bi->elt1 = bi->elt1->next;
       if (!bi->elt1)
 	return false;
-
-      /* Make sure we didn't remove the element while iterating.  */
-      gcc_checking_assert (! bi->elt2 || bi->elt2->indx != -1U);
 
       /* Advance elt2 until it is no less than elt1.  */
       while (bi->elt2 && bi->elt2->indx < bi->elt1->indx)
@@ -747,18 +676,6 @@ bmp_iter_and_compl (bitmap_iterator *bi, unsigned *bit_no)
       bi->word_no = 0;
     }
 }
-
-/* If you are modifying a bitmap you are currently iterating over you
-   have to ensure to
-     - never remove the current bit;
-     - if you set or clear a bit before the current bit this operation
-       will not affect the set of bits you are visiting during the iteration;
-     - if you set or clear a bit after the current bit it is unspecified
-       whether that affects the set of bits you are visiting during the
-       iteration.
-   If you want to remove the current bit you can delay this to the next
-   iteration (and after the iteration in case the last iteration is
-   affected).  */
 
 /* Loop over all bits set in BITMAP, starting with MIN and setting
    BITNUM to the bit number.  ITER is a bitmap iterator.  BITNUM
@@ -794,27 +711,5 @@ bmp_iter_and_compl (bitmap_iterator *bi, unsigned *bit_no)
 				&(BITNUM));				\
        bmp_iter_and_compl (&(ITER), &(BITNUM));				\
        bmp_iter_next (&(ITER), &(BITNUM)))
-
-/* A class that ties the lifetime of a bitmap to its scope.  */
-class auto_bitmap
-{
- public:
-  auto_bitmap () { bitmap_initialize (&m_bits, &bitmap_default_obstack); }
-  explicit auto_bitmap (bitmap_obstack *o) { bitmap_initialize (&m_bits, o); }
-  ~auto_bitmap () { bitmap_clear (&m_bits); }
-  // Allow calling bitmap functions on our bitmap.
-  operator bitmap () { return &m_bits; }
-
- private:
-  // Prevent making a copy that references our bitmap.
-  auto_bitmap (const auto_bitmap &);
-  auto_bitmap &operator = (const auto_bitmap &);
-#if __cplusplus >= 201103L
-  auto_bitmap (auto_bitmap &&);
-  auto_bitmap &operator = (auto_bitmap &&);
-#endif
-
-  bitmap_head m_bits;
-};
 
 #endif /* GCC_BITMAP_H */

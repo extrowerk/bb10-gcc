@@ -43,8 +43,6 @@ namespace net {
 	}
 	scoped_array<unsigned char> signed_data(new unsigned
 						char[signed_data_len]);
-
-	return true;
       }
 }
 

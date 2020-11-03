@@ -24,14 +24,14 @@ c Line 3 has x editing finished off by a 1h*
        read (10, 200) a
        read (10, 200) a
        do i = 1,60
-         if (ichar(a(i:i)).ne.32) STOP 1
+         if (ichar(a(i:i)).ne.32) call abort ()
        end do
        read (10, 200) a
  200   format (a60)
        do i = 1,59
-         if (ichar(a(i:i)).ne.32) STOP 2
+         if (ichar(a(i:i)).ne.32) call abort ()
        end do
-       if (a(60:60).ne."*") STOP 3
+       if (a(60:60).ne."*") call abort ()
        rewind (10)
 
 c Check that sequences of t- and x-editing generate the correct 
@@ -48,15 +48,15 @@ c Line 3 has tabs to the left of present position.
        read (10, 200) a
        read (10, 200) a
        do i = 1,59
-         if (ichar(a(i:i)).ne.32) STOP 4
+         if (ichar(a(i:i)).ne.32) call abort ()
        end do
-       if (a(60:60).ne."$") STOP 5
+       if (a(60:60).ne."$") call abort ()
        read (10, 200) a
-       if (a(1:10).ne."abcdghijkl") STOP 6
+       if (a(1:10).ne."abcdghijkl") call abort ()
        do i = 11,59
-         if (ichar(a(i:i)).ne.32) STOP 7
+         if (ichar(a(i:i)).ne.32) call abort ()
        end do
-       if (a(60:60).ne."*") STOP 8
+       if (a(60:60).ne."*") call abort ()
        rewind (10)
 
 c Now repeat the first test, with the write broken up into three
@@ -73,9 +73,9 @@ c correctly reset for each statement.
        read (10, 200) a
        read (10, 200) a
        do i = 11,59
-         if (ichar(a(i:i)).ne.32) STOP 9
+         if (ichar(a(i:i)).ne.32) call abort ()
        end do
-       if (a(60:60).ne."$") STOP 10
+       if (a(60:60).ne."$") call abort ()
        rewind (10)
 
 c Next we check multiple read x- and t-editing.
@@ -83,7 +83,7 @@ c First, tab to the right.
 
        read (10, 201) b, c
 201    format (tr10,49x,a1,/,/,2x,t60,a1)
-       if ((b.ne."#").or.(c.ne."$")) STOP 11
+       if ((b.ne."#").or.(c.ne."$")) call abort ()
        rewind (10)
 
 c Now break it up into three reads and use left tabs.
@@ -94,7 +94,7 @@ c Now break it up into three reads and use left tabs.
 203    format ()
        read (10, 204) c
 204    format (10x,t5,55x,a1)
-       if ((b.ne."#").or.(c.ne."$")) STOP 12
+       if ((b.ne."#").or.(c.ne."$")) call abort ()
        close (10)
 
 c Now, check that trailing spaces are not transmitted when we have
@@ -110,7 +110,7 @@ c http://gcc.gnu.org/ml/fortran/2005-07/msg00395.html).
        rewind (10)
        read (10, 205, iostat = ier) i, b
   205  format (i10,a1)
-       if ((ier.eq.0).or.(ichar(b).ne.0)) STOP 13
+       if ((ier.eq.0).or.(ichar(b).ne.0)) call abort ()
 
 c That's all for now, folks! 
 

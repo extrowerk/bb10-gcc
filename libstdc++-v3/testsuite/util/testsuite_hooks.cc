@@ -1,8 +1,8 @@
 // -*- C++ -*-
 
-// Utility subroutines for the C++ library testsuite.
+// Utility subroutines for the C++ library testsuite. 
 //
-// Copyright (C) 2002-2018 Free Software Foundation, Inc.
+// Copyright (C) 2002-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -38,10 +38,12 @@
 
 // If we have <sys/types.h>, <sys/ipc.h>, and <sys/sem.h>, then assume
 // that System V semaphores are available.
+#if !defined(__QNXNTO__)
 #if defined(_GLIBCXX_HAVE_SYS_TYPES_H)		\
     && defined(_GLIBCXX_HAVE_SYS_IPC_H)		\
     && defined(_GLIBCXX_HAVE_SYS_SEM_H)
 #define _GLIBCXX_SYSV_SEM
+#endif
 #endif
 
 #ifdef _GLIBCXX_SYSV_SEM
@@ -53,7 +55,7 @@
 namespace __gnu_test
 {
 #ifdef _GLIBCXX_RES_LIMITS
-  void
+  void 
   set_memory_limits(float size)
   {
     struct rlimit r;
@@ -105,10 +107,10 @@ namespace __gnu_test
 #else
   void
   set_memory_limits(float) { }
-#endif
+#endif 
 
 #ifdef _GLIBCXX_RES_LIMITS
-  void
+  void 
   set_file_limit(unsigned long size)
   {
 #if _GLIBCXX_HAVE_LIMIT_FSIZE
@@ -125,17 +127,14 @@ namespace __gnu_test
 #else
   void
   set_file_limit(unsigned long) { }
-#endif
+#endif 
 
-  void
+  void 
   verify_demangle(const char* mangled, const char* wanted)
   {
     int status = 0;
-    const char* s = 0;
-    char* demangled = abi::__cxa_demangle(mangled, 0, 0, &status);
-    if (demangled)
-      s = demangled;
-    else
+    const char* s = abi::__cxa_demangle(mangled, 0, 0, &status);
+    if (!s)
       {
 	switch (status)
 	  {
@@ -159,15 +158,14 @@ namespace __gnu_test
     std::string w(wanted);
     if (w != s)
       std::__throw_runtime_error(s);
-    free(demangled);
   }
 
-  void
+  void 
   run_tests_wrapped_locale(const char* name, const func_callback& l)
   {
     using namespace std;
-
-    // Set the global locale.
+    
+    // Set the global locale. 
     locale loc_name = locale(name);
     locale orig = locale::global(loc_name);
 
@@ -188,19 +186,19 @@ namespace __gnu_test
 	__throw_runtime_error(s.c_str());
       }
   }
-
-  void
+  
+  void 
   run_tests_wrapped_env(const char* name, const char* env,
 			const func_callback& l)
   {
     using namespace std;
-
-#ifdef _GLIBCXX_HAVE_SETENV
-    // Set the global locale.
+    
+#ifdef _GLIBCXX_HAVE_SETENV 
+    // Set the global locale. 
     locale loc_name = locale(name);
     locale orig = locale::global(loc_name);
 
-    // Set environment variable env to value in name.
+    // Set environment variable env to value in name. 
     const char* oldENV = getenv(env);
     if (!setenv(env, name, 1))
       {
@@ -230,7 +228,7 @@ namespace __gnu_test
 #ifdef _GLIBCXX_SYSV_SEM
   // This union is not declared in system headers.  Instead, it must
   // be defined by user programs.
-  union semun
+  union semun 
   {
     int val;
     struct semid_ds *buf;
@@ -238,7 +236,7 @@ namespace __gnu_test
   };
 #endif
 
-  semaphore::semaphore()
+  semaphore::semaphore() 
   {
 #ifdef _GLIBCXX_SYSV_SEM
     // Remember the PID for the process that created the semaphore set
@@ -249,7 +247,7 @@ namespace __gnu_test
 #ifndef SEM_R
 #define SEM_R 0400
 #endif
-
+    
 #ifndef SEM_A
 #define SEM_A 0200
 #endif
@@ -272,22 +270,22 @@ namespace __gnu_test
 #endif
   }
 
-  semaphore::~semaphore()
+  semaphore::~semaphore() 
   {
 #ifdef _GLIBCXX_SYSV_SEM
     union semun val;
     val.val = 0; // Avoid uninitialized variable warning.
-    // Destroy the semaphore set only in the process that created it.
+    // Destroy the semaphore set only in the process that created it. 
     if (pid_ == getpid())
       semctl(sem_set_, 0, IPC_RMID, val);
 #endif
   }
 
   void
-  semaphore::signal()
+  semaphore::signal() 
   {
 #ifdef _GLIBCXX_SYSV_SEM
-    struct sembuf op[1] =
+    struct sembuf op[1] = 
       {
 	{ 0, 1, 0 }
       };
@@ -297,16 +295,16 @@ namespace __gnu_test
   }
 
   void
-  semaphore::wait()
+  semaphore::wait() 
   {
 #ifdef _GLIBCXX_SYSV_SEM
-    struct sembuf op[1] =
+    struct sembuf op[1] = 
       {
 	{ 0, -1, SEM_UNDO }
       };
     if (semop(sem_set_, op, 1) == -1)
       std::__throw_runtime_error("could not wait for semaphore");
-#endif
+#endif    
   }
 
   // For use in 22_locale/time_get and time_put.

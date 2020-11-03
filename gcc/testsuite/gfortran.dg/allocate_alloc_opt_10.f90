@@ -24,10 +24,10 @@ allocate(x,MOLD=z)
 select type (x)
 type is (t2)
   print *,x%j
-  if (x%j/=4) STOP 1
+  if (x%j/=4) call abort
   x%j = 5
 class default
-  STOP 1
+  call abort()
 end select
 
 
@@ -38,9 +38,9 @@ allocate(y,MOLD=x)
 select type (y)
 type is (t2)
   print *,y%j
-  if (y%j/=4) STOP 2
+  if (y%j/=4) call abort
 class default
-  STOP 2
+  call abort()
 end select
 
 end

@@ -11,5 +11,5 @@ program main
   msg = ' '
   backspace (2003,iostat=ios,iomsg=msg)
   if (ios == 0 .or. msg /="Cannot BACKSPACE an unformatted stream file") &
-       STOP 1
+       call abort
 end program main

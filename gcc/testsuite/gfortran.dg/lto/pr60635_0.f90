@@ -1,5 +1,4 @@
 ! { dg-lto-do link }
-! { dg-lto-options {{ -Wno-lto-type-mismatch }} }
 program test
   use iso_fortran_env
 

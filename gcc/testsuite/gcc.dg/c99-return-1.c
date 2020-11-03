@@ -7,12 +7,12 @@ int
 foo (void)
 {
   return; /* { dg-bogus "warning" "warning in place of error" } */
-  /* { dg-error "with no value" "return constraint violation" { target *-*-* } .-1 } */
+  /* { dg-error "with no value" "return constraint violation" { target *-*-* } 9 } */
 }
 
 void
 bar (void)
 {
   return 1; /* { dg-bogus "warning" "warning in place of error" } */
-  /* { dg-error "with a value" "return constraint violation" { target *-*-* } .-1 } */
+  /* { dg-error "with a value" "return constraint violation" { target *-*-* } 16 } */
 }

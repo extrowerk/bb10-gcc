@@ -27,12 +27,12 @@
    type is(t3)
      mt3%j = 2*mt2%i
      print *,mt3%j
-     if (mt3%j /= 10) STOP 1
+     if (mt3%j /= 10) call abort()
    class default
-     STOP 2
+     call abort()
    end select
  class default
-   STOP 3
+   call abort()
  end select
 
 end

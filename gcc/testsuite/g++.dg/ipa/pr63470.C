@@ -1,6 +1,6 @@
 /* PR ipa/63470.C */
 /* { dg-do compile } */
-/* { dg-options "-O2 -finline-functions -Wno-return-type" } */
+/* { dg-options "-O2 -finline-functions" } */
 
 class A
 {
@@ -17,7 +17,6 @@ class FTjackSupport : A
   const char **
   m_fn2 (int)
   {
-    return 0;
   }
   int _inited;
   int *_jackClient;

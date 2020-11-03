@@ -1,5 +1,5 @@
 /* { dg-do link } */
-/* { dg-options "-std=c99 -ffinite-math-only -O" } */
+/* { dg-options "-std=c99 -ffinite-math-only" } */
 
 #include "builtins-config.h"
 

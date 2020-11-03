@@ -1,4 +1,5 @@
-/* Copyright (C) 2012-2018 Free Software Foundation, Inc.
+/* Copyright (C) 2012-2013
+   Free Software Foundation
 
    This file is part of GCC.
 
@@ -144,7 +145,7 @@ change_protections_on_data_chunks (int protection_flag)
     }
 
 #ifdef VTV_DEBUG
-    __vtv_malloc_dump_stats ();
+    VTV_malloc_dump_stats ();
 #endif
 }
 
@@ -194,7 +195,7 @@ obstack_chunk_alloc (size_t size)
 }
 
 static void
-obstack_chunk_free (void *)
+obstack_chunk_free (size_t)
 {
   /* Do nothing. For our purposes there should be very little
      de-allocation. */
@@ -217,13 +218,14 @@ __vtv_malloc_init (void)
 #endif
     VTV_error ();
 
+  obstack_chunk_size (&vtv_obstack) = VTV_PAGE_SIZE;
+  obstack_alignment_mask (&vtv_obstack) = sizeof (long) - 1;
   /* We guarantee that the obstack alloc failed handler will never be
      called because in case the allocation of the chunk fails, it will
      never return */
   obstack_alloc_failed_handler = NULL;
 
-  obstack_specify_allocation (&vtv_obstack, VTV_PAGE_SIZE, sizeof (long),
-			      obstack_chunk_alloc, obstack_chunk_free);
+  obstack_init (&vtv_obstack);
   malloc_initialized = 1;
 }
 

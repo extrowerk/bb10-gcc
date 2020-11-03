@@ -10,6 +10,6 @@ program where_14
    elsewhere
    endwhere
    if (any (b .ne. (/3, 0, 0, 0, 0/))) &
-     STOP 1
+     call abort
 end program
 

@@ -1,5 +1,6 @@
 /* { dg-require-effective-target vect_int } */
 
+#include <stdlib.h>
 #include <stdarg.h>
 #include "tree-vect.h"
 
@@ -16,6 +17,8 @@ static  int c[N][N] = {{ 1, 2, 3, 4, 5},
 		       {18,21,24,27,30},
 		       {34,38,42,46,50},
 		       {55,60,65,70,75}};
+
+volatile int foo;
 
 __attribute__ ((noinline))
 int main1 (int A[N][N], int n) 
@@ -41,6 +44,7 @@ int main (void)
 
   check_vect ();
 
+  foo = 0;
   main1 (a, N);
 
   /* check results: */
@@ -58,4 +62,5 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "possible dependence between data-refs" 0 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */
 

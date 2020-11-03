@@ -1,6 +1,6 @@
 // 2003-04-24 bkoz
 
-// Copyright (C) 2003-2018 Free Software Foundation, Inc.
+// Copyright (C) 2003-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,6 +27,7 @@
 // libstdc++/10132, add on
 void test07()
 {
+  bool test __attribute__((unused)) = true;
   typedef std::basic_filebuf<__gnu_test::pod_ushort> gnu_filebuf;
   
   try
@@ -37,7 +38,8 @@ void test07()
     }
   catch(std::exception& obj)
     { 
-      VERIFY( false );
+      test = false; 
+      VERIFY( test );
     }
 }
 

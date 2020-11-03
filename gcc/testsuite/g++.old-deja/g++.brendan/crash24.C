@@ -11,12 +11,9 @@
 // array bounds, and then force the array to be allocated on the stack instead
 // of a register.
 
-int
 main()
 {
   char i[1];
 
   i[1] = 0;
-
-  return 0;
 }

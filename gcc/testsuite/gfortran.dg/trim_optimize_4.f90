@@ -7,9 +7,9 @@ program main
   str = '1234567890'
   call sub(trim(str), str)
   ! Should print '12345       '
-  if (str /= '12345       ') STOP 1
+  if (str /= '12345       ') call abort
   call two(trim(str))
-  if (str /= '123         ') STOP 2
+  if (str /= '123         ') call abort
 contains
   subroutine sub(a,b)
     character(len=*), intent(in) :: a

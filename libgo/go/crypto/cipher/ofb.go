@@ -19,7 +19,7 @@ type ofb struct {
 func NewOFB(b Block, iv []byte) Stream {
 	blockSize := b.BlockSize()
 	if len(iv) != blockSize {
-		panic("cipher.NewOFB: IV length must equal block size")
+		return nil
 	}
 	bufSize := streamBufferSize
 	if bufSize < blockSize {

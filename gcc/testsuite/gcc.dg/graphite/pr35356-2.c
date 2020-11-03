@@ -39,3 +39,4 @@ foo (int bar, int n, int k)
 */
 
 /* { dg-final { scan-tree-dump-times "for\[^\n\]+\n\[^\n\]+if" 0 "graphite" } } */
+/* { dg-final { cleanup-tree-dump "graphite" } } */

@@ -1,4 +1,4 @@
-// Copyright (C) 2005-2018 Free Software Foundation, Inc.
+// Copyright (C) 2005-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -34,6 +34,8 @@ predicate(const int& i)
 void
 test1()
 {
+  bool test __attribute__((unused)) = true;
+
   Container con(array, array);
   VERIFY( std::find_if(con.begin(), con.end(), 
 		       predicate).ptr == array );
@@ -42,6 +44,8 @@ test1()
 void
 test2()
 {
+  bool test __attribute__((unused)) = true;
+  
   Container con(array, array + 1);
   VERIFY( std::find_if(con.begin(), con.end(), 
 		       predicate).ptr == array + 1 );
@@ -50,6 +54,8 @@ test2()
 void
 test3()
 {
+  bool test __attribute__((unused)) = true;
+
   Container con(array, array + 6);
   VERIFY( std::find_if(con.begin(), con.end(),
 		       predicate).ptr == array + 3 );

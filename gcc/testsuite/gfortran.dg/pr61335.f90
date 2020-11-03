@@ -1,5 +1,4 @@
 ! { dg-do run }
-! { dg-require-visibility "" }
 ! { dg-additional-options "-fbounds-check" }
 MODULE cp_units
 

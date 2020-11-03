@@ -1,5 +1,5 @@
 // -*- C++ -*- Allocate exception objects.
-// Copyright (C) 2001-2018 Free Software Foundation, Inc.
+// Copyright (C) 2001-2015 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -73,10 +73,6 @@ using namespace __cxxabiv1;
 # define EMERGENCY_OBJ_COUNT	4
 #endif
 
-namespace __gnu_cxx
-{
-  void __freeres();
-}
 
 namespace
 {
@@ -110,8 +106,6 @@ namespace
       // to implement in_pool.
       char *arena;
       std::size_t arena_size;
-
-      friend void __gnu_cxx::__freeres();
     };
 
   pool::pool()
@@ -162,7 +156,7 @@ namespace
       allocated_entry *x;
       if ((*e)->size - size >= sizeof (free_entry))
 	{
-	  // Split block if it is too large.
+	  // Slit block if it is too large.
 	  free_entry *f = reinterpret_cast <free_entry *>
 	      (reinterpret_cast <char *> (*e) + size);
 	  std::size_t sz = (*e)->size;
@@ -194,17 +188,13 @@ namespace
       allocated_entry *e = reinterpret_cast <allocated_entry *>
 	(reinterpret_cast <char *> (data) - offsetof (allocated_entry, data));
       std::size_t sz = e->size;
-      if (!first_free_entry
-	  || (reinterpret_cast <char *> (e) + sz
-	      < reinterpret_cast <char *> (first_free_entry)))
+      if (!first_free_entry)
 	{
-	  // If the free list is empty or the entry is before the
-	  // first element and cannot be merged with it add it as
-	  // the first free entry.
+	  // If the free list is empty just put the entry there.
 	  free_entry *f = reinterpret_cast <free_entry *> (e);
 	  new (f) free_entry;
 	  f->size = sz;
-	  f->next = first_free_entry;
+	  f->next = NULL;
 	  first_free_entry = f;
 	}
       else if (reinterpret_cast <char *> (e) + sz
@@ -228,17 +218,9 @@ namespace
 		   > reinterpret_cast <char *> (e) + sz);
 	       fe = &(*fe)->next)
 	    ;
-	  // If we can merge the next block into us do so and continue
-	  // with the cases below.
-	  if (reinterpret_cast <char *> (e) + sz
-	      == reinterpret_cast <char *> ((*fe)->next))
-	    {
-	      sz += (*fe)->next->size;
-	      (*fe)->next = (*fe)->next->next;
-	    }
 	  if (reinterpret_cast <char *> (*fe) + (*fe)->size
 	      == reinterpret_cast <char *> (e))
-	    // Merge with the freelist entry.
+	    /* Merge with the freelist entry.  */
 	    (*fe)->size += sz;
 	  else
 	    {
@@ -260,19 +242,6 @@ namespace
     }
 
   pool emergency_pool;
-}
-
-namespace __gnu_cxx
-{
-  void
-  __freeres()
-  {
-    if (emergency_pool.arena)
-      {
-	::free(emergency_pool.arena);
-	emergency_pool.arena = 0;
-      }
-  }
 }
 
 extern "C" void *

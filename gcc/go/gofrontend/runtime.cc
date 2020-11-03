@@ -54,6 +54,8 @@ enum Runtime_function_type
   RFT_SLICE,
   // Go type map[any]any, C type struct __go_map *.
   RFT_MAP,
+  // Pointer to map iteration type.
+  RFT_MAPITER,
   // Go type chan any, C type struct __go_channel *.
   RFT_CHAN,
   // Go type non-empty interface, C type struct __go_interface.
@@ -64,14 +66,8 @@ enum Runtime_function_type
   RFT_FUNC_PTR,
   // Pointer to Go type descriptor.
   RFT_TYPE,
-  // [2]string.
-  RFT_ARRAY2STRING,
-  // [3]string.
-  RFT_ARRAY3STRING,
-  // [4]string.
-  RFT_ARRAY4STRING,
-  // [5]string.
-  RFT_ARRAY5STRING,
+  // Pointer to map descriptor.
+  RFT_MAPDESCRIPTOR,
 
   NUMBER_OF_RUNTIME_FUNCTION_TYPES
 };
@@ -157,6 +153,10 @@ runtime_function_type(Runtime_function_type bft)
 	  t = Type::make_map_type(any, any, bloc);
 	  break;
 
+	case RFT_MAPITER:
+	  t = Type::make_pointer_type(Runtime::map_iteration_type());
+	  break;
+
 	case RFT_CHAN:
 	  t = Type::make_channel_type(true, true, any);
 	  break;
@@ -189,48 +189,8 @@ runtime_function_type(Runtime_function_type bft)
 	  t = Type::make_type_descriptor_ptr_type();
 	  break;
 
-	case RFT_ARRAY2STRING:
-	  {
-	    Array_type* at =
-	      Type::make_array_type(Type::make_string_type(),
-				    Expression::make_integer_ul(2, NULL,
-								bloc));
-	    at->set_is_array_incomparable();
-	    t = at;
-	  }
-	  break;
-
-	case RFT_ARRAY3STRING:
-	  {
-	    Array_type* at =
-	      Type::make_array_type(Type::make_string_type(),
-				    Expression::make_integer_ul(3, NULL,
-								bloc));
-	    at->set_is_array_incomparable();
-	    t = at;
-	  }
-	  break;
-
-	case RFT_ARRAY4STRING:
-	  {
-	    Array_type* at =
-	      Type::make_array_type(Type::make_string_type(),
-				    Expression::make_integer_ul(4, NULL,
-								bloc));
-	    at->set_is_array_incomparable();
-	    t = at;
-	  }
-	  break;
-
-	case RFT_ARRAY5STRING:
-	  {
-	    Array_type* at =
-	      Type::make_array_type(Type::make_string_type(),
-				    Expression::make_integer_ul(5, NULL,
-								bloc));
-	    at->set_is_array_incomparable();
-	    t = at;
-	  }
+	case RFT_MAPDESCRIPTOR:
+	  t = Type::make_pointer_type(Map_type::make_map_descriptor_type());
 	  break;
 	}
 
@@ -265,6 +225,7 @@ convert_to_runtime_function_type(Runtime_function_type bft, Expression* e,
     case RFT_COMPLEX128:
     case RFT_STRING:
     case RFT_POINTER:
+    case RFT_MAPITER:
     case RFT_FUNC_PTR:
       {
 	Type* t = runtime_function_type(bft);
@@ -278,14 +239,15 @@ convert_to_runtime_function_type(Runtime_function_type bft, Expression* e,
     case RFT_CHAN:
     case RFT_IFACE:
     case RFT_EFACE:
-    case RFT_ARRAY2STRING:
-    case RFT_ARRAY3STRING:
-    case RFT_ARRAY4STRING:
-    case RFT_ARRAY5STRING:
       return Expression::make_unsafe_cast(runtime_function_type(bft), e, loc);
 
     case RFT_TYPE:
       go_assert(e->type() == Type::make_type_descriptor_ptr_type());
+      return e;
+
+    case RFT_MAPDESCRIPTOR:
+      go_assert(e->type()->points_to()
+		== Map_type::make_map_descriptor_type());
       return e;
     }
 }
@@ -427,29 +389,16 @@ Runtime::make_call(Runtime::Function code, Location loc,
   return Expression::make_call(func, args, false, loc);
 }
 
-// Get the runtime code for a named builtin function.  This is used as a helper
-// when creating function references for call expressions.  Every reference to
-// a builtin runtime function should have the associated runtime code.  If the
-// name is ambiguous and can refer to many runtime codes, return
-// NUMBER_OF_FUNCTIONS.
+// The type we use for a map iteration.  This is really a struct which
+// is four pointers long.  This must match the runtime struct
+// __go_hash_iter.
 
-Runtime::Function
-Runtime::name_to_code(const std::string& name)
+Type*
+Runtime::map_iteration_type()
 {
-  Function code = Runtime::NUMBER_OF_FUNCTIONS;
-
-  // Look through the known names for a match.
-  for (size_t i = 0; i < Runtime::NUMBER_OF_FUNCTIONS; i++)
-    {
-      const char* runtime_function_name = runtime_functions[i].name;
-      if (strcmp(runtime_function_name, name.c_str()) == 0)
-        code = static_cast<Runtime::Function>(i);
-      // The names in the table have "runtime." prefix. We may be
-      // called with a name without the prefix. Try matching
-      // without the prefix as well.
-      if (strncmp(runtime_function_name, "runtime.", 8) == 0
-          && strcmp(runtime_function_name + 8, name.c_str()) == 0)
-        code = static_cast<Runtime::Function>(i);
-    }
-  return code;
+  const unsigned long map_iteration_size = 4;
+  Expression* iexpr =
+    Expression::make_integer_ul(map_iteration_size, NULL,
+				Linemap::predeclared_location());
+  return Type::make_array_type(runtime_function_type(RFT_POINTER), iexpr);
 }

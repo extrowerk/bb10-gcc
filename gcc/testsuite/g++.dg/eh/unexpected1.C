@@ -1,6 +1,6 @@
 // PR 3719
 // Test that an unexpected handler can rethrow to categorize.
-// { dg-do run { target c++14_down } }
+// { dg-do run }
 
 #include <exception>
 
@@ -23,7 +23,7 @@ handle_unexpected ()
 }
 
 static void
-doit () throw (Two)			// { dg-warning "deprecated" "" { target { c++11 } } }
+doit () throw (Two)
 {
   throw One ();
 }

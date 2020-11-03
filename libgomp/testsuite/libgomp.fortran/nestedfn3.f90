@@ -5,7 +5,7 @@ program nestomp
   integer :: j
   j = 8
   call bar
-  if (j.ne.10) STOP 1
+  if (j.ne.10) call abort
 contains
   subroutine foo (i)
     integer :: i

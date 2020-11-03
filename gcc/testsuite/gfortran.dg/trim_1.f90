@@ -22,7 +22,7 @@ SUBROUTINE check_trim (full_len, trimmed_len)
       .OR. TRIM (string) /= string (1:trimmed_len)) THEN
     PRINT *, full_len, trimmed_len
     PRINT *, LEN (string), LEN_TRIM (string)
-    STOP 1
+    CALL abort ()
   END IF
 END SUBROUTINE check_trim
 

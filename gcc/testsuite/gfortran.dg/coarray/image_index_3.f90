@@ -33,7 +33,7 @@ allocate(c(3,3)[*])
 index1 = image_index(a, [3, -4, 88] )
 index2 = image_index(b, [-1, 0] )
 index3 = image_index(c, [1] )
-if (index1 /= 1 .or. index2 /= 1 .or. index3 /= 1) STOP 1
+if (index1 /= 1 .or. index2 /= 1 .or. index3 /= 1) call abort()
 
 
 index1 = image_index(a, [3, -3, 88] )
@@ -41,26 +41,26 @@ index2 = image_index(b, [0, 0] )
 index3 = image_index(c, [2] )
 
 if (one .and. (index1 /= 0 .or. index2 /= 0 .or. index3 /= 0)) &
-  STOP 2
+  call abort()
 if (.not. one .and. (index1 /= 2 .or. index2 /= 2 .or. index3 /= 2)) &
-  STOP 3
+  call abort()
 
 
 index1 = image_index(d, [-1, 1] )
 index2 = image_index(d, [0, 1] )
 
 if (one .and. (index1 /= 1 .or. index2 /= 0)) &
-  STOP 4
+  call abort()
 if (.not. one .and. (index1 /= 1 .or. index2 /= 2)) &
-  STOP 5
+  call abort()
 
 index1 = image_index(e, [-1, 3] )
 index2 = image_index(e, [-1, 4] )
 
 if (one .and. (index1 /= 1 .or. index2 /= 0)) &
-  STOP 6
+  call abort()
 if (.not. one .and. (index1 /= 1 .or. index2 /= 2)) &
-  STOP 7
+  call abort()
 
 call test(1, a,b,c)
 
@@ -73,11 +73,11 @@ index2 = image_index(a, [3, 1, 2] )  ! = 213, yeah!
 index3 = image_index(a, [3, 1, 0] )  ! = 13
 
 if (num_images() < 13 .and. (index1 /= 1 .or. index2 /= 0 .or. index3 /= 0)) &
-  STOP 8
+  call abort()
 if (num_images() >= 213 .and. (index1 /= 1 .or. index2 /= 213 .or. index3 /= 13)) &
-  STOP 9
+  call abort()
 if (num_images() >= 13 .and. (index1 /= 1 .or. index2 /= 0 .or. index3 /= 13)) &
-  STOP 10
+  call abort()
 
 
 contains
@@ -88,7 +88,7 @@ subroutine test(n, a, b, c)
   index1 = image_index(a, [3, -4, 88] )
   index2 = image_index(b, [-1, 0] )
   index3 = image_index(c, [1] )
-  if (index1 /= 1 .or. index2 /= 1 .or. index3 /= 1) STOP 11
+  if (index1 /= 1 .or. index2 /= 1 .or. index3 /= 1) call abort()
 
 
   index1 = image_index(a, [3, -3, 88] )
@@ -96,8 +96,8 @@ subroutine test(n, a, b, c)
   index3 = image_index(c, [2] )
 
   if (one .and. (index1 /= 0 .or. index2 /= 0 .or. index3 /= 0)) &
-    STOP 12
+    call abort()
   if (.not. one .and. (index1 /= 2 .or. index2 /= 2 .or. index3 /= 2)) &
-    STOP 13
+    call abort()
 end subroutine test
 end program test_image_index

@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-additional-options "-ftree-parallelize-loops=4 -ffast-math" } */
+/* { dg-options "-ftree-parallelize-loops=4 -O2 -ffast-math" } */
 
 extern void abort (void);
 

@@ -2,6 +2,6 @@
 /* { dg-do compile } */
 /* { dg-options "" } */
 
-enum E e;  /* { dg-error "storage size of 'e' isn't known" } */
+enum E e;
 int a[10];
 int i = a[e]; /* { dg-error "has an incomplete type" } */

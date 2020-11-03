@@ -9,7 +9,6 @@
 //
 // ASan-private header for asan_stack.cc.
 //===----------------------------------------------------------------------===//
-
 #ifndef ASAN_STACK_H
 #define ASAN_STACK_H
 
@@ -19,11 +18,6 @@
 #include "sanitizer_common/sanitizer_stacktrace.h"
 
 namespace __asan {
-
-static const u32 kDefaultMallocContextSize = 30;
-
-void SetMallocContextSize(u32 size);
-u32 GetMallocContextSize();
 
 // Get the stack trace with the given pc and bp.
 // The pc will be in the position 0 of the resulting stack trace.
@@ -39,22 +33,23 @@ void GetStackTraceWithPcBpAndContext(BufferedStackTrace *stack, uptr max_depth,
   stack->size = 0;
   if (LIKELY(asan_inited)) {
     if ((t = GetCurrentThread()) && !t->isUnwinding()) {
+      // On FreeBSD the slow unwinding that leverages _Unwind_Backtrace()
+      // yields the call stack of the signal's handler and not of the code
+      // that raised the signal (as it does on Linux).
+      if (SANITIZER_FREEBSD && t->isInDeadlySignal()) fast = true;
       uptr stack_top = t->stack_top();
       uptr stack_bottom = t->stack_bottom();
       ScopedUnwinding unwind_scope(t);
-      if (!SANITIZER_MIPS || IsValidFrame(bp, stack_top, stack_bottom)) {
-        stack->Unwind(max_depth, pc, bp, context, stack_top, stack_bottom,
-                      fast);
-      }
-    } else if (!t && !fast) {
+      stack->Unwind(max_depth, pc, bp, context, stack_top, stack_bottom, fast);
+    } else if (t == 0 && !fast) {
       /* If GetCurrentThread() has failed, try to do slow unwind anyways. */
       stack->Unwind(max_depth, pc, bp, context, 0, 0, false);
     }
   }
-#endif // SANITIZER_WINDOWS
+#endif  // SANITIZER_WINDOWS
 }
 
-} // namespace __asan
+}  // namespace __asan
 
 // NOTE: A Rule of thumb is to retrieve stack trace in the interceptors
 // as early as possible (in functions exposed to the user), as we generally
@@ -81,10 +76,9 @@ void GetStackTraceWithPcBpAndContext(BufferedStackTrace *stack, uptr max_depth,
   GetStackTraceWithPcBpAndContext(&stack, kStackTraceMax, pc, bp, 0,           \
                                   common_flags()->fast_unwind_on_fatal)
 
-#define GET_STACK_TRACE_SIGNAL(sig)                                            \
+#define GET_STACK_TRACE_SIGNAL(pc, bp, context)                                \
   BufferedStackTrace stack;                                                    \
-  GetStackTraceWithPcBpAndContext(&stack, kStackTraceMax,                      \
-                                  (sig).pc, (sig).bp, (sig).context,           \
+  GetStackTraceWithPcBpAndContext(&stack, kStackTraceMax, pc, bp, context,     \
                                   common_flags()->fast_unwind_on_fatal)
 
 #define GET_STACK_TRACE_FATAL_HERE                                \
@@ -96,8 +90,9 @@ void GetStackTraceWithPcBpAndContext(BufferedStackTrace *stack, uptr max_depth,
 #define GET_STACK_TRACE_THREAD                                    \
   GET_STACK_TRACE(kStackTraceMax, true)
 
-#define GET_STACK_TRACE_MALLOC                                                 \
-  GET_STACK_TRACE(GetMallocContextSize(), common_flags()->fast_unwind_on_malloc)
+#define GET_STACK_TRACE_MALLOC                                    \
+  GET_STACK_TRACE(common_flags()->malloc_context_size,            \
+                  common_flags()->fast_unwind_on_malloc)
 
 #define GET_STACK_TRACE_FREE GET_STACK_TRACE_MALLOC
 
@@ -113,4 +108,4 @@ void GetStackTraceWithPcBpAndContext(BufferedStackTrace *stack, uptr max_depth,
     stack.Print();                  \
   }
 
-#endif // ASAN_STACK_H
+#endif  // ASAN_STACK_H

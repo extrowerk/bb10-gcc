@@ -53,3 +53,4 @@ test6 (int len, int align)
 }
 
 /* { dg-final { scan-tree-dump-times "return 0" 4 "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */

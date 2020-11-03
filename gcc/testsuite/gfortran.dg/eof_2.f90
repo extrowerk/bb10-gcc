@@ -6,8 +6,8 @@ program eof_2
   open (11, status="SCRATCH")
   ierr = 0
   read (11, *, end=10, iostat=ierr) i
-  STOP 1
+  call abort
 10 continue
-  if (ierr .ge. 0) STOP 2
+  if (ierr .ge. 0) call abort
 end program
 

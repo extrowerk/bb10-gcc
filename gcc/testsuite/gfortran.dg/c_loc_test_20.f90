@@ -25,10 +25,10 @@ program testcloc
 
     cptr = c_loc (obj1%array)
     call c_f_pointer (cptr, array, shape=[100])
-    if (any (array /= [(i, i=1,100)])) STOP 1
+    if (any (array /= [(i, i=1,100)])) call abort ()
 
     cptr = c_loc (obj1%array2)
     call c_f_pointer (cptr, array, shape=[100])
-    if (any (array /= [(i, i=1,100)])) STOP 2
+    if (any (array /= [(i, i=1,100)])) call abort ()
 end program testcloc
 

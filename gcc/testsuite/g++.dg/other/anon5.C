@@ -1,10 +1,10 @@
 // PR c++/34094
 // { dg-do link { target { ! { *-*-darwin* *-*-hpux* *-*-solaris2.* } } } }
-// { dg-options "-gdwarf-2" }
+// { dg-options "-g" }
 // Ignore additional message on powerpc-ibm-aix
 // { dg-prune-output "obtain more information" } */
 // Ignore additional messages on Linux/x86 with PIE
-// { dg-prune-output "\[Bb\]ad value" } */
+// { dg-prune-output "Bad value" } */
 
 namespace {
   struct c

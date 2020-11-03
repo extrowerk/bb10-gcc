@@ -1,6 +1,6 @@
 // Allocator traits -*- C++ -*-
 
-// Copyright (C) 2011-2018 Free Software Foundation, Inc.
+// Copyright (C) 2011-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -42,11 +42,56 @@ namespace __gnu_cxx _GLIBCXX_VISIBILITY(default)
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
+#if __cplusplus >= 201103L
+  template<typename _Alloc>
+    struct __allocator_always_compares_equal : std::false_type { };
+
+  template<typename _Tp>
+    struct __allocator_always_compares_equal<std::allocator<_Tp>>
+    : std::true_type { };
+
+  template<typename, typename> struct array_allocator;
+
+  template<typename _Tp, typename _Array>
+    struct __allocator_always_compares_equal<array_allocator<_Tp, _Array>>
+    : std::true_type { };
+
+  template<typename> struct bitmap_allocator;
+
+  template<typename _Tp>
+    struct __allocator_always_compares_equal<bitmap_allocator<_Tp>>
+    : std::true_type { };
+
+  template<typename> struct malloc_allocator;
+
+  template<typename _Tp>
+    struct __allocator_always_compares_equal<malloc_allocator<_Tp>>
+    : std::true_type { };
+
+  template<typename> struct mt_allocator;
+
+  template<typename _Tp>
+    struct __allocator_always_compares_equal<mt_allocator<_Tp>>
+    : std::true_type { };
+
+  template<typename> struct new_allocator;
+
+  template<typename _Tp>
+    struct __allocator_always_compares_equal<new_allocator<_Tp>>
+    : std::true_type { };
+
+  template<typename> struct pool_allocator;
+
+  template<typename _Tp>
+    struct __allocator_always_compares_equal<pool_allocator<_Tp>>
+    : std::true_type { };
+#endif
+
 /**
- * @brief  Uniform interface to C++98 and C++11 allocators.
+ * @brief  Uniform interface to C++98 and C++0x allocators.
  * @ingroup allocators
 */
-template<typename _Alloc, typename = typename _Alloc::value_type>
+template<typename _Alloc>
   struct __alloc_traits
 #if __cplusplus >= 201103L
   : std::allocator_traits<_Alloc>
@@ -81,7 +126,7 @@ template<typename _Alloc, typename = typename _Alloc::value_type>
       static typename std::enable_if<__is_custom_pointer<_Ptr>::value>::type
       construct(_Alloc& __a, _Ptr __p, _Args&&... __args)
       {
-	_Base_type::construct(__a, std::__to_address(__p),
+	_Base_type::construct(__a, std::addressof(*__p),
 			      std::forward<_Args>(__args)...);
       }
 
@@ -89,7 +134,7 @@ template<typename _Alloc, typename = typename _Alloc::value_type>
     template<typename _Ptr>
       static typename std::enable_if<__is_custom_pointer<_Ptr>::value>::type
       destroy(_Alloc& __a, _Ptr __p)
-      { _Base_type::destroy(__a, std::__to_address(__p)); }
+      { _Base_type::destroy(__a, std::addressof(*__p)); }
 
     static _Alloc _S_select_on_copy(const _Alloc& __a)
     { return _Base_type::select_on_container_copy_construction(__a); }
@@ -107,10 +152,17 @@ template<typename _Alloc, typename = typename _Alloc::value_type>
     { return _Base_type::propagate_on_container_swap::value; }
 
     static constexpr bool _S_always_equal()
-    { return _Base_type::is_always_equal::value; }
+    { return __allocator_always_compares_equal<_Alloc>::value; }
 
     static constexpr bool _S_nothrow_move()
     { return _S_propagate_on_move_assign() || _S_always_equal(); }
+
+    static constexpr bool _S_nothrow_swap()
+    {
+      using std::swap;
+      return !_S_propagate_on_swap()
+       	|| noexcept(swap(std::declval<_Alloc&>(), std::declval<_Alloc&>()));
+    }
 
     template<typename _Tp>
       struct rebind

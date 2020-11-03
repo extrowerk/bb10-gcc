@@ -29,3 +29,4 @@ contains
 end
 
 ! { dg-final { scan-tree-dump-times "fini_coarray" 1 "original" } }
+! { dg-final { cleanup-tree-dump "original" } }

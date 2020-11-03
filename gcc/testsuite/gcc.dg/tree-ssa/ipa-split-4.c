@@ -26,3 +26,4 @@ test(void)
   return split_me (0)+split_me(1)+split_me(2);
 }
 /* { dg-final { scan-tree-dump-times "Splitting function" 1 "fnsplit"} } */
+/* { dg-final { cleanup-tree-dump "fnsplit" } } */

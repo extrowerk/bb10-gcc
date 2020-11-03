@@ -10,3 +10,4 @@ int foo ()
 }
 
 /* { dg-final { scan-tree-dump-times "ASAN_CHECK" 0 "asan1" } } */
+/* { dg-final { cleanup-tree-dump "asan1" } } */

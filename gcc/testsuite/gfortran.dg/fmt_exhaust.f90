@@ -7,6 +7,6 @@
       n = 1
       open(10, status="scratch")
       write(10,"(i7,(' abcd'))", err=10) n, n
-      STOP 1
+      call abort()
  10   close(10)
       end program test

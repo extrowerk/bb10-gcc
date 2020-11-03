@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -fnon-call-exceptions -ftrapv -fexceptions" } */
-void
+int
 DrawChunk(int *tabSize, int x) 
 {
   const int numEnds = 10;

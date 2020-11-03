@@ -87,7 +87,7 @@ main (int argc, char **argv)
   };
 
   /* Set floating point control register
-     to have predictable vrndx and vrndi behavior.  */
+     to have predictable vrndx and vrndi behaviour.  */
   set_rounding_mode (FPROUNDING_ZERO);
 
   run_round_tests (tests, expectations);
@@ -102,3 +102,4 @@ main (int argc, char **argv)
 /* { dg-final { scan-assembler-times "frintm\\td\[0-9\]+, d\[0-9\]+" 1 } } */
 /* { dg-final { scan-assembler-times "frinti\\td\[0-9\]+, d\[0-9\]+" 1 } } */
 /* { dg-final { scan-assembler-times "frinta\\td\[0-9\]+, d\[0-9\]+" 1 } } */
+/* { dg-final { cleanup-saved-temps } } */

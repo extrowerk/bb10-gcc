@@ -12,10 +12,10 @@ subroutine test(i, a, b, c)
   character(len=*), optional :: b
   integer, optional :: c
   if (i .eq. 1) then
-    if (a .ne. "test") STOP 1
+    if (a .ne. "test") call abort
   else
-    if (b .ne. "Hello World") STOP 2
-    if (c .ne. 42) STOP 3
+    if (b .ne. "Hello World") call abort
+    if (c .ne. 42) call abort
   end if
 end subroutine
 end program

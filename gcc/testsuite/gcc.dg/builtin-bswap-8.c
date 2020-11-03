@@ -43,3 +43,4 @@ uint32_t foo7 (uint32_t a, uint32_t b)
 }
 
 /* { dg-final { scan-rtl-dump-not "bswapsi" "combine" } } */
+/* { dg-final { cleanup-rtl-dump "combine" } } */

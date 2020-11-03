@@ -1,7 +1,7 @@
 // PR c++/16224
 
 namespace io { 
-  template <typename> int foo();
+  template <typename> int foo(); // { dg-error "" }
 } 
  
 using namespace io; 

@@ -14,3 +14,4 @@ void foo() {
 }
 
 /* { dg-final { scan-rtl-dump-not "REG_EQUIV\[^\n\]*mem\[^\n\]*\"ip\".*subreg" "ira" } } */
+/* { dg-final { cleanup-rtl-dump "ira" } } */

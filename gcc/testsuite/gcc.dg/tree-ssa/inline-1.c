@@ -21,4 +21,5 @@ interval foo (interval a, interval b, interval c)
 
 
 /* { dg-final { scan-tree-dump-times "\\(struct interval\\)" 0 "optimized"} } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */
 

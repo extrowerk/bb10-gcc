@@ -5,7 +5,7 @@ template<int> struct A {};
 
 template<typename> void foo()
 {
-  A<int(x)> a; // { dg-error "not declared|could not convert" }
+  A<int(x)> a; // { dg-error "not declared|invalid type" }
 }
 
 template<typename> struct bar

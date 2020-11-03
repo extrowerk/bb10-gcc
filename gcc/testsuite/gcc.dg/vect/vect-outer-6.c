@@ -1,6 +1,7 @@
 /* { dg-require-effective-target vect_float } */
 
 #include <stdarg.h>
+#include <signal.h>
 #include "tree-vect.h"
 
 #define N 64
@@ -62,3 +63,4 @@ int main ()
 
 /* { dg-final { scan-tree-dump-times "OUTER LOOP VECTORIZED" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "zero step in outer loop." 1 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

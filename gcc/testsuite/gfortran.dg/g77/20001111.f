@@ -7,7 +7,7 @@ c { dg-do run }
          IF(BK .GT. TOLD) GOTO 10
       ENDDO
       WRITE(*,*)'Error: BK = ', BK
-      STOP 1
+      CALL ABORT
  10   CONTINUE
       WRITE(*,*)'No Error: BK = ', BK
       END

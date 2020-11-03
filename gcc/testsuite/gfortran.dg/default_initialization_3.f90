@@ -20,8 +20,8 @@ subroutine original
   integer val1 (6)
   integer val2 (6)
   call recfunc (1)
-  if (any (val1 .ne. (/1, 2, 3, 1, 2, 3/))) STOP 1
-  if (any (val2 .ne. (/1, 2, 3, 4, 4, 4/))) STOP 2
+  if (any (val1 .ne. (/1, 2, 3, 1, 2, 3/))) call abort ()
+  if (any (val2 .ne. (/1, 2, 3, 4, 4, 4/))) call abort ()
 contains
 
   recursive subroutine recfunc (ivalue)
@@ -65,9 +65,9 @@ subroutine other
   end interface
   type(myint) :: val1, val2
   call func (1, val1, val2)
-  if ((val1%bar .ne. 42) .or. (val2%bar .ne. 77)) STOP 3
+  if ((val1%bar .ne. 42) .or. (val2%bar .ne. 77)) call abort ()
   call func (2, val1, val2)
-  if ((val1%bar .ne. 42) .or. (val2%bar .ne. 999)) STOP 4
+  if ((val1%bar .ne. 42) .or. (val2%bar .ne. 999)) call abort ()
 
 end subroutine other
 
@@ -95,9 +95,9 @@ subroutine dominique ()
   USE M1
   TYPE(T1) :: D1
   D1=T1(3)
-  if (F1(D1) .ne. 7) STOP 5
+  if (F1(D1) .ne. 7) call abort ()
   D1=T1(3)
-  if (E1(D1) .ne. 3) STOP 6
+  if (E1(D1) .ne. 3) call abort ()
 END
 
 ! Run both tests.

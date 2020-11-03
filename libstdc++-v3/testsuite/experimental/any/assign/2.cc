@@ -1,6 +1,7 @@
-// { dg-do run { target c++14 } }
+// { dg-options "-std=gnu++14" }
+// { dg-do run }
 
-// Copyright (C) 2014-2018 Free Software Foundation, Inc.
+// Copyright (C) 2014-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -23,70 +24,28 @@
 using std::experimental::any;
 using std::experimental::any_cast;
 
-bool moved = false;
-bool copied = false;
-
-
 struct X
 {
+  bool moved = false;
+  bool moved_from = false;
   X() = default;
-  X(const X&) { copied = true; }
-  X(X&& x) { moved = true; }
-};
-
-struct X2
-{
-  X2() = default;
-  X2(const X2&) { copied = true; }
-  X2(X2&& x) noexcept { moved = true; }
+  X(const X&) = default;
+  X(X&& x) : moved(true) { x.moved_from = true; }
 };
 
 void test01()
 {
-  moved = false;
   X x;
   any a1;
   a1 = x;
-  VERIFY(moved == false);
+  VERIFY(x.moved_from == false);
   any a2;
-  copied = false;
   a2 = std::move(x);
-  VERIFY(moved == true);
-  VERIFY(copied == false);
+  VERIFY(x.moved_from == true);
+  VERIFY(any_cast<X&>(a2).moved == true );
 }
-
-void test02()
-{
-  moved = false;
-  X x;
-  any a1;
-  a1 = x;
-  VERIFY(moved == false);
-  any a2;
-  copied = false;
-  a2 = std::move(a1);
-  VERIFY(moved == false);
-  VERIFY(copied == false);
-}
-
-void test03()
-{
-  moved = false;
-  X2 x;
-  any a1;
-  a1 = x;
-  VERIFY(copied && moved);
-  any a2;
-  moved = false;
-  copied = false;
-  a2 = std::move(a1);
-  VERIFY(moved == true);
-  VERIFY(copied == false);
- }
 
 int main()
 {
   test01();
-  test02();
-  test03();
 }

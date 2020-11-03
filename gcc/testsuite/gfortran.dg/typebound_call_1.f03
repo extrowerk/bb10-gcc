@@ -69,17 +69,17 @@ CONTAINS
     INTEGER :: x
 
     IF (adder%func (2, 3) /= 5 .OR. muler%func (2, 3) /= 6) THEN
-      STOP 1
+      CALL abort ()
     END IF
 
     CALL adder%sub (2, 3, x)
     IF (x /= 5) THEN
-      STOP 2
+      CALL abort ()
     END IF
 
     CALL muler%sub (2, 3, x)
     IF (x /= 6) THEN
-      STOP 3
+      CALL abort ()
     END IF
 
     ! Check procedures without arguments.

@@ -27,3 +27,4 @@ void f2 (int *p, int a, int b, int *cond, int *cond2)
 
 /* None of the above conditional stores might be made unconditional.  */
 /* { dg-final { scan-tree-dump-not "cstore" "cselim" } } */
+/* { dg-final { cleanup-tree-dump "cselim" } } */

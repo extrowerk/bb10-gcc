@@ -1,4 +1,3 @@
-/* { dg-require-effective-target size32plus } */
 double u[1782225];
 
 void foo(int N, int *res)
@@ -6,9 +5,6 @@ void foo(int N, int *res)
   int i;
   double a, b;
   double sum = 0.0;
-
-  for (i = 0; i < N; i++)
-    sum += u[i];
 
   for (i = 0; i < N; i++)
     {
@@ -22,3 +18,4 @@ void foo(int N, int *res)
 }
 
 /* { dg-final { scan-tree-dump-times "number of SCoPs: 1" 1 "graphite"} } */
+/* { dg-final { cleanup-tree-dump "graphite" } } */

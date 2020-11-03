@@ -19,4 +19,5 @@ Bar::Bar() {
         }
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */
 

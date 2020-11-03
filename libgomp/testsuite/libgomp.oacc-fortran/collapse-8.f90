@@ -36,11 +36,11 @@ program collapse8
       end do
     end do
   end do
-  if (l .neqv. r) STOP 1
+  if (l .neqv. r) call abort
   do i = v1, v2
     do j = v3, v4
       do k = v5, v6
-         if (a(i, j, k) .ne. b(i, j, k)) STOP 2
+         if (a(i, j, k) .ne. b(i, j, k)) call abort
       end do
     end do
   end do

@@ -1,6 +1,7 @@
-// { dg-do compile { target c++14 } }
+// { dg-do compile }
+// { dg-options "-std=gnu++14" }
 
-// Copyright (C) 2013-2018 Free Software Foundation, Inc.
+// Copyright (C) 2013-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -25,11 +26,4 @@ void test01()
 
   float&& pfirst __attribute__((unused)) = std::get<float>(std::move(p));
   int&&  psecond __attribute__((unused)) = std::get<int>(std::move(p));
-
-  const std::pair<float, int> cp;
-
-  const float&& cpfirst __attribute__((unused)) =
-    std::get<float>(std::move(cp));
-  const int&&  cpsecond __attribute__((unused)) =
-    std::get<int>(std::move(cp));
 }

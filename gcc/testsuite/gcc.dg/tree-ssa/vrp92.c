@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdisable-tree-evrp -fdump-tree-vrp1-details -fdisable-tree-ethread" } */
+/* { dg-options "-O2 -fdump-tree-vrp1-details" } */
 
 void bar (void);
 int foo (int i, int j)
@@ -20,3 +20,4 @@ int foo (int i, int j)
 
 /* { dg-final { scan-tree-dump "res_.: \\\[1, 1\\\]" "vrp1" } } */
 /* { dg-final { scan-tree-dump-not "Threaded" "vrp1" } } */
+/* { dg-final { cleanup-tree-dump "vrp1" } } */

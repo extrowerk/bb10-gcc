@@ -16,3 +16,4 @@ float foo(float f)
 }
 
 /* { dg-final { scan-tree-dump "Replaced BIT_FIELD_REF.*with f" "fre1" } } */
+/* { dg-final { cleanup-tree-dump "fre1" } } */

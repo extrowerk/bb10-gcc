@@ -18,7 +18,6 @@ public:
   }
 } d(42);
 
-int
 main() {
   try {
     throw &d;

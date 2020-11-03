@@ -17,21 +17,21 @@ program gfcbug69b
   open (iunit, action="read", status="old")
   
   read (iunit,'(a)',iostat=ios) line
-  if (ios /= 0) STOP 1
+  if (ios /= 0) call abort
   read (iunit,'(a)',iostat=ios) line
-  if (ios /= 0) STOP 2
+  if (ios /= 0) call abort
   read (iunit,'(a)',iostat=ios) line
-  if (ios /= 0) STOP 3
+  if (ios /= 0) call abort
   read (iunit,'(a)',iostat=ios) line
   if (ios /= 0) backspace (iunit)
   rewind (iunit)
   read (iunit,'(a)',iostat=ios) line
-  if (ios /= 0) STOP 4
+  if (ios /= 0) call abort
   read (iunit,'(a)',iostat=ios) line
-  if (ios /= 0) STOP 5
+  if (ios /= 0) call abort
   read (iunit,'(a)',iostat=ios) line
-  if (ios /= 0) STOP 6
+  if (ios /= 0) call abort
   read (iunit,'(a)',iostat=ios) line
-  if (ios /= -1) STOP 7
+  if (ios /= -1) call abort
   close (iunit, status="delete")
 end program gfcbug69b

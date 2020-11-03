@@ -17,19 +17,13 @@ import (
  */
 
 // An Encoding is a radix 32 encoding/decoding scheme, defined by a
-// 32-character alphabet. The most common is the "base32" encoding
+// 32-character alphabet.  The most common is the "base32" encoding
 // introduced for SASL GSSAPI and standardized in RFC 4648.
 // The alternate "base32hex" encoding is used in DNSSEC.
 type Encoding struct {
 	encode    string
 	decodeMap [256]byte
-	padChar   rune
 }
-
-const (
-	StdPadding rune = '=' // Standard padding character
-	NoPadding  rune = -1  // No padding
-)
 
 const encodeStd = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
 const encodeHex = "0123456789ABCDEFGHIJKLMNOPQRSTUV"
@@ -39,8 +33,6 @@ const encodeHex = "0123456789ABCDEFGHIJKLMNOPQRSTUV"
 func NewEncoding(encoder string) *Encoding {
 	e := new(Encoding)
 	e.encode = encoder
-	e.padChar = StdPadding
-
 	for i := 0; i < len(e.decodeMap); i++ {
 		e.decodeMap[i] = 0xFF
 	}
@@ -65,26 +57,6 @@ var removeNewlinesMapper = func(r rune) rune {
 	return r
 }
 
-// WithPadding creates a new encoding identical to enc except
-// with a specified padding character, or NoPadding to disable padding.
-// The padding character must not be '\r' or '\n', must not
-// be contained in the encoding's alphabet and must be a rune equal or
-// below '\xff'.
-func (enc Encoding) WithPadding(padding rune) *Encoding {
-	if padding == '\r' || padding == '\n' || padding > 0xff {
-		panic("invalid padding")
-	}
-
-	for i := 0; i < len(enc.encode); i++ {
-		if rune(enc.encode[i]) == padding {
-			panic("padding contained in alphabet")
-		}
-	}
-
-	enc.padChar = padding
-	return &enc
-}
-
 /*
  * Encoder
  */
@@ -94,81 +66,67 @@ func (enc Encoding) WithPadding(padding rune) *Encoding {
 //
 // The encoding pads the output to a multiple of 8 bytes,
 // so Encode is not appropriate for use on individual blocks
-// of a large data stream. Use NewEncoder() instead.
+// of a large data stream.  Use NewEncoder() instead.
 func (enc *Encoding) Encode(dst, src []byte) {
 	if len(src) == 0 {
 		return
 	}
 
 	for len(src) > 0 {
-		var b [8]byte
+		var b0, b1, b2, b3, b4, b5, b6, b7 byte
 
 		// Unpack 8x 5-bit source blocks into a 5 byte
 		// destination quantum
 		switch len(src) {
 		default:
-			b[7] = src[4] & 0x1F
-			b[6] = src[4] >> 5
+			b7 = src[4] & 0x1F
+			b6 = src[4] >> 5
 			fallthrough
 		case 4:
-			b[6] |= (src[3] << 3) & 0x1F
-			b[5] = (src[3] >> 2) & 0x1F
-			b[4] = src[3] >> 7
+			b6 |= (src[3] << 3) & 0x1F
+			b5 = (src[3] >> 2) & 0x1F
+			b4 = src[3] >> 7
 			fallthrough
 		case 3:
-			b[4] |= (src[2] << 1) & 0x1F
-			b[3] = (src[2] >> 4) & 0x1F
+			b4 |= (src[2] << 1) & 0x1F
+			b3 = (src[2] >> 4) & 0x1F
 			fallthrough
 		case 2:
-			b[3] |= (src[1] << 4) & 0x1F
-			b[2] = (src[1] >> 1) & 0x1F
-			b[1] = (src[1] >> 6) & 0x1F
+			b3 |= (src[1] << 4) & 0x1F
+			b2 = (src[1] >> 1) & 0x1F
+			b1 = (src[1] >> 6) & 0x1F
 			fallthrough
 		case 1:
-			b[1] |= (src[0] << 2) & 0x1F
-			b[0] = src[0] >> 3
+			b1 |= (src[0] << 2) & 0x1F
+			b0 = src[0] >> 3
 		}
 
 		// Encode 5-bit blocks using the base32 alphabet
-		size := len(dst)
-		if size >= 8 {
-			// Common case, unrolled for extra performance
-			dst[0] = enc.encode[b[0]]
-			dst[1] = enc.encode[b[1]]
-			dst[2] = enc.encode[b[2]]
-			dst[3] = enc.encode[b[3]]
-			dst[4] = enc.encode[b[4]]
-			dst[5] = enc.encode[b[5]]
-			dst[6] = enc.encode[b[6]]
-			dst[7] = enc.encode[b[7]]
-		} else {
-			for i := 0; i < size; i++ {
-				dst[i] = enc.encode[b[i]]
-			}
-		}
+		dst[0] = enc.encode[b0]
+		dst[1] = enc.encode[b1]
+		dst[2] = enc.encode[b2]
+		dst[3] = enc.encode[b3]
+		dst[4] = enc.encode[b4]
+		dst[5] = enc.encode[b5]
+		dst[6] = enc.encode[b6]
+		dst[7] = enc.encode[b7]
 
 		// Pad the final quantum
 		if len(src) < 5 {
-			if enc.padChar == NoPadding {
-				break
-			}
-
-			dst[7] = byte(enc.padChar)
+			dst[7] = '='
 			if len(src) < 4 {
-				dst[6] = byte(enc.padChar)
-				dst[5] = byte(enc.padChar)
+				dst[6] = '='
+				dst[5] = '='
 				if len(src) < 3 {
-					dst[4] = byte(enc.padChar)
+					dst[4] = '='
 					if len(src) < 2 {
-						dst[3] = byte(enc.padChar)
-						dst[2] = byte(enc.padChar)
+						dst[3] = '='
+						dst[2] = '='
 					}
 				}
 			}
-
 			break
 		}
-
 		src = src[5:]
 		dst = dst[8:]
 	}
@@ -250,7 +208,7 @@ func (e *encoder) Close() error {
 	return e.err
 }
 
-// NewEncoder returns a new base32 stream encoder. Data written to
+// NewEncoder returns a new base32 stream encoder.  Data written to
 // the returned writer will be encoded using enc and then written to w.
 // Base32 encodings operate in 5-byte blocks; when finished
 // writing, the caller must Close the returned encoder to flush any
@@ -261,12 +219,7 @@ func NewEncoder(enc *Encoding, w io.Writer) io.WriteCloser {
 
 // EncodedLen returns the length in bytes of the base32 encoding
 // of an input buffer of length n.
-func (enc *Encoding) EncodedLen(n int) int {
-	if enc.padChar == NoPadding {
-		return (n*8 + 4) / 5
-	}
-	return (n + 4) / 5 * 8
-}
+func (enc *Encoding) EncodedLen(n int) int { return (n + 4) / 5 * 8 }
 
 /*
  * Decoder
@@ -290,28 +243,19 @@ func (enc *Encoding) decode(dst, src []byte) (n int, end bool, err error) {
 		dlen := 8
 
 		for j := 0; j < 8; {
-
-			// We have reached the end and are missing padding
-			if len(src) == 0 && enc.padChar != NoPadding {
+			if len(src) == 0 {
 				return n, false, CorruptInputError(olen - len(src) - j)
 			}
-
-			// We have reached the end and are not expecing any padding
-			if len(src) == 0 && enc.padChar == NoPadding {
-				dlen, end = j, true
-				break
-			}
-
 			in := src[0]
 			src = src[1:]
-			if in == byte(enc.padChar) && j >= 2 && len(src) < 8 {
+			if in == '=' && j >= 2 && len(src) < 8 {
 				// We've reached the end and there's padding
 				if len(src)+j < 8-1 {
 					// not enough padding
 					return n, false, CorruptInputError(olen)
 				}
 				for k := 0; k < 8-1-j; k++ {
-					if len(src) > k && src[k] != byte(enc.padChar) {
+					if len(src) > k && src[k] != '=' {
 						// incorrect padding
 						return n, false, CorruptInputError(olen - len(src) + k - 1)
 					}
@@ -352,11 +296,7 @@ func (enc *Encoding) decode(dst, src []byte) (n int, end bool, err error) {
 		case 2:
 			dst[0] = dbuf[0]<<3 | dbuf[1]>>2
 		}
-
-		if !end {
-			dst = dst[5:]
-		}
-
+		dst = dst[5:]
 		switch dlen {
 		case 2:
 			n += 1
@@ -373,9 +313,9 @@ func (enc *Encoding) decode(dst, src []byte) (n int, end bool, err error) {
 	return n, end, nil
 }
 
-// Decode decodes src using the encoding enc. It writes at most
+// Decode decodes src using the encoding enc.  It writes at most
 // DecodedLen(len(src)) bytes to dst and returns the number of bytes
-// written. If src contains invalid base32 data, it will return the
+// written.  If src contains invalid base32 data, it will return the
 // number of bytes successfully written and CorruptInputError.
 // New line characters (\r and \n) are ignored.
 func (enc *Encoding) Decode(dst, src []byte) (n int, err error) {
@@ -403,31 +343,16 @@ type decoder struct {
 	outbuf [1024 / 8 * 5]byte
 }
 
-func readEncodedData(r io.Reader, buf []byte, min int) (n int, err error) {
-	for n < min && err == nil {
-		var nn int
-		nn, err = r.Read(buf[n:])
-		n += nn
-	}
-	if n < min && n > 0 && err == io.EOF {
-		err = io.ErrUnexpectedEOF
-	}
-	return
-}
-
 func (d *decoder) Read(p []byte) (n int, err error) {
+	if d.err != nil {
+		return 0, d.err
+	}
+
 	// Use leftover decoded output from last read.
 	if len(d.out) > 0 {
 		n = copy(p, d.out)
 		d.out = d.out[n:]
-		if len(d.out) == 0 {
-			return n, d.err
-		}
 		return n, nil
-	}
-
-	if d.err != nil {
-		return 0, d.err
 	}
 
 	// Read a chunk.
@@ -438,8 +363,7 @@ func (d *decoder) Read(p []byte) (n int, err error) {
 	if nn > len(d.buf) {
 		nn = len(d.buf)
 	}
-
-	nn, d.err = readEncodedData(d.r, d.buf[d.nbuf:nn], 8-d.nbuf)
+	nn, d.err = io.ReadAtLeast(d.r, d.buf[d.nbuf:nn], 8-d.nbuf)
 	d.nbuf += nn
 	if d.nbuf < 8 {
 		return 0, d.err
@@ -449,30 +373,21 @@ func (d *decoder) Read(p []byte) (n int, err error) {
 	nr := d.nbuf / 8 * 8
 	nw := d.nbuf / 8 * 5
 	if nw > len(p) {
-		nw, d.end, err = d.enc.decode(d.outbuf[0:], d.buf[0:nr])
+		nw, d.end, d.err = d.enc.decode(d.outbuf[0:], d.buf[0:nr])
 		d.out = d.outbuf[0:nw]
 		n = copy(p, d.out)
 		d.out = d.out[n:]
 	} else {
-		n, d.end, err = d.enc.decode(p, d.buf[0:nr])
+		n, d.end, d.err = d.enc.decode(p, d.buf[0:nr])
 	}
 	d.nbuf -= nr
 	for i := 0; i < d.nbuf; i++ {
 		d.buf[i] = d.buf[i+nr]
 	}
 
-	if err != nil && (d.err == nil || d.err == io.EOF) {
+	if d.err == nil {
 		d.err = err
 	}
-
-	if len(d.out) > 0 {
-		// We cannot return all the decoded bytes to the caller in this
-		// invocation of Read, so we return a nil error to ensure that Read
-		// will be called again.  The error stored in d.err, if any, will be
-		// returned with the last set of decoded bytes.
-		return n, nil
-	}
-
 	return n, d.err
 }
 
@@ -492,7 +407,7 @@ func (r *newlineFilteringReader) Read(p []byte) (int, error) {
 				offset++
 			}
 		}
-		if err != nil || offset > 0 {
+		if offset > 0 {
 			return offset, err
 		}
 		// Previous buffer entirely whitespace, read again
@@ -508,10 +423,4 @@ func NewDecoder(enc *Encoding, r io.Reader) io.Reader {
 
 // DecodedLen returns the maximum length in bytes of the decoded data
 // corresponding to n bytes of base32-encoded data.
-func (enc *Encoding) DecodedLen(n int) int {
-	if enc.padChar == NoPadding {
-		return n * 5 / 8
-	}
-
-	return n / 8 * 5
-}
+func (enc *Encoding) DecodedLen(n int) int { return n / 8 * 5 }

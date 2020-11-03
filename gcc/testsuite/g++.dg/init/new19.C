@@ -70,3 +70,4 @@ int c::foo(int f1, int f2, int f3)
 }
 
 // { dg-final { scan-tree-dump "Replaced.*->ai\\\[0\\\]" "pre" } }
+// { dg-final { cleanup-tree-dump "pre" } }

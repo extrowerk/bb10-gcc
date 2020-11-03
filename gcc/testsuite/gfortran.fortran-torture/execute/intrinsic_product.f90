@@ -12,35 +12,35 @@ program testproduct
 
    tr = .true.
 
-   if (any(b .ne. (/6, 120, 504/))) STOP 1
+   if (any(b .ne. (/6, 120, 504/))) call abort
 
    write (line, 9000) product(a,1)
-   if (line .ne. '   6 120 504') STOP 2
+   if (line .ne. '   6 120 504') call abort
 
-   if (product (a) .ne. 362880) STOP 3
+   if (product (a) .ne. 362880) call abort
 
    write (line, 9010) product(a)
-   if (line .ne. '362880') STOP 4
+   if (line .ne. '362880') call abort
 
    m = .true.
    m(1, 1) = .false.
    m(2, 1) = .false.
 
    b = product (a, 2, m)
-   if (any(b .ne. (/28, 40, 162/))) STOP 5
+   if (any(b .ne. (/28, 40, 162/))) call abort
 
    b = product (a, 2, m .and. tr)
-   if (any(b .ne. (/28, 40, 162/))) STOP 6
+   if (any(b .ne. (/28, 40, 162/))) call abort
 
    write (line, 9000) product(a, 2, m)
-   if (line .ne. '  28  40 162') STOP 7
+   if (line .ne. '  28  40 162') call abort
 
-   if (product (a, mask=m) .ne. 181440) STOP 8
+   if (product (a, mask=m) .ne. 181440) call abort
 
-   if (product (a, mask=m .and. tr) .ne. 181440) STOP 9
+   if (product (a, mask=m .and. tr) .ne. 181440) call abort
 
    write (line, 9010) product(a, mask=m)
-   if (line .ne. '181440') STOP 10
+   if (line .ne. '181440') call abort
 
 9000 format (3I4)
 9010 format (I6)

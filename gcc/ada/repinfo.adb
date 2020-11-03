@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1999-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1999-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,7 +29,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Alloc;
+with Alloc;   use Alloc;
 with Atree;   use Atree;
 with Casing;  use Casing;
 with Debug;   use Debug;
@@ -45,7 +45,7 @@ with Sinput;  use Sinput;
 with Snames;  use Snames;
 with Stand;   use Stand;
 with Stringt; use Stringt;
-with Table;
+with Table;   use Table;
 with Uname;   use Uname;
 with Urealp;  use Urealp;
 
@@ -58,9 +58,14 @@ package body Repinfo is
    --  this introduces problematic dependencies in ASIS, and in any case this
    --  value is assumed to be 8 for the implementation of the DDA.
 
+   --  This is wrong for AAMP???
+
    ---------------------------------------
-   -- Representation of GCC Expressions --
+   -- Representation of gcc Expressions --
    ---------------------------------------
+
+   --    This table is used only if Frontend_Layout_On_Target is False, so gigi
+   --    lays out dynamic size/offset fields using encoded gcc expressions.
 
    --    A table internal to this unit is used to hold the values of back
    --    annotated expressions. This table is written out by -gnatt and read
@@ -132,15 +137,10 @@ package body Repinfo is
    --  Called before outputting anything for an entity. Ensures that
    --  a blank line precedes the output for a particular entity.
 
-   procedure List_Entities
-     (Ent              : Entity_Id;
-      Bytes_Big_Endian : Boolean;
-      In_Subprogram    : Boolean := False);
+   procedure List_Entities (Ent : Entity_Id; Bytes_Big_Endian : Boolean);
    --  This procedure lists the entities associated with the entity E, starting
    --  with the First_Entity and using the Next_Entity link. If a nested
    --  package is found, entities within the package are recursively processed.
-   --  When recursing within a subprogram body, Is_Subprogram suppresses
-   --  duplicate information about signature.
 
    procedure List_Name (Ent : Entity_Id);
    --  List name of entity Ent in appropriate case. The name is listed with
@@ -316,11 +316,7 @@ package body Repinfo is
    -- List_Entities --
    -------------------
 
-   procedure List_Entities
-     (Ent              : Entity_Id;
-      Bytes_Big_Endian : Boolean;
-      In_Subprogram    : Boolean := False)
-   is
+   procedure List_Entities (Ent : Entity_Id; Bytes_Big_Endian : Boolean) is
       Body_E : Entity_Id;
       E      : Entity_Id;
 
@@ -338,7 +334,7 @@ package body Repinfo is
       begin
          Decl := Parent (E);
          while Present (Decl)
-           and then Nkind (Decl) /= N_Package_Body
+           and then  Nkind (Decl) /= N_Package_Body
            and then Nkind (Decl) /= N_Subprogram_Declaration
            and then Nkind (Decl) /= N_Subprogram_Body
          loop
@@ -359,15 +355,12 @@ package body Repinfo is
         and then Nkind (Declaration_Node (Ent)) not in N_Renaming_Declaration
       then
          --  If entity is a subprogram and we are listing mechanisms,
-         --  then we need to list mechanisms for this entity. We skip this
-         --  if it is a nested subprogram, as the information has already
-         --  been produced when listing the enclosing scope.
+         --  then we need to list mechanisms for this entity.
 
          if List_Representation_Info_Mechanisms
            and then (Is_Subprogram (Ent)
                       or else Ekind (Ent) = E_Entry
                       or else Ekind (Ent) = E_Entry_Family)
-           and then not In_Subprogram
          then
             Need_Blank_Line := True;
             List_Mechanisms (Ent);
@@ -394,13 +387,6 @@ package body Repinfo is
                   if List_Representation_Info_Mechanisms then
                      List_Mechanisms (E);
                   end if;
-
-                  --  Recurse into entities local to subprogram
-
-                  List_Entities (E, Bytes_Big_Endian, True);
-
-               elsif Ekind (E) in Formal_Kind and then In_Subprogram then
-                  null;
 
                elsif Ekind_In (E, E_Entry,
                                   E_Entry_Family,
@@ -641,9 +627,6 @@ package body Repinfo is
                      Write_Char ('#');
                      UI_Write (Node.Op1);
 
-                  when Dynamic_Val =>
-                     Write_Str ("Var");
-                     UI_Write (Node.Op1);
                end case;
             end;
          end if;
@@ -711,9 +694,7 @@ package body Repinfo is
          when E_Subprogram_Type =>
             Write_Str ("type ");
 
-         when E_Entry
-            | E_Entry_Family
-         =>
+         when E_Entry | E_Entry_Family =>
             Write_Str ("entry ");
 
          when others =>
@@ -729,43 +710,35 @@ package body Repinfo is
       Write_Str ("  convention : ");
 
       case Convention (Ent) is
-         when Convention_Ada =>
+         when Convention_Ada                   =>
             Write_Line ("Ada");
-
-         when Convention_Ada_Pass_By_Copy =>
+         when Convention_Ada_Pass_By_Copy      =>
             Write_Line ("Ada_Pass_By_Copy");
-
          when Convention_Ada_Pass_By_Reference =>
             Write_Line ("Ada_Pass_By_Reference");
-
-         when Convention_Intrinsic =>
+         when Convention_Intrinsic             =>
             Write_Line ("Intrinsic");
-
-         when Convention_Entry =>
+         when Convention_Entry                 =>
             Write_Line ("Entry");
-
-         when Convention_Protected =>
+         when Convention_Protected             =>
             Write_Line ("Protected");
-
-         when Convention_Assembler =>
+         when Convention_Assembler             =>
             Write_Line ("Assembler");
-
-         when Convention_C =>
+         when Convention_C                     =>
             Write_Line ("C");
-
-         when Convention_COBOL =>
+         when Convention_CIL                   =>
+            Write_Line ("CIL");
+         when Convention_COBOL                 =>
             Write_Line ("COBOL");
-
-         when Convention_CPP =>
+         when Convention_CPP                   =>
             Write_Line ("C++");
-
-         when Convention_Fortran =>
+         when Convention_Fortran               =>
             Write_Line ("Fortran");
-
-         when Convention_Stdcall =>
+         when Convention_Java                  =>
+            Write_Line ("Java");
+         when Convention_Stdcall               =>
             Write_Line ("Stdcall");
-
-         when Convention_Stubbed =>
+         when Convention_Stubbed               =>
             Write_Line ("Stubbed");
       end case;
 
@@ -851,324 +824,12 @@ package body Repinfo is
    ----------------------
 
    procedure List_Record_Info (Ent : Entity_Id; Bytes_Big_Endian : Boolean) is
-      procedure Compute_Max_Length
-        (Ent                : Entity_Id;
-         Starting_Position  : Uint := Uint_0;
-         Starting_First_Bit : Uint := Uint_0;
-         Prefix_Length      : Natural := 0);
-      --  Internal recursive procedure to compute the max length
-
-      procedure List_Record_Layout
-        (Ent                : Entity_Id;
-         Starting_Position  : Uint := Uint_0;
-         Starting_First_Bit : Uint := Uint_0;
-         Prefix             : String := "");
-      --  Internal recursive procedure to display the layout
-
-      Max_Name_Length : Natural := 0;
-      Max_Spos_Length : Natural := 0;
-
-      ------------------------
-      -- Compute_Max_Length --
-      ------------------------
-
-      procedure Compute_Max_Length
-        (Ent                : Entity_Id;
-         Starting_Position  : Uint := Uint_0;
-         Starting_First_Bit : Uint := Uint_0;
-         Prefix_Length      : Natural := 0)
-      is
-         Comp : Entity_Id;
-
-      begin
-         Comp := First_Component_Or_Discriminant (Ent);
-         while Present (Comp) loop
-
-            --  Skip discriminant in unchecked union (since it is not there!)
-
-            if Ekind (Comp) = E_Discriminant
-              and then Is_Unchecked_Union (Ent)
-            then
-               goto Continue;
-            end if;
-
-            --  All other cases
-
-            declare
-               Ctyp : constant Entity_Id := Underlying_Type (Etype (Comp));
-               Bofs : constant Uint      := Component_Bit_Offset (Comp);
-               Npos : Uint;
-               Fbit : Uint;
-               Spos : Uint;
-               Sbit : Uint;
-
-               Name_Length : Natural;
-
-            begin
-               Get_Decoded_Name_String (Chars (Comp));
-               Name_Length := Prefix_Length + Name_Len;
-
-               if Rep_Not_Constant (Bofs) then
-
-                  --  If the record is not packed, then we know that all fields
-                  --  whose position is not specified have starting normalized
-                  --  bit position of zero.
-
-                  if Unknown_Normalized_First_Bit (Comp)
-                    and then not Is_Packed (Ent)
-                  then
-                     Set_Normalized_First_Bit (Comp, Uint_0);
-                  end if;
-
-                  UI_Image_Length := 2; -- For "??" marker
-               else
-                  Npos := Bofs / SSU;
-                  Fbit := Bofs mod SSU;
-
-                  --  Complete annotation in case not done
-
-                  if Unknown_Normalized_First_Bit (Comp) then
-                     Set_Normalized_Position  (Comp, Npos);
-                     Set_Normalized_First_Bit (Comp, Fbit);
-                  end if;
-
-                  Spos := Starting_Position  + Npos;
-                  Sbit := Starting_First_Bit + Fbit;
-
-                  if Sbit >= SSU then
-                     Spos := Spos + 1;
-                     Sbit := Sbit - SSU;
-                  end if;
-
-                  --  If extended information is requested, recurse fully into
-                  --  record components, i.e. skip the outer level.
-
-                  if List_Representation_Info_Extended
-                    and then Is_Record_Type (Ctyp)
-                  then
-                     Compute_Max_Length (Ctyp, Spos, Sbit, Name_Length + 1);
-                     goto Continue;
-                  end if;
-
-                  UI_Image (Spos);
-               end if;
-
-               Max_Name_Length := Natural'Max (Max_Name_Length, Name_Length);
-               Max_Spos_Length :=
-                 Natural'Max (Max_Spos_Length, UI_Image_Length);
-            end;
-
-         <<Continue>>
-            Next_Component_Or_Discriminant (Comp);
-         end loop;
-      end Compute_Max_Length;
-
-      ------------------------
-      -- List_Record_Layout --
-      ------------------------
-
-      procedure List_Record_Layout
-        (Ent                : Entity_Id;
-         Starting_Position  : Uint := Uint_0;
-         Starting_First_Bit : Uint := Uint_0;
-         Prefix             : String := "")
-      is
-         Comp : Entity_Id;
-
-      begin
-         Comp := First_Component_Or_Discriminant (Ent);
-         while Present (Comp) loop
-
-            --  Skip discriminant in unchecked union (since it is not there!)
-
-            if Ekind (Comp) = E_Discriminant
-              and then Is_Unchecked_Union (Ent)
-            then
-               goto Continue;
-            end if;
-
-            --  All other cases
-
-            declare
-               Ctyp : constant Entity_Id := Underlying_Type (Etype (Comp));
-               Esiz : constant Uint      := Esize (Comp);
-               Bofs : constant Uint      := Component_Bit_Offset (Comp);
-               Npos : constant Uint      := Normalized_Position (Comp);
-               Fbit : constant Uint      := Normalized_First_Bit (Comp);
-               Spos : Uint;
-               Sbit : Uint;
-               Lbit : Uint;
-
-            begin
-               Get_Decoded_Name_String (Chars (Comp));
-               Set_Casing (Unit_Casing);
-
-               --  If extended information is requested, recurse fully into
-               --  record components, i.e. skip the outer level.
-
-               if List_Representation_Info_Extended
-                 and then Is_Record_Type (Ctyp)
-                 and then Known_Static_Normalized_Position (Comp)
-                 and then Known_Static_Normalized_First_Bit (Comp)
-               then
-                  Spos := Starting_Position  + Npos;
-                  Sbit := Starting_First_Bit + Fbit;
-
-                  if Sbit >= SSU then
-                     Spos := Spos + 1;
-                     Sbit := Sbit - SSU;
-                  end if;
-
-                  List_Record_Layout (Ctyp,
-                    Spos, Sbit, Prefix & Name_Buffer (1 .. Name_Len) & ".");
-
-                  goto Continue;
-               end if;
-
-               Write_Str ("   ");
-               Write_Str (Prefix);
-               Write_Str (Name_Buffer (1 .. Name_Len));
-
-               for J in 1 .. Max_Name_Length -  Prefix'Length - Name_Len loop
-                  Write_Char (' ');
-               end loop;
-
-               Write_Str (" at ");
-
-               if Known_Static_Normalized_Position (Comp) then
-                  Spos := Starting_Position  + Npos;
-                  Sbit := Starting_First_Bit + Fbit;
-
-                  if Sbit >= SSU then
-                     Spos := Spos + 1;
-                  end if;
-
-                  UI_Image (Spos);
-                  Spaces (Max_Spos_Length - UI_Image_Length);
-                  Write_Str (UI_Image_Buffer (1 .. UI_Image_Length));
-
-               elsif Known_Component_Bit_Offset (Comp)
-                 and then List_Representation_Info = 3
-               then
-                  Spaces (Max_Spos_Length - 2);
-                  Write_Str ("bit offset ");
-
-                  if Starting_Position /= Uint_0
-                    or else Starting_First_Bit /= Uint_0
-                  then
-                     UI_Write (Starting_Position * SSU + Starting_First_Bit);
-                     Write_Str (" + ");
-                  end if;
-
-                  Write_Val (Bofs, Paren => True);
-                  Write_Str (" size in bits = ");
-                  Write_Val (Esiz, Paren => True);
-                  Write_Eol;
-
-                  goto Continue;
-
-               elsif Known_Normalized_Position (Comp)
-                 and then List_Representation_Info = 3
-               then
-                  Spaces (Max_Spos_Length - 2);
-
-                  if Starting_Position /= Uint_0 then
-                     Write_Char (' ');
-                     UI_Write (Starting_Position);
-                     Write_Str (" +");
-                  end if;
-
-                  Write_Val (Npos);
-
-               else
-                  --  For the packed case, we don't know the bit positions if
-                  --  we don't know the starting position.
-
-                  if Is_Packed (Ent) then
-                     Write_Line ("?? range  ? .. ??;");
-                     goto Continue;
-
-                  --  Otherwise we can continue
-
-                  else
-                     Write_Str ("??");
-                  end if;
-               end if;
-
-               Write_Str (" range  ");
-               Sbit := Starting_First_Bit + Fbit;
-
-               if Sbit >= SSU then
-                  Sbit := Sbit - SSU;
-               end if;
-
-               UI_Write (Sbit);
-               Write_Str (" .. ");
-
-               --  Allowing Uint_0 here is an annoying special case. Really
-               --  this should be a fine Esize value but currently it means
-               --  unknown, except that we know after gigi has back annotated
-               --  that a size  of zero is real, since otherwise gigi back
-               --  annotates using No_Uint as the value to indicate unknown).
-
-               if (Esize (Comp) = Uint_0 or else Known_Static_Esize (Comp))
-                 and then Known_Static_Normalized_First_Bit (Comp)
-               then
-                  Lbit := Sbit + Esiz - 1;
-
-                  if Lbit < 10 then
-                     Write_Char (' ');
-                  end if;
-
-                  UI_Write (Lbit);
-
-               --  The test for Esize (Comp) not Uint_0 here is an annoying
-               --  special case. Officially a value of zero for Esize means
-               --  unknown, but here we use the fact that we know that gigi
-               --  annotates Esize with No_Uint, not Uint_0. Really everyone
-               --  should use No_Uint???
-
-               elsif List_Representation_Info < 3
-                 or else (Esize (Comp) /= Uint_0 and then Unknown_Esize (Comp))
-               then
-                  Write_Str ("??");
-
-               --  List_Representation >= 3 and Known_Esize (Comp)
-
-               else
-                  Write_Val (Esiz, Paren => True);
-
-                  --  If in front end layout mode, then dynamic size is stored
-                  --  in storage units, so renormalize for output
-
-                  if not Back_End_Layout then
-                     Write_Str (" * ");
-                     Write_Int (SSU);
-                  end if;
-
-                  --  Add appropriate first bit offset
-
-                  if Sbit = 0 then
-                     Write_Str (" - 1");
-
-                  elsif Sbit = 1 then
-                     null;
-
-                  else
-                     Write_Str (" + ");
-                     Write_Int (UI_To_Int (Sbit) - 1);
-                  end if;
-               end if;
-
-               Write_Line (";");
-            end;
-
-         <<Continue>>
-            Next_Component_Or_Discriminant (Comp);
-         end loop;
-      end List_Record_Layout;
-
-   --  Start of processing for List_Record_Info
+      Comp  : Entity_Id;
+      Cfbit : Uint;
+      Sunit : Uint;
+
+      Max_Name_Length : Natural;
+      Max_Suni_Length : Natural;
 
    begin
       Blank_Line;
@@ -1178,14 +839,196 @@ package body Repinfo is
       List_Name (Ent);
       Write_Line (" use record");
 
-      --  First find out max line length and max starting position
+      --  First loop finds out max line length and max starting position
       --  length, for the purpose of lining things up nicely.
 
-      Compute_Max_Length (Ent);
+      Max_Name_Length := 0;
+      Max_Suni_Length := 0;
 
-      --  Then do actual output based on those values
+      Comp := First_Component_Or_Discriminant (Ent);
+      while Present (Comp) loop
 
-      List_Record_Layout (Ent);
+         --  Skip discriminant in unchecked union (since it is not there!)
+
+         if Ekind (Comp) = E_Discriminant
+           and then Is_Unchecked_Union (Ent)
+         then
+            null;
+
+         --  All other cases
+
+         else
+            Get_Decoded_Name_String (Chars (Comp));
+            Max_Name_Length := Natural'Max (Max_Name_Length, Name_Len);
+
+            Cfbit := Component_Bit_Offset (Comp);
+
+            if Rep_Not_Constant (Cfbit) then
+               UI_Image_Length := 2;
+
+            else
+               --  Complete annotation in case not done
+
+               Set_Normalized_Position (Comp, Cfbit / SSU);
+               Set_Normalized_First_Bit (Comp, Cfbit mod SSU);
+
+               Sunit := Cfbit / SSU;
+               UI_Image (Sunit);
+            end if;
+
+            --  If the record is not packed, then we know that all fields
+            --  whose position is not specified have a starting normalized
+            --  bit position of zero.
+
+            if Unknown_Normalized_First_Bit (Comp)
+              and then not Is_Packed (Ent)
+            then
+               Set_Normalized_First_Bit (Comp, Uint_0);
+            end if;
+
+            Max_Suni_Length :=
+              Natural'Max (Max_Suni_Length, UI_Image_Length);
+         end if;
+
+         Next_Component_Or_Discriminant (Comp);
+      end loop;
+
+      --  Second loop does actual output based on those values
+
+      Comp := First_Component_Or_Discriminant (Ent);
+      while Present (Comp) loop
+
+         --  Skip discriminant in unchecked union (since it is not there!)
+
+         if Ekind (Comp) = E_Discriminant
+           and then Is_Unchecked_Union (Ent)
+         then
+            goto Continue;
+         end if;
+
+         --  All other cases
+
+         declare
+            Esiz : constant Uint := Esize (Comp);
+            Bofs : constant Uint := Component_Bit_Offset (Comp);
+            Npos : constant Uint := Normalized_Position (Comp);
+            Fbit : constant Uint := Normalized_First_Bit (Comp);
+            Lbit : Uint;
+
+         begin
+            Write_Str ("   ");
+            Get_Decoded_Name_String (Chars (Comp));
+            Set_Casing (Unit_Casing);
+            Write_Str (Name_Buffer (1 .. Name_Len));
+
+            for J in 1 .. Max_Name_Length - Name_Len loop
+               Write_Char (' ');
+            end loop;
+
+            Write_Str (" at ");
+
+            if Known_Static_Normalized_Position (Comp) then
+               UI_Image (Npos);
+               Spaces (Max_Suni_Length - UI_Image_Length);
+               Write_Str (UI_Image_Buffer (1 .. UI_Image_Length));
+
+            elsif Known_Component_Bit_Offset (Comp)
+              and then List_Representation_Info = 3
+            then
+               Spaces (Max_Suni_Length - 2);
+               Write_Str ("bit offset");
+               Write_Val (Bofs, Paren => True);
+               Write_Str (" size in bits = ");
+               Write_Val (Esiz, Paren => True);
+               Write_Eol;
+               goto Continue;
+
+            elsif Known_Normalized_Position (Comp)
+              and then List_Representation_Info = 3
+            then
+               Spaces (Max_Suni_Length - 2);
+               Write_Val (Npos);
+
+            else
+               --  For the packed case, we don't know the bit positions if we
+               --  don't know the starting position.
+
+               if Is_Packed (Ent) then
+                  Write_Line ("?? range  ? .. ??;");
+                  goto Continue;
+
+               --  Otherwise we can continue
+
+               else
+                  Write_Str ("??");
+               end if;
+            end if;
+
+            Write_Str (" range  ");
+            UI_Write (Fbit);
+            Write_Str (" .. ");
+
+            --  Allowing Uint_0 here is an annoying special case. Really this
+            --  should be a fine Esize value but currently it means unknown,
+            --  except that we know after gigi has back annotated that a size
+            --  of zero is real, since otherwise gigi back annotates using
+            --  No_Uint as the value to indicate unknown).
+
+            if (Esize (Comp) = Uint_0 or else Known_Static_Esize (Comp))
+              and then Known_Static_Normalized_First_Bit (Comp)
+            then
+               Lbit := Fbit + Esiz - 1;
+
+               if Lbit < 10 then
+                  Write_Char (' ');
+               end if;
+
+               UI_Write (Lbit);
+
+            --  The test for Esize (Comp) not Uint_0 here is an annoying
+            --  special case. Officially a value of zero for Esize means
+            --  unknown, but here we use the fact that we know that gigi
+            --  annotates Esize with No_Uint, not Uint_0. Really everyone
+            --  should use No_Uint???
+
+            elsif List_Representation_Info < 3
+              or else (Esize (Comp) /= Uint_0 and then Unknown_Esize (Comp))
+            then
+               Write_Str ("??");
+
+            --  List_Representation >= 3 and Known_Esize (Comp)
+
+            else
+               Write_Val (Esiz, Paren => True);
+
+               --  If in front end layout mode, then dynamic size is stored
+               --  in storage units, so renormalize for output
+
+               if not Back_End_Layout then
+                  Write_Str (" * ");
+                  Write_Int (SSU);
+               end if;
+
+               --  Add appropriate first bit offset
+
+               if Fbit = 0 then
+                  Write_Str (" - 1");
+
+               elsif Fbit = 1 then
+                  null;
+
+               else
+                  Write_Str (" + ");
+                  Write_Int (UI_To_Int (Fbit) - 1);
+               end if;
+            end if;
+
+            Write_Line (";");
+         end;
+
+      <<Continue>>
+         Next_Component_Or_Discriminant (Comp);
+      end loop;
 
       Write_Line ("end record;");
 
@@ -1580,8 +1423,6 @@ package body Repinfo is
                         return D (Sub);
                      end;
 
-                  when Dynamic_Val =>
-                     return No_Uint;
                end case;
             end;
          end if;
@@ -1685,18 +1526,27 @@ package body Repinfo is
             Write_Str ("??");
 
          else
-            if Paren then
-               Write_Char ('(');
-            end if;
-
             if Back_End_Layout then
-               List_GCC_Expression (Val);
-            else
-               Write_Name_Decoded (Chars (Get_Dynamic_SO_Entity (Val)));
-            end if;
+               Write_Char (' ');
 
-            if Paren then
-               Write_Char (')');
+               if Paren then
+                  Write_Char ('(');
+                  List_GCC_Expression (Val);
+                  Write_Char (')');
+               else
+                  List_GCC_Expression (Val);
+               end if;
+
+               Write_Char (' ');
+
+            else
+               if Paren then
+                  Write_Char ('(');
+                  Write_Name_Decoded (Chars (Get_Dynamic_SO_Entity (Val)));
+                  Write_Char (')');
+               else
+                  Write_Name_Decoded (Chars (Get_Dynamic_SO_Entity (Val)));
+               end if;
             end if;
          end if;
 

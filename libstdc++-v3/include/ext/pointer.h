@@ -1,6 +1,6 @@
 // Custom pointer adapter and sample storage policies
 
-// Copyright (C) 2008-2018 Free Software Foundation, Inc.
+// Copyright (C) 2008-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -437,10 +437,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _CXX_POINTER_ARITH_OPERATOR_SET(unsigned int);
       _CXX_POINTER_ARITH_OPERATOR_SET(long);
       _CXX_POINTER_ARITH_OPERATOR_SET(unsigned long);
-#ifdef _GLIBCXX_USE_LONG_LONG
-      _CXX_POINTER_ARITH_OPERATOR_SET(long long);
-      _CXX_POINTER_ARITH_OPERATOR_SET(unsigned long long);
-#endif
 
       // Mathematical Manipulators
       inline _Pointer_adapter& 
@@ -453,9 +449,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       inline _Pointer_adapter 
       operator++(int)
       {
-        _Pointer_adapter __tmp(*this);
+        _Pointer_adapter tmp(*this);
         _Storage_policy::set(_Storage_policy::get() + 1);
-        return __tmp;
+        return tmp;
       }
   
       inline _Pointer_adapter& 
@@ -468,9 +464,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       inline _Pointer_adapter
       operator--(int) 
       {
-        _Pointer_adapter __tmp(*this);
+        _Pointer_adapter tmp(*this);
         _Storage_policy::set(_Storage_policy::get() - 1);
-        return __tmp;
+        return tmp;
       }
   
     }; // class _Pointer_adapter

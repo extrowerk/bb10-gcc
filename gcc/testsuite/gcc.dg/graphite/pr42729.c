@@ -1,5 +1,4 @@
 /* { dg-options "-O1 -fgraphite-identity -fcompare-debug" } */
-/* { dg-xfail-if "" { powerpc-ibm-aix* } } */
 
 int A[10];
 int *foo ()

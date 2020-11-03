@@ -67,12 +67,12 @@ program test
   type(z) z1
 
   z1 = x1//y1
-  if (abs(z1%x - (19.0_4 + 7.0_4)) > epsilon(x1%x)) STOP 1
+  if (abs(z1%x - (19.0_4 + 7.0_4)) > epsilon(x1%x)) call abort ()
   z1 = y1//x1
-  if (abs(z1%x - (19.0_4 - 7.0_4)) > epsilon(x1%x)) STOP 2
+  if (abs(z1%x - (19.0_4 - 7.0_4)) > epsilon(x1%x)) call abort ()
 
   z1 = x1==y1
-  if (abs(z1%x - 19.0_4/7.0_4) > epsilon(x1%x)) STOP 3
+  if (abs(z1%x - 19.0_4/7.0_4) > epsilon(x1%x)) call abort ()
   z1 = y1==x1
-  if (abs(z1%x - 19.0_4/7.0_4) > epsilon(x1%x)) STOP 4
+  if (abs(z1%x - 19.0_4/7.0_4) > epsilon(x1%x)) call abort ()
 end program test

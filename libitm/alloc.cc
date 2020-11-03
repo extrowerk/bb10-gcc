@@ -1,4 +1,4 @@
-/* Copyright (C) 2009-2018 Free Software Foundation, Inc.
+/* Copyright (C) 2009-2015 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU Transactional Memory Library (libitm).
@@ -29,38 +29,26 @@ namespace GTM HIDDEN {
 void
 gtm_thread::record_allocation (void *ptr, void (*free_fn)(void *))
 {
-  // We do not deallocate before outermost commit, so we should never have
-  // an existing log entry for a new allocation.
-  gtm_alloc_action *a = this->alloc_actions.insert((uintptr_t) ptr);
+  uintptr_t iptr = (uintptr_t) ptr;
+
+  gtm_alloc_action *a = this->alloc_actions.find(iptr);
+  if (a == 0)
+    a = this->alloc_actions.insert(iptr);
 
   a->free_fn = free_fn;
-  a->free_fn_sz = 0;
   a->allocated = true;
 }
 
 void
 gtm_thread::forget_allocation (void *ptr, void (*free_fn)(void *))
 {
-  // We do not deallocate before outermost commit, so we should never have
-  // an existing log entry for a deallocation at the same address.  We may
-  // have an existing entry for a matching allocation, but this is handled
-  // correctly because both are complementary in that only one of these will
-  // cause an action at commit or abort.
-  gtm_alloc_action *a = this->alloc_actions.insert((uintptr_t) ptr);
-  a->free_fn = free_fn;
-  a->free_fn_sz = 0;
-  a->allocated = false;
-}
+  uintptr_t iptr = (uintptr_t) ptr;
 
-void
-gtm_thread::forget_allocation (void *ptr, size_t sz,
-			       void (*free_fn_sz)(void *, size_t))
-{
-  // Same as forget_allocation but with a size.
-  gtm_alloc_action *a = this->alloc_actions.insert((uintptr_t) ptr);
-  a->free_fn = 0;
-  a->free_fn_sz = free_fn_sz;
-  a->sz = sz;
+  gtm_alloc_action *a = this->alloc_actions.find(iptr);
+  if (a == 0)
+    a = this->alloc_actions.insert(iptr);
+
+  a->free_fn = free_fn;
   a->allocated = false;
 }
 
@@ -79,27 +67,31 @@ commit_allocations_2 (uintptr_t key, gtm_alloc_action *a, void *data)
 
   if (cb_data->revert_p)
     {
-      // Roll back nested allocations, discard deallocations.
+      // Roll back nested allocations.
       if (a->allocated)
-	{
-	  if (a->free_fn_sz != 0)
-	    a->free_fn_sz (ptr, a->sz);
-	  else
-	    a->free_fn (ptr);
-	}
+	a->free_fn (ptr);
     }
   else
     {
-      // Add allocations and deallocations to parent.
-      // ??? We could eliminate a (parent) allocation that matches this
-      // a deallocation, if we had support for removing all accesses
-      // to this allocation from the transaction's undo and redo logs
-      // (otherwise, the parent transaction's undo or redo might write to
-      // data that is already shared again because of calling free()).
-      // We don't have this support currently, and the benefit of this
-      // optimization is unknown, so just add it to the parent.
-      gtm_alloc_action* a_parent = cb_data->parent->insert(key);
-      *a_parent = *a;
+      if (a->allocated)
+	{
+	  // Add nested allocations to parent transaction.
+	  gtm_alloc_action* a_parent = cb_data->parent->insert(key);
+	  *a_parent = *a;
+	}
+      else
+	{
+	  // ??? We could eliminate a parent allocation that matches this
+	  // memory release, if we had support for removing all accesses
+	  // to this allocation from the transaction's undo and redo logs
+	  // (otherwise, the parent transaction's undo or redo might write to
+	  // data that is already shared again because of calling free()).
+	  // We don't have this support currently, and the benefit of this
+	  // optimization is unknown, so just add it to the parent.
+	  gtm_alloc_action* a_parent;
+	  a_parent = cb_data->parent->insert(key);
+	  *a_parent = *a;
+	}
     }
 }
 
@@ -107,15 +99,10 @@ static void
 commit_allocations_1 (uintptr_t key, gtm_alloc_action *a, void *cb_data)
 {
   void *ptr = (void *)key;
-  bool revert_p = (bool) (uintptr_t) cb_data;
+  uintptr_t revert_p = (uintptr_t) cb_data;
 
-  if (revert_p == a->allocated)
-    {
-      if (a->free_fn_sz != 0)
-	a->free_fn_sz (ptr, a->sz);
-      else
-	a->free_fn (ptr);
-    }
+  if (a->allocated == revert_p)
+    a->free_fn (ptr);
 }
 
 /* Permanently commit allocated memory during transaction.

@@ -1,5 +1,4 @@
 /* { dg-options "-O -fgraphite-identity" } */
-/* { dg-require-effective-target nonlocal_goto } */
 
 #include <setjmp.h>
 

@@ -1,5 +1,4 @@
 // { dg-do compile }
-// { dg-additional-options "-Wno-return-type" }
 
 typedef __SIZE_TYPE__ size_t;
 namespace __gnu_cxx __attribute__ ((__visibility__ ("default"))) {

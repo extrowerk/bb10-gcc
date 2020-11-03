@@ -16,6 +16,5 @@ int
 fn ()
 {
   C::m ();
-  return 0;
 }
-int main() { return 0; }
+int main() {}

@@ -1,3 +1,8 @@
+2020-06-26  Bjoern Weber  <bweber@qnx.com>
+
+    * backport of new SLS mitigation flags
+    see gcc/Changelog and gcc/testsuite/changelog
+
 2019-07-01  Bjoern Weber  <bweber@qnx.com>
 
 	* introduce builtin_speculation_safe_load()

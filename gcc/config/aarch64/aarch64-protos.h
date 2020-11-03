@@ -551,4 +551,9 @@ rtl_opt_pass *make_pass_fma_steering (gcc::context *ctxt);
 
 poly_uint64 aarch64_regmode_natural_size (machine_mode);
 
+const char * aarch64_sls_barrier (int);
+const char * aarch64_indirect_call_asm (rtx);
+extern bool aarch64_harden_sls_retbr_p (void);
+extern bool aarch64_harden_sls_blr_p (void);
+
 #endif /* GCC_AARCH64_PROTOS_H */

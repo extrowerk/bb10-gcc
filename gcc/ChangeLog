@@ -1,3 +1,56 @@
+2020-06-08  Matthew Malcomson  <matthew.malcomson@arm.com>
+
+	* config/aarch64/aarch64-protos.h (aarch64_indirect_call_asm):
+	New declaration.
+	* config/aarch64/aarch64.c (aarch64_use_return_insn_p): Return
+	false if hardening BLR instructions.
+	(aarch64_sls_shared_thunks): Global array to store stub labels.
+	(aarch64_create_blr_label): New.
+	(print_asm_branch): New macro.
+	(aarch64_sls_emit_blr_function_thunks): New.
+	(aarch64_sls_emit_shared_blr_thunks): New.
+	(aarch64_asm_file_end): New.
+	(aarch64_indirect_call_asm): New.
+	(TARGET_ASM_FILE_END): Use aarch64_asm_file_end.
+	(TARGET_ASM_FUNCTION_EPILOGUE): Use
+	aarch64_sls_emit_blr_function_thunks.
+	* config/aarch64/aarch64.h (struct machine_function): Introduce
+	`call_via` array to store function-local stub labels.
+	* config/aarch64/aarch64.md (*call_insn, *call_value_insn): Use
+	aarch64_indirect_call_asm to emit code when hardening BLR
+	instructions.
+
+2020-06-08  Matthew Malcomson  <matthew.malcomson@arm.com>
+
+	* config/aarch64/aarch64-protos.h (aarch64_sls_barrier): New.
+	* config/aarch64/aarch64.c (aarch64_output_casesi): Emit
+	speculation barrier after BR instruction if needs be.
+	(aarch64_sls_barrier): New.
+	(aarch64_asm_trampoline_template): Add needed barriers.
+	* config/aarch64/aarch64.h (AARCH64_ISA_SB): New.
+	(TARGET_SB): New.
+	(TRAMPOLINE_SIZE): Account for barrier.
+	* config/aarch64/aarch64.md (indirect_jump, *casesi_dispatch,
+	*do_return, simple_return, *sibcall_insn, *sibcall_value_insn):
+	Emit barrier if needs be, also account for possible barrier in
+	"length" attribute.
+	* config/aarch64/aarch64.opt (-mharden-sls-retbr): Introduce new
+	option.
+
+2020-06-08  Matthew Malcomson  <matthew.malcomson@arm.com>
+
+	* config/aarch64/aarch64-protos.h (aarch64_harden_sls_retbr_p):
+	New.
+    (aarch64_harden_sls_blr_p): New.
+	* config/aarch64/aarch64.c (enum aarch64_sls_hardening_type):
+    New.
+    (aarch64_harden_sls_retbr_p): New.
+    (aarch64_harden_sls_blr_p): New.
+    (aarch64_validate_sls_mitigation): New.
+    (aarch64_override_options): Parse options for SLS mitigation.
+    * config/aarch64/aarch64.opt (-mharden-sls): New option.
+    * doc/invoke.texi: Document new option.
+
 2019-02-22  Release Manager
 
 	* GCC 8.3.0 released.

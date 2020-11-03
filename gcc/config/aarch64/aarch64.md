@@ -299,8 +299,14 @@
 (define_insn "indirect_jump"
   [(set (pc) (match_operand:DI 0 "register_operand" "r"))]
   ""
-  "br\\t%0"
-  [(set_attr "type" "branch")]
+  {
+    output_asm_insn ("br\\t%0", operands);
+    return aarch64_sls_barrier (aarch64_harden_sls_retbr_p ());
+  }
+  [(set_attr "type" "branch")
+   (set (attr "length")
+	(if_then_else (match_test "!aarch64_harden_sls_retbr_p ()") (const_int 4)
+	      (const_int 12)))]
 )
 
 (define_insn "jump"
@@ -572,7 +578,9 @@
   "*
   return aarch64_output_casesi (operands);
   "
-  [(set_attr "length" "16")
+  [(set (attr "length")
+	(if_then_else (match_test "!aarch64_harden_sls_retbr_p ()") (const_int 16)
+	      (const_int 24)))
    (set_attr "type" "branch")]
 )
 
@@ -651,14 +659,20 @@
   [(return)]
   ""
   {
+    const char *ret = NULL;
     if (aarch64_return_address_signing_enabled ()
 	&& TARGET_ARMV8_3
 	&& !crtl->calls_eh_return)
-      return "retaa";
-
-    return "ret";
+      ret = "retaa";
+    else
+      ret=  "ret";
+    output_asm_insn (ret, operands);
+    return aarch64_sls_barrier (aarch64_harden_sls_retbr_p ());
   }
-  [(set_attr "type" "branch")]
+  [(set_attr "type" "branch")
+   (set (attr "length")
+	(if_then_else (match_test "!aarch64_harden_sls_retbr_p ()") (const_int 4)
+	      (const_int 12)))]
 )
 
 (define_expand "return"
@@ -670,8 +684,14 @@
 (define_insn "simple_return"
   [(simple_return)]
   ""
-  "ret"
-  [(set_attr "type" "branch")]
+  {
+    output_asm_insn ("ret", operands);
+    return aarch64_sls_barrier (aarch64_harden_sls_retbr_p ());
+  }
+  [(set_attr "type" "branch")
+   (set (attr "length")
+    (if_then_else (match_test "!aarch64_harden_sls_retbr_p ()") (const_int 4)
+	      (const_int 12)))]
 )
 
 (define_insn "*cb<optab><mode>1"
@@ -796,12 +816,12 @@
 )
 
 (define_insn "*call_insn"
-  [(call (mem:DI (match_operand:DI 0 "aarch64_call_insn_operand" "r, Usf"))
+  [(call (mem:DI (match_operand:DI 0 "aarch64_call_insn_operand" "Ucr, Usf"))
 	 (match_operand 1 "" ""))
    (clobber (reg:DI LR_REGNUM))]
   ""
   "@
-  blr\\t%0
+  * return aarch64_indirect_call_asm (operands[0]);
   bl\\t%c0"
   [(set_attr "type" "call, call")]
 )
@@ -822,12 +842,12 @@
 
 (define_insn "*call_value_insn"
   [(set (match_operand 0 "" "")
-	(call (mem:DI (match_operand:DI 1 "aarch64_call_insn_operand" "r, Usf"))
+	(call (mem:DI (match_operand:DI 1 "aarch64_call_insn_operand" "Ucr, Usf"))
 		      (match_operand 2 "" "")))
    (clobber (reg:DI LR_REGNUM))]
   ""
   "@
-  blr\\t%1
+  * return aarch64_indirect_call_asm (operands[1]);
   bl\\t%c1"
   [(set_attr "type" "call, call")]
 )
@@ -862,10 +882,19 @@
 	 (match_operand 1 "" ""))
    (return)]
   "SIBLING_CALL_P (insn)"
-  "@
-   br\\t%0
-   b\\t%c0"
-  [(set_attr "type" "branch, branch")]
+  {
+    if (which_alternative == 0)
+      {
+	output_asm_insn ("br\\t%0", operands);
+	return aarch64_sls_barrier (aarch64_harden_sls_retbr_p ());
+      }
+    return "b\\t%c0";
+  }
+  [(set_attr "type" "branch, branch")
+   (set_attr_alternative "length"
+     [(if_then_else (match_test "!aarch64_harden_sls_retbr_p ()") (const_int 4)
+      (const_int 12))
+        (const_int 4)])]
 )
 
 (define_insn "*sibcall_value_insn"
@@ -875,10 +904,19 @@
 	      (match_operand 2 "" "")))
    (return)]
   "SIBLING_CALL_P (insn)"
-  "@
-   br\\t%1
-   b\\t%c1"
-  [(set_attr "type" "branch, branch")]
+  {
+    if (which_alternative == 0)
+      {
+	output_asm_insn ("br\\t%1", operands);
+	return aarch64_sls_barrier (aarch64_harden_sls_retbr_p ());
+      }
+    return "b\\t%c1";
+  }
+  [(set_attr "type" "branch, branch")
+   (set_attr_alternative "length"
+     [(if_then_else (match_test "!aarch64_harden_sls_retbr_p ()") (const_int 4)
+       (const_int 12))
+         (const_int 4)])]
 )
 
 ;; Call subroutine returning any type.

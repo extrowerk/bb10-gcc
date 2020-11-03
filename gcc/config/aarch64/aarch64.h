@@ -489,16 +489,6 @@ extern unsigned aarch64_architecture_version;
 #define GP_REGNUM_P(REGNO)						\
   (((unsigned) (REGNO - R0_REGNUM)) <= (R30_REGNUM - R0_REGNUM))
 
-/* Registers known to be preserved over a BL instruction.  This consists of the
-   GENERAL_REGS without x16, x17, and x30.  The x30 register is changed by the BL
-   instruction itself, while the x16 and x17 registers may be used by veneers
-   which can be inserted by the linker.  */
-#define STUB_REGNUM_P(REGNO) \
-  (GP_REGNUM_P (REGNO) \
-   && ((unsigned) (REGNO - R0_REGNUM)) != (R16_REGNUM - R0_REGNUM) \
-   && ((unsigned) (REGNO - R0_REGNUM)) != (R17_REGNUM - R0_REGNUM) \
-   && ((unsigned) (REGNO - R0_REGNUM)) != (R30_REGNUM - R0_REGNUM)) \
-
 #define FP_REGNUM_P(REGNO)			\
   (((unsigned) (REGNO - V0_REGNUM)) <= (V31_REGNUM - V0_REGNUM))
 
@@ -518,7 +508,6 @@ enum reg_class
 {
   NO_REGS,
   TAILCALL_ADDR_REGS,
-  STUB_REGS,
   GENERAL_REGS,
   STACK_REG,
   POINTER_REGS,
@@ -538,7 +527,6 @@ enum reg_class
 {						\
   "NO_REGS",					\
   "TAILCALL_ADDR_REGS",				\
-  "STUB_REGS",					\
   "GENERAL_REGS",				\
   "STACK_REG",					\
   "POINTER_REGS",				\
@@ -555,7 +543,6 @@ enum reg_class
 {									\
   { 0x00000000, 0x00000000, 0x00000000 },	/* NO_REGS */		\
   { 0x0004ffff, 0x00000000, 0x00000000 },	/* TAILCALL_ADDR_REGS */\
-  { 0x3ffcffff, 0x00000000, 0x00000000 },	/* STUB_REGS */		\
   { 0x7fffffff, 0x00000000, 0x00000003 },	/* GENERAL_REGS */	\
   { 0x80000000, 0x00000000, 0x00000000 },	/* STACK_REG */		\
   { 0xffffffff, 0x00000000, 0x00000003 },	/* POINTER_REGS */	\
@@ -695,8 +682,6 @@ typedef struct GTY (()) machine_function
   struct aarch64_frame frame;
   /* One entry for each hard register.  */
   bool reg_is_wrapped_separately[LAST_SAVED_REGNUM];
-  /* One entry for each general purpose register.  */
-  rtx call_via[SP_REGNUM];
 } machine_function;
 #endif
 
@@ -896,11 +881,8 @@ typedef struct
 
 #define RETURN_ADDR_RTX aarch64_return_addr
 
-/* BTI c + 3 insns
-   + sls barrier of DSB + ISB.
-   + 2 pointer-sized entries.  */
-#define TRAMPOLINE_SIZE	(24 \
-			 + (TARGET_ILP32 ? 8 : 16))
+/* 3 insns + padding + 2 pointer-sized entries.  */
+#define TRAMPOLINE_SIZE	(TARGET_ILP32 ? 24 : 32)
 
 /* Trampolines contain dwords, so must be dword aligned.  */
 #define TRAMPOLINE_ALIGNMENT 64

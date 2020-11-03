@@ -604,7 +604,6 @@ Objective-C and Objective-C++ Dialects}.
 -mlow-precision-recip-sqrt  -mlow-precision-sqrt  -mlow-precision-div @gol
 -mpc-relative-literal-loads @gol
 -msign-return-address=@var{scope} @gol
--mharden-sls=@var{none}|@var{all}|@var{retbr}|@var{blr} @gol
 -march=@var{name}  -mcpu=@var{name}  -mtune=@var{name}  @gol
 -moverride=@var{string}  -mverbose-cost-dump}
 
@@ -14822,15 +14821,6 @@ Permissible values are @samp{none}, which disables return address signing,
 @samp{non-leaf}, which enables pointer signing for functions which are not leaf
 functions, and @samp{all}, which enables pointer signing for all functions.  The
 default value is @samp{none}.
-
-@item -mharden-sls=@var{none}|@var{all}|@var{retbr}|@var{blr}
-@opindex mharden-sls
-Enable compiler hardening against straight line speculation (SLS).
-There are two options for hardening against straight line speculation.
-@samp{retbr} allows inserting speculation barriers after every
-@samp{br} and @samp{ret} instruction.  While @samp{blr} enables replacing
-@samp{blr} instructions with a @samp{bl} to a function stub.
-@samp{all} enables all SLS hardening, while @samp{none} does not enable any.
 
 @item -msve-vector-bits=@var{bits}
 @opindex msve-vector-bits
